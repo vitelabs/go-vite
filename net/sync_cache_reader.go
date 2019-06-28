@@ -204,7 +204,7 @@ func (s *cacheReader) addChunkToBuffer(c *Chunk) {
 	s.buffer = append(s.buffer, c)
 }
 
-func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloader) *cacheReader {
+func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloader, irreader IrreversibleReader) *cacheReader {
 	s := &cacheReader{
 		chain:          chain,
 		verifier:       verifier,
@@ -214,6 +214,7 @@ func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloade
 		readable:       1,
 		downloadRecord: make(map[interfaces.Segment]peerId),
 		blackBlocks:    make(map[types.Hash]struct{}),
+		irreader:       irreader,
 	}
 
 	s.cond = sync.NewCond(&s.mu)

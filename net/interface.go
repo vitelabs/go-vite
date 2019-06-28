@@ -3,6 +3,10 @@ package net
 import (
 	"fmt"
 
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+
+	"github.com/vitelabs/go-vite/net/vnode"
+
 	"github.com/vitelabs/go-vite/consensus"
 
 	"github.com/go-errors/errors"
@@ -247,9 +251,9 @@ type Net interface {
 	Fetcher
 	Broadcaster
 	BlockSubscriber
-	Init(consensus Consensus, irreader IrreversibleReader)
-	Start(svr p2p.P2P) error
+	Start() error
 	Stop() error
 	Info() NodeInfo
-	Trace()
+	Nodes() []*vnode.Node
+	PeerKey() ed25519.PrivateKey
 }

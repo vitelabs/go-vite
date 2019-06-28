@@ -2,13 +2,19 @@ package net
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/net/vnode"
 
 	"github.com/vitelabs/go-vite/net/p2p"
 )
 
 type mockNet struct {
 	chain Chain
+}
+
+func (n *mockNet) PeerKey() ed25519.PrivateKey {
+	return nil
 }
 
 func (n *mockNet) ProtoData() (height uint64, head types.Hash, genesis types.Hash) {
@@ -18,10 +24,6 @@ func (n *mockNet) ProtoData() (height uint64, head types.Hash, genesis types.Has
 	head = current.Hash
 
 	return
-}
-
-func (n *mockNet) Init(consensus Consensus, reader IrreversibleReader) {
-
 }
 
 func (n *mockNet) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err error) {
@@ -98,15 +100,11 @@ func (n *mockNet) SubscribeSnapshotBlock(fn SnapshotBlockCallback) (subId int) {
 func (n *mockNet) UnsubscribeSnapshotBlock(subId int) {
 }
 
-func (n *mockNet) Trace() {
-
-}
-
 func (n *mockNet) Stop() error {
 	return nil
 }
 
-func (n *mockNet) Start(svr p2p.P2P) error {
+func (n *mockNet) Start() error {
 	return nil
 }
 
@@ -128,6 +126,10 @@ func (n *mockNet) OnPeerRemoved(peer *p2p.Peer) error {
 
 func (n *mockNet) Info() NodeInfo {
 	return NodeInfo{}
+}
+
+func (n *mockNet) Nodes() []*vnode.Node {
+	return nil
 }
 
 func mock(chain Chain) Net {

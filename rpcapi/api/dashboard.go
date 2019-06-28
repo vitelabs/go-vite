@@ -57,7 +57,7 @@ func (api DashboardApi) ProcessInfo(id *string) map[string]interface{} {
 	result["build_version"] = govite.VITE_BUILD_VERSION
 	result["commit_version"] = govite.VITE_VERSION
 	if api.v.Config().Reward != nil {
-		result["nodeName"] = api.v.Config().Name
+		result["nodeName"] = api.v.Config().Reward.Name
 		result["rewardAddress"] = api.v.Config().RewardAddr
 	}
 	result["pid"] = os.Getpid()
@@ -76,7 +76,7 @@ func (api DashboardApi) RuntimeInfo(id *string) map[string]interface{} {
 	if id != nil {
 		result["reqId"] = id
 	}
-	result["peersNum"] = len(api.v.P2P().Info().Peers)
+	result["peersNum"] = len(api.v.Net().Info().Peers)
 	result["snapshotPendingNum"] = api.v.Pool().SnapshotPendingNum()
 	result["accountPendingNum"] = api.v.Pool().AccountPendingNum().String()
 	head := api.v.Chain().GetLatestSnapshotBlock()
@@ -86,7 +86,7 @@ func (api DashboardApi) RuntimeInfo(id *string) map[string]interface{} {
 	if api.v.Producer() != nil {
 		result["producer"] = api.v.Producer().GetCoinBase().String()
 	}
-	priKey := api.v.P2P().Config().PrivateKey()
+	priKey := api.v.Net().PeerKey()
 	sign := ed25519.Sign(priKey, head.Hash.Bytes())
 	result["signData"] = hexutil.Encode(sign)
 	return result

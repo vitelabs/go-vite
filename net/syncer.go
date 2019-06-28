@@ -144,7 +144,7 @@ func (s *syncer) handle(msg p2p.Msg, sender *Peer) (err error) {
 	return nil
 }
 
-func newSyncer(chain syncChain, peers syncPeerSet, reader syncCacheReader, downloader syncDownloader, timeout time.Duration) *syncer {
+func newSyncer(chain syncChain, peers syncPeerSet, reader syncCacheReader, downloader syncDownloader, irreader IrreversibleReader, timeout time.Duration) *syncer {
 	s := &syncer{
 		chain:       chain,
 		peers:       peers,
@@ -153,6 +153,7 @@ func newSyncer(chain syncChain, peers syncPeerSet, reader syncCacheReader, downl
 		downloader:  downloader,
 		reader:      reader,
 		timeout:     timeout,
+		irreader:    irreader,
 		sk:          newSkeleton(peers, new(gid)),
 		blackBlocks: make(map[types.Hash]struct{}),
 		term:        make(chan struct{}),

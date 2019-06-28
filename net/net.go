@@ -3,9 +3,14 @@ package net
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/net/discovery"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
@@ -21,15 +26,14 @@ var netLog = log15.New("module", "net")
 var errNetIsRunning = errors.New("network is already running")
 var errNetIsNotRunning = errors.New("network is not running")
 
-const DefaultForwardStrategy = "cross"
-const DefaultFilePort = 8484
-const ID = 1
 const maxNeighbors = 100
 
 type net struct {
-	config   *config.Net
-	chain    Chain
-	nodeID   vnode.NodeID
+	config  *config.Net
+	chain   Chain
+	peerKey ed25519.PrivateKey
+	nodeID  vnode.NodeID
+
 	peers    *peerSet
 	*syncer  // use pointer but not interface, because syncer can be start/stop, but interface has no start/stop method
 	*fetcher // use pointer but not interface, because fetcher can be start/stop, but interface has no start/stop method
@@ -159,20 +163,19 @@ func (n *net) OnPeerRemoved(peer *p2p.Peer) (err error) {
 	return
 }
 
-func New(cfg *config.Net, chain Chain, verifier Verifier) Net {
+func New(cfg *config.Net, chain Chain, verifier Verifier, consensus Consensus, irreader IrreversibleReader) (Net, error) {
+	var err error
+
 	// for test
 	if cfg.Single {
-		return mock(chain)
+		return mock(chain), nil
 	}
 
-	cfg.BlackBlockHashList = append(cfg.BlackBlockHashList, []string{
-		"6771bc124fed97302328c13fb9a97919c8963b7b1f79a431091c7ace00ec28f4",
-		"3963c532b43d476f1cadd01dc36cd5e157b40c86f6848665549e5959626efd39",
-		"f8a9579e36d605e0f1d9e3d2de96e798d3a8218d771cc4d996cf304fac92ed40",
-		"3cdbdd9777eecdd1238675cd0e25b94742af6d5603a926cd331a3b9ce07a1f73",
-		"059aee3dcb367197b2599bcf40b1b02e5bd763cd6c6c65edc5fbc90807129ed3",
-		"3fccebb35716e448a2c08341d0bd5a30b8122a7dd3391eff081013931f25f922",
-	}...)
+	var peerKey ed25519.PrivateKey
+	peerKey, err = cfg.Init()
+	if err != nil {
+		return nil, err
+	}
 
 	peers := newPeerSet()
 
@@ -188,21 +191,22 @@ func New(cfg *config.Net, chain Chain, verifier Verifier) Net {
 	}
 
 	var id peerId
-	id, _ = vnode.Bytes2NodeID(cfg.P2PPrivateKey.PubByte())
+	id, _ = vnode.Bytes2NodeID(peerKey.PubByte())
 	syncConnFac := &defaultSyncConnectionFactory{
 		chain:   chain,
 		peers:   peers,
 		id:      id,
-		peerKey: cfg.P2PPrivateKey,
-		mineKey: cfg.MinePrivateKey,
+		peerKey: peerKey,
+		mineKey: cfg.MineKey,
 	}
 	downloader := newExecutor(50, 10, peers, syncConnFac)
-	syncServer := newSyncServer(cfg.FileListenAddress, chain, syncConnFac)
 
-	reader := newCacheReader(chain, verifier, downloader)
+	syncServer := newSyncServer(cfg.ListenInterface+":"+strconv.Itoa(cfg.FilePort), chain, syncConnFac)
+
+	reader := newCacheReader(chain, verifier, downloader, irreader)
 	reader.setBlackHashList(cfg.BlackBlockHashList)
 
-	syncer := newSyncer(chain, peers, reader, downloader, 10*time.Minute)
+	syncer := newSyncer(chain, peers, reader, downloader, irreader, 10*time.Minute)
 	syncer.setBlackHashList(cfg.BlackBlockHashList)
 
 	fetcher := newFetcher(peers, receiver)
@@ -214,6 +218,9 @@ func New(cfg *config.Net, chain Chain, verifier Verifier) Net {
 	n := &net{
 		config:          cfg,
 		chain:           chain,
+		consensus:       consensus,
+		nodeID:          id,
+		peerKey:         peerKey,
 		BlockSubscriber: feed,
 		peers:           peers,
 		syncer:          syncer,
@@ -227,7 +234,37 @@ func New(cfg *config.Net, chain Chain, verifier Verifier) Net {
 		log:             netLog,
 	}
 
-	var err error
+	p2pConfig := &p2p.Config{
+		Config: &discovery.Config{
+			ListenAddress: cfg.ListenInterface + ":" + strconv.Itoa(cfg.Port),
+			PublicAddress: cfg.PublicAddress,
+			DataDir:       cfg.DataDir,
+			PeerKey:       cfg.PeerKey,
+			BootNodes:     cfg.BootNodes,
+			BootSeeds:     cfg.BootSeeds,
+			NetID:         cfg.NetID,
+		},
+		Discover:          cfg.Discover,
+		Name:              cfg.Name,
+		MaxPeers:          cfg.MaxPeers,
+		MaxInboundRatio:   cfg.MaxInboundRatio,
+		MinPeers:          cfg.MinPeers,
+		MaxPendingPeers:   cfg.MaxPendingPeers,
+		StaticNodes:       cfg.StaticNodes,
+		FilePublicAddress: cfg.PublicAddress,
+		FilePort:          cfg.FilePort,
+		MineKey:           cfg.MineKey,
+	}
+	err = p2pConfig.Ensure()
+	if err != nil {
+		return nil, err
+	}
+	n.p2p = p2p.New(p2pConfig)
+	err = n.p2p.Register(n)
+	if err != nil {
+		return nil, err
+	}
+
 	err = n.handlers.register(&stateHandler{
 		maxNeighbors: 100,
 		peers:        peers,
@@ -261,7 +298,7 @@ func New(cfg *config.Net, chain Chain, verifier Verifier) Net {
 		panic(fmt.Errorf("cannot register handler: syncer: %v", err))
 	}
 
-	return n
+	return n, nil
 }
 
 type heartBeater struct {
@@ -328,6 +365,7 @@ func (h *heartBeater) state() []byte {
 }
 
 func (n *net) Init(consensus Consensus, reader IrreversibleReader) {
+	// todo move to constructor
 	n.consensus = consensus
 	n.syncer.irreader = reader
 	n.reader.irreader = reader
@@ -337,10 +375,12 @@ func (n *net) State() []byte {
 	return n.hb.state()
 }
 
-func (n *net) Start(svr p2p.P2P) (err error) {
+func (n *net) Start() (err error) {
 	if atomic.CompareAndSwapInt32(&n.running, 0, 1) {
-		n.nodeID = svr.Config().Node().ID
-		n.p2p = svr
+		err = n.p2p.Start()
+		if err != nil {
+			return
+		}
 
 		if err = n.server.start(); err != nil {
 			return
@@ -355,13 +395,13 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 		n.fetcher.start()
 
 		var addr types.Address
-		if len(n.config.MinePrivateKey) != 0 {
-			addr = types.PubkeyToAddress(n.config.MinePrivateKey.PubByte())
-			setNodeExt(n.config.MinePrivateKey, svr.Node())
+		if len(n.config.MineKey) != 0 {
+			addr = types.PubkeyToAddress(n.config.MineKey.PubByte())
+			setNodeExt(n.config.MineKey, n.p2p.Node())
 			n.fetcher.setSBP()
 		}
-		n.sn = newSbpn(addr, n.peers, svr, n.consensus)
-		if discv := svr.Discovery(); discv != nil {
+		n.sn = newSbpn(addr, n.peers, n.p2p, n.consensus)
+		if discv := n.p2p.Discovery(); discv != nil {
 			discv.SubscribeNode(n.sn.receiveNode)
 		}
 
@@ -373,6 +413,8 @@ func (n *net) Start(svr p2p.P2P) (err error) {
 
 func (n *net) Stop() error {
 	if atomic.CompareAndSwapInt32(&n.running, 1, 0) {
+		_ = n.p2p.Stop()
+
 		n.reader.stop()
 
 		n.syncer.stop()
@@ -393,10 +435,13 @@ func (n *net) Stop() error {
 	return errNetIsNotRunning
 }
 
-func (n *net) Trace() {
-	if n.tracer != nil {
-		n.tracer.Trace()
-	}
+func (n *net) Nodes() []*vnode.Node {
+	// todo
+	return nil
+}
+
+func (n *net) PeerKey() ed25519.PrivateKey {
+	return n.peerKey
 }
 
 func (n *net) Info() NodeInfo {

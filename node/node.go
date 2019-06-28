@@ -1,7 +1,7 @@
 package node
 
 import (
-	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -12,31 +12,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/monitor"
-
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
-
-	"github.com/vitelabs/go-vite/wallet/entropystore"
-
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/metrics"
-	"github.com/vitelabs/go-vite/metrics/influxdb"
-	"github.com/vitelabs/go-vite/rpcapi/api/filters"
-
-	"github.com/pkg/errors"
-
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net/p2p"
+	"github.com/vitelabs/go-vite/metrics"
+	"github.com/vitelabs/go-vite/metrics/influxdb"
+	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/pow/remote"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
+	"github.com/vitelabs/go-vite/rpcapi/api/filters"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
 
 var (
@@ -50,10 +40,6 @@ type Node struct {
 	//wallet
 	walletConfig  *wallet.Config
 	walletManager *wallet.Manager
-
-	//p2p
-	p2pConfig *p2p.Config
-	p2pServer p2p.P2P
 
 	//vite
 	viteConfig *config.Config
@@ -89,15 +75,9 @@ type Node struct {
 }
 
 func New(conf *Config) (*Node, error) {
-	p2pConfig, err := conf.makeP2PConfig()
-	if err != nil {
-		return nil, err
-	}
-
 	return &Node{
 		config:        conf,
 		walletConfig:  conf.makeWalletConfig(),
-		p2pConfig:     p2pConfig,
 		viteConfig:    conf.makeViteConfig(),
 		metricsConfig: conf.makeMetricsConfig(),
 		ipcEndpoint:   conf.IPCEndpoint(),
@@ -129,15 +109,6 @@ func (node *Node) Prepare() (err error) {
 	}
 	node.walletManager = wallet.New(node.walletConfig)
 
-	//prepare p2p
-	if node.p2pConfig == nil {
-		return ErrP2PConfigNil
-	}
-
-	if node.p2pServer != nil {
-		return ErrNodeRunning
-	}
-
 	if node.viteServer != nil {
 		return ErrNodeRunning
 	}
@@ -149,62 +120,10 @@ func (node *Node) Prepare() (err error) {
 		return err
 	}
 
-	// p2p
-	var p2pConfig = node.p2pConfig
-	err = p2pConfig.Ensure()
-	if err != nil {
-		log.Error(fmt.Sprintf("Failed to initial p2p config: %v", err))
-		return
-	}
-
-	// assign Node.Ext, should before config.Ensure, but after startWallet
-	var minePublicKey ed25519.PublicKey
-	var minePrivateKey ed25519.PrivateKey
-	if node.config.MinerEnabled && node.config.CoinBase != "" {
-		var addr types.Address
-		var index uint32
-		addr, index, err = parseCoinBase(node.config.CoinBase)
-		if err != nil {
-			return
-		}
-		if err = node.walletManager.MatchAddress(node.config.EntropyStorePath, addr, index); err != nil {
-			return
-		}
-
-		var key *derivation.Key
-		_, key, _, err = node.walletManager.GlobalFindAddr(addr)
-		if err != nil {
-			return
-		}
-
-		minePublicKey, err = key.PublicKey()
-		if err != nil {
-			return
-		}
-		minePrivateKey, err = key.PrivateKey()
-		if err != nil {
-			return
-		}
-		// pub + sign(nodeID)
-		p2pConfig.Node().Ext = append(minePublicKey, ed25519.Sign(minePrivateKey, p2pConfig.Node().ID.Bytes())...)
-		p2pConfig.MineKey = minePrivateKey
-	}
-
-	node.p2pServer = p2p.New(p2pConfig)
-
 	//Initialize the vite server
-	node.viteConfig.MinePrivateKey = minePrivateKey
-	node.viteConfig.P2PPrivateKey = p2pConfig.PrivateKey()
 	node.viteServer, err = vite.New(node.viteConfig, node.walletManager)
 	if err != nil {
 		log.Error(fmt.Sprintf("Vite new error: %v", err))
-		return err
-	}
-
-	// Register vite protocol
-	err = node.p2pServer.Register(node.viteServer.Net())
-	if err != nil {
-		log.Error(fmt.Sprintf("Failed to mount vite protocol on p2p server: %v", err))
 		return err
 	}
 
@@ -234,13 +153,6 @@ func (node *Node) Start() error {
 		return err
 	}
 
-	// Start p2p
-	log.Info(fmt.Sprintf("Begin Start P2p... "))
-	if err := node.p2pServer.Start(); err != nil {
-		log.Error(fmt.Sprintf("P2PServer start error: %v", err))
-		return err
-	}
-
 	//rpc start
 	log.Info(fmt.Sprintf("Begin Start RPC... "))
 	if err := node.startRPC(); err != nil {
@@ -262,12 +174,6 @@ func (node *Node) Stop() error {
 	log.Info(fmt.Sprintf("Begin Stop Wallet... "))
 	if err := node.stopWallet(); err != nil {
 		log.Error(fmt.Sprintf("Node stopWallet error: %v", err))
-	}
-
-	//p2p
-	log.Info(fmt.Sprintf("Begin Stop P2P... "))
-	if err := node.stopP2P(); err != nil {
-		log.Error(fmt.Sprintf("Node stopP2P error: %v", err))
 	}
 
 	//vite
@@ -301,13 +207,6 @@ func (node *Node) Stop() error {
 }
 
 func (node *Node) Wait() {
-	node.lock.RLock()
-
-	if node.p2pServer == nil {
-		node.lock.RUnlock()
-		return
-	}
-	node.lock.RUnlock()
 	<-node.stop
 }
 
@@ -405,7 +304,7 @@ func (node *Node) stopMetrics() {
 }
 
 func (node *Node) startVite() error {
-	return node.viteServer.Start(node.p2pServer)
+	return node.viteServer.Start()
 }
 
 func (node *Node) startRPC() error {
@@ -462,7 +361,7 @@ func (node *Node) startRPC() error {
 			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 		}
 
-		targetUrl := node.config.DashboardTargetURL + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + hex.EncodeToString(node.p2pServer.Config().PrivateKey().PubByte())
+		targetUrl := node.config.DashboardTargetURL + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + node.Vite().Net().Info().ID.String()
 
 		u, e := url.Parse(targetUrl)
 		if e != nil {
@@ -495,16 +394,6 @@ func (node *Node) stopWallet() error {
 	return nil
 }
 
-func (node *Node) stopP2P() error {
-
-	if node.p2pServer == nil {
-		return ErrNodeStopped
-	}
-
-	node.p2pServer.Stop()
-	return nil
-}
-
 func (node *Node) stopVite() error {
 
 	if node.viteServer == nil {
@@ -526,7 +415,6 @@ func (node *Node) stopRPC() error {
 }
 
 func (node *Node) openDataDir() error {
-
 	if node.config.DataDir == "" {
 		return nil
 	}
@@ -547,12 +435,6 @@ func (node *Node) openDataDir() error {
 	}
 	log.Info(fmt.Sprintf("Directory locked successfully,lockDir:%v", lockDir))
 	node.instanceDirLock = release
-
-	// open p2p data dir
-	if err := os.MkdirAll(node.p2pConfig.DataDir, 0700); err != nil {
-		return err
-	}
-	log.Info(fmt.Sprintf("Open NodeServer.p2pConfig.DataDir:%v", node.p2pConfig.DataDir))
 
 	//open wallet data dir
 	if err := os.MkdirAll(node.walletConfig.DataDir, 0700); err != nil {

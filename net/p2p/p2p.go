@@ -53,13 +53,13 @@ type Authenticator interface {
 // NodeInfo represent current p2p node
 type NodeInfo struct {
 	// ID is the hex-encoded NodeID
-	ID        string     `json:"id"`
-	Name      string     `json:"name"`
-	NetID     int        `json:"netId"`
-	Version   int        `json:"version"`
-	Address   string     `json:"address"`
-	PeerCount int        `json:"peerCount"`
-	Peers     []PeerInfo `json:"peers"`
+	ID        vnode.NodeID `json:"id"`
+	Name      string       `json:"name"`
+	NetID     int          `json:"netId"`
+	Version   int          `json:"version"`
+	Address   string       `json:"address"`
+	PeerCount int          `json:"peerCount"`
+	Peers     []PeerInfo   `json:"peers"`
 }
 
 type P2P interface {
@@ -281,7 +281,7 @@ func (p *p2p) Connect(node string) error {
 
 func (p *p2p) Info() NodeInfo {
 	return NodeInfo{
-		ID:        p.cfg.Node().ID.String(),
+		ID:        p.cfg.Node().ID,
 		Name:      p.cfg.Name,
 		NetID:     p.cfg.NetID,
 		Version:   version,
