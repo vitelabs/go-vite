@@ -5,20 +5,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/interfaces"
-
 	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/vite/net/protos"
-
-	"github.com/vitelabs/go-vite/log15"
-
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/net/message"
+	"github.com/vitelabs/go-vite/net/protos"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/tools/list"
-	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
 type msgHandler interface {

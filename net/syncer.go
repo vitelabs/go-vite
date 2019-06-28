@@ -24,14 +24,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/vite/net/message"
-
-	"github.com/vitelabs/go-vite/p2p"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/net/message"
+	"github.com/vitelabs/go-vite/p2p"
 )
 
 // the minimal height difference between snapshot chain of ours and bestPeer,

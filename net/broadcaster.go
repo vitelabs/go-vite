@@ -10,10 +10,10 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/net/circle"
+	"github.com/vitelabs/go-vite/net/message"
 	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/p2p/vnode"
-	"github.com/vitelabs/go-vite/vite/net/circle"
-	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
 const defaultBroadcastTTL = 32
