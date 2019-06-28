@@ -2,13 +2,8 @@ package chain
 
 import (
 	"encoding/json"
-	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/fork"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/vm_db"
 	"log"
-	"math/big"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -16,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	rand2 "crypto/rand"
 	"encoding/gob"
 	"fmt"
 	"github.com/docker/docker/pkg/reexec"
@@ -52,7 +46,7 @@ var GenesisJson = `{
         "CountingTokenId":"tti_5649544520544f4b454e6e40",
         "RegisterConditionId":1,
         "RegisterConditionParam":{
-          "PledgeAmount": 100000000000000000000000,
+          "PledgeAmount": 500000000000000000000000,
           "PledgeHeight": 1,
           "PledgeToken": "tti_5649544520544f4b454e6e40"
         },
@@ -73,7 +67,7 @@ var GenesisJson = `{
         "CountingTokenId":"tti_5649544520544f4b454e6e40",
         "RegisterConditionId":1,
         "RegisterConditionParam":{
-          "PledgeAmount": 100000000000000000000000,
+          "PledgeAmount": 500000000000000000000000,
           "PledgeHeight": 1,
           "PledgeToken": "tti_5649544520544f4b454e6e40"
         },
@@ -89,9 +83,9 @@ var GenesisJson = `{
       "00000000000000000001":{
         "s1":{
           "NodeAddr":"vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a",
-          "PledgeAddr":"vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a",
-          "Amount":100000000000000000000000,
-          "WithdrawHeight":7776000,
+          "PledgeAddr":"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+          "Amount":500000000000000000000000,
+          "WithdrawHeight":1,
           "RewardTime":1,
           "CancelTime":0,
           "HisAddrList":["vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a"]
@@ -106,10 +100,17 @@ var GenesisJson = `{
         "TokenSymbol":"VITE",
         "TotalSupply":1000000000000000000000000000,
         "Decimals":18,
+        "Owner":"vite_0000000000000000000000000000000000000004d28108e76b",
+        "MaxSupply":115792089237316195423570985008687907853269984665640564039457584007913129639935,
+        "OwnerBurnOnly":false,
+        "IsReIssuable":true
+      },
+      "tti_045e6ca837c143cd477b32f3":{
+        "TokenName":"Test Token",
+        "TokenSymbol":"TEST",
+        "TotalSupply":1000000000000000000000000000,
+        "Decimals":18,
         "Owner":"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
-        "PledgeAmount":0,
-        "PledgeAddr":"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
-        "WithdrawHeight":0,
         "MaxSupply":115792089237316195423570985008687907853269984665640564039457584007913129639935,
         "OwnerBurnOnly":false,
         "IsReIssuable":true
@@ -130,22 +131,22 @@ var GenesisJson = `{
       "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a": [
         {
           "Amount": 1000000000000000000000,
-          "WithdrawHeight": 259200,
+          "WithdrawHeight": 1,
           "BeneficialAddr": "vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a"
         },
         {
           "Amount": 1000000000000000000000,
-          "WithdrawHeight": 259200,
+          "WithdrawHeight": 1,
           "BeneficialAddr": "vite_ce18b99b46c70c8e6bf34177d0c5db956a8c3ea7040a1c1e25"
         },
         {
           "Amount": 1000000000000000000000,
-          "WithdrawHeight": 259200,
+          "WithdrawHeight": 1,
           "BeneficialAddr": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a"
         },
         {
           "Amount": 1000000000000000000000,
-          "WithdrawHeight": 259200,
+          "WithdrawHeight": 1,
           "BeneficialAddr": "vite_56fd05b23ff26cd7b0a40957fb77bde60c9fd6ebc35f809c23"
         }
       ]
@@ -172,6 +173,12 @@ var GenesisJson = `{
     },
     "vite_847e1672c9a775ca0f3c3a2d3bf389ca466e5501cbecdb7107": {
       "tti_5649544520544f4b454e6e40":100000000000000000000000000
+    },
+    "vite_0000000000000000000000000000000000000003f6af7459b9": {
+      "tti_5649544520544f4b454e6e40":4000000000000000000000
+    },
+	"vite_0000000000000000000000000000000000000004d28108e76b": {
+      "tti_5649544520544f4b454e6e40":500000000000000000000000
     }
   }
 }
@@ -191,7 +198,10 @@ func NewChainInstance(dirName string, clear bool) (*chain, error) {
 	}
 	genesisConfig := &config.Genesis{}
 
-	json.Unmarshal([]byte(GenesisJson), genesisConfig)
+	err := json.Unmarshal([]byte(GenesisJson), genesisConfig)
+	if err != nil {
+		panic(err)
+	}
 
 	fork.SetForkPoints(genesisConfig.ForkPoints)
 
@@ -648,182 +658,4 @@ func TestChainForkRollBack(t *testing.T) {
 		t.Fatal(fmt.Sprintf("GetAllUnconfirmedBlocks must be 0, but %d", len(accountBlockListNew)))
 	}
 
-}
-
-func BenchmarkSetValue(b *testing.B) {
-	chainInstance, _, _ := SetUp(0, 0, 0)
-	defer TearDown(chainInstance)
-	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")
-	db := vm_db.NewVmDbByAddr(chainInstance, &addr)
-	value := helper.Tt256m1.Bytes()
-	bigKey := new(big.Int)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		key := types.DataHash(bigKey.SetInt64(int64(i)).Bytes())
-		err := db.SetValue(key.Bytes(), value)
-		if err != nil {
-			b.Fatalf("db set value failed, err: %v", err)
-		}
-	}
-}
-
-func BenchmarkGetValue(b *testing.B) {
-	chainInstance, _, _ := SetUp(0, 0, 0)
-	defer TearDown(chainInstance)
-
-	pub, pri, err := ed25519.GenerateKey(rand2.Reader)
-	if err != nil {
-		panic(err)
-	}
-	addr := types.PubkeyToAddress(pub)
-	account := NewAccount(chainInstance, pub, pri)
-	toPub, toPri, err := ed25519.GenerateKey(rand2.Reader)
-	if err != nil {
-		panic(err)
-	}
-	toAddr := types.PubkeyToAddress(toPub)
-	toAccount := NewAccount(chainInstance, toPub, toPri)
-	accounts := make(map[types.Address]*Account)
-	accounts[addr] = account
-	accounts[toAddr] = toAccount
-	key := types.DataHash([]byte{1})
-	value := new(big.Int).Set(helper.Tt256m1)
-	cTxOptions := &CreateTxOptions{
-		MockSignature: true, // mock signature
-		KeyValue:      map[string][]byte{(string)(key.Bytes()): value.Bytes()},
-		Quota:         rand.Uint64() % 100,
-	}
-	vmBlock, createBlockErr := account.CreateSendBlock(toAccount, cTxOptions)
-	if createBlockErr != nil {
-		b.Fatalf("create send create failed, err: %v", createBlockErr)
-	}
-	account.InsertBlock(vmBlock, accounts)
-	if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
-		panic(err)
-	}
-	snapshotBlock, _, err := InsertSnapshotBlock(chainInstance, true, nil)
-	if err != nil {
-		panic(err)
-	}
-	// snapshot
-	Snapshot(accounts, snapshotBlock)
-	chainInstance.flusher.Flush()
-
-	db := vm_db.NewVmDbByAddr(chainInstance, &addr)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := db.GetValue(key.Bytes())
-		if err != nil {
-			b.Fatalf("db get value failed, err: %v", err)
-		}
-	}
-}
-func BenchmarkGetBalance(b *testing.B) {
-	chainInstance, _, _ := SetUp(0, 0, 0)
-	defer TearDown(chainInstance)
-	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")
-	db := vm_db.NewVmDbByAddr(chainInstance, &addr)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := db.GetBalance(&ledger.ViteTokenId)
-		if err != nil {
-			b.Fatalf("db get balance failed, err: %v", err)
-		}
-	}
-}
-
-func BenchmarkGetSeed(b *testing.B) {
-	chainInstance, _, _ := SetUp(1, 100, 1)
-	defer TearDown(chainInstance)
-	sb := chainInstance.GetLatestSnapshotBlock()
-	fromHash, _ := types.HexToHash("e94d63b892e7490d0fed33ac4530f515641bb74935a06a0e76fca72577f0fe82")
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := chainInstance.GetSeed(sb, fromHash)
-		if err != nil {
-			b.Fatalf("db get seed failed, err: %v", err)
-		}
-	}
-}
-
-func BenchmarkCheckConfirmTime(b *testing.B) {
-	chainInstance, _, _ := SetUp(0, 0, 0)
-	defer TearDown(chainInstance)
-
-	pub, pri, err := ed25519.GenerateKey(rand2.Reader)
-	if err != nil {
-		panic(err)
-	}
-	addr := types.PubkeyToAddress(pub)
-	account := NewAccount(chainInstance, pub, pri)
-	accounts := make(map[types.Address]*Account)
-	accounts[addr] = account
-	latestHeight := account.GetLatestHeight()
-	cTxOptions := &CreateTxOptions{
-		MockSignature: true,                         // mock signature
-		KeyValue:      createKeyValue(latestHeight), // create key value
-		VmLogList:     createVmLogList(),            // create vm log list
-		//Quota:         rand.Uint64() % 10000,
-		Quota: rand.Uint64() % 100,
-	}
-	cTxOptions.ContractMeta = &ledger.ContractMeta{
-		SendConfirmedTimes: 1,
-		SeedConfirmedTimes: 1,
-		Gid:                types.DataToGid(chain_utils.Uint64ToBytes(uint64(time.Now().UnixNano()))),
-	}
-	toAddr := types.CreateContractAddress([]byte{1})
-	toAccount := &Account{
-		Addr:              toAddr,
-		chainInstance:     chainInstance,
-		OnRoadBlocks:      make(map[types.Hash]*ledger.AccountBlock),
-		BlocksMap:         make(map[types.Hash]*ledger.AccountBlock),
-		SendBlocksMap:     make(map[types.Hash]*ledger.AccountBlock),
-		ReceiveBlocksMap:  make(map[types.Hash]*ledger.AccountBlock),
-		ConfirmedBlockMap: make(map[types.Hash]map[types.Hash]struct{}),
-		BalanceMap:        make(map[types.Hash]*big.Int),
-		LogListMap:        make(map[types.Hash]ledger.VmLogList),
-		KvSetMap:          make(map[types.Hash]map[string][]byte),
-		UnconfirmedBlocks: make(map[types.Hash]struct{}),
-	}
-	accounts[toAddr] = toAccount
-	vmBlock, createBlockErr := account.CreateSendBlock(toAccount, cTxOptions)
-	if createBlockErr != nil {
-		b.Fatalf("create send create failed, err: %v", createBlockErr)
-	}
-	// insert vm block
-	account.InsertBlock(vmBlock, accounts)
-
-	// insert vm block to chain
-	if err := chainInstance.InsertAccountBlock(vmBlock); err != nil {
-		panic(err)
-	}
-	for i := 0; i < 100; i++ {
-		snapshotBlock, _, err := InsertSnapshotBlock(chainInstance, true, nil)
-		if err != nil {
-			panic(err)
-		}
-
-		// snapshot
-		Snapshot(accounts, snapshotBlock)
-	}
-	chainInstance.flusher.Flush()
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_, err := chainInstance.GetSnapshotBlockByContractMeta(toAddr, vmBlock.AccountBlock.Hash)
-		if err != nil {
-			b.Fatalf("db get seed failed, err: %v", err)
-		}
-	}
-}
-
-func TestCalcStorageSize(t *testing.T) {
-	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")
-	key := types.DataHash(big.NewInt(1).Bytes())
-	skey := chain_utils.CreateStorageValueKey(&addr, key.Bytes())
-	balanceSkey := chain_utils.CreateBalanceKey(addr, ledger.ViteTokenId)
-	fmt.Printf("storage key size(byte): %v, value size(byte): 32, total size(byte):%v\n", len(skey), len(skey)+32)
-	fmt.Printf("balance storage key size(byte): %v, value size(byte): 32, total size(byte):%v\n", len(balanceSkey), len(balanceSkey)+32)
 }
