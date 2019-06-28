@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/net/vnode/protos"
 )
 
 const DefaultPort = 8483
@@ -319,8 +318,8 @@ func parseNid(str string) (nid int, err error) {
 
 // Serialize a Node to bytes through protobuf
 func (n *Node) Serialize() ([]byte, error) {
-	pb := &protos.Node{
-		ID:       n.ID.Bytes(),
+	pb := &PNode{
+		Id:       n.ID.Bytes(),
 		Hostname: n.EndPoint.Host,
 		HostType: uint32(n.EndPoint.Typ),
 		Port:     uint32(n.EndPoint.Port),
@@ -336,13 +335,13 @@ func (n *Node) Serialize() ([]byte, error) {
 //  var n = new(Node)
 //  err := n.Deserialize(someBuf)
 func (n *Node) Deserialize(data []byte) (err error) {
-	pb := new(protos.Node)
+	pb := new(PNode)
 	err = proto.Unmarshal(data, pb)
 	if err != nil {
 		return
 	}
 
-	n.ID, err = Bytes2NodeID(pb.ID)
+	n.ID, err = Bytes2NodeID(pb.Id)
 	if err != nil {
 		return
 	}

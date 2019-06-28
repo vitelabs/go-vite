@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/net/p2p/vnode/protos"
 )
 
 func TestEndPoint_Serialize(t *testing.T) {
@@ -217,7 +216,7 @@ func BenchmarkEndPoint_Serialize_PB(b *testing.B) {
 		e.Port = 8483
 		e.Typ = HostIP
 
-		pb := &protos.EndPoint{
+		pb := &PEndPoint{
 			Host:     e.Host,
 			Port:     int32(e.Port),
 			HostType: int32(e.Typ),
