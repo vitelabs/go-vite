@@ -7,7 +7,7 @@ import (
 	"runtime"
 
 	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/net/p2p/discovery"
+	"github.com/vitelabs/go-vite/net/discovery"
 
 	"github.com/vitelabs/go-vite/common"
 )

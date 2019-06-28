@@ -29,7 +29,7 @@ import (
 
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/net/p2p/discovery/protos"
+	"github.com/vitelabs/go-vite/net/discovery/protos"
 )
 
 /*

@@ -32,7 +32,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net/p2p/discovery"
+	"github.com/vitelabs/go-vite/net/discovery"
 	"github.com/vitelabs/go-vite/net/p2p/netool"
 	"github.com/vitelabs/go-vite/net/vnode"
 )

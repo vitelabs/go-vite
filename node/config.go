@@ -19,8 +19,8 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/metrics"
+	"github.com/vitelabs/go-vite/net/discovery"
 	"github.com/vitelabs/go-vite/net/p2p"
-	"github.com/vitelabs/go-vite/net/p2p/discovery"
 	"github.com/vitelabs/go-vite/wallet"
 )
 

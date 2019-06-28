@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/net/discovery"
 	"github.com/vitelabs/go-vite/net/p2p"
-	"github.com/vitelabs/go-vite/net/p2p/discovery"
 )
 
 /**

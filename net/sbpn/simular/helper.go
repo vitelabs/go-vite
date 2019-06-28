@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/net/p2p/discovery"
+	"github.com/vitelabs/go-vite/net/discovery"
 )
 
 type mocker struct {
