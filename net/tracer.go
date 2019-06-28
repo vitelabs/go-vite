@@ -63,7 +63,7 @@ func (b *tracer) codes() []p2p.Code {
 	return []p2p.Code{p2p.CodeTrace}
 }
 
-func (b *tracer) handle(msg p2p.Msg, sender Peer) (err error) {
+func (b *tracer) handle(msg p2p.Msg, sender *Peer) (err error) {
 	switch msg.Code {
 	case p2p.CodeTrace:
 		tm := &message.Tracer{}

@@ -15,7 +15,7 @@ type Msg struct {
 	Id         uint32
 	Payload    []byte
 	ReceivedAt time.Time
-	Sender     Peer
+	Sender     *Peer
 }
 
 // Recycle will put Msg.Payload back to pool

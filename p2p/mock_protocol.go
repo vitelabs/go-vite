@@ -13,7 +13,7 @@ import (
 
 type mockProtocol struct {
 	mu       sync.Mutex
-	peers    map[vnode.NodeID]Peer
+	peers    map[vnode.NodeID]*Peer
 	errFac   func() error
 	interval time.Duration
 }
@@ -44,16 +44,16 @@ func (m *mockProtocol) State() []byte {
 	return nil
 }
 
-func (m *mockProtocol) SetState(state []byte, peer Peer) {
+func (m *mockProtocol) SetState(state []byte, peer *Peer) {
 	return
 }
 
-func (m *mockProtocol) OnPeerAdded(peer Peer) error {
+func (m *mockProtocol) OnPeerAdded(peer *Peer) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.peers == nil {
-		m.peers = make(map[vnode.NodeID]Peer)
+		m.peers = make(map[vnode.NodeID]*Peer)
 	}
 
 	if _, ok := m.peers[peer.ID()]; ok {
@@ -62,7 +62,7 @@ func (m *mockProtocol) OnPeerAdded(peer Peer) error {
 
 	m.peers[peer.ID()] = peer
 
-	go func(peer Peer) {
+	go func(peer *Peer) {
 		var i uint32
 
 		for {
@@ -86,7 +86,7 @@ func (m *mockProtocol) OnPeerAdded(peer Peer) error {
 	return nil
 }
 
-func (m *mockProtocol) OnPeerRemoved(peer Peer) error {
+func (m *mockProtocol) OnPeerRemoved(peer *Peer) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

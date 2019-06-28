@@ -9,11 +9,9 @@ import (
 	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vite/net/message"
-
 	"github.com/vitelabs/go-vite/ledger"
-
-	"github.com/vitelabs/go-vite/vite/net/circle"
+	"github.com/vitelabs/go-vite/net/circle"
+	"github.com/vitelabs/go-vite/net/message"
 )
 
 func TestBroadcaster_Statistic(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 )
 
 type dialer interface {
-	dialNode(node *vnode.Node) (PeerMux, error)
+	dialNode(node *vnode.Node) (*Peer, error)
 }
 
 //const maxDialCount = 3
@@ -50,7 +50,7 @@ func newDialer(timeout time.Duration, cur int, hkr Handshaker, codecFactory Code
 	}
 }
 
-func (d *dl) dialNode(n *vnode.Node) (p PeerMux, err error) {
+func (d *dl) dialNode(n *vnode.Node) (p *Peer, err error) {
 	conn, err := d.Dial("tcp", n.Address())
 	if err != nil {
 		return

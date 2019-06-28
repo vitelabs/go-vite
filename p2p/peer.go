@@ -39,7 +39,7 @@ var errPeerWriteBusy = errors.New("peer is busy")
 var errPeerCannotWrite = errors.New("peer is not writable")
 
 // WriteMsg will put msg into queue, then write asynchronously
-func (p *peerMux) WriteMsg(msg Msg) (err error) {
+func (p *Peer) WriteMsg(msg Msg) (err error) {
 	p.write()
 	defer p.writeDone()
 
@@ -55,11 +55,11 @@ func (p *peerMux) WriteMsg(msg Msg) (err error) {
 	}
 }
 
-func (p *peerMux) write() {
+func (p *Peer) write() {
 	atomic.AddInt32(&p.writing, 1)
 }
 
-func (p *peerMux) writeDone() {
+func (p *Peer) writeDone() {
 	atomic.AddInt32(&p.writing, -1)
 }
 
@@ -79,10 +79,10 @@ const peerReadMsgBufferSize = 10
 const peerWriteMsgBufferSize = 100
 
 type levelManager interface {
-	changeLevel(p PeerMux, old Level) error
+	changeLevel(p *Peer, old Level) error
 }
 
-type peerMux struct {
+type Peer struct {
 	codec       Codec
 	id          vnode.NodeID
 	name        string
@@ -104,25 +104,25 @@ type peerMux struct {
 	fileAddress string
 }
 
-func (p *peerMux) Weight() int64 {
+func (p *Peer) Weight() int64 {
 	return int64(p.level)
 }
 
-func (p *peerMux) Head() types.Hash {
+func (p *Peer) Head() types.Hash {
 	return p.head
 }
 
-func (p *peerMux) SetHead(head types.Hash, height uint64) {
+func (p *Peer) SetHead(head types.Hash, height uint64) {
 	p.head, p.height = head, height
 }
 
 // Level return the peer`s level
-func (p *peerMux) Level() Level {
+func (p *Peer) Level() Level {
 	return p.level
 }
 
 // SetLevel change the peer`s level, return error is not nil if peer is not running, or change failed
-func (p *peerMux) SetLevel(level Level) error {
+func (p *Peer) SetLevel(level Level) error {
 	if atomic.LoadInt32(&p.running) == 0 {
 		return errPeerNotRunning
 	}
@@ -139,17 +139,17 @@ func (p *peerMux) SetLevel(level Level) error {
 }
 
 // String return `id@address`
-func (p *peerMux) String() string {
+func (p *Peer) String() string {
 	return p.id.Brief() + "@" + p.codec.Address().String()
 }
 
 // Address return the remote net address
-func (p *peerMux) Address() net.Addr {
+func (p *Peer) Address() net.Addr {
 	return p.codec.Address()
 }
 
-func NewPeer(id vnode.NodeID, name string, height uint64, head types.Hash, fileAddress string, version int, c Codec, level Level, proto Protocol) PeerMux {
-	pm := &peerMux{
+func NewPeer(id vnode.NodeID, name string, height uint64, head types.Hash, fileAddress string, version int, c Codec, level Level, proto Protocol) *Peer {
+	pm := &Peer{
 		codec:       c,
 		id:          id,
 		name:        name,
@@ -171,24 +171,24 @@ func NewPeer(id vnode.NodeID, name string, height uint64, head types.Hash, fileA
 	return pm
 }
 
-func (p *peerMux) ID() vnode.NodeID {
+func (p *Peer) ID() vnode.NodeID {
 	return p.id
 }
 
-func (p *peerMux) Height() uint64 {
+func (p *Peer) Height() uint64 {
 	return p.height
 }
 
-func (p *peerMux) FileAddress() string {
+func (p *Peer) FileAddress() string {
 	return p.fileAddress
 }
 
 // setManager will be invoked before run by module p2p
-func (p *peerMux) setManager(pm levelManager) {
+func (p *Peer) setManager(pm levelManager) {
 	p.pm = pm
 }
 
-func (p *peerMux) run() (err error) {
+func (p *Peer) run() (err error) {
 	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
 		err = p.onAdded()
 		if err != nil {
@@ -208,7 +208,7 @@ func (p *peerMux) run() (err error) {
 	return errPeerAlreadyRunning
 }
 
-func (p *peerMux) goLoop(fn func() error, ch chan<- error) {
+func (p *Peer) goLoop(fn func() error, ch chan<- error) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
@@ -217,7 +217,7 @@ func (p *peerMux) goLoop(fn func() error, ch chan<- error) {
 	}()
 }
 
-func (p *peerMux) readLoop() (err error) {
+func (p *Peer) readLoop() (err error) {
 	defer close(p.readQueue)
 
 	var msg Msg
@@ -251,7 +251,7 @@ func (p *peerMux) readLoop() (err error) {
 	}
 }
 
-func (p *peerMux) writeLoop() (err error) {
+func (p *Peer) writeLoop() (err error) {
 	var msg Msg
 	for msg = range p.writeQueue {
 		t1 := time.Now()
@@ -267,7 +267,7 @@ func (p *peerMux) writeLoop() (err error) {
 	return nil
 }
 
-func (p *peerMux) handleLoop() (err error) {
+func (p *Peer) handleLoop() (err error) {
 	var msg Msg
 	for msg = range p.readQueue {
 		t1 := time.Now()
@@ -282,7 +282,7 @@ func (p *peerMux) handleLoop() (err error) {
 	return nil
 }
 
-func (p *peerMux) Close(err error) (err2 error) {
+func (p *Peer) Close(err error) (err2 error) {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
 		if pe, ok := err.(PeerError); ok {
 			_ = p.WriteMsg(Msg{
@@ -315,11 +315,11 @@ func (p *peerMux) Close(err error) (err2 error) {
 	return errPeerNotRunning
 }
 
-func (p *peerMux) Disconnect(err error) {
+func (p *Peer) Disconnect(err error) {
 	_ = Disconnect(p.codec, err)
 }
 
-func (p *peerMux) onAdded() (err error) {
+func (p *Peer) onAdded() (err error) {
 	err = p.proto.OnPeerAdded(p)
 	if err != nil {
 		p.log.Error(fmt.Sprintf("failed to add peer %s: %v", p, err))
@@ -328,7 +328,7 @@ func (p *peerMux) onAdded() (err error) {
 	return
 }
 
-func (p *peerMux) onRemoved() {
+func (p *Peer) onRemoved() {
 	err := p.proto.OnPeerRemoved(p)
 	if err != nil {
 		p.log.Error(fmt.Sprintf("failed to remove peer %s: %v", p, err))
@@ -337,7 +337,7 @@ func (p *peerMux) onRemoved() {
 	return
 }
 
-func (p *peerMux) Info() PeerInfo {
+func (p *Peer) Info() PeerInfo {
 	return PeerInfo{
 		ID:         p.id.String(),
 		Name:       p.name,

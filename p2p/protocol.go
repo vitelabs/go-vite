@@ -25,13 +25,11 @@ type Protocol interface {
 
 	// OnPeerAdded will be invoked after Peer run
 	// peer will be closed if return error is not nil
-	OnPeerAdded(peer Peer) error
+	OnPeerAdded(peer *Peer) error
 
 	// OnPeerRemoved will be invoked after Peer closed
-	OnPeerRemoved(peer Peer) error
+	OnPeerRemoved(peer *Peer) error
 }
-
-type MsgHandler = func(msg Msg) error
 
 type Level = byte
 

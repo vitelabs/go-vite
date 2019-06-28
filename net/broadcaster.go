@@ -351,7 +351,7 @@ func (b *broadcaster) codes() []p2p.Code {
 	return []p2p.Code{p2p.CodeNewAccountBlock, p2p.CodeNewSnapshotBlock}
 }
 
-func (b *broadcaster) handle(msg p2p.Msg, sender Peer) (err error) {
+func (b *broadcaster) handle(msg p2p.Msg, sender *Peer) (err error) {
 	defer monitor.LogTime("broadcast", "handle", time.Now())
 
 	switch msg.Code {

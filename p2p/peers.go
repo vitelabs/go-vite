@@ -7,7 +7,7 @@ import (
 )
 
 type peerList struct {
-	list []PeerMux
+	list []*Peer
 	max  int
 }
 
@@ -15,25 +15,25 @@ func (l *peerList) available() bool {
 	return len(l.list) < l.max
 }
 
-func (l *peerList) add(p PeerMux) {
+func (l *peerList) add(p *Peer) {
 	l.list = append(l.list, p)
 }
 
 type peers struct {
 	rw      sync.RWMutex
-	peerMap map[vnode.NodeID]PeerMux
+	peerMap map[vnode.NodeID]*Peer
 	levels  map[Level]*peerList
 }
 
 func newPeers(maxPeers map[Level]int) *peers {
 	ps := &peers{
-		peerMap: make(map[vnode.NodeID]PeerMux),
+		peerMap: make(map[vnode.NodeID]*Peer),
 		levels:  make(map[Level]*peerList),
 	}
 
 	for level, max := range maxPeers {
 		ps.levels[level] = &peerList{
-			list: make([]PeerMux, 0, max),
+			list: make([]*Peer, 0, max),
 			max:  max,
 		}
 	}
@@ -58,7 +58,7 @@ func (s *peers) resize(level Level, max int) {
 		l.max = max
 	} else {
 		s.levels[level] = &peerList{
-			list: make([]PeerMux, 0, max),
+			list: make([]*Peer, 0, max),
 			max:  max,
 		}
 	}
@@ -67,7 +67,7 @@ func (s *peers) resize(level Level, max int) {
 // add success return ok is true.
 // if level is full, then fall to low level, and so on, until level Inbound.
 // if all those low levels are full, then return PeerTooManyPeers.
-func (s *peers) add(p PeerMux) (e PeerError, ok bool) {
+func (s *peers) add(p *Peer) (e PeerError, ok bool) {
 	s.rw.Lock()
 	defer s.rw.Unlock()
 
@@ -98,7 +98,7 @@ func (s *peers) add(p PeerMux) (e PeerError, ok bool) {
 }
 
 // remove return error if p is not exist
-func (s *peers) remove(p PeerMux) error {
+func (s *peers) remove(p *Peer) error {
 	s.rw.Lock()
 	defer s.rw.Unlock()
 
@@ -133,7 +133,7 @@ func (s *peers) remove(p PeerMux) error {
 // if p is not exist, return `errPeerNotExist`.
 // if new level is full, return `errPeerNotExist`.
 // if old and those lower levels cannot find p, return `errPeerNotExist`.
-func (s *peers) changeLevel(p PeerMux, old Level) error {
+func (s *peers) changeLevel(p *Peer, old Level) error {
 	s.rw.Lock()
 	defer s.rw.Unlock()
 
@@ -234,7 +234,7 @@ func (s *peers) close() {
 		_ = p.Close(PeerQuitting)
 	}
 
-	s.peerMap = make(map[vnode.NodeID]PeerMux)
+	s.peerMap = make(map[vnode.NodeID]*Peer)
 	for _, l := range s.levels {
 		l.list = l.list[:0]
 	}
@@ -253,11 +253,11 @@ func (s *peers) info() []PeerInfo {
 	return infos
 }
 
-func (s *peers) peers() []PeerMux {
+func (s *peers) peers() []*Peer {
 	s.rw.RLock()
 	defer s.rw.RUnlock()
 
-	ps := make([]PeerMux, 0, len(s.peerMap))
+	ps := make([]*Peer, 0, len(s.peerMap))
 	for _, p := range s.peerMap {
 		ps = append(ps, p)
 	}

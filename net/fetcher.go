@@ -36,7 +36,7 @@ type fetchTarget struct {
 	chooseTop func() bool
 }
 
-func (p *fetchTarget) account(height uint64, r *record) (pe Peer) {
+func (p *fetchTarget) account(height uint64, r *record) (pe *Peer) {
 	var total, top, ran int
 
 	ps := p.peers.sortPeers()
@@ -80,11 +80,11 @@ Loop:
 	return
 }
 
-func (p *fetchTarget) accountSBP(height uint64, r *record) (pe Peer) {
+func (p *fetchTarget) accountSBP(height uint64, r *record) (pe *Peer) {
 	var total, top, ran int
 
 	tmp := p.peers.sortPeers()
-	ps := make([]Peer, 0)
+	ps := make([]*Peer, 0)
 	for _, p := range tmp {
 		if p.Level() >= p2p.Superior {
 			ps = append(ps, p)
@@ -132,7 +132,7 @@ Loop:
 
 const heightDelta = 10
 
-func (p *fetchTarget) snapshot(height uint64, r *record) (pe Peer) {
+func (p *fetchTarget) snapshot(height uint64, r *record) (pe *Peer) {
 	ps := p.peers.sortPeers()
 
 	var id peerId
@@ -155,7 +155,7 @@ Loop:
 	return nil
 }
 
-func (p *fetchTarget) snapshotSBP(height uint64, r *record) (pe Peer) {
+func (p *fetchTarget) snapshotSBP(height uint64, r *record) (pe *Peer) {
 	ps := p.peers.sortPeers()
 
 	var id peerId
@@ -440,7 +440,7 @@ func (f *fetcher) codes() []p2p.Code {
 	return []p2p.Code{p2p.CodeSnapshotBlocks, p2p.CodeAccountBlocks, p2p.CodeException}
 }
 
-func (f *fetcher) handle(msg p2p.Msg, sender Peer) (err error) {
+func (f *fetcher) handle(msg p2p.Msg, sender *Peer) (err error) {
 	switch msg.Code {
 	case p2p.CodeSnapshotBlocks:
 		bs := new(message.SnapshotBlocks)
@@ -510,7 +510,7 @@ func (f *fetcher) FetchSnapshotBlocks(hash types.Hash, count uint64) {
 		return
 	}
 
-	ps := make([]Peer, 0, 2)
+	ps := make([]*Peer, 0, 2)
 	if p := f.policy.snapshot(0, r); p != nil {
 		ps = append(ps, p)
 	}
@@ -560,7 +560,7 @@ func (f *fetcher) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, 
 		return
 	}
 
-	ps := make([]Peer, 0, 2)
+	ps := make([]*Peer, 0, 2)
 	if p := f.policy.snapshot(height, r); p != nil {
 		ps = append(ps, p)
 	}
@@ -608,7 +608,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 		return
 	}
 
-	ps := make([]Peer, 0, 2)
+	ps := make([]*Peer, 0, 2)
 	if p := f.policy.account(0, r); p != nil {
 		ps = append(ps, p)
 	}
@@ -663,7 +663,7 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 		return
 	}
 
-	ps := make([]Peer, 0, 2)
+	ps := make([]*Peer, 0, 2)
 	if p := f.policy.account(0, r); p != nil {
 		ps = append(ps, p)
 	}

@@ -581,7 +581,7 @@ func (e *executor) doJob(c *syncConn, t *syncTask) error {
 	return nil
 }
 
-func (e *executor) createConn(p Peer) (c *syncConn, err error) {
+func (e *executor) createConn(p *Peer) (c *syncConn, err error) {
 	addr := p.FileAddress()
 
 	e.mu.Lock()
@@ -623,7 +623,7 @@ func (e *executor) createConn(p Peer) (c *syncConn, err error) {
 }
 
 func (e *executor) do(t *syncTask) {
-	var p Peer
+	var p *Peer
 	var c *syncConn
 	var err error
 

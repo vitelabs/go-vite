@@ -77,9 +77,9 @@ func splitChunk(from, to uint64, size uint64) (chunks [][2]uint64) {
 type syncPeerSet interface {
 	sub(ch chan<- peerEvent)
 	unSub(ch chan<- peerEvent)
-	syncPeer() Peer
-	bestPeer() Peer
-	pick(height uint64) (l []Peer)
+	syncPeer() *Peer
+	bestPeer() *Peer
+	pick(height uint64) (l []*Peer)
 	count() int
 }
 
@@ -134,7 +134,7 @@ func (s *syncer) codes() []p2p.Code {
 	return []p2p.Code{p2p.CodeHashList}
 }
 
-func (s *syncer) handle(msg p2p.Msg, sender Peer) (err error) {
+func (s *syncer) handle(msg p2p.Msg, sender *Peer) (err error) {
 	switch msg.Code {
 	case p2p.CodeHashList:
 		s.log.Info(fmt.Sprintf("receive HashHeightList from %s", sender))

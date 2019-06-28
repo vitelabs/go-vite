@@ -1,7 +1,6 @@
 package net
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -141,7 +140,7 @@ func (n *net) SetState(state []byte, peer p2p.Peer) {
 	}
 }
 
-func (n *net) OnPeerAdded(peer p2p.Peer) (err error) {
+func (n *net) OnPeerAdded(peer *p2p.Peer) (err error) {
 	p := newPeer(peer, netLog.New("peer", peer.ID()))
 
 	err = n.peers.add(p)
@@ -154,7 +153,7 @@ func (n *net) OnPeerAdded(peer p2p.Peer) (err error) {
 	return nil
 }
 
-func (n *net) OnPeerRemoved(peer p2p.Peer) (err error) {
+func (n *net) OnPeerRemoved(peer *p2p.Peer) (err error) {
 	_, err = n.peers.remove(peer.ID())
 
 	return
@@ -260,17 +259,6 @@ func New(cfg *config.Net, chain Chain, verifier Verifier) Net {
 	// CodeSnapshotBlocks, CodeAccountBlocks
 	if err = n.handlers.register(syncer); err != nil {
 		panic(fmt.Errorf("cannot register handler: syncer: %v", err))
-	}
-
-	// trace
-	if cfg.TraceEnabled {
-		var p2pPub = cfg.P2PPrivateKey.PubByte()
-		n.tracer = newTracer(hex.EncodeToString(p2pPub), peers, forward)
-	} else {
-		n.tracer = newMockTracer()
-	}
-	if err = n.handlers.register(n.tracer); err != nil {
-		panic(fmt.Errorf("cannot register handler: tracer: %v", err))
 	}
 
 	return n

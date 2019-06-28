@@ -21,7 +21,7 @@ import (
 type msgHandler interface {
 	name() string
 	codes() []p2p.Code
-	handle(msg p2p.Msg, sender Peer) error
+	handle(msg p2p.Msg, sender *Peer) error
 }
 
 type msgHandlers struct {
@@ -48,12 +48,12 @@ func (m msgHandlers) codes() (codes []p2p.Code) {
 	return
 }
 
-func (m msgHandlers) handle(msg p2p.Msg, sender Peer) error {
+func (m msgHandlers) handle(msg p2p.Msg, sender *Peer) error {
 	if handler, ok := m.handlers[msg.Code]; ok {
 		return handler.handle(msg, sender)
 	}
 
-	return p2p.PeerUnknownMessage
+	return nil
 }
 
 func (m msgHandlers) register(h msgHandler) error {
@@ -135,10 +135,10 @@ func (q *queryHandler) stop() {
 
 type queryTask struct {
 	msg    p2p.Msg
-	sender Peer
+	sender *Peer
 }
 
-func (q *queryHandler) handle(msg p2p.Msg, sender Peer) error {
+func (q *queryHandler) handle(msg p2p.Msg, sender *Peer) error {
 	q.lock.Lock()
 	q.queue.Append(queryTask{msg, sender})
 	q.lock.Unlock()
@@ -275,7 +275,7 @@ func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (
 	}
 }
 
-func (c *checkHandler) handle(msg p2p.Msg, sender Peer) (err error) {
+func (c *checkHandler) handle(msg p2p.Msg, sender *Peer) (err error) {
 	var get = &message.GetHashHeightList{}
 	err = get.Deserialize(msg.Payload)
 	if err != nil {
@@ -298,7 +298,7 @@ func (s *getSnapshotBlocksHandler) codes() []p2p.Code {
 	return []p2p.Code{p2p.CodeGetSnapshotBlocks}
 }
 
-func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
+func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender *Peer) (err error) {
 	defer monitor.LogTime("net", "handle_GetSnapshotBlocksMsg", time.Now())
 
 	req := new(message.GetSnapshotBlocks)
@@ -374,7 +374,7 @@ func (a *getAccountBlocksHandler) codes() []p2p.Code {
 var nilAddress = types.Address{}
 var errGetABlocksMissingParam = errors.New("missing param to GetAccountBlocks")
 
-func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender Peer) (err error) {
+func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender *Peer) (err error) {
 	defer monitor.LogTime("net", "handle_GetAccountBlocksMsg", time.Now())
 
 	req := new(message.GetAccountBlocks)
@@ -501,7 +501,7 @@ func (s stateHandler) codes() []p2p.Code {
 	return []p2p.Code{p2p.CodeHeartBeat}
 }
 
-func (s stateHandler) handle(msg p2p.Msg, sender Peer) (err error) {
+func (s stateHandler) handle(msg p2p.Msg, sender *Peer) (err error) {
 	var heartbeat = &protos.State{}
 
 	err = proto.Unmarshal(msg.Payload, heartbeat)

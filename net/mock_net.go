@@ -118,11 +118,11 @@ func (n *mockNet) State() []byte {
 	return nil
 }
 
-func (n *mockNet) OnPeerAdded(peer p2p.Peer) error {
+func (n *mockNet) OnPeerAdded(peer *p2p.Peer) error {
 	return nil
 }
 
-func (n *mockNet) OnPeerRemoved(peer p2p.Peer) error {
+func (n *mockNet) OnPeerRemoved(peer *p2p.Peer) error {
 	return nil
 }
 

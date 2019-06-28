@@ -174,7 +174,7 @@ func (h *handshaker) readHandshake(c Codec) (their *HandshakeMsg, id MsgId, err 
 	return
 }
 
-func (h *handshaker) ReceiveHandshake(c Codec) (peer PeerMux, err error) {
+func (h *handshaker) ReceiveHandshake(c Codec) (peer *Peer, err error) {
 	their, msgId, err := h.readHandshake(c)
 	if err != nil {
 		return
@@ -239,7 +239,7 @@ func (h *handshaker) ReceiveHandshake(c Codec) (peer PeerMux, err error) {
 	return
 }
 
-func (h *handshaker) InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, err error) {
+func (h *handshaker) InitiateHandshake(c Codec, id vnode.NodeID) (peer *Peer, err error) {
 	request := HandshakeMsg{
 		Version:     int64(h.version),
 		NetID:       int64(h.netId),
@@ -298,7 +298,7 @@ func (h *handshaker) InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, 
 	return h.doHandshake(c, Outbound, their)
 }
 
-func (h *handshaker) doHandshake(c Codec, level Level, their *HandshakeMsg) (peer PeerMux, err error) {
+func (h *handshaker) doHandshake(c Codec, level Level, their *HandshakeMsg) (peer *Peer, err error) {
 	if their.NetID != int64(h.netId) {
 		err = PeerDifferentNetwork
 		return

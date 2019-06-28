@@ -168,7 +168,7 @@ type syncConnReceiver interface {
 }
 
 type syncConnInitiator interface {
-	initiate(conn net2.Conn, peer Peer) (*syncConn, error)
+	initiate(conn net2.Conn, peer *Peer) (*syncConn, error)
 }
 
 type defaultSyncConnectionFactory struct {
@@ -186,7 +186,7 @@ func (d *defaultSyncConnectionFactory) makeSyncConn(conn net2.Conn) *syncConn {
 	}
 }
 
-func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer Peer) (*syncConn, error) {
+func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer *Peer) (*syncConn, error) {
 	c := d.makeSyncConn(conn)
 
 	hk := &syncHandshake{
@@ -312,7 +312,7 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (*syncConn, error
 type syncConn struct {
 	conn   net2.Conn
 	c      p2p.Codec
-	peer   Peer
+	peer   *Peer
 	busy   int32  // atomic
 	_speed uint64 // download speed, byte/s
 	task   syncTask
@@ -633,7 +633,7 @@ func (fp *connPoolImpl) sortLocked() {
 }
 
 // choose the fast fileConn, or create new conn randomly
-func (fp *connPoolImpl) chooseSource(t *syncTask) (Peer, *syncConn, error) {
+func (fp *connPoolImpl) chooseSource(t *syncTask) (*Peer, *syncConn, error) {
 	peerMap := fp.peers.pickDownloadPeers(t.Bound[1])
 
 	if len(peerMap) == 0 {

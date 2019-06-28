@@ -75,8 +75,8 @@ type P2P interface {
 }
 
 type Handshaker interface {
-	ReceiveHandshake(c Codec) (peer PeerMux, err error)
-	InitiateHandshake(c Codec, id vnode.NodeID) (peer PeerMux, err error)
+	ReceiveHandshake(c Codec) (peer *Peer, err error)
+	InitiateHandshake(c Codec, id vnode.NodeID) (peer *Peer, err error)
 }
 
 type basePeer interface {
@@ -96,19 +96,9 @@ type basePeer interface {
 	Disconnect(err error)
 }
 
-type Peer interface {
-	basePeer
-}
-
-type PeerMux interface {
-	basePeer
-	run() error
-	setManager(pm levelManager)
-}
-
 type peerManager interface {
-	register(p PeerMux)
-	changeLevel(p PeerMux, old Level) error
+	register(p *Peer)
+	changeLevel(p *Peer, old Level) error
 }
 
 type p2p struct {
@@ -226,7 +216,7 @@ func (p *p2p) Discovery() discovery.Discovery {
 }
 
 // add success return true
-func (p *p2p) tryAdd(peer PeerMux) (PeerError, bool) {
+func (p *p2p) tryAdd(peer *Peer) (PeerError, bool) {
 	if peer.ID() == p.node.ID {
 		return PeerConnectSelf, false
 	}
@@ -321,7 +311,7 @@ func (p *p2p) Config() Config {
 }
 
 // register and run peer, blocked, should invoke by goroutine
-func (p *p2p) register(peer PeerMux) {
+func (p *p2p) register(peer *Peer) {
 	p.wg.Add(1)
 	defer p.wg.Done()
 
