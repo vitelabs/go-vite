@@ -130,8 +130,8 @@ func (n *mockNet) Info() NodeInfo {
 	return NodeInfo{}
 }
 
-func mock(cfg Config) Net {
+func mock(chain Chain) Net {
 	return &mockNet{
-		chain: cfg.Chain,
+		chain: chain,
 	}
 }

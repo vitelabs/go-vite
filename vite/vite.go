@@ -65,20 +65,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 
 	verifier := verifier.NewVerifier(sbVerifier, aVerifier)
 	// net
-	var net = net.New(net.Config{
-		Single:             cfg.Single,
-		FileListenAddress:  cfg.FileListenAddress,
-		TraceEnabled:       false,
-		ForwardStrategy:    cfg.ForwardStrategy,
-		AccessControl:      cfg.AccessControl,
-		AccessAllowKeys:    cfg.AccessAllowKeys,
-		AccessDenyKeys:     cfg.AccessDenyKeys,
-		BlackBlockHashList: cfg.BlackBlockHashList,
-		MinePrivateKey:     cfg.MinePrivateKey,
-		P2PPrivateKey:      cfg.P2PPrivateKey,
-		Chain:              chain,
-		Verifier:           verifier,
-	})
+	var net = net.New(cfg.Net, chain, verifier)
 	net.Init(cs, pl)
 
 	// vite
