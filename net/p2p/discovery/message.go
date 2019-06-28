@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/crypto"

@@ -3,7 +3,7 @@ package p2p
 import (
 	"sync"
 
-	"github.com/vitelabs/go-vite/net/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 type peerList struct {

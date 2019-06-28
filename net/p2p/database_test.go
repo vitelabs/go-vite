@@ -22,7 +22,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/vitelabs/go-vite/net/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 var id = vnode.RandomNodeID()

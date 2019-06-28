@@ -27,7 +27,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/net/p2p/vnode/protos"
+	"github.com/vitelabs/go-vite/net/vnode/protos"
 )
 
 const DefaultPort = 8483

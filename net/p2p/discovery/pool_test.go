@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 func TestPool_add(t *testing.T) {

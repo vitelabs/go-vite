@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/log15"
-
-	"github.com/vitelabs/go-vite/net/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 // booter can supply bootNodes

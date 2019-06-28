@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 const seedMaxAge = 7 * 24 * time.Hour

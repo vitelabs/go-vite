@@ -14,7 +14,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 
-	"github.com/vitelabs/go-vite/net/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 func TestPeerMux(t *testing.T) {

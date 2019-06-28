@@ -7,7 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/net/p2p/netool"
 
-	"github.com/vitelabs/go-vite/net/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 var nodePool = sync.Pool{

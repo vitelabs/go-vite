@@ -3,7 +3,7 @@ package discovery
 import (
 	"testing"
 
-	"github.com/vitelabs/go-vite/net/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 func TestBuck_add(t *testing.T) {

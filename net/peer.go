@@ -10,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net/message"
 	"github.com/vitelabs/go-vite/net/p2p"
-	"github.com/vitelabs/go-vite/net/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 var errPeerExisted = errors.New("peer has existed")
