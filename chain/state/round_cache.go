@@ -7,8 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"sync"
@@ -318,8 +320,42 @@ func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 
 // tokenId is viteTokenID
 func (cache *RoundCache) GetSnapshotViteBalanceList(snapshotHash types.Hash, addrList []types.Address) (map[types.Address]*big.Int, []types.Address, error) {
-	if len(cache.data) <= 0 {
+	currentData := cache.getCurrentData(snapshotHash)
+
+	if currentData == nil {
 		return nil, nil, nil
+	}
+
+	balanceMap := make(map[types.Address]*big.Int)
+	var notFoundAddressList []types.Address
+
+	for _, addr := range addrList {
+		// query balance
+		value, err := currentData.Get(makeBalanceKey(addr.Bytes()))
+		if err == leveldb.ErrNotFound {
+			notFoundAddressList = append(notFoundAddressList, addr)
+		} else {
+			balanceMap[addr] = big.NewInt(0).SetBytes(value)
+		}
+
+	}
+
+	return balanceMap, notFoundAddressList, nil
+}
+
+func (cache *RoundCache) StorageIterator(snapshotHash types.Hash) interfaces.StorageIterator {
+	currentData := cache.getCurrentData(snapshotHash)
+
+	if currentData == nil {
+		return nil
+	}
+
+	return NewRoundCacheIterator(currentData.NewIterator(util.BytesPrefix(makeStorageKey(nil))))
+}
+
+func (cache *RoundCache) getCurrentData(snapshotHash types.Hash) *memdb.DB {
+	if len(cache.data) <= 0 {
+		return nil
 	}
 
 	cache.mu.RLock()
@@ -329,37 +365,26 @@ func (cache *RoundCache) GetSnapshotViteBalanceList(snapshotHash types.Hash, add
 
 	cache.mu.RUnlock()
 
-	var balanceMap map[types.Address]*big.Int
-	var notFoundAddressList []types.Address
-
+	var currentData *memdb.DB
 	for _, dataItem := range dataCopied {
 		dataItem.mu.RLock()
 		lastSnapshotBlock := dataItem.lastSnapshotBlock
-		currentData := dataItem.currentData
+		tmpCurrentData := dataItem.currentData
 		dataItem.mu.RUnlock()
 
 		if lastSnapshotBlock == nil {
-			return nil, nil, nil
+			return nil
 		}
 
 		if lastSnapshotBlock.Hash == snapshotHash {
-			balanceMap := make(map[types.Address]*big.Int)
-
-			for _, addr := range addrList {
-				// query balance
-				value, err := currentData.Get(makeBalanceKey(addr.Bytes()))
-				if err == leveldb.ErrNotFound {
-					notFoundAddressList = append(notFoundAddressList, addr)
-				} else {
-					balanceMap[addr] = big.NewInt(0).SetBytes(value)
-				}
-
-			}
+			currentData = tmpCurrentData
+			break
 		}
 
 	}
 
-	return balanceMap, notFoundAddressList, nil
+	return currentData
+
 }
 
 // 9、11、12

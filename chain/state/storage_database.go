@@ -2,6 +2,7 @@ package chain_state
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/ledger"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
@@ -17,7 +18,10 @@ func (sDB *StateDB) NewStorageDatabase(snapshotHash types.Hash, addr types.Addre
 		return nil, errors.New(fmt.Sprintf("snapshot hash %s is not existed", snapshotHash))
 	}
 
-	return NewStorageDatabase(sDB, snapshotHeight, addr), nil
+	return NewStorageDatabase(sDB, ledger.HashHeight{
+		Height: snapshotHeight,
+		Hash:   snapshotHash,
+	}, addr), nil
 }
 
 type StorageDatabase struct {
@@ -27,10 +31,11 @@ type StorageDatabase struct {
 	addr           types.Address
 }
 
-func NewStorageDatabase(stateDb *StateDB, snapshotHeight uint64, addr types.Address) *StorageDatabase {
+func NewStorageDatabase(stateDb *StateDB, hashHeight ledger.HashHeight, addr types.Address) *StorageDatabase {
 	return &StorageDatabase{
 		stateDb:        stateDb,
-		snapshotHeight: snapshotHeight,
+		snapshotHeight: hashHeight.Height,
+		snapshotHash:   hashHeight.Hash,
 		addr:           addr,
 	}
 }
@@ -40,9 +45,17 @@ func (sd *StorageDatabase) GetValue(key []byte) ([]byte, error) {
 }
 
 func (sd *StorageDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
+	// if use cache
+	if sd.stateDb.consensusCacheLevel == ConsensusReadCache &&
+		sd.addr == types.AddressConsensusGroup {
+		if iter := sd.stateDb.roundCache.StorageIterator(sd.snapshotHash); iter != nil {
+			return iter, nil
+		}
+
+	}
 	ss, err := sd.stateDb.NewSnapshotStorageIteratorByHeight(sd.snapshotHeight, sd.addr, prefix)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHeight is %s, addr is %s, prefix is %s",
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHeight is %d, addr is %s, prefix is %s",
 			sd.snapshotHeight, sd.addr, prefix))
 		return nil, cErr
 	}
