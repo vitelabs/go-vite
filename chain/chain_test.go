@@ -81,7 +81,7 @@ var GenesisJson = `{
 
     "RegistrationInfoMap":{
       "00000000000000000001":{
-        "s1":{
+        "vite super snapshot producer for test 01":{
           "NodeAddr":"vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a",
           "PledgeAddr":"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
           "Amount":500000000000000000000000,

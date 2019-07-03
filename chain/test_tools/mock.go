@@ -35,10 +35,18 @@ func (c *MockCssVerifier) VerifyAccountProducer(block *ledger.AccountBlock) (boo
 
 type MockConsensusReader struct {
 	DayTimeIndex MockTimeIndex
+	DayStatsMap  map[uint64]*core.DayStats
 }
 
 func (c *MockConsensusReader) DayStats(startIndex uint64, endIndex uint64) ([]*core.DayStats, error) {
-	return nil, nil
+	list := make([]*core.DayStats, 0)
+	for i := startIndex; i <= endIndex; i++ {
+		if stat, ok := c.DayStatsMap[i]; ok {
+			list = append(list, stat)
+		}
+	}
+	return list, nil
+
 }
 func (c *MockConsensusReader) GetDayTimeIndex() core.TimeIndex {
 	return c.DayTimeIndex
