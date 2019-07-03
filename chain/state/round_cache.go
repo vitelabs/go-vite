@@ -213,20 +213,23 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 			return errors.New(fmt.Sprintf("prevBeforePrevRoundData.currentData == nil, prevBeforePrevRoundData is %+v", prevBeforePrevRoundData))
 		}
 
-		// build prevRoundData.currentData
-		prevRoundData.mu.Lock()
-		prevRoundData.currentData = cache.buildCurrentData(prevBeforePrevRoundData.currentData, prevRoundData.redoLogs)
-		prevRoundData.mu.Unlock()
-
-		// set prevRoundData.lastSnapshotBlock
-		var err error
-		prevRoundData.lastSnapshotBlock, err = cache.chain.GetSnapshotHeaderByHeight(snapshotBlock.Height - 1)
+		// get lastSnapshotBlock
+		lastSnapshotBlock, err := cache.chain.GetSnapshotHeaderByHeight(snapshotBlock.Height - 1)
 		if err != nil {
 			return err
 		}
-		if prevRoundData.lastSnapshotBlock == nil {
-			return errors.New(fmt.Sprintf("prevRoundData.lastSnapshotBlock is nil, height is %d", snapshotBlock.Height-1))
+		if lastSnapshotBlock == nil {
+			return errors.New(fmt.Sprintf("lastSnapshotBlock is nil, height is %d", snapshotBlock.Height-1))
 		}
+
+		prevRoundData.mu.Lock()
+		// build prevRoundData.currentData
+		prevRoundData.currentData = cache.buildCurrentData(prevBeforePrevRoundData.currentData, prevRoundData.redoLogs)
+
+		// set prevRoundData.lastSnapshotBlock
+		prevRoundData.lastSnapshotBlock = lastSnapshotBlock
+		prevRoundData.mu.Unlock()
+
 	}
 
 	redoLogs := NewRoundCacheRedoLogs()
@@ -260,10 +263,10 @@ func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 			// remove currentData
 			data.mu.Lock()
 			data.currentData = nil
-			data.mu.Unlock()
 
 			// remove lastSnapshotBlock
 			data.lastSnapshotBlock = nil
+			data.mu.Unlock()
 
 			if data.redoLogs == nil || len(data.redoLogs.Logs) <= 0 {
 				end = i
@@ -314,9 +317,9 @@ func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 }
 
 // tokenId is viteTokenID
-func (cache *RoundCache) GetSnapshotViteBalanceList(snapshotHash types.Hash, addrList []types.Address) (map[types.Address]*big.Int, error) {
+func (cache *RoundCache) GetSnapshotViteBalanceList(snapshotHash types.Hash, addrList []types.Address) (map[types.Address]*big.Int, []types.Address, error) {
 	if len(cache.data) <= 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	cache.mu.RLock()
@@ -326,36 +329,37 @@ func (cache *RoundCache) GetSnapshotViteBalanceList(snapshotHash types.Hash, add
 
 	cache.mu.RUnlock()
 
-	// TODO no balance
-	balanceMap := make(map[types.Address]*big.Int)
+	var balanceMap map[types.Address]*big.Int
+	var notFoundAddressList []types.Address
 
 	for _, dataItem := range dataCopied {
-
+		dataItem.mu.RLock()
 		lastSnapshotBlock := dataItem.lastSnapshotBlock
+		currentData := dataItem.currentData
+		dataItem.mu.RUnlock()
 
-		// Delete and insert and build
 		if lastSnapshotBlock == nil {
-			return nil, nil
+			return nil, nil, nil
 		}
 
 		if lastSnapshotBlock.Hash == snapshotHash {
-			dataItem.mu.RLock()
+			balanceMap := make(map[types.Address]*big.Int)
 
-			// TODO iter dataItem.currentData
 			for _, addr := range addrList {
-				value, err := dataItem.currentData.Get(makeBalanceKey(addr.Bytes()))
+				// query balance
+				value, err := currentData.Get(makeBalanceKey(addr.Bytes()))
 				if err == leveldb.ErrNotFound {
-					// TODO NOT FOUND
+					notFoundAddressList = append(notFoundAddressList, addr)
+				} else {
+					balanceMap[addr] = big.NewInt(0).SetBytes(value)
 				}
 
-				balanceMap[addr] = big.NewInt(0).SetBytes(value)
 			}
-			dataItem.mu.RUnlock()
 		}
 
 	}
 
-	return balanceMap, nil
+	return balanceMap, notFoundAddressList, nil
 }
 
 // 9、11、12

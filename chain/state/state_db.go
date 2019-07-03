@@ -239,51 +239,36 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 }
 
 func (sDB *StateDB) GetSnapshotBalanceList(balanceMap map[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error {
-	if sDB.consensusCacheLevel == ConsensusReadCache {
-		// TODO get from cache
-	}
-
-	// get snapshot height
-	snapshotHeight, err := sDB.chain.GetSnapshotHeightByHash(snapshotBlockHash)
-	if err != nil {
-		return err
-	}
-	if snapshotHeight <= 0 {
-		return nil
-	}
-
-	// prepare iterator
-	prefix := chain_utils.BalanceHistoryKeyPrefix
-	iter := sDB.store.NewIterator(util.BytesPrefix([]byte{prefix}))
-	defer iter.Release()
-
-	seekKey := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
-	seekKey[0] = prefix
-
-	copy(seekKey[1+types.AddressSize:], tokenId.Bytes())
-	binary.BigEndian.PutUint64(seekKey[1+types.AddressSize+types.TokenTypeIdSize:], snapshotHeight+1)
-
-	// iterate address list
-	for _, addr := range addrList {
-		copy(seekKey[1:1+types.AddressSize], addr.Bytes())
-
-		iter.Seek(seekKey)
-
-		ok := iter.Prev()
-		if !ok {
-			continue
+	// if consensusCacheLevel is ConsensusReadCache and tokenId is vite token id
+	if sDB.consensusCacheLevel == ConsensusReadCache &&
+		tokenId == ledger.ViteTokenId {
+		// read from cache
+		cacheBalanceMap, notFoundAddressList, err := sDB.roundCache.GetSnapshotViteBalanceList(snapshotBlockHash, addrList)
+		if err != nil {
+			return err
 		}
 
-		key := iter.Key()
-		if bytes.HasPrefix(key, seekKey[:len(seekKey)-8]) {
-			// set balance
-			balanceMap[addr] = big.NewInt(0).SetBytes(iter.Value())
-			// FOR DEBUG
-			// fmt.Println("query", addr, balanceMap[addr], binary.BigEndian.Uint64(key[len(key)-8:]))
-		}
+		// hit the cache
+		if cacheBalanceMap != nil {
+			// if some address miss the cache, supplement through the database
+			if len(notFoundAddressList) > 0 {
+				if err := sDB.getSnapshotBalanceList(cacheBalanceMap, snapshotBlockHash, notFoundAddressList, tokenId); err != nil {
+					return err
+				}
+			}
 
+			// copy cache
+			for addr, balance := range cacheBalanceMap {
+				balanceMap[addr] = balance
+			}
+
+			// over
+			return nil
+		}
 	}
-	return nil
+
+	return sDB.getSnapshotBalanceList(balanceMap, snapshotBlockHash, addrList, tokenId)
+
 }
 
 func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error) {
@@ -343,4 +328,48 @@ func (sDB *StateDB) GetStatus() []interfaces.DBStatus {
 		Size:   uint64(statusList[1].Size),
 		Status: statusList[1].Status,
 	}}
+}
+
+func (sDB *StateDB) getSnapshotBalanceList(balanceMap map[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error {
+	// get snapshot height
+	snapshotHeight, err := sDB.chain.GetSnapshotHeightByHash(snapshotBlockHash)
+	if err != nil {
+		return err
+	}
+	if snapshotHeight <= 0 {
+		return nil
+	}
+
+	// prepare iterator
+	prefix := chain_utils.BalanceHistoryKeyPrefix
+	iter := sDB.store.NewIterator(util.BytesPrefix([]byte{prefix}))
+	defer iter.Release()
+
+	seekKey := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
+	seekKey[0] = prefix
+
+	copy(seekKey[1+types.AddressSize:], tokenId.Bytes())
+	binary.BigEndian.PutUint64(seekKey[1+types.AddressSize+types.TokenTypeIdSize:], snapshotHeight+1)
+
+	// iterate address list
+	for _, addr := range addrList {
+		copy(seekKey[1:1+types.AddressSize], addr.Bytes())
+
+		iter.Seek(seekKey)
+
+		ok := iter.Prev()
+		if !ok {
+			continue
+		}
+
+		key := iter.Key()
+		if bytes.HasPrefix(key, seekKey[:len(seekKey)-8]) {
+			// set balance
+			balanceMap[addr] = big.NewInt(0).SetBytes(iter.Value())
+			// FOR DEBUG
+			// fmt.Println("query", addr, balanceMap[addr], binary.BigEndian.Uint64(key[len(key)-8:]))
+		}
+
+	}
+	return nil
 }
