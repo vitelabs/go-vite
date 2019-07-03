@@ -63,10 +63,6 @@ func (sd *StorageDatabase) NewStorageIterator(prefix []byte) (interfaces.Storage
 	return ss, nil
 }
 
-func (sd *StorageDatabase) NewRawStorageIterator(prefix []byte) interfaces.StorageIterator {
-	return sd.stateDb.NewRawSnapshotStorageIteratorByHeight(sd.snapshotHeight, sd.addr, prefix)
-}
-
 func (sd *StorageDatabase) Address() *types.Address {
 	return &sd.addr
 }
