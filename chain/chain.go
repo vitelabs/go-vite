@@ -93,6 +93,10 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
 	c.genesisAccountBlockHash = chain_genesis.VmBlocksToHashMap(c.genesisAccountBlocks)
 
+	if !fork.IsInit() {
+		fork.SetForkPoints(genesisCfg.ForkPoints)
+	}
+
 	return c
 }
 
