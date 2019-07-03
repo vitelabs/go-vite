@@ -213,17 +213,3 @@ func MapToAmountWithTokens(mp map[types.TokenTypeId]*big.Int) []*AmountWithToken
 	sort.Sort(AmountWithTokenSorter(amtWithTks))
 	return amtWithTks
 }
-
-type Uint64Sorter []uint64
-
-func (st Uint64Sorter) Len() int {
-	return len(st)
-}
-
-func (st Uint64Sorter) Swap(i, j int) {
-	st[i], st[j] = st[j], st[i]
-}
-
-func (st Uint64Sorter) Less(i, j int) bool {
-	return st[i] <= st[j]
-}

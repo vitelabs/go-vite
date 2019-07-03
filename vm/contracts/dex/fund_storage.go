@@ -43,10 +43,10 @@ var (
 	VxFundKeyPrefix = []byte("vxF:")  // vxFund:types.Address
 	vxSumFundsKey   = []byte("vxFS:") // vxFundSum
 
-	lastFeeDividendPeriodIdKey = []byte("lFDPId:")
-	lastMinedVxPeriodIdKey     = []byte("fMVPId:")
-	firstMinedVxPeriodIdKey    = []byte("fMVPId:")
-	marketInfoKeyPrefix        = []byte("mk:") // market: tradeToke,quoteToken
+	lastJobPeriodIdWithBizTypeKey = []byte("lFDPId:")
+	lastMinedVxPeriodIdKey        = []byte("fMVPId:")
+	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
+	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
 	pledgeForVipKeyPrefix = []byte("pldVip:") // pledgeForVip: types.Address
 
@@ -93,6 +93,11 @@ var (
 	ethMineThreshold     = new(big.Int).Div(commonTokenPow, big.NewInt(5000)) // 0.0002 ETH
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
 	usdMineThreshold     = big.NewInt(2000000)                                // 0.1USD
+
+	RateSumForFeeMine                = "0.6"
+	RateForPledgeMine                = "0.2"
+	RateSumForMakerAndMaintainerMine = "0.1"
+	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 2 VITE
 
 	QuoteTokenTypeInfos = map[int32]*QuoteTokenTypeInfo{
 		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, DefaultTradeThreshold: viteMinAmount, DefaultMineThreshold: viteMineThreshold},
@@ -148,10 +153,17 @@ const (
 	BtcTokenType
 	UsdTokenType
 )
+const (
+	MineForMaker = iota + 1
+	MineForMaintainer
+)
 
 const (
-	BizForFeeDividend = iota + 1
-	BizForMineVx
+	FeeDividendJob = iota + 1
+	BrokerFeeDividendJob
+	MineVxForFeeJob
+	MineVxForPledgeJob
+	MineVxForMakerAndMaintainerJob
 )
 
 const (
@@ -180,8 +192,9 @@ type ParamDexFundNewOrder struct {
 	Quantity   *big.Int
 }
 
-type ParamDexFundDividend struct {
+type ParamDexPeriodJob struct {
 	PeriodId uint64
+	BizType  uint8
 }
 
 type ParamDexSerializedData struct {
@@ -704,6 +717,15 @@ func MarkFeeSumAsMinedVxDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId 
 		feeSum.FinishVxMine = true
 		serializeToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 	}
+	if feeSum.LastValidPeriod > 0 {
+		markFormerFeeSumsAsMined(db, feeSum.LastValidPeriod)
+	}
+}
+
+func markFormerFeeSumsAsMined(db vm_db.VmDb, periodId uint64) {
+	if feeSum, ok := GetFeeSumByPeriodId(db, periodId); ok {
+		MarkFeeSumAsMinedVxDivided(db, feeSum, periodId)
+	}
 }
 
 func GetFeeSumKeyByPeriodId(periodId uint64) []byte {
@@ -733,6 +755,10 @@ func SaveCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, broker 
 func GetCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, broker []byte) (*BrokerFeeSumByPeriod, bool) {
 	currentBrokerFeeSumKey := GetCurrentBrokerFeeSumKey(db, reader, broker)
 	return getBrokerFeeSumByKey(db, currentBrokerFeeSumKey)
+}
+
+func GetBrokerFeeSumByPeriodId(db vm_db.VmDb, broker []byte, periodId uint64) (*BrokerFeeSumByPeriod, bool) {
+	return getBrokerFeeSumByKey(db, GetBrokerFeeSumKeyByPeriodIdAndAddress(periodId, broker))
 }
 
 func GetCurrentBrokerFeeSumKey(db vm_db.VmDb, reader util.ConsensusReader, broker []byte) []byte {
@@ -835,16 +861,20 @@ func SaveVxSumFunds(db vm_db.VmDb, vxSumFunds *VxFunds) {
 	serializeToDb(db, vxSumFundsKey, vxSumFunds)
 }
 
-func GetLastFeeDividendPeriodId(db vm_db.VmDb) uint64 {
-	if lastFeeDividendPeriodIdBytes := getValueFromDb(db, lastFeeDividendPeriodIdKey); len(lastFeeDividendPeriodIdBytes) == 8 {
-		return binary.BigEndian.Uint64(lastFeeDividendPeriodIdBytes)
+func GetLastJobPeriodIdByBizType(db vm_db.VmDb, bizType uint8) uint64 {
+	if lastPeriodIdBytes := getValueFromDb(db, GetLastJobPeriodIdKey(bizType)); len(lastPeriodIdBytes) == 8 {
+		return binary.BigEndian.Uint64(lastPeriodIdBytes)
 	} else {
 		return 0
 	}
 }
 
-func SaveLastFeeDividendPeriodId(db vm_db.VmDb, periodId uint64) {
-	setValueToDb(db, lastFeeDividendPeriodIdKey, Uint64ToBytes(periodId))
+func SaveLastJobPeriodIdByBizType(db vm_db.VmDb, periodId uint64, bizType uint8) {
+	setValueToDb(db, GetLastJobPeriodIdKey(bizType), Uint64ToBytes(periodId))
+}
+
+func GetLastJobPeriodIdKey(bizType uint8) []byte {
+	return append(lastJobPeriodIdWithBizTypeKey, byte(bizType))
 }
 
 func GetFirstMinedVxPeriodId(db vm_db.VmDb) uint64 {
@@ -857,18 +887,6 @@ func GetFirstMinedVxPeriodId(db vm_db.VmDb) uint64 {
 
 func SaveFirstMinedVxPeriodId(db vm_db.VmDb, periodId uint64) {
 	setValueToDb(db, firstMinedVxPeriodIdKey, Uint64ToBytes(periodId))
-}
-
-func GetLastMineVxPeriodId(db vm_db.VmDb) uint64 {
-	if lastMinedVxPeriodIdBytes := getValueFromDb(db, lastMinedVxPeriodIdKey); len(lastMinedVxPeriodIdBytes) == 8 {
-		return binary.BigEndian.Uint64(lastMinedVxPeriodIdBytes)
-	} else {
-		return 0
-	}
-}
-
-func SaveLastMinedVxPeriodId(db vm_db.VmDb, periodId uint64) {
-	setValueToDb(db, lastMinedVxPeriodIdKey, Uint64ToBytes(periodId))
 }
 
 func IsValidVxAmountBytesForDividend(amount []byte) bool {
@@ -1180,15 +1198,15 @@ func GetMineThresholdKey(quoteTokenType uint8) []byte {
 	return append(mineThresholdKeyPrefix, quoteTokenType)
 }
 
-func GetMakerMineProxy(db vm_db.VmDb) (*types.Address, error) {
+func GetMakerMineProxy(db vm_db.VmDb) *types.Address {
 	if mmpBytes := getValueFromDb(db, makerMineProxyKey); len(mmpBytes) == types.AddressSize {
 		if makerMineProxy, err := types.BytesToAddress(mmpBytes); err == nil {
-			return &makerMineProxy, nil
+			return &makerMineProxy
 		} else {
 			panic(err)
 		}
 	} else {
-		return nil, nil
+		panic(NotSetMineProxyErr)
 	}
 }
 
@@ -1196,15 +1214,15 @@ func SaveMakerMineProxy(db vm_db.VmDb, addr types.Address) {
 	setValueToDb(db, makerMineProxyKey, addr.Bytes())
 }
 
-func GetMaintainer(db vm_db.VmDb) (*types.Address, error) {
+func GetMaintainer(db vm_db.VmDb) *types.Address {
 	if mtBytes := getValueFromDb(db, maintainerKey); len(mtBytes) == types.AddressSize {
 		if maintainer, err := types.BytesToAddress(mtBytes); err == nil {
-			return &maintainer, nil
+			return &maintainer
 		} else {
 			panic(err)
 		}
 	} else {
-		return nil, nil
+		panic(NotSetMaintainerErr)
 	}
 }
 
@@ -1232,6 +1250,16 @@ func ValidTimerAddress(db vm_db.VmDb, address types.Address) bool {
 	return false
 }
 
+func GetTimer(db vm_db.VmDb) *types.Address {
+	if timerAddressBytes := getValueFromDb(db, timerAddressKey); len(timerAddressKey) == types.AddressSize {
+		address := &types.Address{}
+		address.SetBytes(timerAddressBytes)
+		return address
+	} else {
+		return nil
+	}
+}
+
 func SetTimerAddress(db vm_db.VmDb, address types.Address) {
 	setValueToDb(db, timerAddressKey, address.Bytes())
 }
@@ -1241,6 +1269,15 @@ func ValidTriggerAddress(db vm_db.VmDb, address types.Address) bool {
 		return true
 	}
 	return false
+}
+
+func GetTrigger(db vm_db.VmDb) *types.Address {
+	if triggerAddressBytes := getValueFromDb(db, triggerAddressKey); len(triggerAddressBytes) == types.AddressSize {
+		address, _ := types.BytesToAddress(triggerAddressBytes)
+		return &address
+	} else {
+		return nil
+	}
 }
 
 func SetTriggerAddress(db vm_db.VmDb, address types.Address) {

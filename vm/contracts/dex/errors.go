@@ -51,6 +51,8 @@ var (
 	NoFeeSumFoundForValidPeriodErr = errors.New("no fee sum found for valid period")
 	NotSetTimestampErr             = errors.New("not set timestamp")
 	IterateVmDbFailedErr           = errors.New("iterate vm db failed")
+	NotSetMaintainerErr            = errors.New("not set maintainer")
+	NotSetMineProxyErr             = errors.New("not set mine proxy")
 
 	InvalidInviterFeeAmountErr = errors.New("invalid inviter fee amount")
 	AlreadyIsInviterErr        = errors.New("already is inviter")

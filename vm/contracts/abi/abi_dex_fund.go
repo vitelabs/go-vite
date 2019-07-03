@@ -13,8 +13,7 @@ const (
         {"type":"function","name":"DexFundNewMarket", "inputs":[{"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}]},
         {"type":"function","name":"DexFundNewOrder", "inputs":[{"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"uint8"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}]},
         {"type":"function","name":"DexFundSettleOrders", "inputs":[{"name":"data","type":"bytes"}]},
-        {"type":"function","name":"DexFundFeeDividend", "inputs":[{"name":"periodId","type":"uint64"}]},
-        {"type":"function","name":"DexFundMinedVxDividend", "inputs":[{"name":"periodId","type":"uint64"}]},
+        {"type":"function","name":"DexFundPeriodJob", "inputs":[{"name":"periodId","type":"uint64"},{"name":"bizType","type":"uint8"}]},
         {"type":"function","name":"DexFundPledgeForVx", "inputs":[{"name":"actionType","type":"uint8"}, {"name":"amount","type":"uint256"}]},
         {"type":"function","name":"DexFundPledgeForVip", "inputs":[{"name":"actionType","type":"uint8"}]},
         {"type":"function","name":"AgentPledgeCallback", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
@@ -33,8 +32,7 @@ const (
 	MethodNameDexFundUserWithdraw         = "DexFundUserWithdraw"
 	MethodNameDexFundNewOrder             = "DexFundNewOrder"
 	MethodNameDexFundSettleOrders         = "DexFundSettleOrders"
-	MethodNameDexFundFeeDividend          = "DexFundFeeDividend"
-	MethodNameDexFundMineVx               = "DexFundMinedVxDividend"
+	MethodNameDexFundPeriodJob            = "DexFundPeriodJob"
 	MethodNameDexFundNewMarket            = "DexFundNewMarket"
 	MethodNameDexFundPledgeForVx          = "DexFundPledgeForVx"
 	MethodNameDexFundPledgeForVip         = "DexFundPledgeForVip"

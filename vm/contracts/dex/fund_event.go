@@ -20,10 +20,10 @@ func AddMarketEvent(db vm_db.VmDb, marketInfo *MarketInfo) {
 	doEmitEventLog(db, event)
 }
 
-func AddPeriodWithBizEvent(db vm_db.VmDb, periodId uint64, bizType int32) {
+func AddPeriodWithBizEvent(db vm_db.VmDb, periodId uint64, bizType uint8) {
 	event := &PeriodWithBizEvent{}
 	event.Period = periodId
-	event.BizType = bizType
+	event.BizType = int32(bizType)
 	doEmitEventLog(db, event)
 }
 
