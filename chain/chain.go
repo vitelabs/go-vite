@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/common/fork"
 
 	"github.com/vitelabs/go-vite/chain/plugins"
@@ -80,6 +81,10 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 		chainCfg = defaultConfig()
 	}
 
+	if !fork.IsInit() {
+		fork.SetForkPoints(genesisCfg.ForkPoints)
+	}
+
 	c := &chain{
 		genesisCfg: genesisCfg,
 		dataDir:    dir,
@@ -92,10 +97,6 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
 	c.genesisAccountBlockHash = chain_genesis.VmBlocksToHashMap(c.genesisAccountBlocks)
-
-	if !fork.IsInit() {
-		fork.SetForkPoints(genesisCfg.ForkPoints)
-	}
 
 	return c
 }
