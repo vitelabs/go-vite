@@ -20,25 +20,25 @@ const (
 	CancelConsensusGroupGas   uint64 = 83200
 	ReCreateConsensusGroupGas uint64 = 62200
 
-	dexFundDepositGas               uint64 = 300
-	dexFundDepositReceiveGas        uint64 = 1
-	dexFundWithdrawGas              uint64 = 300
-	dexFundWithdrawReceiveGas       uint64 = 1
-	dexFundNewMarketGas             uint64 = 300
-	dexFundNewMarketReceiveGas      uint64 = 1
-	dexFundNewOrderGas              uint64 = 300
-	dexFundNewOrderReceiveGas       uint64 = 1
-	dexFundSettleOrdersGas          uint64 = 300
-	dexFundSettleOrdersReceiveGas   uint64 = 1
-	dexFundFeePeriodJobGas          uint64 = 300
-	dexFundFeePeriodJobReceiveGas   uint64 = 1
-	dexFundPledgeForVxGas           uint64 = 300
-	dexFundPledgeForVxReceiveGas    uint64 = 1
-	dexFundPledgeForVipGas          uint64 = 300
-	dexFundPledgeForVipReceiveGas   uint64 = 1
-	dexFundPledgeCallbackGas        uint64 = 300
-	dexFundPledgeCallbackReceiveGas uint64 = 1
-	dexFundCancelPledgeCallbackGas  uint64 = 300
+	dexFundDepositGas                     uint64 = 300
+	dexFundDepositReceiveGas              uint64 = 1
+	dexFundWithdrawGas                    uint64 = 300
+	dexFundWithdrawReceiveGas             uint64 = 1
+	dexFundNewMarketGas                   uint64 = 300
+	dexFundNewMarketReceiveGas            uint64 = 1
+	dexFundNewOrderGas                    uint64 = 300
+	dexFundNewOrderReceiveGas             uint64 = 1
+	dexFundSettleOrdersGas                uint64 = 300
+	dexFundSettleOrdersReceiveGas         uint64 = 1
+	dexFundFeePeriodJobGas                uint64 = 300
+	dexFundFeePeriodJobReceiveGas         uint64 = 1
+	dexFundPledgeForVxGas                 uint64 = 300
+	dexFundPledgeForVxReceiveGas          uint64 = 1
+	dexFundPledgeForVipGas                uint64 = 300
+	dexFundPledgeForVipReceiveGas         uint64 = 1
+	dexFundPledgeCallbackGas              uint64 = 300
+	dexFundPledgeCallbackReceiveGas       uint64 = 1
+	dexFundCancelPledgeCallbackGas        uint64 = 300
 	dexFundCancelPledgeCallbackReceiveGas uint64 = 1
 	dexFundGetTokenInfoCallbackGas        uint64 = 300
 	dexFundGetTokenInfoCallbackReceiveGas uint64 = 1
@@ -85,6 +85,8 @@ const (
 
 	tokenNameIndexMax  uint16 = 1000
 	GetRewardTimeLimit int64  = 3600 // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
+
+	PledgeHeightMax uint64 = 3600 * 24 * 365
 )
 
 var (

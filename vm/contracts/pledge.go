@@ -57,7 +57,7 @@ func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 		amount = big.NewInt(0)
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, amount, getPledgeWithdrawHeight(vm), beneficialAddr, NoAgent, NoAgentAddress, NoBid)
+	pledgeInfo, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, amount, getPledgeWithdrawHeight(vm, nodeConfig.params.PledgeHeight), beneficialAddr, NoAgent, NoAgentAddress, NoBid)
 	util.SetValue(db, pledgeKey, pledgeInfo)
 
 	beneficialKey := abi.GetPledgeBeneficialKey(*beneficialAddr)
@@ -106,8 +106,8 @@ func getPledgeInfo(db vm_db.VmDb, pledgeAddr types.Address, beneficialAddr types
 	}
 }
 
-func getPledgeWithdrawHeight(vm vmEnvironment) uint64 {
-	return vm.GlobalStatus().SnapshotBlock().Height + nodeConfig.params.PledgeHeight
+func getPledgeWithdrawHeight(vm vmEnvironment, height uint64) uint64 {
+	return vm.GlobalStatus().SnapshotBlock().Height + height
 }
 
 func pledgeNotDue(oldPledge *abi.PledgeInfo, vm vmEnvironment) bool {
@@ -221,7 +221,10 @@ func (p *MethodAgentPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) er
 	if err := abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentPledge, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, param.Bid)
+	if param.StakeHeight < nodeConfig.params.PledgeHeight || param.StakeHeight > PledgeHeightMax {
+		return util.ErrInvalidMethodParam
+	}
+	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, param.PledgeAddress, param.Beneficial, param.Bid, param.StakeHeight)
 	return nil
 }
 func (p *MethodAgentPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -229,13 +232,15 @@ func (p *MethodAgentPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock,
 	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentPledge, sendBlock.Data)
 	pledgeKey, oldPledge := getPledgeInfo(db, param.PledgeAddress, param.Beneficial, Agent, sendBlock.AccountAddress, param.Bid, block.Height)
 	var amount *big.Int
+	oldWithdrawHeight := uint64(0)
 	if oldPledge != nil {
 		amount = oldPledge.Amount
+		oldWithdrawHeight = oldPledge.WithdrawHeight
 	} else {
 		amount = big.NewInt(0)
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, amount, getPledgeWithdrawHeight(vm), param.Beneficial, Agent, sendBlock.AccountAddress, param.Bid)
+	pledgeInfo, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, amount, helper.Max(oldWithdrawHeight, getPledgeWithdrawHeight(vm, param.StakeHeight)), param.Beneficial, Agent, sendBlock.AccountAddress, param.Bid)
 	util.SetValue(db, pledgeKey, pledgeInfo)
 
 	beneficialKey := abi.GetPledgeBeneficialKey(param.Beneficial)

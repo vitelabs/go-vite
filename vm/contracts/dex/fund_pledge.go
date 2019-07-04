@@ -72,6 +72,7 @@ func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 		} else {
 			account.Available = SubBigInt(account.Available, amount.Bytes()).Bytes()
 			SaveUserFund(db, address, dexFund)
+			// TODO add stake height param
 			if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, pledgeType); err != nil {
 				return nil, err
 			} else {

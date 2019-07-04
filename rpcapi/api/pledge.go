@@ -45,11 +45,12 @@ type AgentPledgeParam struct {
 	PledgeAddr     types.Address `json:"pledgeAddr"`
 	BeneficialAddr types.Address `json:"beneficialAddr"`
 	Bid            uint8         `json:"bid"`
+	StakeHeight    uint64        `json:"stakeHeight"`
 	Amount         string        `json:"amount"`
 }
 
 func (p *PledgeApi) GetAgentPledgeData(param AgentPledgeParam) ([]byte, error) {
-	return abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, param.PledgeAddr, param.BeneficialAddr, param.Bid)
+	return abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, param.PledgeAddr, param.BeneficialAddr, param.Bid, param.StakeHeight)
 }
 
 func (p *PledgeApi) GetAgentCancelPledgeData(param AgentPledgeParam) ([]byte, error) {
