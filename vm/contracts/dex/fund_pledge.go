@@ -66,7 +66,14 @@ func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 	if err := SubUserFund(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err
 	} else {
-		if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, pledgeType); err != nil {
+		var stakeHeight uint64
+		switch pledgeType {
+		case PledgeForVip:
+			stakeHeight = 3600 * 24 * 30
+		case PledgeForVx:
+			stakeHeight = 3600 * 24 * 3
+		}
+		if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, pledgeType, stakeHeight); err != nil {
 			return nil, err
 		} else {
 			return pledgeData, err
@@ -84,12 +91,8 @@ func cancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8,
 			return nil, PledgeAmountLeavedNotValidErr
 		}
 	} else {
-		if pledgeVip, ok := GetPledgeForVip(db, address); !ok {
+		if _, ok := GetPledgeForVip(db, address); !ok {
 			return nil, PledgeForVipNotExistsErr
-		} else {
-			if pledgeVip.PledgeTimes == 1 && GetTimestampInt64(db)-pledgeVip.Timestamp < PledgeForVipDuration {
-				return nil, PledgeForVipNotExpireErr
-			}
 		}
 	}
 	if cancelPledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, address, types.AddressDexFund, amount, uint8(pledgeType)); err != nil {

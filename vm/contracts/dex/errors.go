@@ -36,7 +36,6 @@ var (
 	PledgeAmountLeavedNotValidErr = errors.New("pledge amount leaved not valid")
 	PledgeForVipExistsErr         = errors.New("pledge for vip exists")
 	PledgeForVipNotExistsErr      = errors.New("pledge for vip not exists")
-	PledgeForVipNotExpireErr      = errors.New("pledge for vip not expire")
 
 	InvalidSourceAddressErr           = errors.New("invalid source address")
 	InvalidAmountForPledgeCallbackErr = errors.New("invalid amouznt for pledge callback")

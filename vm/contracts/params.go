@@ -85,6 +85,8 @@ const (
 
 	tokenNameIndexMax  uint16 = 1000
 	GetRewardTimeLimit int64  = 3600 // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
+
+	PledgeHeightMax uint64 = 3600 * 24 * 365
 )
 
 var (
