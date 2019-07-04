@@ -28,7 +28,9 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		feeSumMap[feeSum.QuoteTokenType] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.InviteBonusAmount))
 		toDivideVxLeaveAmtMap[feeSum.QuoteTokenType] = new(big.Int).Set(amtPerMarket)
 		dividedFeeMap[feeSum.QuoteTokenType] = big.NewInt(0)
-		mineThesholdMap[feeSum.QuoteTokenType] = GetMineThreshold(db, feeSum.QuoteTokenType)
+	}
+	for i := ViteTokenType; i <= UsdTokenType; i++ {
+		mineThesholdMap[int32(i)] = GetMineThreshold(db, int32(i))
 	}
 
 	MarkFeeSumAsMinedVxDivided(db, feeSum, periodId)
