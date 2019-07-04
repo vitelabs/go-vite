@@ -154,6 +154,7 @@ type SnapshotBlock struct {
 type Logs struct {
 	Log              *ledger.VmLog  `json:"log"`
 	AccountBlockHash types.Hash     `json:"accountBlockHash"`
+	AccountHeight    string         `json:"accountHeight"`
 	Addr             *types.Address `json:"addr"`
 	Removed          bool           `json:"removed"`
 }
@@ -586,7 +587,7 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 					}
 					for _, l := range list {
 						if filterLog(filterParam, l) {
-							logs = append(logs, &Logs{l, blocks[i-1].Hash, &addr, false})
+							logs = append(logs, &Logs{l, blocks[i-1].Hash, api.Uint64ToString(blocks[i-1].Height), &addr, false})
 						}
 					}
 				}

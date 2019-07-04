@@ -133,9 +133,10 @@ func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, pa
 }
 
 type CallOffChainMethodParam struct {
-	SelfAddr     types.Address
-	OffChainCode string
-	Data         []byte
+	SelfAddr          types.Address `json:"selfAddr"`
+	OffChainCode      string        `json:"offchainCode"`
+	OffChainCodeBytes []byte        `json:"offchainCodeBytes"`
+	Data              []byte        `json:"data"`
 }
 
 func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
@@ -147,9 +148,14 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	codeBytes, err := hex.DecodeString(param.OffChainCode)
-	if err != nil {
-		return nil, err
+	var codeBytes []byte
+	if len(param.OffChainCode) > 0 {
+		codeBytes, err = hex.DecodeString(param.OffChainCode)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		codeBytes = param.OffChainCodeBytes
 	}
 	return vm.NewVM(nil).OffChainReader(db, codeBytes, param.Data)
 }
