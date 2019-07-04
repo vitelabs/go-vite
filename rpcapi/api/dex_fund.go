@@ -335,6 +335,26 @@ func (f DexFundApi) GetThresholdForTradeAndMine() (map[int]*apidex.RpcThresholdF
 	return thresholds, nil
 }
 
+func (f DexFundApi) GetInviterCode(address types.Address) (uint32, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return 0, err
+	}
+	return dex.GetCodeByInviter(db, address), nil
+}
+
+func (f DexFundApi) GetInviteeCode(address types.Address) (uint32, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return 0, err
+	}
+	if inviter, err := dex.GetInviterByInvitee(db, address); err != nil {
+		return 0, err
+	} else {
+		return dex.GetCodeByInviter(db, *inviter), nil
+	}
+}
+
 func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
