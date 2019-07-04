@@ -41,3 +41,12 @@ func (self *accountLevel) Add(b Item) error {
 	}
 	return self.bs[owner].add(b)
 }
+
+func (self *accountLevel) Size() int {
+	num := 0
+	for _, v := range self.bs {
+		num += len(v.Items())
+	}
+
+	return num
+}
