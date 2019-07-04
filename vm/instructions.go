@@ -504,12 +504,16 @@ func opOffchainTokenID(pc *uint64, vm *VM, c *contract, mem *memory, stack *stac
 func opAccountHeight(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	ab, err := c.db.PrevAccountBlock()
 	util.DealWithErr(err)
-	stack.push(helper.U256(c.intPool.get().SetUint64(ab.Height)))
+	if ab != nil {
+		stack.push(helper.U256(c.intPool.get().SetUint64(ab.Height)))
+	} else {
+		stack.push(c.intPool.getZero())
+	}
 	return nil, nil
 }
 
 func opOffchainAccountHeight(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	stack.push((c.intPool.getZero()))
+	stack.push(c.intPool.getZero())
 	return nil, nil
 }
 

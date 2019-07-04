@@ -18,6 +18,7 @@ type ForkPointItem struct {
 type ForkPointList []*ForkPointItem
 type ForkPointMap map[string]*ForkPointItem
 
+var isInitForkPoint = false
 var forkPointList ForkPointList
 var forkPointMap = make(ForkPointMap)
 
@@ -25,28 +26,36 @@ func (a ForkPointList) Len() int           { return len(a) }
 func (a ForkPointList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ForkPointList) Less(i, j int) bool { return a[i].Height < a[j].Height }
 
+func IsInit() bool {
+	return isInitForkPoint
+}
+
 func SetForkPoints(points *config.ForkPoints) {
-	forkPoints = *points
+	if points != nil {
+		forkPoints = *points
 
-	t := reflect.TypeOf(forkPoints)
-	v := reflect.ValueOf(forkPoints)
+		t := reflect.TypeOf(forkPoints)
+		v := reflect.ValueOf(forkPoints)
 
-	for k := 0; k < t.NumField(); k++ {
-		forkPoint := v.Field(k).Interface().(*config.ForkPoint)
+		for k := 0; k < t.NumField(); k++ {
+			forkPoint := v.Field(k).Interface().(*config.ForkPoint)
 
-		forkName := t.Field(k).Name
-		forkPointItem := &ForkPointItem{
-			ForkPoint: *forkPoint,
-			forkName:  forkName,
+			forkName := t.Field(k).Name
+			forkPointItem := &ForkPointItem{
+				ForkPoint: *forkPoint,
+				forkName:  forkName,
+			}
+
+			// set fork point list
+			forkPointList = append(forkPointList, forkPointItem)
+			// set fork point map
+			forkPointMap[forkName] = forkPointItem
 		}
 
-		// set fork point list
-		forkPointList = append(forkPointList, forkPointItem)
-		// set fork point map
-		forkPointMap[forkName] = forkPointItem
+		sort.Sort(forkPointList)
 	}
 
-	sort.Sort(forkPointList)
+	isInitForkPoint = true
 }
 
 func CheckForkPoints(points config.ForkPoints) error {
