@@ -37,7 +37,7 @@ var (
 
 	PerPeriodDividendRate int32 = 1000 // 0.01
 
-	InviteBonusRate       int32 = 500  // 0.005
+	InviteBonusRate int32 = 5000 // 0.05
 
 	RateCardinalNum int32 = 100000 // 100,000
 )
@@ -424,8 +424,9 @@ func CalculateRawAmountF(quantity []byte, price []byte, decimalsDiff int32) *big
 
 func CalculateAmountForRate(amount []byte, rate int32) []byte {
 	if rate > 0 {
-		amt := new(big.Int).SetBytes(amount)
-		return new(big.Int).Div(new(big.Int).Mul(amt, big.NewInt(int64(rate))), big.NewInt(int64(RateCardinalNum))).Bytes()
+		amtF := new(big.Float).SetPrec(bigFloatPrec).SetInt(new(big.Int).SetBytes(amount))
+		rateF, _ := new(big.Float).SetPrec(bigFloatPrec).SetString(CardinalRateToString(rate))
+		return RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(amtF, rateF)).Bytes()
 	} else {
 		return nil
 	}

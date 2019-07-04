@@ -200,6 +200,30 @@ func (f DexFundApi) GetFeeSumByPeriod(periodId uint64) (*apidex.RpcFeeSumByPerio
 	}
 }
 
+func (f DexFundApi) GetCurrentBrokerFeeSum(broker types.Address) (*apidex.RpcBrokerFeeSumByPeriod, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if brokerFeeSum, ok := dex.GetCurrentBrokerFeeSum(db, getConsensusReader(f.vite), broker.Bytes()); !ok {
+		return nil, nil
+	} else {
+		return apidex.BrokerFeeSumByPeriodToRpc(brokerFeeSum), nil
+	}
+}
+
+func (f DexFundApi) GetBrokerFeeSumByPeriod(periodId uint64, broker types.Address) (*apidex.RpcBrokerFeeSumByPeriod, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if brokerFeeSum, ok := dex.GetBrokerFeeSumByPeriodId(db, broker.Bytes(), periodId); !ok {
+		return nil, nil
+	} else {
+		return apidex.BrokerFeeSumByPeriodToRpc(brokerFeeSum), nil
+	}
+}
+
 func (f DexFundApi) GetUserFees(address types.Address) (*apidex.RpcUserFees, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
@@ -245,28 +269,6 @@ func (f DexFundApi) GetVxBalanceToMine() (string, error) {
 	return balance.String(), nil
 }
 
-func (f DexFundApi) GetThresholdForTradeAndMine() (map[int32]*apidex.RpcThresholdForTradeAndMine, error) {
-	db, err := getDb(f.chain, types.AddressDexFund)
-	if err != nil {
-		return nil, err
-	}
-	thresholds := make(map[int32]*apidex.RpcThresholdForTradeAndMine, 4)
-	for tokenType := dex.ViteTokenType; tokenType <= dex.UsdTokenType; tokenType++ {
-		tradeThreshold := dex.GetTradeThreshold(db, int32(tokenType))
-		mineThreshold := dex.GetMineThreshold(db, int32(tokenType))
-		thresholds[int32(tokenType)] = &apidex.RpcThresholdForTradeAndMine{TradeThreshold: tradeThreshold.String(), MineThreshold: mineThreshold.String()}
-	}
-	return thresholds, nil
-}
-
-func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
-	db, err := getDb(f.chain, types.AddressDexFund)
-	if err != nil {
-		return nil, err
-	}
-	return dex.VerifyDexFundBalance(db), nil
-}
-
 func (f DexFundApi) IsPledgeVip(address types.Address) (bool, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
@@ -294,6 +296,71 @@ func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
 		return "", err
 	}
 	return dex.GetPledgeForVx(db, address).String(), nil
+}
+
+func (f DexFundApi) GetFundConfig() (map[string]string, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	configs := make(map[string]string)
+	owner, _ := dex.GetOwner(db)
+	configs["owner"] = owner.String()
+	if timer := dex.GetTimer(db); timer != nil {
+		configs["timer"] = timer.String()
+	}
+	if trigger := dex.GetTrigger(db); trigger != nil {
+		configs["trigger"] = trigger.String()
+	}
+	if mineProxy := dex.GetMakerMineProxy(db); mineProxy != nil {
+		configs["mineProxy"] = mineProxy.String()
+	}
+	if maintainer := dex.GetMaintainer(db); maintainer != nil {
+		configs["maintainer"] = maintainer.String()
+	}
+	return configs, nil
+}
+
+func (f DexFundApi) GetThresholdForTradeAndMine() (map[int]*apidex.RpcThresholdForTradeAndMine, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	thresholds := make(map[int]*apidex.RpcThresholdForTradeAndMine, 4)
+	for tokenType := dex.ViteTokenType; tokenType <= dex.UsdTokenType; tokenType++ {
+		tradeThreshold := dex.GetTradeThreshold(db, int32(tokenType))
+		mineThreshold := dex.GetMineThreshold(db, int32(tokenType))
+		thresholds[tokenType] = &apidex.RpcThresholdForTradeAndMine{TradeThreshold: tradeThreshold.String(), MineThreshold: mineThreshold.String()}
+	}
+	return thresholds, nil
+}
+
+func (f DexFundApi) GetInviterCode(address types.Address) (uint32, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return 0, err
+	}
+	return dex.GetCodeByInviter(db, address), nil
+}
+
+func (f DexFundApi) GetInviteeCode(address types.Address) (uint32, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return 0, err
+	}
+	if inviter, err := dex.GetInviterByInvitee(db, address); err != nil {
+		return 0, err
+	} else {
+		return dex.GetCodeByInviter(db, *inviter), nil
+	}
+}
+
+func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	return dex.VerifyDexFundBalance(db), nil
 }
 
 func getConsensusReader(vite *vite.Vite) *util.VMConsensusReader {

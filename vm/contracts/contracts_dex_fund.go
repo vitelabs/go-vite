@@ -144,7 +144,7 @@ func (md *MethodDexFundNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewMarket, block.Data); err != nil {
 		return err
 	}
-	if err = dex.CheckMarketParam(param, block.TokenId, block.Amount); err != nil {
+	if err = dex.CheckMarketParam(param, block.TokenId); err != nil {
 		return err
 	}
 	return nil
@@ -163,13 +163,12 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 	if err = dex.RenderMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress); err != nil {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewMarket, err, sendBlock)
 	}
-	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewMarketFeeAmount)
-	if exceedAmount.Sign() > 0 {
-		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
-	}
 	if marketInfo.Valid {
-		appendBlock := dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress)
-		return []*ledger.AccountBlock{appendBlock}, nil
+		if appendBlock, err := dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress); err == nil {
+			return []*ledger.AccountBlock{appendBlock}, nil
+		} else {
+			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewMarket, err, sendBlock)
+		}
 	} else {
 		getTokenInfoData := dex.OnNewMarketPending(db, param, marketInfo)
 		return []*ledger.AccountBlock{
@@ -318,113 +317,93 @@ func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	}
 }
 
-type MethodDexFundFeeDividend struct {
+type MethodDexFundPeriodJob struct {
 }
 
-func (md *MethodDexFundFeeDividend) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexFundPeriodJob) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundFeeDividend) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexFundPeriodJob) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (md *MethodDexFundFeeDividend) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexFundFeeDividendGas, data)
+func (md *MethodDexFundPeriodJob) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(dexFundPeriodJobGas, data)
 }
 
-func (md *MethodDexFundFeeDividend) GetReceiveQuota() uint64 {
-	return dexFundFeeDividendReceiveGas
+func (md *MethodDexFundPeriodJob) GetReceiveQuota() uint64 {
+	return dexFundPeriodJobReceiveGas
 }
 
-func (md *MethodDexFundFeeDividend) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundDividend), cabi.MethodNameDexFundFeeDividend, block.Data)
+func (md *MethodDexFundPeriodJob) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexPeriodJob), cabi.MethodNameDexFundPeriodJob, block.Data)
 }
 
-func (md MethodDexFundFeeDividend) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err error
 	)
 	if !dex.ValidTriggerAddress(db, sendBlock.AccountAddress) {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundFeeDividend, dex.InvalidSourceAddressErr, sendBlock)
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, dex.InvalidSourceAddressErr, sendBlock)
 	}
-	param := new(dex.ParamDexFundDividend)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundFeeDividend, sendBlock.Data); err != nil {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundFeeDividend, err, sendBlock)
-	}
-	if param.PeriodId >= dex.GetCurrentPeriodId(db, vm.ConsensusReader()) {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundFeeDividend, fmt.Errorf("dividend periodId not before current periodId"), sendBlock)
-	}
-	if lastPeriodId := dex.GetLastFeeDividendPeriodId(db); lastPeriodId > 0 && param.PeriodId != lastPeriodId+1 {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundFeeDividend, fmt.Errorf("fee dividend period id not equals to expected id %d", lastPeriodId+1), sendBlock)
-	}
-	dex.AddPeriodWithBizEvent(db, param.PeriodId, dex.BizForFeeDividend)
-	if err = dex.DoDivideFees(db, param.PeriodId); err != nil {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundFeeDividend, err, sendBlock)
-	} else {
-		dex.SaveLastFeeDividendPeriodId(db, param.PeriodId)
-	}
-	return nil, nil
-}
-
-type MethodDexFundMineVx struct {
-}
-
-func (md *MethodDexFundMineVx) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (md *MethodDexFundMineVx) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
-	return []byte{}, false
-}
-
-func (md *MethodDexFundMineVx) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexFundMineVxGas, data)
-}
-
-func (md *MethodDexFundMineVx) GetReceiveQuota() uint64 {
-	return dexFundMineVxReceiveGas
-}
-
-func (md *MethodDexFundMineVx) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundDividend), cabi.MethodNameDexFundMineVx, block.Data)
-}
-
-func (md MethodDexFundMineVx) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var (
-		vxBalance *big.Int
-		err       error
-	)
-	if !dex.ValidTriggerAddress(db, sendBlock.AccountAddress) {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundMineVx, dex.InvalidSourceAddressErr, sendBlock)
-	}
-	param := new(dex.ParamDexFundDividend)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundMineVx, sendBlock.Data); err != nil {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundMineVx, err, sendBlock)
+	param := new(dex.ParamDexPeriodJob)
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundPeriodJob, sendBlock.Data); err != nil {
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, err, sendBlock)
 	}
 	if param.PeriodId >= dex.GetCurrentPeriodId(db, vm.ConsensusReader()) {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundMineVx, fmt.Errorf("specified periodId for mine vx not before current periodId"), sendBlock)
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, fmt.Errorf("job periodId for biz %d not before current periodId", param.BizType), sendBlock)
 	}
-	if lastMineVxPeriodId := dex.GetLastMineVxPeriodId(db); lastMineVxPeriodId > 0 && param.PeriodId != lastMineVxPeriodId+1 {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundMineVx, fmt.Errorf("mine vx period id not equals to expected id %d", lastMineVxPeriodId+1), sendBlock)
+	if lastPeriodId := dex.GetLastJobPeriodIdByBizType(db, param.BizType); lastPeriodId > 0 && param.PeriodId != lastPeriodId+1 {
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, fmt.Errorf("job periodId for biz %d  not equals to expected id %d", param.BizType, lastPeriodId+1), sendBlock)
 	}
-	vxBalance = dex.GetVxBalance(db)
-	if amtForFeePerMarket, amtForMaker, amtForMaintainer, amtForPledge, vxLeaved, success := dex.GetVxAmountToMine(db, param.PeriodId, vxBalance); !success {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundMineVx, fmt.Errorf("no vx available for mine"), sendBlock)
+	dex.AddPeriodWithBizEvent(db, param.PeriodId, param.BizType)
+	if param.BizType <= dex.BrokerFeeDividendJob {
+		switch param.BizType {
+		case dex.FeeDividendJob:
+			err = dex.DoDivideFees(db, param.PeriodId)
+		case dex.BrokerFeeDividendJob:
+			err = dex.DoDivideBrokerFees(db, param.PeriodId)
+		}
+		if err != nil {
+			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, err, sendBlock)
+		}
 	} else {
-		dex.AddPeriodWithBizEvent(db, param.PeriodId, dex.BizForMineVx)
-		if err = dex.DoMineVxForFee(db, vm.ConsensusReader(), param.PeriodId, amtForFeePerMarket); err != nil {
-			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundMineVx, err, sendBlock)
+		var (
+			vxBalance, amount, vxAmtLeaved *big.Int
+			amtForItems map[int32]*big.Int
+			success     bool
+		)
+		vxBalance = dex.GetVxBalance(db)
+		switch param.BizType {
+		case dex.MineVxForFeeJob:
+			if amtForItems, vxAmtLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxBalance, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
+				if err = dex.DoMineVxForFee(db, vm.ConsensusReader(), param.PeriodId, amtForItems); err != nil {
+					return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, err, sendBlock)
+				}
+			} else {
+				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, fmt.Errorf("no vx available on mine for fee"), sendBlock)
+			}
+		case dex.MineVxForPledgeJob:
+			if amount, vxAmtLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxBalance, dex.RateForPledgeMine); success {
+				if err = dex.DoMineVxForPledge(db, vm.ConsensusReader(), param.PeriodId, amount); err != nil {
+					return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, err, sendBlock)
+				}
+			} else {
+				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, fmt.Errorf("no vx available on mine for pledge"), sendBlock)
+			}
+		case dex.MineVxForMakerAndMaintainerJob:
+			if amtForItems, vxAmtLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxBalance, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
+				if err = dex.DoMineVxForMakerMineAndMaintainer(db, param.PeriodId, vm.ConsensusReader(), amtForItems); err != nil {
+					return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, err, sendBlock)
+				}
+			} else {
+				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, fmt.Errorf("no vx available on mine for maker and maintainer"), sendBlock)
+			}
 		}
-		if err = dex.DoMineVxForPledge(db, vm.ConsensusReader(), param.PeriodId, amtForPledge); err != nil {
-			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundMineVx, err, sendBlock)
-		}
-		if err = dex.DoMineVxForMakerMineAndMaintainer(db, vm.ConsensusReader(), amtForMaker, amtForMaintainer); err != nil {
-			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundMineVx, err, sendBlock)
-		}
-		dex.SaveVxBalance(db, vxLeaved)
+		dex.SaveVxBalance(db, vxAmtLeaved)
 	}
-	dex.SaveLastMinedVxPeriodId(db, param.PeriodId)
+	dex.SaveLastJobPeriodIdByBizType(db, param.PeriodId, param.BizType)
 	return nil, nil
 }
 
@@ -558,7 +537,7 @@ func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.Acc
 	}
 	if callbackParam.Success {
 		if callbackParam.Bid == dex.PledgeForVip {
-			if pledgeVip, ok := dex.GetPledgeForVip(db, callbackParam.PledgeAddress); ok {
+			if pledgeVip, ok := dex.GetPledgeForVip(db, callbackParam.PledgeAddress); ok { //duplicate pledge for vip
 				pledgeVip.PledgeTimes = pledgeVip.PledgeTimes + 1
 				dex.SavePledgeForVip(db, callbackParam.PledgeAddress, pledgeVip)
 				// duplicate pledge for vip, cancel pledge
@@ -1056,9 +1035,8 @@ func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if code := dex.GetCodeByInviter(db, sendBlock.AccountAddress); code > 0 {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewInviter, dex.AlreadyIsInviterErr, sendBlock)
 	}
-	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewInviterFeeAmount)
-	if exceedAmount.Sign() > 0 {
-		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
+	if err := dex.SubUserFund(db, sendBlock.AccountAddress, ledger.ViteTokenId.Bytes(), dex.NewInviterFeeAmount); err != nil {
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewInviter, err, sendBlock)
 	}
 	dex.SettleFeesWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenTypeInfo.Decimals, dex.ViteTokenType, nil, dex.NewInviterFeeAmount, nil)
 	if inviteCode := dex.NewInviteCode(db, block.PrevHash); inviteCode == 0 {
@@ -1116,6 +1094,7 @@ func (md MethodDexFundBindInviteCode) DoReceive(db vm_db.VmDb, block *ledger.Acc
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundBindInviteCode, err, sendBlock)
 	}
 	dex.SaveInviterByInvitee(db, sendBlock.AccountAddress, *inviter)
+	dex.AddInviteRelationEvent(db, *inviter, sendBlock.AccountAddress, code)
 	return nil, nil
 }
 

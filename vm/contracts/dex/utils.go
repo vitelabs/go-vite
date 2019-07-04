@@ -128,6 +128,28 @@ func BytesToPrice(priceBytes []byte) string {
 	}
 }
 
+func CardinalRateToString(rawRate int32) string {
+	rateStr := strconv.Itoa(int(rawRate))
+	cardinalStr := strconv.Itoa(int(RateCardinalNum))
+	rateLen := len(rateStr)
+	cardinalLen := len(cardinalStr)
+	if rateLen >= cardinalLen {
+		return fmt.Sprintf("%s.%s", rateStr[0:rateLen-cardinalLen+1], rateStr[rateLen-cardinalLen+1:cardinalLen])
+	} else {
+		decimalPartArr := make([]byte, cardinalLen-1)
+		if rateLen == cardinalLen-1 {
+			copy(decimalPartArr, rateStr)
+		} else {
+			//left pad 0
+			for i := 0; i < cardinalLen-rateLen-1; i++ {
+				decimalPartArr[i] = '0'
+			}
+			copy(decimalPartArr[cardinalLen-1-rateLen:], rateStr)
+		}
+		return fmt.Sprintf("0.%s", decimalPartArr)
+	}
+}
+
 func randomBytesFromBytes(data, recursiveData []byte, begin, end int) ([]byte, bool) {
 	dataLen := len(data)
 	if begin >= end || dataLen < end {
@@ -212,18 +234,4 @@ func MapToAmountWithTokens(mp map[types.TokenTypeId]*big.Int) []*AmountWithToken
 	}
 	sort.Sort(AmountWithTokenSorter(amtWithTks))
 	return amtWithTks
-}
-
-type Uint64Sorter []uint64
-
-func (st Uint64Sorter) Len() int {
-	return len(st)
-}
-
-func (st Uint64Sorter) Swap(i, j int) {
-	st[i], st[j] = st[j], st[i]
-}
-
-func (st Uint64Sorter) Less(i, j int) bool {
-	return st[i] <= st[j]
 }

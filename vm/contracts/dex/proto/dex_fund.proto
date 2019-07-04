@@ -155,3 +155,16 @@ message BrokerFeeDividend {
     bytes Amount = 5; //depend on marketInfo.QuoteToken
 }
 
+//event
+message MinedVxForOperation {
+    int32 BizType = 1; // 1 MineForMaker, 2 MineForMaintainer
+    bytes Address = 2;
+    bytes Amount = 3;
+}
+
+//event
+message InviteRelation {
+    bytes Inviter = 1;
+    bytes Invitee = 2;
+    uint32 InviteCode = 3;
+}

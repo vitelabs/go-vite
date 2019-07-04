@@ -8,17 +8,18 @@ import (
 	"math/big"
 )
 
-func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtPerMarket *big.Int) error {
+//Note: allow mine from specify periodId, former periods will be ignore
+func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int) error {
 	var (
 		feeSum                *FeeSumByPeriod
 		feeSumMap             = make(map[int32]*big.Int) // quoteTokenType -> amount
 		dividedFeeMap         = make(map[int32]*big.Int)
 		toDivideVxLeaveAmtMap = make(map[int32]*big.Int)
-		mineThesholdMap = make(map[int32]*big.Int)
+		mineThresholdMap      = make(map[int32]*big.Int)
 		err                   error
 		ok                    bool
 	)
-	if amtPerMarket == nil {
+	if len(amtForMarkets) == 0 {
 		return nil
 	}
 	if feeSum, ok = GetFeeSumByPeriodId(db, periodId); !ok {
@@ -26,11 +27,11 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 	}
 	for _, feeSum := range feeSum.FeesForMine {
 		feeSumMap[feeSum.QuoteTokenType] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.InviteBonusAmount))
-		toDivideVxLeaveAmtMap[feeSum.QuoteTokenType] = new(big.Int).Set(amtPerMarket)
+		toDivideVxLeaveAmtMap[feeSum.QuoteTokenType] = new(big.Int).Set(amtForMarkets[feeSum.QuoteTokenType])
 		dividedFeeMap[feeSum.QuoteTokenType] = big.NewInt(0)
 	}
 	for i := ViteTokenType; i <= UsdTokenType; i++ {
-		mineThesholdMap[int32(i)] = GetMineThreshold(db, int32(i))
+		mineThresholdMap[int32(i)] = GetMineThreshold(db, int32(i))
 	}
 
 	MarkFeeSumAsMinedVxDivided(db, feeSum, periodId)
@@ -71,7 +72,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 			var vxMinedForBase = big.NewInt(0)
 			var vxMinedForInvite = big.NewInt(0)
 			for _, userFee := range userFees.Fees[0].UserFees {
-				if !IsValidFeeForMine(userFee, mineThesholdMap[userFee.QuoteTokenType]) {
+				if !IsValidFeeForMine(userFee, mineThresholdMap[userFee.QuoteTokenType]) {
 					continue
 				}
 				if feeSumAmt, ok := feeSumMap[userFee.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
@@ -82,7 +83,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 					var vxDividend, vxDividendForInvite *big.Int
 					var finished, finishedForInvite bool
 					if len(userFee.BaseAmount) > 0 {
-						vxDividend, finished = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.BaseAmount), dividedFeeMap[userFee.QuoteTokenType], amtPerMarket, toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
+						vxDividend, finished = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.BaseAmount), dividedFeeMap[userFee.QuoteTokenType], amtForMarkets[userFee.QuoteTokenType], toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
 						vxMinedForBase.Add(vxMinedForBase, vxDividend)
 						AddMinedVxForTradeFeeEvent(db, address, userFee.QuoteTokenType, userFee.BaseAmount, vxDividend)
 					}
@@ -90,7 +91,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 						delete(feeSumMap, userFee.QuoteTokenType)
 					} else {
 						if len(userFee.InviteBonusAmount) > 0 {
-							vxDividendForInvite, finishedForInvite = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.InviteBonusAmount), dividedFeeMap[userFee.QuoteTokenType], amtPerMarket, toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
+							vxDividendForInvite, finishedForInvite = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.InviteBonusAmount), dividedFeeMap[userFee.QuoteTokenType], amtForMarkets[userFee.QuoteTokenType], toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
 							vxMinedForInvite.Add(vxMinedForInvite, vxDividendForInvite)
 							AddMinedVxForInviteeFeeEvent(db, address, userFee.QuoteTokenType, userFee.InviteBonusAmount, vxDividendForInvite)
 							if finishedForInvite {
@@ -167,7 +168,7 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 		if err = pledgesForVx.DeSerialize(pledgeForVxValue); err != nil {
 			return err
 		}
-		foundPledgesForVx, PledgesForVxAmtBytes, needUpdatePledgesForVx, needDeletePledgesForVx := MatchPledgeForVxByPeriod(pledgesForVx, periodId, true)
+		foundPledgesForVx, pledgesForVxAmtBytes, needUpdatePledgesForVx, needDeletePledgesForVx := MatchPledgeForVxByPeriod(pledgesForVx, periodId, true)
 		if !foundPledgesForVx {
 			continue
 		}
@@ -176,7 +177,7 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 		} else if needUpdatePledgesForVx {
 			SavePledgesForVx(db, address, pledgesForVx)
 		}
-		pledgeAmt := new(big.Int).SetBytes(PledgesForVxAmtBytes)
+		pledgeAmt := new(big.Int).SetBytes(pledgesForVxAmtBytes)
 		if !IsValidPledgeAmountForVx(pledgeAmt) {
 			continue
 		}
@@ -192,61 +193,73 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 	return nil
 }
 
-func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, reader util.ConsensusReader, makerAmt, maintainerAmt *big.Int) error {
-	if makerAmt != nil {
-		if makerMineProxy, err := GetMakerMineProxy(db); makerMineProxy == nil || err != nil {
-			panic(InternalErr)
-		} else {
-			updatedAcc := DepositUserAccount(db, *makerMineProxy, VxTokenId, makerAmt)
-			OnDepositVx(db, reader, *makerMineProxy, makerAmt, updatedAcc)
-		}
+func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader util.ConsensusReader, amtForMakerAndMaintainer map[int32]*big.Int) error {
+	if amtForMakerAndMaintainer[MineForMaker].Sign() > 0 {
+		makerMineProxy := GetMakerMineProxy(db)
+		amtForMaker, _ := amtForMakerAndMaintainer[MineForMaker]
+		SaveMakerProxyAmountByPeriodId(db, periodId, amtForMaker)
+		AddMinedVxForOperationEvent(db, MineForMaker, *makerMineProxy, amtForMaker)
 	}
-	if maintainerAmt != nil {
-		if maintainer, err := GetMaintainer(db); maintainer == nil || err != nil {
-			panic(InternalErr)
-		} else {
-			updatedAcc := DepositUserAccount(db, *maintainer, VxTokenId, maintainerAmt)
-			OnDepositVx(db, reader, *maintainer, maintainerAmt, updatedAcc)
-		}
+	if amtForMakerAndMaintainer[MineForMaintainer].Sign() > 0 {
+		maintainer := GetMaintainer(db)
+		amtForMaintainer, _ := amtForMakerAndMaintainer[MineForMaintainer]
+		updatedAcc := DepositUserAccount(db, *maintainer, VxTokenId, amtForMaintainer)
+		OnDepositVx(db, reader, *maintainer, amtForMaintainer, updatedAcc)
+		AddMinedVxForOperationEvent(db, MineForMaintainer, *maintainer, amtForMaintainer)
 	}
 	return nil
 }
 
-func GetVxAmountToMine(db vm_db.VmDb, periodId uint64, vxBalance *big.Int) (amtForFeePerMarket, amtForMaker, amtForMaintainer, amtForPledge, vxAmtLeaved *big.Int, success bool) {
+func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxBalance *big.Int, rateSum string, begin, end int)(amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
 	if vxBalance.Sign() > 0 {
 		success = true
 		toDivideTotal := GetVxToMineByPeriodId(db, periodId)
-		if vxBalance.Cmp(toDivideTotal) < 0 {
-			toDivideTotal.Set(vxBalance)
-		}
-		vxAmtLeaved = new(big.Int).Sub(vxBalance, toDivideTotal)
-
-		toDivideLeaved := new(big.Int).Set(toDivideTotal)
 		toDivideTotalF := new(big.Float).SetPrec(bigFloatPrec).SetInt(toDivideTotal)
-		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString("0.15") // trade fee mine
-		amtForFeePerMarket = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
-		amtForFeeTotal := new(big.Int).Mul(amtForFeePerMarket, big.NewInt(4))
-		toDivideLeaved.Sub(toDivideLeaved, amtForFeeTotal)
-		if toDivideLeaved.Sign() <= 0 {
-			return
+		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString(rateSum)
+		amountSum := RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
+		var notEnough bool
+		if amountSum.Cmp(vxBalance) > 0 {
+			amountSum.Set(vxBalance)
+			notEnough = true
 		}
-		proportion, _ = new(big.Float).SetPrec(bigFloatPrec).SetString("0.1") // order maker
-		amtForMaker = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
-		toDivideLeaved.Sub(toDivideLeaved, amtForMaker)
-		if toDivideLeaved.Sign() <= 0 {
-			return
+		amount := new(big.Int).Div(amountSum, big.NewInt(int64(end - begin + 1)))
+		amountForItems = make(map[int32]*big.Int)
+		vxAmtLeaved = new(big.Int).Set(vxBalance)
+		for i := begin; i <= end; i++ {
+			if vxAmtLeaved.Cmp(amount) >= 0 {
+				amountForItems[int32(i)] = new(big.Int).Set(amount)
+			} else {
+				amountForItems[int32(i)] = new(big.Int).Set(vxAmtLeaved)
+			}
+			vxAmtLeaved.Sub(vxAmtLeaved, amountForItems[int32(i)])
 		}
-		amtForMaintainer = new(big.Int).Set(amtForMaker)
-		toDivideLeaved.Sub(toDivideLeaved, amtForMaintainer)
-		if toDivideLeaved.Sign() <= 0 {
-			return
+		if notEnough || vxAmtLeaved.Cmp(vxMineDust) <= 0 {
+			amountForItems[int32(begin)].Add(amountForItems[int32(begin)], vxAmtLeaved)
+			vxAmtLeaved.SetInt64(0)
 		}
-		amtForPledge = new(big.Int).Set(toDivideLeaved)
-		return
 	} else {
 		success = false
-		return
 	}
+	return
+}
+
+func GetVxAmountToMine(db vm_db.VmDb, periodId uint64, vxBalance *big.Int, rate string) (amount, vxAmtLeaved *big.Int, success bool) {
+	if vxBalance.Sign() > 0 {
+		success = true
+		toDivideTotal := GetVxToMineByPeriodId(db, periodId)
+		toDivideTotalF := new(big.Float).SetPrec(bigFloatPrec).SetInt(toDivideTotal)
+		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString(rate)
+		amount = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
+		if amount.Cmp(vxBalance) > 0 {
+			amount.Set(vxBalance)
+		} else {
+			vxBalance.Sub(vxBalance, amount)
+		}
+		vxAmtLeaved = new(big.Int).Sub(vxBalance, amount)
+	} else {
+		success = false
+	}
+	return
 }
 
 func GetVxToMineByPeriodId(db vm_db.VmDb, periodId uint64) *big.Int {

@@ -188,7 +188,7 @@ func innerTestFeeDividend(t *testing.T, db *testDatabase) {
 	// userAddress1 userFees 4 -> [VITE : 17]
 	// userAddress2 userFees 4 -> [ETH : 19]
 	assert.True(t, err == nil)
-	assert.Equal(t, uint64(2), dex.GetLastFeeDividendPeriodId(db))
+	assert.Equal(t, uint64(2), dex.GetLastJobPeriodIdByBizType(db))
 
 	checkFeeSum(t, db, 1, 0, true, 2)
 	checkFeeSum(t, db, 2, 1, true, 2)
@@ -348,7 +348,7 @@ func feeDividend(db *testDatabase, periodId uint64) error {
 		return  err
 	} else {
 		feeDividendReceiveBlock := &ledger.AccountBlock{}
-		feeDividendMethod := contracts.MethodDexFundFeeDividend{}
+		feeDividendMethod := contracts.MethodDexFundPeriodJob{}
 		_, err = feeDividendMethod.DoReceive(db, feeDividendReceiveBlock, feeDividendSendBlock, nil)
 		return err
 	}

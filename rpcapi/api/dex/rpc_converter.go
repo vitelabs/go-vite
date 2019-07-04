@@ -109,7 +109,7 @@ func FeeSumByPeriodToRpc(feeSum *dex.FeeSumByPeriod) *RpcFeeSumByPeriod {
 	rpcFeeSum := &RpcFeeSumByPeriod{}
 	for _, dividend := range feeSum.FeesForDividend {
 		rpcDividend := &RpcFeeSumForDividend{}
-		rpcDividend.Token = tokenBytesToString(dividend.Token)
+		rpcDividend.Token = TokenBytesToString(dividend.Token)
 		rpcDividend.DividendPoolAmount = AmountBytesToString(dividend.DividendPoolAmount)
 		rpcFeeSum.FeesForDividend = append(rpcFeeSum.FeesForDividend, rpcDividend)
 	}
@@ -124,6 +124,43 @@ func FeeSumByPeriodToRpc(feeSum *dex.FeeSumByPeriod) *RpcFeeSumByPeriod {
 	rpcFeeSum.FinishFeeDividend = feeSum.FinishFeeDividend
 	rpcFeeSum.FinishVxMine = feeSum.FinishVxMine
 	return rpcFeeSum
+}
+
+type RpcBrokerMarketFee struct {
+	MarketId           int32  `json:"marketId"`
+	TakerBrokerFeeRate int32  `json:"takerBrokerFeeRate"`
+	MakerBrokerFeeRate int32  `json:"makerBrokerFeeRate"`
+	Amount             string `json:"amount"`
+}
+
+type RpcBrokerFeeAccount struct {
+	Token      string                `json:"token"`
+	MarketFees []*RpcBrokerMarketFee `json:"marketFees"`
+}
+
+type RpcBrokerFeeSumByPeriod struct {
+	BrokerFees []*RpcBrokerFeeAccount `json:"brokerFees"`
+}
+
+func BrokerFeeSumByPeriodToRpc(brokerFeeSum *dex.BrokerFeeSumByPeriod) *RpcBrokerFeeSumByPeriod {
+	if brokerFeeSum == nil {
+		return nil
+	}
+	rpcBrokerFeeSum := &RpcBrokerFeeSumByPeriod{}
+	for _, fee := range brokerFeeSum.BrokerFees {
+		rpcFee := &RpcBrokerFeeAccount{}
+		rpcFee.Token = TokenBytesToString(fee.Token)
+		for _, acc := range fee.MarketFees {
+			rpcAcc := &RpcBrokerMarketFee{}
+			rpcAcc.MarketId = acc.MarketId
+			rpcAcc.TakerBrokerFeeRate = acc.TakerBrokerFeeRate
+			rpcAcc.MakerBrokerFeeRate = acc.MakerBrokerFeeRate
+			rpcAcc.Amount = AmountBytesToString(acc.Amount)
+			rpcFee.MarketFees = append(rpcFee.MarketFees, rpcAcc)
+		}
+		rpcBrokerFeeSum.BrokerFees = append(rpcBrokerFeeSum.BrokerFees, rpcFee)
+	}
+	return rpcBrokerFeeSum
 }
 
 type RpcUserFeeAccount struct {
@@ -193,7 +230,7 @@ func AmountBytesToString(amt []byte) string {
 	return new(big.Int).SetBytes(amt).String()
 }
 
-func tokenBytesToString(token []byte) string {
+func TokenBytesToString(token []byte) string {
 	tk, _ := types.BytesToTokenTypeId(token)
 	return tk.String()
 }

@@ -15,10 +15,12 @@ const tokenEventName = "tokenEvent"
 const marketEventName = "marketEvent"
 const periodWithBizEventName = "periodWithBizEvent"
 const feeDividendForVxHolderEventName = "feeDividendForVxHolderEvent"
+const brokerFeeDividendEventName = "brokerFeeDividendEvent"
 const minedVxForTradeFeeEventName = "minedVxForTradeFeeEvent"
 const minedVxForInviteeFeeEventName = "minedVxForInviteeFeeEvent"
 const minedVxForPledgeEventName = "minedVxForPledgeEvent"
-const brokerFeeDividendEventName = "brokerFeeDividendEvent"
+const minedVxForOperationEventName = "minedVxForOperation"
+const inviteRelationEventName = "inviteRelationEvent"
 const errEventName = "errEvent"
 
 type DexEvent interface {
@@ -55,6 +57,10 @@ type FeeDividendEvent struct {
 	dexproto.FeeDividendForVxHolder
 }
 
+type BrokerFeeDividendEvent struct {
+	dexproto.BrokerFeeDividend
+}
+
 type MinedVxForTradeFeeEvent struct {
 	dexproto.MinedVxForFee
 }
@@ -67,8 +73,12 @@ type MinedVxForPledgeEvent struct {
 	dexproto.MinedVxForPledge
 }
 
-type BrokerFeeDividendEvent struct {
-	dexproto.BrokerFeeDividend
+type MinedVxForOperationEvent struct {
+	dexproto.MinedVxForOperation
+}
+
+type InviteRelationEvent struct {
+	dexproto.InviteRelation
 }
 
 type ErrEvent struct {
@@ -201,6 +211,24 @@ func (fde FeeDividendEvent) FromBytes(data []byte) interface{} {
 	}
 }
 
+func (bfd BrokerFeeDividendEvent) GetTopicId() types.Hash {
+	return fromNameToHash(brokerFeeDividendEventName)
+}
+
+func (bfd BrokerFeeDividendEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&bfd.BrokerFeeDividend)
+	return data
+}
+
+func (bfd BrokerFeeDividendEvent) FromBytes(data []byte) interface{} {
+	event := BrokerFeeDividendEvent{}
+	if err := proto.Unmarshal(data, &event.BrokerFeeDividend); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
 func (mtf MinedVxForTradeFeeEvent) GetTopicId() types.Hash {
 	return fromNameToHash(minedVxForTradeFeeEventName)
 }
@@ -255,18 +283,36 @@ func (mp MinedVxForPledgeEvent) FromBytes(data []byte) interface{} {
 	}
 }
 
-func (bfd BrokerFeeDividendEvent) GetTopicId() types.Hash {
-	return fromNameToHash(brokerFeeDividendEventName)
+func (mo MinedVxForOperationEvent) GetTopicId() types.Hash {
+	return fromNameToHash(minedVxForOperationEventName)
 }
 
-func (bfd BrokerFeeDividendEvent) toDataBytes() []byte {
-	data, _ := proto.Marshal(&bfd.BrokerFeeDividend)
+func (mo MinedVxForOperationEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&mo.MinedVxForOperation)
 	return data
 }
 
-func (bfd BrokerFeeDividendEvent) FromBytes(data []byte) interface{} {
-	event := BrokerFeeDividendEvent{}
-	if err := proto.Unmarshal(data, &event.BrokerFeeDividend); err != nil {
+func (mo MinedVxForOperationEvent) FromBytes(data []byte) interface{} {
+	event := MinedVxForOperationEvent{}
+	if err := proto.Unmarshal(data, &event.MinedVxForOperation); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (ir InviteRelationEvent) GetTopicId() types.Hash {
+	return fromNameToHash(inviteRelationEventName)
+}
+
+func (ir InviteRelationEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&ir.InviteRelation)
+	return data
+}
+
+func (ir InviteRelationEvent) FromBytes(data []byte) interface{} {
+	event := InviteRelationEvent{}
+	if err := proto.Unmarshal(data, &event.InviteRelation); err != nil {
 		return nil
 	} else {
 		return event

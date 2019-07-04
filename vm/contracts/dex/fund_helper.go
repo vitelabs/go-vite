@@ -15,12 +15,9 @@ import (
 	"strings"
 )
 
-func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.TokenTypeId, feeAmount *big.Int) (err error) {
+func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.TokenTypeId) (err error) {
 	if feeTokenId != ledger.ViteTokenId {
 		return fmt.Errorf("token type of fee for create market not valid")
-	}
-	if feeAmount.Cmp(NewMarketFeeAmount) < 0 {
-		return fmt.Errorf("fee for create market not enough")
 	}
 	if marketParam.TradeToken == marketParam.QuoteToken {
 		return TradeMarketInvalidTokenPairErr
@@ -72,7 +69,10 @@ func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, t
 	marketInfo.Owner = tradeTokenInfo.Owner
 }
 
-func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block *ledger.AccountBlock) {
+func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block *ledger.AccountBlock, err error) {
+	if err = SubUserFund(db, *address, ledger.ViteTokenId.Bytes(), NewMarketFeeAmount); err != nil {
+		return nil, err
+	}
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
 	userFee.BaseFee = NewMarketFeeDividendAmount.Bytes()
@@ -80,7 +80,6 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
 	AddMarketEvent(db, marketInfo)
 	var marketBytes, blockData []byte
-	var err error
 	if marketBytes, err = marketInfo.Serialize(); err != nil {
 		panic(err)
 	} else {
@@ -94,7 +93,7 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 				TokenId:        ledger.ViteTokenId,
 				Amount:         big.NewInt(0),
 				Data:           blockData,
-			}
+			}, nil
 		}
 	}
 }
@@ -102,7 +101,6 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo *MarketInfo) []byte {
 	SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
 	AddToPendingNewMarkets(db, param.TradeToken, param.QuoteToken)
-	AddPendingNewMarketFeeSum(db)
 	if data, err := abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, param.TradeToken, uint8(GetTokenForNewMarket)); err != nil {
 		panic(err)
 	} else {
@@ -134,13 +132,17 @@ func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, 
 					if creator, err = types.BytesToAddress(marketInfo.Creator); err != nil {
 						panic(err)
 					}
-					SubPendingNewMarketFeeSum(db)
 					if bizErr := RenderMarketInfo(db, marketInfo, tradeTokenId, quoteTokenId, tradeTokenInfo, &creator); bizErr != nil {
 						DeleteMarketInfo(db, tradeTokenId, quoteTokenId)
 						appendBlocks = append(appendBlocks, RefundNewMarketFee(creator))
 						AddErrEvent(db, bizErr)
 					} else {
-						appendBlocks = append(appendBlocks, OnNewMarketValid(db, reader, marketInfo, tradeTokenId, quoteTokenId, &creator))
+						var block *ledger.AccountBlock
+						if block, err = OnNewMarketValid(db, reader, marketInfo, tradeTokenId, quoteTokenId, &creator); err == nil {
+							appendBlocks = append(appendBlocks, block)
+						} else {
+							return
+						}
 					}
 				}
 			}
@@ -162,7 +164,6 @@ func OnNewMarketGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId
 				if marketInfo, ok := GetMarketInfo(db, tradeTokenId, quoteTokenId); !ok || marketInfo.Valid {
 					continue
 				} else {
-					SubPendingNewMarketFeeSum(db)
 					DeleteMarketInfo(db, tradeTokenId, quoteTokenId)
 					if address, err := types.BytesToAddress(marketInfo.Creator); err != nil {
 						panic(err)

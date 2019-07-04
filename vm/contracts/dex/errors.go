@@ -36,13 +36,11 @@ var (
 	PledgeAmountLeavedNotValidErr = errors.New("pledge amount leaved not valid")
 	PledgeForVipExistsErr         = errors.New("pledge for vip exists")
 	PledgeForVipNotExistsErr      = errors.New("pledge for vip not exists")
-	PledgeForVipNotExpireErr      = errors.New("pledge for vip not expire")
 
 	InvalidSourceAddressErr           = errors.New("invalid source address")
 	InvalidAmountForPledgeCallbackErr = errors.New("invalid amouznt for pledge callback")
 
 	InvalidTokenErr                      = errors.New("invalid token")
-	PendingDonateAmountSubExceedErr      = errors.New("pending donate amount sub exceed")
 	PendingNewMarketInnerConflictErr     = errors.New("pending new market inner conflict")
 	GetTokenInfoCallbackInnerConflictErr = errors.New("get token info callback inner conflict")
 	InvalidTimestampFromTimerErr         = errors.New("invalid timestamp from timer")
@@ -51,6 +49,8 @@ var (
 	NoFeeSumFoundForValidPeriodErr = errors.New("no fee sum found for valid period")
 	NotSetTimestampErr             = errors.New("not set timestamp")
 	IterateVmDbFailedErr           = errors.New("iterate vm db failed")
+	NotSetMaintainerErr            = errors.New("not set maintainer")
+	NotSetMineProxyErr             = errors.New("not set mine proxy")
 
 	InvalidInviterFeeAmountErr = errors.New("invalid inviter fee amount")
 	AlreadyIsInviterErr        = errors.New("already is inviter")

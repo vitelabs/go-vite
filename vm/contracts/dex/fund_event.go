@@ -20,10 +20,10 @@ func AddMarketEvent(db vm_db.VmDb, marketInfo *MarketInfo) {
 	doEmitEventLog(db, event)
 }
 
-func AddPeriodWithBizEvent(db vm_db.VmDb, periodId uint64, bizType int32) {
+func AddPeriodWithBizEvent(db vm_db.VmDb, periodId uint64, bizType uint8) {
 	event := &PeriodWithBizEvent{}
 	event.Period = periodId
-	event.BizType = bizType
+	event.BizType = int32(bizType)
 	doEmitEventLog(db, event)
 }
 
@@ -69,6 +69,22 @@ func AddMinedVxForPledgeEvent(db vm_db.VmDb, address types.Address, pledgeAmt, m
 	event.Address = address.Bytes()
 	event.PledgeAmount = pledgeAmt.Bytes()
 	event.MinedAmount = minedAmt.Bytes()
+	doEmitEventLog(db, event)
+}
+
+func AddMinedVxForOperationEvent(db vm_db.VmDb, bizType int32, address types.Address, amount *big.Int) {
+	event := &MinedVxForOperationEvent{}
+	event.BizType = bizType
+	event.Address = address.Bytes()
+	event.Amount = amount.Bytes()
+	doEmitEventLog(db, event)
+}
+
+func AddInviteRelationEvent(db vm_db.VmDb, inviter, invitee types.Address, inviteCode uint32) {
+	event := &InviteRelationEvent{}
+	event.Inviter = inviter.Bytes()
+	event.Invitee = invitee.Bytes()
+	event.InviteCode = inviteCode
 	doEmitEventLog(db, event)
 }
 
