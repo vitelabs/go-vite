@@ -2,7 +2,6 @@ package dex
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
@@ -31,7 +30,6 @@ func VerifyDexFundBalance(db vm_db.VmDb) *FundVerifyRes {
 	count, _ := accumulateUserAccount(db, userAmountMap)
 	balanceMatch := true
 	accumulateFeeAccount(db, feeAmountMap)
-	accumulatePendingNewMarketFeeSum(db, feeAmountMap)
 	accumulateBrokerFeeAccount(db, feeAmountMap)
 	for tokenId, userAmount := range userAmountMap {
 		var (
@@ -161,12 +159,6 @@ func accumulateBrokerFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenType
 		}
 	}
 	return nil
-}
-
-func accumulatePendingNewMarketFeeSum(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) {
-	if bs := getValueFromDb(db, pendingNewMarketFeeSumKey); len(bs) > 0 {
-		accAccount(ledger.ViteTokenId, bs, accumulateRes)
-	}
 }
 
 func accAccount(tokenId types.TokenTypeId, amount []byte, accAccount map[types.TokenTypeId]*big.Int) {

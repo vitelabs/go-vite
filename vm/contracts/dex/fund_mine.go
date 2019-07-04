@@ -27,7 +27,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 	}
 	for _, feeSum := range feeSum.FeesForMine {
 		feeSumMap[feeSum.QuoteTokenType] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.InviteBonusAmount))
-		toDivideVxLeaveAmtMap[feeSum.QuoteTokenType] = amtForMarkets[feeSum.QuoteTokenType]
+		toDivideVxLeaveAmtMap[feeSum.QuoteTokenType] = new(big.Int).Set(amtForMarkets[feeSum.QuoteTokenType])
 		dividedFeeMap[feeSum.QuoteTokenType] = big.NewInt(0)
 		mineThesholdMap[feeSum.QuoteTokenType] = GetMineThreshold(db, feeSum.QuoteTokenType)
 	}
@@ -81,7 +81,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 					var vxDividend, vxDividendForInvite *big.Int
 					var finished, finishedForInvite bool
 					if len(userFee.BaseAmount) > 0 {
-						vxDividend, finished = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.BaseAmount), dividedFeeMap[userFee.QuoteTokenType], amtForMarkets, toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
+						vxDividend, finished = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.BaseAmount), dividedFeeMap[userFee.QuoteTokenType], amtForMarkets[userFee.QuoteTokenType], toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
 						vxMinedForBase.Add(vxMinedForBase, vxDividend)
 						AddMinedVxForTradeFeeEvent(db, address, userFee.QuoteTokenType, userFee.BaseAmount, vxDividend)
 					}
@@ -89,7 +89,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 						delete(feeSumMap, userFee.QuoteTokenType)
 					} else {
 						if len(userFee.InviteBonusAmount) > 0 {
-							vxDividendForInvite, finishedForInvite = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.InviteBonusAmount), dividedFeeMap[userFee.QuoteTokenType], amtForMarkets, toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
+							vxDividendForInvite, finishedForInvite = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.InviteBonusAmount), dividedFeeMap[userFee.QuoteTokenType], amtForMarkets[userFee.QuoteTokenType], toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
 							vxMinedForInvite.Add(vxMinedForInvite, vxDividendForInvite)
 							AddMinedVxForInviteeFeeEvent(db, address, userFee.QuoteTokenType, userFee.InviteBonusAmount, vxDividendForInvite)
 							if finishedForInvite {
@@ -166,7 +166,7 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 		if err = pledgesForVx.DeSerialize(pledgeForVxValue); err != nil {
 			return err
 		}
-		foundPledgesForVx, PledgesForVxAmtBytes, needUpdatePledgesForVx, needDeletePledgesForVx := MatchPledgeForVxByPeriod(pledgesForVx, periodId, true)
+		foundPledgesForVx, pledgesForVxAmtBytes, needUpdatePledgesForVx, needDeletePledgesForVx := MatchPledgeForVxByPeriod(pledgesForVx, periodId, true)
 		if !foundPledgesForVx {
 			continue
 		}
@@ -175,7 +175,7 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 		} else if needUpdatePledgesForVx {
 			SavePledgesForVx(db, address, pledgesForVx)
 		}
-		pledgeAmt := new(big.Int).SetBytes(PledgesForVxAmtBytes)
+		pledgeAmt := new(big.Int).SetBytes(pledgesForVxAmtBytes)
 		if !IsValidPledgeAmountForVx(pledgeAmt) {
 			continue
 		}
@@ -230,7 +230,7 @@ func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxBalance *big.In
 			vxAmtLeaved.Sub(vxAmtLeaved, amountForItems[int32(i)])
 		}
 		if notEnough || vxAmtLeaved.Cmp(vxMineDust) <= 0 {
-			amountForItems[begin].Add(amountForItems[begin], vxAmtLeaved)
+			amountForItems[int32(begin)].Add(amountForItems[int32(begin)], vxAmtLeaved)
 			vxAmtLeaved.SetInt64(0)
 		}
 	} else {

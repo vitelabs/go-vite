@@ -30,7 +30,6 @@ var (
 
 	brokerFeeSumKeyPrefix = []byte("bf:") // brokerFeeSum:periodId, must
 
-	pendingNewMarketFeeSumKey           = []byte("pnmfS:") // pending feeSum for new market
 	pendingNewMarketActionsKey          = []byte("pmkas:")
 	pendingSetQuoteActionsKey           = []byte("psqas:")
 	pendingTransferTokenOwnerActionsKey = []byte("ptoas:")
@@ -43,8 +42,7 @@ var (
 	VxFundKeyPrefix = []byte("vxF:")  // vxFund:types.Address
 	vxSumFundsKey   = []byte("vxFS:") // vxFundSum
 
-	lastJobPeriodIdWithBizTypeKey = []byte("lFDPId:")
-	lastMinedVxPeriodIdKey        = []byte("fMVPId:")
+	lastJobPeriodIdWithBizTypeKey = []byte("ljpBId:")
 	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
@@ -94,10 +92,10 @@ var (
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
 	usdMineThreshold     = big.NewInt(2000000)                                // 0.1USD
 
-	RateSumForFeeMine                = "0.6"
-	RateForPledgeMine                = "0.2"
-	RateSumForMakerAndMaintainerMine = "0.1"
-	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 2 VITE
+	RateSumForFeeMine                = "0.6" // 15% * 4
+	RateForPledgeMine                = "0.2" // 20%
+	RateSumForMakerAndMaintainerMine = "0.2" // 10% + 10%
+	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 
 	QuoteTokenTypeInfos = map[int32]*QuoteTokenTypeInfo{
 		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, DefaultTradeThreshold: viteMinAmount, DefaultMineThreshold: viteMineThreshold},
@@ -153,6 +151,7 @@ const (
 	BtcTokenType
 	UsdTokenType
 )
+
 const (
 	MineForMaker = iota + 1
 	MineForMaintainer
@@ -574,6 +573,32 @@ func SaveUserFund(db vm_db.VmDb, address types.Address, dexFund *UserFund) {
 	serializeToDb(db, GetUserFundKey(address), dexFund)
 }
 
+func SubUserFund(db vm_db.VmDb, address types.Address, tokenId []byte, amount *big.Int) (err error) {
+	if userFund, ok := GetUserFund(db, address); ok {
+		var foundAcc bool
+		for _, acc := range userFund.Accounts {
+			if bytes.Equal(acc.Token, tokenId) {
+				foundAcc = true
+				available := new(big.Int).SetBytes(acc.Available)
+				if available.Cmp(amount) < 0 {
+					return ExceedFundAvailableErr
+				} else {
+					acc.Available = available.Sub(available, NewMarketFeeAmount).Bytes()
+				}
+				break
+			}
+		}
+		if foundAcc {
+			SaveUserFund(db, address, userFund)
+		} else {
+			return ExceedFundAvailableErr
+		}
+	} else {
+		return ExceedFundAvailableErr
+	}
+	return nil
+}
+
 func BatchSaveUserFund(db vm_db.VmDb, address types.Address, funds map[types.TokenTypeId]*big.Int) error {
 	userFund, _ := GetUserFund(db, address)
 	for _, acc := range userFund.Accounts {
@@ -956,42 +981,6 @@ func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTyp
 
 func SavePendingNewMarkets(db vm_db.VmDb, pendingNewMarkets *PendingNewMarkets) {
 	serializeToDb(db, pendingNewMarketActionsKey, pendingNewMarkets)
-}
-
-func GetPendingNewMarketFeeSum(db vm_db.VmDb) *big.Int {
-	if amountBytes := getValueFromDb(db, pendingNewMarketFeeSumKey); len(amountBytes) > 0 {
-		return new(big.Int).SetBytes(amountBytes)
-	} else {
-		return big.NewInt(0)
-	}
-}
-
-func AddPendingNewMarketFeeSum(db vm_db.VmDb) {
-	modifyPendingNewMarketFeeSum(db, true)
-}
-
-func SubPendingNewMarketFeeSum(db vm_db.VmDb) {
-	modifyPendingNewMarketFeeSum(db, false)
-}
-
-func modifyPendingNewMarketFeeSum(db vm_db.VmDb, isAdd bool) {
-	var (
-		originAmount = GetPendingNewMarketFeeSum(db)
-		newAmount    *big.Int
-	)
-	if isAdd {
-		newAmount = new(big.Int).Add(originAmount, NewMarketFeeAmount)
-	} else {
-		newAmount = new(big.Int).Sub(originAmount, NewMarketFeeAmount)
-	}
-	if newAmount.Sign() < 0 {
-		panic(PendingDonateAmountSubExceedErr)
-	}
-	if newAmount.Sign() == 0 {
-		setValueToDb(db, pendingNewMarketFeeSumKey, nil)
-	} else {
-		setValueToDb(db, pendingNewMarketFeeSumKey, newAmount.Bytes())
-	}
 }
 
 //handle case on duplicate callback for getTokenInfo

@@ -298,7 +298,7 @@ func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
 	return dex.GetPledgeForVx(db, address).String(), nil
 }
 
-func (f DexFundApi) GetFuncConfig() (map[string]string, error) {
+func (f DexFundApi) GetFundConfig() (map[string]string, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err

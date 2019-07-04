@@ -63,20 +63,13 @@ func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 			return nil, PledgeForVipExistsErr
 		}
 	}
-	if dexFund, ok := GetUserFund(db, address); !ok {
-		return nil, ExceedFundAvailableErr
+	if err := SubUserFund(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
+		return nil, err
 	} else {
-		account, exists := GetAccountByTokeIdFromFund(dexFund, ledger.ViteTokenId)
-		if !exists || CmpForBigInt(account.Available, amount.Bytes()) < 0 {
-			return nil, ExceedFundAvailableErr
+		if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, pledgeType); err != nil {
+			return nil, err
 		} else {
-			account.Available = SubBigInt(account.Available, amount.Bytes()).Bytes()
-			SaveUserFund(db, address, dexFund)
-			if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, pledgeType); err != nil {
-				return nil, err
-			} else {
-				return pledgeData, err
-			}
+			return pledgeData, err
 		}
 	}
 }

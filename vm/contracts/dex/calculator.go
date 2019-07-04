@@ -40,7 +40,7 @@ func CmpForBigInt(a []byte, b []byte) int {
 	return new(big.Int).SetBytes(a).Cmp(new(big.Int).SetBytes(b))
 }
 
-func GetAbs(v int32) (int32, int32) {//abs, sign
+func GetAbs(v int32) (int32, int32) { //abs, sign
 	if v < 0 {
 		return -v, -1
 	} else {

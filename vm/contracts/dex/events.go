@@ -19,6 +19,7 @@ const minedVxForTradeFeeEventName = "minedVxForTradeFeeEvent"
 const minedVxForInviteeFeeEventName = "minedVxForInviteeFeeEvent"
 const minedVxForPledgeEventName = "minedVxForPledgeEvent"
 const brokerFeeDividendEventName = "brokerFeeDividendEvent"
+const inviteRelationEventName = "inviteRelationEvent"
 const errEventName = "errEvent"
 
 type DexEvent interface {
@@ -69,6 +70,10 @@ type MinedVxForPledgeEvent struct {
 
 type BrokerFeeDividendEvent struct {
 	dexproto.BrokerFeeDividend
+}
+
+type InviteRelationEvent struct {
+	dexproto.InviteRelation
 }
 
 type ErrEvent struct {
@@ -267,6 +272,24 @@ func (bfd BrokerFeeDividendEvent) toDataBytes() []byte {
 func (bfd BrokerFeeDividendEvent) FromBytes(data []byte) interface{} {
 	event := BrokerFeeDividendEvent{}
 	if err := proto.Unmarshal(data, &event.BrokerFeeDividend); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (ir InviteRelationEvent) GetTopicId() types.Hash {
+	return fromNameToHash(inviteRelationEventName)
+}
+
+func (ir InviteRelationEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&ir.InviteRelation)
+	return data
+}
+
+func (ir InviteRelationEvent) FromBytes(data []byte) interface{} {
+	event := InviteRelationEvent{}
+	if err := proto.Unmarshal(data, &event.InviteRelation); err != nil {
 		return nil
 	} else {
 		return event

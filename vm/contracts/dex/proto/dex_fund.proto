@@ -155,3 +155,10 @@ message BrokerFeeDividend {
     bytes Amount = 5; //depend on marketInfo.QuoteToken
 }
 
+//event
+message InviteRelation {
+    bytes Inviter = 1;
+    bytes Invitee = 2;
+    uint32 InviteCode = 3;
+}
+

@@ -144,7 +144,7 @@ func (md *MethodDexFundNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewMarket, block.Data); err != nil {
 		return err
 	}
-	if err = dex.CheckMarketParam(param, block.TokenId, block.Amount); err != nil {
+	if err = dex.CheckMarketParam(param, block.TokenId); err != nil {
 		return err
 	}
 	return nil
@@ -163,13 +163,12 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 	if err = dex.RenderMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken, nil, &sendBlock.AccountAddress); err != nil {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewMarket, err, sendBlock)
 	}
-	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewMarketFeeAmount)
-	if exceedAmount.Sign() > 0 {
-		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
-	}
 	if marketInfo.Valid {
-		appendBlock := dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress)
-		return []*ledger.AccountBlock{appendBlock}, nil
+		if appendBlock, err := dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress); err == nil {
+			return []*ledger.AccountBlock{appendBlock}, nil
+		} else {
+			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewMarket, err, sendBlock)
+		}
 	} else {
 		getTokenInfoData := dex.OnNewMarketPending(db, param, marketInfo)
 		return []*ledger.AccountBlock{
@@ -330,11 +329,11 @@ func (md *MethodDexFundPeriodJob) GetRefundData(sendBlock *ledger.AccountBlock) 
 }
 
 func (md *MethodDexFundPeriodJob) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexFundFeePeriodJobGas, data)
+	return util.TotalGasCost(dexFundPeriodJobGas, data)
 }
 
 func (md *MethodDexFundPeriodJob) GetReceiveQuota() uint64 {
-	return dexFundFeePeriodJobReceiveGas
+	return dexFundPeriodJobReceiveGas
 }
 
 func (md *MethodDexFundPeriodJob) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -1096,6 +1095,7 @@ func (md MethodDexFundBindInviteCode) DoReceive(db vm_db.VmDb, block *ledger.Acc
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundBindInviteCode, err, sendBlock)
 	}
 	dex.SaveInviterByInvitee(db, sendBlock.AccountAddress, *inviter)
+	dex.AddInviteRelationEvent(db, *inviter, sendBlock.AccountAddress, code)
 	return nil, nil
 }
 
