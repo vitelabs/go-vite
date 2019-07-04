@@ -61,6 +61,7 @@ var (
 
 	maintainerKey     = []byte("mtA:")
 	makerMineProxyKey = []byte("mmpA:")
+	makerMineProxyAmountByPeriodKey = []byte("mmpaP:")
 
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 
@@ -886,6 +887,10 @@ func SaveVxSumFunds(db vm_db.VmDb, vxSumFunds *VxFunds) {
 	serializeToDb(db, vxSumFundsKey, vxSumFunds)
 }
 
+func SaveMakerProxyAmountByPeriodId(db vm_db.VmDb, periodId uint64, amount *big.Int) {
+	setValueToDb(db, append(makerMineProxyAmountByPeriodKey, Uint64ToBytes(periodId)...), amount.Bytes())
+}
+
 func GetLastJobPeriodIdByBizType(db vm_db.VmDb, bizType uint8) uint64 {
 	if lastPeriodIdBytes := getValueFromDb(db, GetLastJobPeriodIdKey(bizType)); len(lastPeriodIdBytes) == 8 {
 		return binary.BigEndian.Uint64(lastPeriodIdBytes)
@@ -929,6 +934,7 @@ func GetCurrentPeriodId(db vm_db.VmDb, reader util.ConsensusReader) uint64 {
 func GetPeriodIdByTimestamp(reader util.ConsensusReader, timestamp int64) uint64 {
 	return reader.GetIndexByTime(timestamp, 0)
 }
+
 
 //handle case on duplicate callback for getTokenInfo
 func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quoteTokens [][]byte, err error) {

@@ -15,7 +15,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		feeSumMap             = make(map[int32]*big.Int) // quoteTokenType -> amount
 		dividedFeeMap         = make(map[int32]*big.Int)
 		toDivideVxLeaveAmtMap = make(map[int32]*big.Int)
-		mineThesholdMap       = make(map[int32]*big.Int)
+		mineThresholdMap      = make(map[int32]*big.Int)
 		err                   error
 		ok                    bool
 	)
@@ -31,7 +31,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		dividedFeeMap[feeSum.QuoteTokenType] = big.NewInt(0)
 	}
 	for i := ViteTokenType; i <= UsdTokenType; i++ {
-		mineThesholdMap[int32(i)] = GetMineThreshold(db, int32(i))
+		mineThresholdMap[int32(i)] = GetMineThreshold(db, int32(i))
 	}
 
 	MarkFeeSumAsMinedVxDivided(db, feeSum, periodId)
@@ -72,7 +72,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 			var vxMinedForBase = big.NewInt(0)
 			var vxMinedForInvite = big.NewInt(0)
 			for _, userFee := range userFees.Fees[0].UserFees {
-				if !IsValidFeeForMine(userFee, mineThesholdMap[userFee.QuoteTokenType]) {
+				if !IsValidFeeForMine(userFee, mineThresholdMap[userFee.QuoteTokenType]) {
 					continue
 				}
 				if feeSumAmt, ok := feeSumMap[userFee.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
@@ -193,17 +193,19 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 	return nil
 }
 
-func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, reader util.ConsensusReader, amtForMakerAndMaintainer map[int32]*big.Int) error {
+func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader util.ConsensusReader, amtForMakerAndMaintainer map[int32]*big.Int) error {
 	if amtForMakerAndMaintainer[MineForMaker].Sign() > 0 {
 		makerMineProxy := GetMakerMineProxy(db)
-		updatedAcc := DepositUserAccount(db, *makerMineProxy, VxTokenId, amtForMakerAndMaintainer[MineForMaker])
-		//TODO remove deposit Vx and save amount to db with periodId for following settle to vx holder
-		OnDepositVx(db, reader, *makerMineProxy, amtForMakerAndMaintainer[MineForMaker], updatedAcc)
+		amtForMaker, _ := amtForMakerAndMaintainer[MineForMaker]
+		SaveMakerProxyAmountByPeriodId(db, periodId, amtForMaker)
+		AddMinedVxForOperationEvent(db, MineForMaker, *makerMineProxy, amtForMaker)
 	}
 	if amtForMakerAndMaintainer[MineForMaintainer].Sign() > 0 {
 		maintainer := GetMaintainer(db)
-		updatedAcc := DepositUserAccount(db, *maintainer, VxTokenId, amtForMakerAndMaintainer[MineForMaintainer])
-		OnDepositVx(db, reader, *maintainer, amtForMakerAndMaintainer[MineForMaintainer], updatedAcc)
+		amtForMaintainer, _ := amtForMakerAndMaintainer[MineForMaintainer]
+		updatedAcc := DepositUserAccount(db, *maintainer, VxTokenId, amtForMaintainer)
+		OnDepositVx(db, reader, *maintainer, amtForMaintainer, updatedAcc)
+		AddMinedVxForOperationEvent(db, MineForMaintainer, *maintainer, amtForMaintainer)
 	}
 	return nil
 }

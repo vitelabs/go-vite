@@ -394,7 +394,7 @@ func (md MethodDexFundPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 			}
 		case dex.MineVxForMakerAndMaintainerJob:
 			if amtForItems, vxAmtLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxBalance, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
-				if err = dex.DoMineVxForMakerMineAndMaintainer(db, vm.ConsensusReader(), amtForItems); err != nil {
+				if err = dex.DoMineVxForMakerMineAndMaintainer(db, param.PeriodId, vm.ConsensusReader(), amtForItems); err != nil {
 					return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, err, sendBlock)
 				}
 			} else {
@@ -1035,9 +1035,8 @@ func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if code := dex.GetCodeByInviter(db, sendBlock.AccountAddress); code > 0 {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewInviter, dex.AlreadyIsInviterErr, sendBlock)
 	}
-	exceedAmount := new(big.Int).Sub(sendBlock.Amount, dex.NewInviterFeeAmount)
-	if exceedAmount.Sign() > 0 {
-		dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, exceedAmount)
+	if err := dex.SubUserFund(db, sendBlock.AccountAddress, ledger.ViteTokenId.Bytes(), dex.NewInviterFeeAmount); err != nil {
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewInviter, err, sendBlock)
 	}
 	dex.SettleFeesWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenTypeInfo.Decimals, dex.ViteTokenType, nil, dex.NewInviterFeeAmount, nil)
 	if inviteCode := dex.NewInviteCode(db, block.PrevHash); inviteCode == 0 {

@@ -72,6 +72,14 @@ func AddMinedVxForPledgeEvent(db vm_db.VmDb, address types.Address, pledgeAmt, m
 	doEmitEventLog(db, event)
 }
 
+func AddMinedVxForOperationEvent(db vm_db.VmDb, bizType int32, address types.Address, amount *big.Int) {
+	event := &MinedVxForOperationEvent{}
+	event.BizType = bizType
+	event.Address = address.Bytes()
+	event.Amount = amount.Bytes()
+	doEmitEventLog(db, event)
+}
+
 func AddInviteRelationEvent(db vm_db.VmDb, inviter, invitee types.Address, inviteCode uint32) {
 	event := &InviteRelationEvent{}
 	event.Inviter = inviter.Bytes()
