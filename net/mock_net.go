@@ -5,8 +5,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/net/vnode"
-
-	"github.com/vitelabs/go-vite/net/p2p"
 )
 
 type mockNet struct {
@@ -15,19 +13,6 @@ type mockNet struct {
 
 func (n *mockNet) PeerKey() ed25519.PrivateKey {
 	return nil
-}
-
-func (n *mockNet) ProtoData() (height uint64, head types.Hash, genesis types.Hash) {
-	genesis = n.chain.GetGenesisSnapshotBlock().Hash
-	current := n.chain.GetLatestSnapshotBlock()
-	height = current.Height
-	head = current.Hash
-
-	return
-}
-
-func (n *mockNet) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level, err error) {
-	return
 }
 
 func (n *mockNet) SubscribeSyncStatus(fn SyncStateCallback) (subId int) {
@@ -105,22 +90,6 @@ func (n *mockNet) Stop() error {
 }
 
 func (n *mockNet) Start() error {
-	return nil
-}
-
-func (n *mockNet) Handle(msg p2p.Msg) error {
-	return nil
-}
-
-func (n *mockNet) State() []byte {
-	return nil
-}
-
-func (n *mockNet) OnPeerAdded(peer *p2p.Peer) error {
-	return nil
-}
-
-func (n *mockNet) OnPeerRemoved(peer *p2p.Peer) error {
 	return nil
 }
 

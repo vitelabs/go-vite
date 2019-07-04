@@ -24,15 +24,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"path"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
-
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net/discovery"
 	"github.com/vitelabs/go-vite/net/netool"
 	"github.com/vitelabs/go-vite/net/vnode"
 )
@@ -43,12 +40,6 @@ var errPeerNotExist = errors.New("peer not exist")
 var errLevelIsFull = errors.New("level is full")
 
 var p2pLog = log15.New("module", "p2p")
-
-// Authenticator will authenticate all inbound connection whether can access our server
-type Authenticator interface {
-	// Authenticate the connection, connection will be disconnected if return false
-	Authenticate() bool
-}
 
 // NodeInfo represent current p2p node
 type NodeInfo struct {
@@ -63,37 +54,17 @@ type NodeInfo struct {
 }
 
 type P2P interface {
-	Config() Config
 	Start() error
 	Stop() error
 	Connect(node string) error
 	ConnectNode(node *vnode.Node) error
 	Info() NodeInfo
 	Register(pt Protocol) error
-	Discovery() discovery.Discovery
-	Node() *vnode.Node
 }
 
 type Handshaker interface {
 	ReceiveHandshake(c Codec) (peer *Peer, err error)
 	InitiateHandshake(c Codec, id vnode.NodeID) (peer *Peer, err error)
-}
-
-type basePeer interface {
-	MsgWriter
-	ID() vnode.NodeID
-	String() string
-	Address() net.Addr
-	Info() PeerInfo
-	Close(err error) error
-	Level() Level
-	SetLevel(level Level) error
-	Height() uint64
-	Head() types.Hash
-	SetHead(head types.Hash, height uint64)
-	FileAddress() string
-	Weight() int64
-	Disconnect(err error)
 }
 
 type peerManager interface {
@@ -103,12 +74,6 @@ type peerManager interface {
 
 type p2p struct {
 	cfg *Config
-
-	node *vnode.Node
-
-	discv discovery.Discovery
-
-	db *nodeDB
 
 	mu sync.Mutex
 	dialer
@@ -188,31 +153,11 @@ func New(cfg *Config) P2P {
 		blackList:   netool.NewBlackList(strategy),
 		dialer:      newDialer(5*time.Second, 5, hkr, codecFactory),
 		log:         p2pLog,
-		node:        cfg.Node(),
-	}
-
-	// open database
-	var err error
-	p.db, err = newNodeDB(path.Join(cfg.DataDir, DBDirName), 1, p.node.ID)
-	if err != nil {
-		panic(fmt.Errorf("failed to create database: %v", err))
-	}
-
-	if cfg.Discover {
-		p.discv = discovery.New(cfg.Config, p.db)
 	}
 
 	p.server = newServer(retryStartDuration, retryStartCount, cfg.maxPeers[Inbound], cfg.MaxPendingPeers, p.handshaker, p, cfg.ListenAddress, p.blackList, codecFactory)
 
 	return p
-}
-
-func (p *p2p) Node() *vnode.Node {
-	return p.node
-}
-
-func (p *p2p) Discovery() discovery.Discovery {
-	return p.discv
 }
 
 // add success return true
@@ -230,12 +175,6 @@ func (p *p2p) Start() (err error) {
 
 		if err = p.server.Start(); err != nil {
 			return err
-		}
-
-		if p.cfg.Discover {
-			if err = p.discv.Start(); err != nil {
-				return err
-			}
 		}
 
 		p.wg.Add(1)
@@ -304,10 +243,6 @@ func (p *p2p) Register(pt Protocol) error {
 	_, _, p.handshaker.genesis = pt.ProtoData()
 
 	return nil
-}
-
-func (p *p2p) Config() Config {
-	return *p.cfg
 }
 
 // register and run peer, blocked, should invoke by goroutine

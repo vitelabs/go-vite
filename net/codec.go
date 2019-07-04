@@ -16,13 +16,13 @@
  * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package p2p
+package net
 
 import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
+	_net "net"
 	"time"
 
 	"github.com/golang/snappy"
@@ -35,7 +35,6 @@ const readMsgTimeout = 30 * time.Second
 const writeMsgTimeout = 30 * time.Second
 
 var errMsgPayloadTooLarge = errors.New("message payload is too large")
-var errWriteTooShort = errors.New("write message too short")
 
 // Codec is an transport can encode messages to bytes, transmit bytes, then decode bytes to messages
 type Codec interface {
@@ -44,11 +43,11 @@ type Codec interface {
 	SetReadTimeout(timeout time.Duration)
 	SetWriteTimeout(timeout time.Duration)
 	SetTimeout(timeout time.Duration)
-	Address() net.Addr
+	Address() _net.Addr
 }
 
 type CodecFactory interface {
-	CreateCodec(conn net.Conn) Codec
+	CreateCodec(conn _net.Conn) Codec
 }
 
 /*
@@ -140,7 +139,7 @@ func storeMeta(isize, lsize byte, compressed bool) (meta byte) {
 }
 
 type transport struct {
-	net.Conn
+	_net.Conn
 	readTimeout       time.Duration
 	writeTimeout      time.Duration
 	minCompressLength int // will not compress message payload if small than minCompressLength bytes
@@ -149,7 +148,7 @@ type transport struct {
 	writeBuf          []byte
 }
 
-func (t *transport) Address() net.Addr {
+func (t *transport) Address() _net.Addr {
 	return t.Conn.RemoteAddr()
 }
 
@@ -159,11 +158,11 @@ type transportFactory struct {
 	writeTimeout      time.Duration
 }
 
-func (tf *transportFactory) CreateCodec(conn net.Conn) Codec {
+func (tf *transportFactory) CreateCodec(conn _net.Conn) Codec {
 	return NewTransport(conn, tf.minCompressLength, tf.readTimeout, tf.writeTimeout)
 }
 
-func NewTransport(conn net.Conn, minCompressLength int, readTimeout, writeTimeout time.Duration) Codec {
+func NewTransport(conn _net.Conn, minCompressLength int, readTimeout, writeTimeout time.Duration) Codec {
 	return &transport{
 		Conn:              conn,
 		minCompressLength: minCompressLength,
@@ -273,7 +272,6 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 	// compress payload
 	var compress bool
 	payloadLen := len(msg.Payload)
-	beforeCompress := time.Now()
 	if payloadLen > t.minCompressLength {
 		preCompressLength := snappy.MaxEncodedLen(payloadLen)
 		if cap(t.writeBuf) < preCompressLength {
@@ -290,7 +288,6 @@ func (t *transport) WriteMsg(msg Msg) (err error) {
 			compress = true
 		}
 	}
-	p2pLog.Debug(fmt.Sprintf("compress %d bytes to %d bytes, ellapse %s", payloadLen, len(msg.Payload), time.Now().Sub(beforeCompress)))
 
 	// store msg length
 	lsize := PutVarint(head[headLen:], uint(payloadLen))

@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/vitepb"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,27 +14,24 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/net/message"
-	"github.com/vitelabs/go-vite/net/p2p"
-	"github.com/vitelabs/go-vite/net/protos"
 	"github.com/vitelabs/go-vite/tools/list"
 )
 
 type msgHandler interface {
 	name() string
-	codes() []p2p.Code
-	handle(msg p2p.Msg, sender *Peer) error
+	codes() []Code
+	handle(msg Msg) error
 }
 
 type msgHandlers struct {
 	_name    string
-	handlers map[p2p.Code]msgHandler
+	handlers map[Code]msgHandler
 }
 
 func newHandlers(name string) *msgHandlers {
 	return &msgHandlers{
 		_name:    name,
-		handlers: make(map[p2p.Code]msgHandler),
+		handlers: make(map[Code]msgHandler),
 	}
 }
 
@@ -40,7 +39,7 @@ func (m msgHandlers) name() string {
 	return m._name
 }
 
-func (m msgHandlers) codes() (codes []p2p.Code) {
+func (m msgHandlers) codes() (codes []Code) {
 	for c := range m.handlers {
 		codes = append(codes, c)
 	}
@@ -48,9 +47,9 @@ func (m msgHandlers) codes() (codes []p2p.Code) {
 	return
 }
 
-func (m msgHandlers) handle(msg p2p.Msg, sender *Peer) error {
+func (m msgHandlers) handle(msg Msg) error {
 	if handler, ok := m.handlers[msg.Code]; ok {
-		return handler.handle(msg, sender)
+		return handler.handle(msg)
 	}
 
 	return nil
@@ -68,7 +67,7 @@ func (m msgHandlers) register(h msgHandler) error {
 }
 
 func (m msgHandlers) unregister(h msgHandler) (err error) {
-	var codes []p2p.Code
+	var codes []Code
 
 	for _, c := range h.codes() {
 		if _, ok := m.handlers[c]; ok {
@@ -133,14 +132,9 @@ func (q *queryHandler) stop() {
 	}
 }
 
-type queryTask struct {
-	msg    p2p.Msg
-	sender *Peer
-}
-
-func (q *queryHandler) handle(msg p2p.Msg, sender *Peer) error {
+func (q *queryHandler) handle(msg Msg) error {
 	q.lock.Lock()
-	q.queue.Append(queryTask{msg, sender})
+	q.queue.Append(msg)
 	q.lock.Unlock()
 
 	return nil
@@ -150,7 +144,7 @@ func (q *queryHandler) loop() {
 	defer q.wg.Done()
 
 	const batch = 10
-	var tasks = make([]queryTask, batch)
+	var tasks = make([]Msg, batch)
 	var index = 0
 	var ele interface{}
 
@@ -164,7 +158,7 @@ func (q *queryHandler) loop() {
 
 		q.lock.Lock()
 		for index, ele = 0, q.queue.Shift(); ele != nil; ele = q.queue.Shift() {
-			tasks[index] = ele.(queryTask)
+			tasks[index] = ele.(Msg)
 			index++
 			if index >= batch {
 				break
@@ -175,10 +169,10 @@ func (q *queryHandler) loop() {
 		if index == 0 {
 			time.Sleep(20 * time.Millisecond)
 		} else {
-			for _, event := range tasks[:index] {
+			for _, msg := range tasks[:index] {
 				// allocate to handlers
-				if err := q.msgHandlers.handle(event.msg, event.sender); err != nil {
-					event.sender.catch(err)
+				if err := q.msgHandlers.handle(msg); err != nil {
+					msg.Sender.catch(err)
 				}
 			}
 		}
@@ -197,12 +191,12 @@ func (c *checkHandler) name() string {
 	return "Check"
 }
 
-func (c *checkHandler) codes() []p2p.Code {
-	return []p2p.Code{p2p.CodeGetHashList}
+func (c *checkHandler) codes() []Code {
+	return []Code{CodeGetHashList}
 }
 
 // return [startHeight+1 ... end]
-func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (code p2p.Code, payload p2p.Serializable) {
+func (c *checkHandler) handleGetHashHeightList(get *GetHashHeightList) (code Code, payload Serializable) {
 	var block *ledger.SnapshotBlock
 	var err error
 	for _, hh := range get.From {
@@ -220,7 +214,7 @@ func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (
 	}
 
 	if block == nil {
-		return p2p.CodeException, p2p.ExpMissing
+		return CodeException, ExpMissing
 	}
 
 	step := get.Step
@@ -229,7 +223,7 @@ func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (
 		start = block.Height + 1
 	}
 
-	var points []*message.HashHeightPoint
+	var points []*HashHeightPoint
 	for start <= get.To {
 		block, err = c.chain.GetSnapshotBlockByHeight(start)
 		if err != nil || block == nil {
@@ -237,7 +231,7 @@ func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (
 			break
 		}
 
-		points = append(points, &message.HashHeightPoint{
+		points = append(points, &HashHeightPoint{
 			HashHeight: ledger.HashHeight{
 				Height: block.Height,
 				Hash:   block.Hash,
@@ -255,7 +249,7 @@ func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (
 	}
 
 	if len(points) == 0 {
-		return p2p.CodeException, p2p.ExpMissing
+		return CodeException, ExpMissing
 	}
 
 	var reader interfaces.LedgerReader
@@ -270,20 +264,20 @@ func (c *checkHandler) handleGetHashHeightList(get *message.GetHashHeightList) (
 		start = point.Height + 1
 	}
 
-	return p2p.CodeHashList, &message.HashHeightPointList{
+	return CodeHashList, &HashHeightPointList{
 		Points: points,
 	}
 }
 
-func (c *checkHandler) handle(msg p2p.Msg, sender *Peer) (err error) {
-	var get = &message.GetHashHeightList{}
+func (c *checkHandler) handle(msg Msg) (err error) {
+	var get = &GetHashHeightList{}
 	err = get.Deserialize(msg.Payload)
 	if err != nil {
 		return err
 	}
 
 	cd, payload := c.handleGetHashHeightList(get)
-	return sender.send(cd, msg.Id, payload)
+	return msg.Sender.send(cd, msg.Id, payload)
 }
 
 type getSnapshotBlocksHandler struct {
@@ -294,14 +288,14 @@ func (s *getSnapshotBlocksHandler) name() string {
 	return "GetSnapshotBlocks"
 }
 
-func (s *getSnapshotBlocksHandler) codes() []p2p.Code {
-	return []p2p.Code{p2p.CodeGetSnapshotBlocks}
+func (s *getSnapshotBlocksHandler) codes() []Code {
+	return []Code{CodeGetSnapshotBlocks}
 }
 
-func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender *Peer) (err error) {
+func (s *getSnapshotBlocksHandler) handle(msg Msg) (err error) {
 	defer monitor.LogTime("net", "handle_GetSnapshotBlocksMsg", time.Now())
 
-	req := new(message.GetSnapshotBlocks)
+	req := new(GetSnapshotBlocks)
 
 	if err = req.Deserialize(msg.Payload); err != nil {
 		msg.Recycle()
@@ -309,7 +303,7 @@ func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender *Peer) (err error)
 	}
 	msg.Recycle()
 
-	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender))
+	netLog.Info(fmt.Sprintf("receive %s from %s", req, msg.Sender))
 
 	var block *ledger.SnapshotBlock
 	if req.From.Hash != types.ZERO_HASH {
@@ -319,8 +313,8 @@ func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender *Peer) (err error)
 	}
 
 	if err != nil || block == nil {
-		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
-		return sender.send(p2p.CodeException, msg.Id, p2p.ExpMissing)
+		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, msg.Sender, err))
+		return msg.Sender.send(CodeException, msg.Id, ExpMissing)
 	}
 
 	// use for split
@@ -343,15 +337,15 @@ func (s *getSnapshotBlocksHandler) handle(msg p2p.Msg, sender *Peer) (err error)
 	for _, c := range chunks {
 		blocks, err = s.chain.GetSnapshotBlocksByHeight(c[0], true, c[1]-c[0]+1)
 		if err != nil || len(blocks) == 0 {
-			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
-			return sender.send(p2p.CodeException, msg.Id, p2p.ExpMissing)
+			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, msg.Sender, err))
+			return msg.Sender.send(CodeException, msg.Id, ExpMissing)
 		}
 
-		if err = sender.sendSnapshotBlocks(blocks, msg.Id); err != nil {
-			netLog.Error(fmt.Sprintf("send %d SnapshotBlocks to %s error: %v", len(blocks), sender, err))
+		if err = msg.Sender.sendSnapshotBlocks(blocks, msg.Id); err != nil {
+			netLog.Error(fmt.Sprintf("send %d SnapshotBlocks to %s error: %v", len(blocks), msg.Sender, err))
 			return
 		} else {
-			netLog.Info(fmt.Sprintf("send %d SnapshotBlocks [%s/%d - %s/%d] to %s done", len(blocks), blocks[0].Hash, blocks[0].Height, blocks[len(blocks)-1].Hash, blocks[len(blocks)-1].Height, sender))
+			netLog.Info(fmt.Sprintf("send %d SnapshotBlocks [%s/%d - %s/%d] to %s done", len(blocks), blocks[0].Hash, blocks[0].Height, blocks[len(blocks)-1].Hash, blocks[len(blocks)-1].Height, msg.Sender))
 		}
 	}
 
@@ -367,17 +361,17 @@ func (a *getAccountBlocksHandler) name() string {
 	return "GetAccountBlocks Handler"
 }
 
-func (a *getAccountBlocksHandler) codes() []p2p.Code {
-	return []p2p.Code{p2p.CodeGetAccountBlocks}
+func (a *getAccountBlocksHandler) codes() []Code {
+	return []Code{CodeGetAccountBlocks}
 }
 
 var nilAddress = types.Address{}
 var errGetABlocksMissingParam = errors.New("missing param to GetAccountBlocks")
 
-func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender *Peer) (err error) {
+func (a *getAccountBlocksHandler) handle(msg Msg) (err error) {
 	defer monitor.LogTime("net", "handle_GetAccountBlocksMsg", time.Now())
 
-	req := new(message.GetAccountBlocks)
+	req := new(GetAccountBlocks)
 
 	if err = req.Deserialize(msg.Payload); err != nil {
 		msg.Recycle()
@@ -385,7 +379,7 @@ func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender *Peer) (err error) 
 	}
 	msg.Recycle()
 
-	netLog.Info(fmt.Sprintf("receive %s from %s", req, sender))
+	netLog.Info(fmt.Sprintf("receive %s from %s", req, msg.Sender))
 
 	var block *ledger.AccountBlock
 	if req.From.Hash != types.ZERO_HASH {
@@ -400,8 +394,8 @@ func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender *Peer) (err error) 
 	}
 
 	if err != nil || block == nil {
-		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
-		return sender.send(p2p.CodeException, msg.Id, p2p.ExpMissing)
+		netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, msg.Sender, err))
+		return msg.Sender.send(CodeException, msg.Id, ExpMissing)
 	}
 
 	address := block.AccountAddress
@@ -426,15 +420,15 @@ func (a *getAccountBlocksHandler) handle(msg p2p.Msg, sender *Peer) (err error) 
 	for _, c := range chunks {
 		blocks, err = a.chain.GetAccountBlocksByHeight(address, c[1], c[1]-c[0]+1)
 		if err != nil || len(blocks) == 0 {
-			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, sender, err))
-			return sender.send(p2p.CodeException, msg.Id, p2p.ExpMissing)
+			netLog.Warn(fmt.Sprintf("handle %s from %s error: %v", req, msg.Sender, err))
+			return msg.Sender.send(CodeException, msg.Id, ExpMissing)
 		}
 
-		if err = sender.sendAccountBlocks(blocks, msg.Id); err != nil {
-			netLog.Error(fmt.Sprintf("send %d AccountBlocks to %s error: %v", len(blocks), sender, err))
+		if err = msg.Sender.sendAccountBlocks(blocks, msg.Id); err != nil {
+			netLog.Error(fmt.Sprintf("send %d AccountBlocks to %s error: %v", len(blocks), msg.Sender, err))
 			return
 		} else {
-			netLog.Info(fmt.Sprintf("send %d AccountBlocks [%s/%d - %s/%d] to %s done", len(blocks), blocks[0].Hash, blocks[0].Height, blocks[len(blocks)-1].Hash, blocks[len(blocks)-1].Height, sender))
+			netLog.Info(fmt.Sprintf("send %d AccountBlocks [%s/%d - %s/%d] to %s done", len(blocks), blocks[0].Hash, blocks[0].Height, blocks[len(blocks)-1].Hash, blocks[len(blocks)-1].Height, msg.Sender))
 		}
 	}
 
@@ -497,12 +491,12 @@ func (s stateHandler) name() string {
 	return "state"
 }
 
-func (s stateHandler) codes() []p2p.Code {
-	return []p2p.Code{p2p.CodeHeartBeat}
+func (s stateHandler) codes() []Code {
+	return []Code{CodeHeartBeat}
 }
 
-func (s stateHandler) handle(msg p2p.Msg, sender *Peer) (err error) {
-	var heartbeat = &protos.State{}
+func (s stateHandler) handle(msg Msg) (err error) {
+	var heartbeat = &vitepb.State{}
 
 	err = proto.Unmarshal(msg.Payload, heartbeat)
 	if err != nil {
@@ -515,24 +509,22 @@ func (s stateHandler) handle(msg p2p.Msg, sender *Peer) (err error) {
 		return
 	}
 
-	sender.SetHead(head, heartbeat.Height)
+	msg.Sender.SetState(head, heartbeat.Height)
 
-	if p := s.peers.get(sender.ID()); p != nil {
-		// max 100 neighbors
-		var count = len(heartbeat.Peers)
-		if count > maxNeighbors {
-			count = maxNeighbors
-		}
-		var pl = make([]peerConn, count)
-		for i := 0; i < count; i++ {
-			hp := heartbeat.Peers[i]
-			pl[i] = peerConn{
-				id:  hp.ID,
-				add: hp.Status != protos.State_Disconnected,
-			}
-		}
-		p.setPeers(pl, heartbeat.Patch)
+	// max 100 neighbors
+	var count = len(heartbeat.Peers)
+	if count > maxNeighbors {
+		count = maxNeighbors
 	}
+	var pl = make([]peerConn, count)
+	for i := 0; i < count; i++ {
+		hp := heartbeat.Peers[i]
+		pl[i] = peerConn{
+			id:  hp.ID,
+			add: hp.Status != vitepb.State_Disconnected,
+		}
+	}
+	msg.Sender.setPeers(pl, heartbeat.Patch)
 
 	return
 }

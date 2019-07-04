@@ -63,7 +63,7 @@ type Config struct {
 	AccessAllowKeys    []string
 	AccessDenyKeys     []string
 	BlackBlockHashList []string
-	ConfirmedBlockList []string
+	ConfirmedBlockList []string // from high to low, like: "xxxxxx-10001"
 	ForwardStrategy    string
 
 	//producer

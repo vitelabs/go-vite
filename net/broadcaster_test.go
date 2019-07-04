@@ -10,8 +10,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/net/circle"
-	"github.com/vitelabs/go-vite/net/message"
+	"github.com/vitelabs/go-vite/tools/circle"
 )
 
 func TestBroadcaster_Statistic(t *testing.T) {
@@ -194,7 +193,7 @@ func TestAccountMsgPool(t *testing.T) {
 	p := newAccountMsgPool()
 
 	for i := 0; i < 1000; i++ {
-		var nb = new(message.NewAccountBlock)
+		var nb = new(NewAccountBlock)
 		nb.Block = &ledger.AccountBlock{
 			BlockType:      0,
 			Hash:           types.Hash{byte(i % 256)},
@@ -243,7 +242,7 @@ func TestSnapshotMsgPool(t *testing.T) {
 
 	var now = time.Now()
 	for i := 0; i < 1000; i++ {
-		var nb = new(message.NewSnapshotBlock)
+		var nb = new(NewSnapshotBlock)
 		nb.Block = &ledger.SnapshotBlock{
 			Hash:            types.Hash{byte(i % 256)},
 			PrevHash:        types.Hash{},
@@ -280,7 +279,9 @@ func TestSnapshotMsgPool(t *testing.T) {
 }
 
 func BenchmarkCrossPeers(b *testing.B) {
-	var p = newMockPeer(vnode.RandomNodeID(), 1)
+	var p = &Peer{
+		Id: vnode.RandomNodeID(),
+	}
 	const total = 200
 	pcs := make([]peerConn, total)
 	for i := 0; i < total; i++ {
@@ -293,7 +294,9 @@ func BenchmarkCrossPeers(b *testing.B) {
 
 	var ps = newPeerSet()
 	for i := 0; i < 10; i++ {
-		err := ps.add(newMockPeer(vnode.RandomNodeID(), 1))
+		err := ps.add(&Peer{
+			Id: vnode.RandomNodeID(),
+		})
 		if err != nil {
 			panic(err)
 		}
@@ -313,16 +316,18 @@ func TestCommonPeers(t *testing.T) {
 	const common = 10
 	var commonMax = 5
 	var commonRatio = 100
-	var ourPeers = make([]broadcastPeer, our)
+	var ourPeers = make(peers, our)
 	var ppMap map[peerId]struct{}
-	var ps []broadcastPeer
+	var ps peers
 
 	for i := 0; i < our; i++ {
-		ourPeers[i] = newMockPeer(vnode.RandomNodeID(), 1)
+		ourPeers[i] = &Peer{
+			Id: vnode.RandomNodeID(),
+		}
 	}
 
-	copyOurPeers := func(n int) (l []broadcastPeer) {
-		l = make([]broadcastPeer, n)
+	copyOurPeers := func(n int) (l peers) {
+		l = make(peers, n)
 		for i := 0; i < n; i++ {
 			l[i] = ourPeers[i]
 		}
@@ -330,7 +335,7 @@ func TestCommonPeers(t *testing.T) {
 		return
 	}
 
-	verify := func(l []broadcastPeer) bool {
+	verify := func(l peers) bool {
 		for i, p := range l {
 			if p == nil {
 				t.Errorf("%d peer is nil", i)
@@ -340,7 +345,7 @@ func TestCommonPeers(t *testing.T) {
 		return true
 	}
 
-	sender := ourPeers[0].ID()
+	sender := ourPeers[0].Id
 
 	// ppMap is nil
 	ps = commonPeers(copyOurPeers(3), ppMap, sender, commonMax, commonRatio)
@@ -352,7 +357,7 @@ func TestCommonPeers(t *testing.T) {
 
 	ppMap = make(map[peerId]struct{})
 	for i := 0; i < common; i++ {
-		ppMap[ourPeers[50+i].ID()] = struct{}{}
+		ppMap[ourPeers[50+i].Id] = struct{}{}
 	}
 
 	ps = commonPeers(copyOurPeers(3), ppMap, sender, commonMax, commonRatio)
@@ -383,9 +388,11 @@ func TestCommonPeers2(t *testing.T) {
 	const totalPeers = 5
 	var commonMax = 3
 	var commonRatio = 10
-	var ps = make([]broadcastPeer, totalPeers)
+	var ps = make(peers, totalPeers)
 	for i := range ps {
-		ps[i] = newMockPeer(vnode.RandomNodeID(), 0)
+		ps[i] = &Peer{
+			Id: vnode.RandomNodeID(),
+		}
 	}
 
 	//our := ps[0]
@@ -394,24 +401,11 @@ func TestCommonPeers2(t *testing.T) {
 	sender := ps[totalPeers-1]
 	ppMap := make(map[peerId]struct{})
 	for i := 0; i < totalPeers-1; i++ {
-		ppMap[ps[i].ID()] = struct{}{}
+		ppMap[ps[i].Id] = struct{}{}
 	}
 
-	commons := commonPeers(ourPeers, ppMap, sender.ID(), commonMax, commonRatio)
+	commons := commonPeers(ourPeers, ppMap, sender.Id, commonMax, commonRatio)
 	if len(commons) != 1 {
 		t.Errorf("wrong commons count: %d", len(commons))
 	}
-}
-
-func TestForward(t *testing.T) {
-	b := newBroadcaster(mockBroadcastPeerSet{}, mockVerifier{}, newBlockFeeder(), newMemBlockStore(10), newFullForwardStrategy(newPeerSet()), nil, &mockCacheChain{})
-	now := time.Time{}
-	b.forwardSnapshotBlock(&message.NewSnapshotBlock{
-		Block: &ledger.SnapshotBlock{
-			Height:    100,
-			Timestamp: &now,
-		},
-	}, &mockPeer{})
-
-	fmt.Println(b.Statistic())
 }

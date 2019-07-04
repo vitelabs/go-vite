@@ -14,7 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/net/p2p"
 )
 
 type snapshotBlockReader interface {
@@ -246,7 +245,6 @@ type Syncer interface {
 }
 
 type Net interface {
-	p2p.Protocol
 	Syncer
 	Fetcher
 	Broadcaster

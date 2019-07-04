@@ -19,7 +19,6 @@
 package p2p
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -32,36 +31,6 @@ import (
 
 	"github.com/vitelabs/go-vite/log15"
 )
-
-var errPeerAlreadyRunning = errors.New("peer is already running")
-var errPeerNotRunning = errors.New("peer is not running")
-var errPeerWriteBusy = errors.New("peer is busy")
-var errPeerCannotWrite = errors.New("peer is not writable")
-
-// WriteMsg will put msg into queue, then write asynchronously
-func (p *Peer) WriteMsg(msg Msg) (err error) {
-	p.write()
-	defer p.writeDone()
-
-	if atomic.LoadInt32(&p.writable) == 0 {
-		return errPeerCannotWrite
-	}
-
-	select {
-	case p.writeQueue <- msg:
-		return nil
-	default:
-		return errPeerWriteBusy
-	}
-}
-
-func (p *Peer) write() {
-	atomic.AddInt32(&p.writing, 1)
-}
-
-func (p *Peer) writeDone() {
-	atomic.AddInt32(&p.writing, -1)
-}
 
 type PeerInfo struct {
 	ID         string `json:"id"`
@@ -78,21 +47,18 @@ type PeerInfo struct {
 const peerReadMsgBufferSize = 10
 const peerWriteMsgBufferSize = 100
 
-type levelManager interface {
-	changeLevel(p *Peer, old Level) error
-}
-
 type Peer struct {
 	codec       Codec
-	id          vnode.NodeID
-	name        string
-	height      uint64
-	head        types.Hash
-	version     int
-	level       Level
-	pm          levelManager
-	createAt    time.Time
-	running     int32
+	Id          vnode.NodeID
+	Name        string
+	Height      uint64
+	Head        types.Hash
+	Version     int
+	Flag        PeerFlag
+	Superior    bool
+	manager     PeerManager
+	CreateAt    int64
+	unning      int32
 	writable    int32 // set to 0 when write error in writeLoop, or close actively
 	writing     int32
 	readQueue   chan Msg // will be closed when read error in readLoop

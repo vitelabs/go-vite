@@ -27,10 +27,19 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/vitelabs/go-vite/net/vnode"
+
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/vitelabs/go-vite/net/discovery"
 )
+
+type config struct {
+	peerKey             ed25519.PrivateKey
+	node                *vnode.Node
+	booNodes, bootSeeds []string
+	listenAddress       string
+}
 
 func main() {
 	pwd, err := filepath.Abs(filepath.Dir(os.Args[0]))

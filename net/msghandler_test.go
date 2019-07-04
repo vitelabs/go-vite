@@ -124,7 +124,7 @@ func TestCheckHandler(t *testing.T) {
 	//	{175, mockHash()},
 	//}
 	//
-	//var check = &message.HashHeightList{
+	//var check = &HashHeightList{
 	//	Points: hhs,
 	//}
 	//

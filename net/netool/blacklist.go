@@ -25,17 +25,17 @@ import (
 )
 
 // Strategy receive first ban time and ban count, return true means banned
-type Strategy func(t time.Time, count int) bool
+type Strategy func(t int64, count int) bool
 
 type BlackList interface {
-	Ban([]byte)
+	Ban([]byte, int64)
 	UnBan([]byte)
 	Banned([]byte) bool
 }
 
 type record struct {
-	t time.Time
 	c int
+	t int64
 }
 
 type blackList struct {
@@ -51,35 +51,41 @@ func NewBlackList(strategy Strategy) BlackList {
 	}
 }
 
-func (b *blackList) Ban(buf []byte) {
+func (b *blackList) Ban(buf []byte, expiration int64) {
+	if len(buf) == 0 {
+		return
+	}
+
+	id := hex.EncodeToString(buf)
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	id := hex.EncodeToString(buf)
 	if r, ok := b.records[id]; ok {
-		r.t = time.Now()
+		r.t = time.Now().Unix() + expiration
 		r.c++
 	} else {
 		b.records[id] = &record{
-			t: time.Now(),
+			t: time.Now().Unix() + expiration,
 			c: 1,
 		}
 	}
 }
 
 func (b *blackList) UnBan(buf []byte) {
+	id := hex.EncodeToString(buf)
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	id := hex.EncodeToString(buf)
 	delete(b.records, id)
 }
 
 func (b *blackList) Banned(buf []byte) bool {
+	id := hex.EncodeToString(buf)
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
-
-	id := hex.EncodeToString(buf)
 
 	if r, ok := b.records[id]; ok {
 		if b.strategy(r.t, r.c) {

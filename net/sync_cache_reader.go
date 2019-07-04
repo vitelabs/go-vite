@@ -204,7 +204,7 @@ func (s *cacheReader) addChunkToBuffer(c *Chunk) {
 	s.buffer = append(s.buffer, c)
 }
 
-func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloader, irreader IrreversibleReader) *cacheReader {
+func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloader, irreader IrreversibleReader, blackBlocks map[types.Hash]struct{}) *cacheReader {
 	s := &cacheReader{
 		chain:          chain,
 		verifier:       verifier,
@@ -213,7 +213,7 @@ func newCacheReader(chain syncChain, verifier Verifier, downloader syncDownloade
 		log:            netLog.New("module", "cache"),
 		readable:       1,
 		downloadRecord: make(map[interfaces.Segment]peerId),
-		blackBlocks:    make(map[types.Hash]struct{}),
+		blackBlocks:    blackBlocks,
 		irreader:       irreader,
 	}
 
@@ -607,15 +607,5 @@ Loop:
 		}
 
 		time.Sleep(duration)
-	}
-}
-
-func (s *cacheReader) setBlackHashList(list []string) {
-	for _, str := range list {
-		hash, err := types.HexToHash(str)
-		if err != nil {
-			panic(fmt.Sprintf("failed to parse BlackBlockHash: %s %v", hash, err))
-		}
-		s.blackBlocks[hash] = struct{}{}
 	}
 }

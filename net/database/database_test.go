@@ -16,7 +16,7 @@
  * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package p2p
+package database
 
 import (
 	"bytes"
@@ -28,7 +28,7 @@ import (
 var id = vnode.RandomNodeID()
 
 func TestNodeDB_Store(t *testing.T) {
-	mdb, err := newNodeDB("", 1, id)
+	mdb, err := New("", 1, id)
 	if err != nil {
 		panic(err)
 	}

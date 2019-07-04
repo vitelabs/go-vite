@@ -24,7 +24,6 @@ import (
 
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 
-	"github.com/vitelabs/go-vite/net/discovery"
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 
@@ -43,11 +42,6 @@ const (
 
 // Config is the essential configuration to create a p2p server
 type Config struct {
-	*discovery.Config
-
-	// Discover means whether discover other nodes in the networks, default true
-	Discover bool
-
 	// Name is our node name, NO need to be unique in the whole network, just for readability, default is `vite-node`
 	Name string
 
@@ -80,11 +74,6 @@ type Config struct {
 }
 
 func (cfg *Config) Ensure() (err error) {
-	err = cfg.Config.Ensure()
-	if err != nil {
-		return
-	}
-
 	if cfg.Name == "" {
 		cfg.Name = DefaultNodeName
 	}

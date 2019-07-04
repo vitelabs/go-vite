@@ -37,7 +37,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/net/p2p"
 	"github.com/vitelabs/go-vite/net/vnode"
 	"github.com/vitelabs/go-vite/vitepb"
 )
@@ -182,7 +181,7 @@ type defaultSyncConnectionFactory struct {
 func (d *defaultSyncConnectionFactory) makeSyncConn(conn net2.Conn) *syncConn {
 	return &syncConn{
 		conn: conn,
-		c:    p2p.NewTransport(conn, 100, 10*time.Second, 10*time.Second),
+		c:    NewTransport(conn, 100, 10*time.Second, 10*time.Second),
 	}
 }
 
@@ -193,7 +192,7 @@ func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer *Peer) (*sy
 		id:   d.id,
 		time: time.Now().Unix(),
 	}
-	pub := ed25519.PublicKey(peer.ID().Bytes()).ToX25519Pk()
+	pub := ed25519.PublicKey(peer.Id.Bytes()).ToX25519Pk()
 	priv := d.peerKey.ToX25519Sk()
 	secret, err := crypto.X25519ComputeSecret(priv, pub)
 	if err != nil {
@@ -214,8 +213,8 @@ func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer *Peer) (*sy
 		return nil, err
 	}
 
-	err = c.c.WriteMsg(p2p.Msg{
-		Code:    p2p.CodeSyncHandshake,
+	err = c.c.WriteMsg(Msg{
+		Code:    CodeSyncHandshake,
 		Payload: data,
 	})
 
@@ -228,7 +227,7 @@ func (d *defaultSyncConnectionFactory) initiate(conn net2.Conn, peer *Peer) (*sy
 		return nil, err
 	}
 
-	if msg.Code != p2p.CodeSyncHandshakeOK {
+	if msg.Code != CodeSyncHandshakeOK {
 		return nil, errHandshakeError
 	}
 
@@ -246,12 +245,12 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (*syncConn, error
 		return nil, err
 	}
 
-	if msg.Code != p2p.CodeSyncHandshake {
-		_ = c.c.WriteMsg(p2p.Msg{
-			Code:    p2p.CodeDisconnect,
-			Payload: []byte{byte(p2p.PeerNotHandshakeMsg)},
+	if msg.Code != CodeSyncHandshake {
+		_ = c.c.WriteMsg(Msg{
+			Code:    CodeDisconnect,
+			Payload: []byte{byte(PeerNotHandshakeMsg)},
 		})
-		return nil, p2p.PeerNotHandshakeMsg
+		return nil, PeerNotHandshakeMsg
 	}
 
 	var hk = &syncHandshake{}
@@ -273,31 +272,31 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (*syncConn, error
 	token := xor(hash, secret)
 	if len(hk.key) != 0 {
 		if false == ed25519.Verify(hk.key, token, hk.token) {
-			_ = c.c.WriteMsg(p2p.Msg{
-				Code:    p2p.CodeDisconnect,
-				Payload: []byte{byte(p2p.PeerInvalidSignature)},
+			_ = c.c.WriteMsg(Msg{
+				Code:    CodeDisconnect,
+				Payload: []byte{byte(PeerInvalidSignature)},
 			})
-			return nil, p2p.PeerInvalidSignature
+			return nil, PeerInvalidSignature
 		}
 	} else if false == bytes.Equal(hk.token, token) {
-		_ = c.c.WriteMsg(p2p.Msg{
-			Code:    p2p.CodeDisconnect,
-			Payload: []byte{byte(p2p.PeerInvalidToken)},
+		_ = c.c.WriteMsg(Msg{
+			Code:    CodeDisconnect,
+			Payload: []byte{byte(PeerInvalidToken)},
 		})
-		return nil, p2p.PeerInvalidToken
+		return nil, PeerInvalidToken
 	}
 
 	p := d.peers.get(hk.id)
 	if p == nil {
-		_ = c.c.WriteMsg(p2p.Msg{
-			Code:    p2p.CodeDisconnect,
-			Payload: []byte{byte(p2p.PeerNoPermission)},
+		_ = c.c.WriteMsg(Msg{
+			Code:    CodeDisconnect,
+			Payload: []byte{byte(PeerNoPermission)},
 		})
-		return nil, p2p.PeerNoPermission
+		return nil, PeerNoPermission
 	}
 
-	err = c.c.WriteMsg(p2p.Msg{
-		Code: p2p.CodeSyncHandshakeOK,
+	err = c.c.WriteMsg(Msg{
+		Code: CodeSyncHandshakeOK,
 	})
 	if err != nil {
 		return nil, err
@@ -311,7 +310,7 @@ func (d *defaultSyncConnectionFactory) receive(conn net2.Conn) (*syncConn, error
 
 type syncConn struct {
 	conn   net2.Conn
-	c      p2p.Codec
+	c      Codec
 	peer   *Peer
 	busy   int32  // atomic
 	_speed uint64 // download speed, byte/s
@@ -351,7 +350,7 @@ func speedToString(s float64) string {
 
 func (f *syncConn) status() SyncConnectionStatus {
 	st := SyncConnectionStatus{
-		Address: f.peer.ID().Brief() + "@" + f.address(),
+		Address: f.peer.Id.Brief() + "@" + f.address(),
 		Speed:   speedToString(float64(f._speed)),
 		Task:    "",
 	}
@@ -414,8 +413,8 @@ func (f *syncConn) download(t *syncTask) (fatal bool, err error) {
 		return false, err
 	}
 
-	err = f.c.WriteMsg(p2p.Msg{
-		Code:    p2p.CodeSyncRequest,
+	err = f.c.WriteMsg(Msg{
+		Code:    CodeSyncRequest,
 		Payload: data,
 	})
 
@@ -428,7 +427,7 @@ func (f *syncConn) download(t *syncTask) (fatal bool, err error) {
 		return true, err
 	}
 
-	if msg.Code != p2p.CodeSyncReady {
+	if msg.Code != CodeSyncReady {
 		fatal = f.fail()
 		return fatal, errServerNotReady
 	}
@@ -501,7 +500,7 @@ func (f *syncConn) download(t *syncTask) (fatal bool, err error) {
 
 	f._speed = total / uint64(time.Now().Unix()-start+1)
 
-	t.source = f.peer.ID()
+	t.source = f.peer.Id
 	return
 }
 
@@ -568,7 +567,7 @@ func (fp *connPoolImpl) blockPeer(id peerId) {
 
 	if index, ok := fp.mi[id]; ok {
 		c := fp.l[index]
-		_ = p2p.Disconnect(c.c, p2p.PeerBanned)
+		_ = Disconnect(c.c, PeerBanned)
 		fp.delConnLocked(id)
 	}
 }
@@ -593,7 +592,7 @@ func (fp *connPoolImpl) delConn(c *syncConn) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	fp.delConnLocked(c.peer.ID())
+	fp.delConnLocked(c.peer.Id)
 }
 
 func (fp *connPoolImpl) delConnLocked(id peerId) {
@@ -608,12 +607,12 @@ func (fp *connPoolImpl) addConn(c *syncConn) error {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
-	if _, ok := fp.mi[c.peer.ID()]; ok {
+	if _, ok := fp.mi[c.peer.Id]; ok {
 		return errSyncConnExist
 	}
 
 	fp.l = append(fp.l, c)
-	fp.mi[c.peer.ID()] = len(fp.l) - 1
+	fp.mi[c.peer.Id] = len(fp.l) - 1
 	return nil
 }
 
@@ -628,7 +627,7 @@ func (fp *connPoolImpl) sort() {
 func (fp *connPoolImpl) sortLocked() {
 	sort.Sort(fp.l)
 	for i, c := range fp.l {
-		fp.mi[c.peer.ID()] = i
+		fp.mi[c.peer.Id] = i
 	}
 }
 
@@ -645,13 +644,13 @@ func (fp *connPoolImpl) chooseSource(t *syncTask) (*Peer, *syncConn, error) {
 
 	// only peers without sync connection
 	for _, c := range fp.l {
-		delete(peerMap, c.peer.ID())
+		delete(peerMap, c.peer.Id)
 	}
 
 	// is in blackList
 	now := time.Now().Unix()
 	for k, p := range peerMap {
-		if tt, ok := fp.blackList[p.ID()]; ok && now-tt < 60 {
+		if tt, ok := fp.blackList[p.Id]; ok && now-tt < 60 {
 			delete(peerMap, k)
 		}
 	}
@@ -663,7 +662,7 @@ func (fp *connPoolImpl) chooseSource(t *syncTask) (*Peer, *syncConn, error) {
 
 	fp.sortLocked()
 	for i, c := range fp.l {
-		if c.isBusy() || c.peer.Height() < t.Bound[1] {
+		if c.isBusy() || c.peer.Height < t.Bound[1] {
 			continue
 		}
 

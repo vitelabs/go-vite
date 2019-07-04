@@ -1,20 +1,63 @@
 package net
 
 import (
+	"encoding/binary"
 	"errors"
+	"fmt"
+	_net "net"
 	"sort"
+	"strconv"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net/message"
-	"github.com/vitelabs/go-vite/net/p2p"
+	"github.com/vitelabs/go-vite/net/netool"
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 var errPeerExisted = errors.New("peer has existed")
 var errPeerNotExist = errors.New("peer not exist")
+var errPeerAlreadyRunning = errors.New("peer is already running")
+var errPeerNotRunning = errors.New("peer is not running")
+var errPeerWriteBusy = errors.New("peer is busy")
+var errPeerCannotWrite = errors.New("peer is not writable")
+
+func extractAddress(sender *_net.TCPAddr, fileAddressBytes []byte, defaultPort int) (address string) {
+	var fromIP = sender.IP
+
+	if len(fileAddressBytes) == 2 {
+		port := binary.BigEndian.Uint16(fileAddressBytes)
+		return fromIP.String() + ":" + strconv.Itoa(int(port))
+	}
+
+	if len(fileAddressBytes) > 2 {
+		var ep = new(vnode.EndPoint)
+
+		if err := ep.Deserialize(fileAddressBytes); err == nil {
+			if ep.Typ.Is(vnode.HostIP) {
+				err = netool.CheckRelayIP(fromIP, ep.Host)
+				if err != nil {
+					ep.Host = fromIP
+				}
+
+				address = ep.String()
+				return
+			}
+
+			epStr := ep.String()
+			_, err = _net.ResolveTCPAddr("tcp", epStr)
+			if err == nil {
+				address = ep.String()
+				return
+			}
+		}
+	}
+
+	return fromIP.String() + ":" + strconv.Itoa(defaultPort)
+}
 
 type peerId = vnode.NodeID
 
@@ -25,26 +68,100 @@ type peerConn struct {
 
 // PeerInfo is for api
 type PeerInfo struct {
-	p2p.PeerInfo
-	Peers []string `json:"peers"`
+	Id         string   `json:"id"`
+	Name       string   `json:"name"`
+	Version    int64    `json:"version"`
+	Height     uint64   `json:"height"`
+	Address    string   `json:"address"`
+	Flag       PeerFlag `json:"flag"`
+	Superior   bool     `json:"superior"`
+	CreateAt   string   `json:"createAt"`
+	ReadQueue  int      `json:"readQueue"`
+	WriteQueue int      `json:"writeQueue"`
+	Peers      []string `json:"peers"`
+}
+
+type PeerFlag byte
+
+const (
+	PeerFlagInbound  PeerFlag = 0
+	PeerFlagOutbound PeerFlag = 1
+	PeerFlagStatic   PeerFlag = 1 << 1
+)
+
+func (f PeerFlag) is(f2 PeerFlag) bool {
+	return (f & f2) > 0
+}
+
+type PeerManager interface {
+	UpdatePeer(p *Peer, newSuperior bool)
 }
 
 type Peer struct {
-	*p2p.Peer
+	codec Codec
 
-	_head types.Hash
+	Id            peerId
+	Name          string
+	Height        uint64
+	Head          types.Hash
+	Version       int64
+	publicAddress string
+	fileAddress   string
+
+	CreateAt int64
+
+	Flag     PeerFlag
+	Superior bool
+
+	reliable int32 // whether the same chain
+
+	running    int32
+	writable   int32 // set to 0 when write error in writeLoop, or close actively
+	writing    int32
+	readQueue  chan Msg // will be closed when read error in readLoop
+	writeQueue chan Msg // will be closed in method Close
+
+	errChan chan error
+	wg      sync.WaitGroup
+
+	manager PeerManager
+	handler msgHandler
 
 	m  map[peerId]struct{}
 	m2 map[peerId]struct{} // MUST NOT write m2, only read, for cross peers
 
-	knownBlocks blockFilter
-	errChan     chan error
-	once        sync.Once
+	once sync.Once
 
 	log log15.Logger
 }
 
-func (p *Peer) info() PeerInfo {
+// WriteMsg will put msg into queue, then write asynchronously
+func (p *Peer) WriteMsg(msg Msg) (err error) {
+	p.write()
+	defer p.writeDone()
+
+	if atomic.LoadInt32(&p.writable) == 0 {
+		return errPeerCannotWrite
+	}
+
+	select {
+	case p.writeQueue <- msg:
+		return nil
+	default:
+		return errPeerWriteBusy
+	}
+}
+
+func (p *Peer) write() {
+	atomic.AddInt32(&p.writing, 1)
+}
+
+func (p *Peer) writeDone() {
+	atomic.AddInt32(&p.writing, -1)
+}
+
+// todo
+func (p *Peer) Info() PeerInfo {
 	var ps []string
 
 	if total := len(p.m2); total > 0 {
@@ -62,19 +179,188 @@ func (p *Peer) info() PeerInfo {
 	}
 
 	return PeerInfo{
-		PeerInfo: p.Info(),
-		Peers:    ps,
+		Id:         p.Id.String(),
+		Name:       p.Name,
+		Version:    p.Version,
+		Height:     p.Height,
+		Address:    p.codec.Address().String(),
+		Flag:       p.Flag,
+		Superior:   p.Superior,
+		CreateAt:   time.Unix(p.CreateAt, 0).Format("2006-01-02 15:04:05"),
+		ReadQueue:  len(p.readQueue),
+		WriteQueue: len(p.writeQueue),
+		Peers:      ps,
 	}
 }
 
-func newPeer(p *p2p.Peer, log log15.Logger) *Peer {
+func newPeer(c Codec, their *HandshakeMsg, publicAddress, fileAddress string, superior bool, flag PeerFlag, manager PeerManager, handler msgHandler) *Peer {
 	return &Peer{
-		Peer:        p,
-		knownBlocks: newBlockFilter(filterCap),
-		m:           make(map[peerId]struct{}),
-		log:         log,
-		errChan:     make(chan error, 1),
+		codec:         c,
+		Id:            their.ID,
+		Name:          their.Name,
+		Height:        their.Height,
+		Head:          their.Head,
+		Version:       their.Version,
+		Flag:          flag,
+		Superior:      superior,
+		CreateAt:      their.Timestamp,
+		running:       0,
+		writable:      1,
+		writing:       0,
+		readQueue:     make(chan Msg, 10),
+		writeQueue:    make(chan Msg, 1000),
+		errChan:       make(chan error, 1),
+		wg:            sync.WaitGroup{},
+		manager:       manager,
+		handler:       handler,
+		fileAddress:   fileAddress,
+		publicAddress: publicAddress,
+		m:             make(map[peerId]struct{}),
+		m2:            nil,
+		once:          sync.Once{},
 	}
+}
+
+func (p *Peer) run() (err error) {
+	if atomic.CompareAndSwapInt32(&p.running, 0, 1) {
+		p.goLoop(p.readLoop, p.errChan)
+		p.goLoop(p.writeLoop, p.errChan)
+		p.goLoop(p.handleLoop, p.errChan)
+
+		err = <-p.errChan
+		return
+	}
+
+	return errPeerAlreadyRunning
+}
+
+func (p *Peer) goLoop(fn func() error, ch chan<- error) {
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		err := fn()
+		ch <- err
+	}()
+}
+
+func (p *Peer) readLoop() (err error) {
+	defer close(p.readQueue)
+
+	var msg Msg
+
+	for {
+		p.log.Debug(fmt.Sprintf("begin read message"))
+		msg, err = p.codec.ReadMsg()
+		p.log.Debug(fmt.Sprintf("read message %d %d bytes done", msg.Code, len(msg.Payload)))
+		if err != nil {
+			atomic.StoreInt32(&p.writable, 0)
+			return
+		}
+
+		msg.ReceivedAt = time.Now().Unix()
+		msg.Sender = p
+
+		switch msg.Code {
+		case CodeDisconnect:
+			if len(msg.Payload) > 0 {
+				err = PeerError(msg.Payload[0])
+			} else {
+				err = PeerUnknownReason
+			}
+			return
+		case CodeControlFlow:
+		// todo
+
+		default:
+			p.readQueue <- msg
+		}
+	}
+}
+
+func (p *Peer) writeLoop() (err error) {
+	var msg Msg
+	for msg = range p.writeQueue {
+		t1 := time.Now()
+		p.log.Debug(fmt.Sprintf("begin write msg %d %d bytes", msg.Code, len(msg.Payload)))
+		if err = p.codec.WriteMsg(msg); err != nil {
+			p.log.Debug(fmt.Sprintf("write msg %d %d bytes error: %v", msg.Code, len(msg.Payload), err))
+			atomic.StoreInt32(&p.writable, 0)
+			return
+		}
+		p.log.Debug(fmt.Sprintf("write msg %d %d bytes done[%d][%s]", msg.Code, len(msg.Payload), len(p.writeQueue), time.Now().Sub(t1)))
+	}
+
+	return nil
+}
+
+func (p *Peer) handleLoop() (err error) {
+	var msg Msg
+	for msg = range p.readQueue {
+		t1 := time.Now()
+		p.log.Debug(fmt.Sprintf("begin handle msg %d", msg.Code))
+		err = p.handler.handle(msg)
+		p.log.Debug(fmt.Sprintf("handle msg %d done[%d][%s]", msg.Code, len(p.readQueue), time.Now().Sub(t1)))
+		if err != nil {
+			return
+		}
+	}
+
+	return nil
+}
+
+func (p *Peer) Close(err error) (err2 error) {
+	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
+		if pe, ok := err.(PeerError); ok {
+			_ = p.WriteMsg(Msg{
+				Code:    CodeDisconnect,
+				Payload: []byte{byte(pe)},
+			})
+		}
+
+		time.Sleep(100 * time.Millisecond)
+		atomic.StoreInt32(&p.writable, 0)
+
+		// ensure nobody is writing
+		for {
+			if atomic.LoadInt32(&p.writing) == 0 {
+				break
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		close(p.writeQueue)
+
+		if err3 := p.codec.Close(); err3 != nil {
+			err2 = err3
+		}
+
+		p.wg.Wait()
+	}
+
+	return errPeerNotRunning
+}
+
+func (p *Peer) Disconnect(err error) {
+	_ = Disconnect(p.codec, err)
+}
+
+func (p *Peer) String() string {
+	return p.Id.Brief() + "@" + p.codec.Address().String()
+}
+
+func (p *Peer) SetState(head types.Hash, height uint64) {
+	p.Head, p.Height = head, height
+}
+
+func (p *Peer) SetSuperior(superior bool) error {
+	if atomic.LoadInt32(&p.running) == 0 {
+		return errPeerNotRunning
+	}
+
+	p.manager.UpdatePeer(p, superior)
+
+	return nil
 }
 
 func (p *Peer) catch(err error) {
@@ -116,17 +402,13 @@ func (p *Peer) peers() map[peerId]struct{} {
 	return p.m2
 }
 
-func (p *Peer) seeBlock(hash types.Hash) (existed bool) {
-	return p.knownBlocks.lookAndRecord(hash[:])
-}
-
-func (p *Peer) send(c p2p.Code, id p2p.MsgId, data p2p.Serializable) error {
+func (p *Peer) send(c Code, id MsgId, data Serializable) error {
 	buf, err := data.Serialize()
 	if err != nil {
 		return err
 	}
 
-	var msg = p2p.Msg{
+	var msg = Msg{
 		Code:    c,
 		Id:      id,
 		Payload: buf,
@@ -135,20 +417,20 @@ func (p *Peer) send(c p2p.Code, id p2p.MsgId, data p2p.Serializable) error {
 	return p.WriteMsg(msg)
 }
 
-func (p *Peer) sendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId p2p.MsgId) (err error) {
-	ms := &message.SnapshotBlocks{
+func (p *Peer) sendSnapshotBlocks(bs []*ledger.SnapshotBlock, msgId MsgId) (err error) {
+	ms := &SnapshotBlocks{
 		Blocks: bs,
 	}
 
-	return p.send(p2p.CodeSnapshotBlocks, msgId, ms)
+	return p.send(CodeSnapshotBlocks, msgId, ms)
 }
 
-func (p *Peer) sendAccountBlocks(bs []*ledger.AccountBlock, msgId p2p.MsgId) (err error) {
-	ms := &message.AccountBlocks{
+func (p *Peer) sendAccountBlocks(bs []*ledger.AccountBlock, msgId MsgId) (err error) {
+	ms := &AccountBlocks{
 		Blocks: bs,
 	}
 
-	return p.send(p2p.CodeAccountBlocks, msgId, ms)
+	return p.send(CodeAccountBlocks, msgId, ms)
 }
 
 type peerEventCode byte
@@ -171,6 +453,31 @@ type peerSet struct {
 	subs []chan<- peerEvent
 }
 
+func (m *peerSet) reliable() (l peers) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	for _, p := range m.m {
+		if atomic.LoadInt32(&p.reliable) == 1 {
+			l = append(l, p)
+		}
+	}
+
+	return
+}
+
+func (m *peerSet) UpdatePeer(p *Peer, newSuperior bool) {
+	// todo
+}
+
+func (m *peerSet) has(id peerId) bool {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	_, ok := m.m[id]
+	return ok
+}
+
 // pickDownloadPeers implement downloadPeerSet
 func (m *peerSet) pickDownloadPeers(height uint64) (m2 map[peerId]*Peer) {
 	m2 = make(map[peerId]*Peer)
@@ -179,7 +486,7 @@ func (m *peerSet) pickDownloadPeers(height uint64) (m2 map[peerId]*Peer) {
 	defer m.prw.RUnlock()
 
 	for id, p := range m.m {
-		if p.Height() >= height {
+		if p.Height >= height {
 			m2[id] = p
 		}
 	}
@@ -225,7 +532,7 @@ func (m *peerSet) bestPeer() (best *Peer) {
 
 	var maxHeight uint64
 	for _, p := range m.m {
-		peerHeight := p.Height()
+		peerHeight := p.Height
 		if peerHeight > maxHeight {
 			maxHeight = peerHeight
 			best = p
@@ -257,7 +564,7 @@ func (m *peerSet) add(peer *Peer) error {
 	m.prw.Lock()
 	defer m.prw.Unlock()
 
-	id := peer.ID()
+	id := peer.Id
 
 	if _, ok := m.m[id]; ok {
 		return errPeerExisted
@@ -297,15 +604,43 @@ func (m *peerSet) remove(id peerId) (p *Peer, err error) {
 }
 
 // pick peers satisfy p.height() >= height, unsorted
-func (m *peerSet) pick(height uint64) (l []*Peer) {
+func (m *peerSet) pick(height uint64) (ps peers) {
 	m.prw.RLock()
 	defer m.prw.RUnlock()
 
 	for _, p := range m.m {
-		if p.Height() >= height {
-			l = append(l, p)
+		if p.Height >= height {
+			ps = append(ps, p)
 		}
 	}
+
+	return
+}
+
+func (m *peerSet) pickReliable(height uint64) (ps peers) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	for _, p := range m.m {
+		if p.Height >= height && atomic.LoadInt32(&p.reliable) == 1 {
+			ps = append(ps, p)
+		}
+	}
+
+	return
+}
+
+// peers return all peers sort from low to high
+func (m *peerSet) peers() (l peers) {
+	m.prw.RLock()
+
+	l = make(peers, len(m.m))
+	i := 0
+	for _, p := range m.m {
+		l[i] = p
+		i++
+	}
+	m.prw.RUnlock()
 
 	return
 }
@@ -323,23 +658,6 @@ func (m *peerSet) sortPeers() (l peers) {
 	m.prw.RUnlock()
 
 	sort.Sort(l)
-
-	return
-}
-
-// broadcastPeers return all peers unsorted.
-// for broadcaster, use interface `[]broadcastPeer` other than `[]Peer` let easier to mock.
-func (m *peerSet) broadcastPeers() (l []broadcastPeer) {
-	m.prw.RLock()
-	defer m.prw.RUnlock()
-
-	l = make([]broadcastPeer, len(m.m))
-
-	i := 0
-	for _, p := range m.m {
-		l[i] = p
-		i++
-	}
 
 	return
 }
@@ -383,6 +701,36 @@ func (m *peerSet) count() int {
 	return len(m.m)
 }
 
+func (m *peerSet) countWithoutSBP() (n int) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	for _, p := range m.m {
+		if p.Superior {
+			continue
+		}
+		n++
+	}
+
+	return
+}
+
+func (m *peerSet) inboundWithoutSBP() (n int) {
+	m.prw.RLock()
+	defer m.prw.RUnlock()
+
+	for _, p := range m.m {
+		if p.Superior {
+			continue
+		}
+		if p.Flag.is(PeerFlagInbound) {
+			n++
+		}
+	}
+
+	return
+}
+
 func (m *peerSet) info() []PeerInfo {
 	m.prw.RLock()
 	defer m.prw.RUnlock()
@@ -391,7 +739,7 @@ func (m *peerSet) info() []PeerInfo {
 
 	var i int
 	for _, p := range m.m {
-		infos[i] = p.info()
+		infos[i] = p.Info()
 		i++
 	}
 
@@ -406,7 +754,7 @@ func (s peers) Len() int {
 }
 
 func (s peers) Less(i, j int) bool {
-	return s[i].Height() > s[j].Height()
+	return s[i].Height > s[j].Height
 }
 
 func (s peers) Swap(i, j int) {
@@ -415,7 +763,7 @@ func (s peers) Swap(i, j int) {
 
 func (s peers) delete(id peerId) peers {
 	for i, p := range s {
-		if p.ID() == id {
+		if p.Id == id {
 			last := len(s) - 1
 			if i != last {
 				copy(s[i:], s[i+1:])

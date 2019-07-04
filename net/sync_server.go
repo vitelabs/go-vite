@@ -29,7 +29,6 @@ import (
 
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net/p2p"
 )
 
 const fileTimeout = 5 * time.Minute
@@ -140,7 +139,7 @@ func (s *syncServer) deleteConn(c *syncConn) {
 	// is running
 	if atomic.LoadInt32(&s.running) == 1 {
 		s.mu.Lock()
-		delete(s.sconnMap, c.peer.ID())
+		delete(s.sconnMap, c.peer.Id)
 		s.mu.Unlock()
 	}
 }
@@ -148,7 +147,7 @@ func (s *syncServer) deleteConn(c *syncConn) {
 func (s *syncServer) addConn(c *syncConn) {
 	if atomic.LoadInt32(&s.running) == 1 {
 		s.mu.Lock()
-		s.sconnMap[c.peer.ID()] = c
+		s.sconnMap[c.peer.Id] = c
 		s.mu.Unlock()
 	}
 }
@@ -165,7 +164,7 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 	s.addConn(sconn)
 	defer s.deleteConn(sconn)
 
-	var msg p2p.Msg
+	var msg Msg
 	for {
 		msg, err = sconn.c.ReadMsg()
 		if err != nil {
@@ -173,12 +172,12 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 			return
 		}
 
-		if msg.Code == p2p.CodeDisconnect {
+		if msg.Code == CodeDisconnect {
 			s.log.Warn(fmt.Sprintf("sync connection %s quit", conn.RemoteAddr()))
 			return
 		}
 
-		if msg.Code != p2p.CodeSyncRequest {
+		if msg.Code != CodeSyncRequest {
 			continue
 		}
 		request := &syncRequest{}
@@ -192,10 +191,10 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 		if err != nil {
 			s.log.Error(fmt.Sprintf("failed to read chunk<%d-%d> from %s error: %v", request.from, request.to, conn.RemoteAddr(), err))
 
-			_ = sconn.c.WriteMsg(p2p.Msg{
-				Code:    p2p.CodeException,
+			_ = sconn.c.WriteMsg(Msg{
+				Code:    CodeException,
 				Id:      msg.Id,
-				Payload: []byte{byte(p2p.ExpServerError)},
+				Payload: []byte{byte(ExpServerError)},
 			})
 
 			continue
@@ -205,10 +204,10 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 		if segment.PrevHash != request.prevHash || segment.Hash != request.endHash {
 			s.log.Warn(fmt.Sprintf("different chunk<%d-%d> %s/%s %s/%s from %s", request.from, request.to, request.prevHash, request.endHash, segment.PrevHash, segment.Hash, conn.RemoteAddr()))
 
-			_ = sconn.c.WriteMsg(p2p.Msg{
-				Code:    p2p.CodeException,
+			_ = sconn.c.WriteMsg(Msg{
+				Code:    CodeException,
 				Id:      msg.Id,
-				Payload: []byte{byte(p2p.ExpChunkNotMatch)},
+				Payload: []byte{byte(ExpChunkNotMatch)},
 			})
 
 			continue
@@ -224,16 +223,16 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 		var data []byte
 		data, err = ready.Serialize()
 		if err != nil {
-			_ = sconn.c.WriteMsg(p2p.Msg{
-				Code:    p2p.CodeException,
+			_ = sconn.c.WriteMsg(Msg{
+				Code:    CodeException,
 				Id:      msg.Id,
-				Payload: []byte{byte(p2p.ExpOther)},
+				Payload: []byte{byte(ExpOther)},
 			})
 			continue
 		}
 
-		err = sconn.c.WriteMsg(p2p.Msg{
-			Code:    p2p.CodeSyncReady,
+		err = sconn.c.WriteMsg(Msg{
+			Code:    CodeSyncReady,
 			Id:      msg.Id,
 			Payload: data,
 		})

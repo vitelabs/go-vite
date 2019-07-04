@@ -1,8 +1,6 @@
 package net
 
 import (
-	"fmt"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -33,21 +31,11 @@ type blockFeed struct {
 	blackBlocks map[types.Hash]struct{}
 }
 
-func newBlockFeeder() *blockFeed {
+func newBlockFeeder(blackBlocks map[types.Hash]struct{}) *blockFeed {
 	return &blockFeed{
 		aSubs:       make(map[int]AccountBlockCallback),
 		bSubs:       make(map[int]SnapshotBlockCallback),
-		blackBlocks: make(map[types.Hash]struct{}),
-	}
-}
-
-func (bf *blockFeed) setBlackHashList(list []string) {
-	for _, str := range list {
-		hash, err := types.HexToHash(str)
-		if err != nil {
-			panic(fmt.Sprintf("failed to parse BlackBlockHash: %s %v", hash, err))
-		}
-		bf.blackBlocks[hash] = struct{}{}
+		blackBlocks: blackBlocks,
 	}
 }
 

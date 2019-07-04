@@ -582,7 +582,7 @@ func (e *executor) doJob(c *syncConn, t *syncTask) error {
 }
 
 func (e *executor) createConn(p *Peer) (c *syncConn, err error) {
-	addr := p.FileAddress()
+	addr := p.fileAddress
 
 	e.mu.Lock()
 	if _, ok := e.dialing[addr]; ok {

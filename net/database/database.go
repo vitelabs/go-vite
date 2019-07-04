@@ -16,11 +16,12 @@
  * along with the go-vite library. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package p2p
+package database
 
 import (
 	"bytes"
 	"encoding/binary"
+	"net"
 	"os"
 	"sort"
 	"time"
@@ -32,27 +33,24 @@ import (
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 
-type nodeDB struct {
+type DB struct {
 	*leveldb.DB
 	id vnode.NodeID
 }
 
-// key -> value
-// version -> version
-// node:data:ID -> node	// store node data, like IP port ext and so on
-// node:active:ID -> int64	// active time, easy to compare time and clean
-// node:mark:ID -> int64	// mark weight
-// node:check:ID -> int64 // check time
 var (
-	versionKey         = []byte("version")
-	nodeDataPrefix     = []byte("node:data:")
-	nodeActivePrefix   = []byte("node:active:")
-	nodeCheckPrefix    = []byte("node:check:")
-	nodeMarkPrefix     = []byte("node:mark:")
-	nodeEndPointPrefix = []byte("node:ep:")
+	versionKey = []byte("version")
+
+	nodeDataPrefix   = []byte("node:data:")   // ID IP Port
+	nodeActivePrefix = []byte("node:active:") // activeAt
+	nodeCheckPrefix  = []byte("node:check:")  // checkAt
+	nodeMarkPrefix   = []byte("node:mark:")   // mark
+
+	nodeBlockIPPrefix = []byte("node:block:ip:") // block expiration
+	nodeBlockIDPrefix = []byte("node:block:id:") // block expiration
 )
 
-func newNodeDB(path string, version int, id vnode.NodeID) (db *nodeDB, err error) {
+func New(path string, version int, id vnode.NodeID) (db *DB, err error) {
 	if path == "" {
 		db, err = newMemDB(id)
 	} else {
@@ -66,18 +64,18 @@ func newNodeDB(path string, version int, id vnode.NodeID) (db *nodeDB, err error
 	return
 }
 
-func newMemDB(id vnode.NodeID) (*nodeDB, error) {
+func newMemDB(id vnode.NodeID) (*DB, error) {
 	ldb, err := leveldb.Open(storage.NewMemStorage(), nil)
 	if err != nil {
 		return nil, err
 	}
-	return &nodeDB{
+	return &DB{
 		DB: ldb,
 		id: id,
 	}, nil
 }
 
-func newFileDB(path string, version int, id vnode.NodeID) (*nodeDB, error) {
+func newFileDB(path string, version int, id vnode.NodeID) (*DB, error) {
 	ldb, err := leveldb.OpenFile(path, nil)
 	if _, ok := err.(*errors.ErrCorrupted); ok {
 		ldb, err = leveldb.RecoverFile(path, nil)
@@ -97,13 +95,13 @@ func newFileDB(path string, version int, id vnode.NodeID) (*nodeDB, error) {
 			_ = ldb.Close()
 			return nil, err
 		}
-		return &nodeDB{
+		return &DB{
 			DB: ldb,
 			id: id,
 		}, nil
 	} else if err == nil {
 		if bytes.Equal(oldVBytes, vBytes) {
-			return &nodeDB{
+			return &DB{
 				DB: ldb,
 				id: id,
 			}, err
@@ -134,31 +132,49 @@ func encodeVarint(i int64) []byte {
 	return data[:n]
 }
 
-func (db *nodeDB) RetrieveActiveAt(id vnode.NodeID) int64 {
+func (db *DB) RetrieveActiveAt(id vnode.NodeID) int64 {
 	key := append(nodeActivePrefix, id.Bytes()...)
 	return db.RetrieveInt64(key)
 }
 
-func (db *nodeDB) StoreActiveAt(id vnode.NodeID, v int64) {
+func (db *DB) StoreActiveAt(id vnode.NodeID, v int64) {
 	key := append(nodeActivePrefix, id.Bytes()...)
 	db.StoreInt64(key, v)
 }
 
-func (db *nodeDB) RetrieveCheckAt(id vnode.NodeID) int64 {
+func (db *DB) RetrieveCheckAt(id vnode.NodeID) int64 {
 	key := append(nodeCheckPrefix, id.Bytes()...)
 	return db.RetrieveInt64(key)
 }
 
-func (db *nodeDB) StoreCheckAt(id vnode.NodeID, v int64) {
+func (db *DB) StoreCheckAt(id vnode.NodeID, v int64) {
 	key := append(nodeCheckPrefix, id.Bytes()...)
 	db.StoreInt64(key, v)
+}
+
+func (db *DB) RetrieveMark(id vnode.NodeID) int64 {
+	key := append(nodeMarkPrefix, id.Bytes()...)
+	return db.RetrieveInt64(key)
+}
+
+func (db *DB) StoreMark(id vnode.NodeID, v int64) {
+	key := append(nodeMarkPrefix, id.Bytes()...)
+	db.StoreInt64(key, v)
+}
+
+func (db *DB) BlockIP(ip net.IP, expiration int64) {
+	key := append(nodeBlockIPPrefix, ip...)
+	db.StoreInt64(key, expiration)
+}
+
+func (db *DB) BlockId(id vnode.NodeID, expiration int64) {
+	key := append(nodeBlockIDPrefix, id.Bytes()...)
+	db.StoreInt64(key, expiration)
 }
 
 // RetrieveNode Node according to the special nodeID
-func (db *nodeDB) RetrieveNode(ID vnode.NodeID) (node *vnode.Node, err error) {
-	id := ID.Bytes()
-
-	key := append(nodeDataPrefix, id...)
+func (db *DB) RetrieveNode(id vnode.NodeID) (node *vnode.Node, err error) {
+	key := append(nodeDataPrefix, id.Bytes()...)
 	// retrieve node
 	data, err := db.Get(key, nil)
 	if err != nil {
@@ -173,7 +189,7 @@ func (db *nodeDB) RetrieveNode(ID vnode.NodeID) (node *vnode.Node, err error) {
 
 // StoreNode node into database
 // Node.activeAt and Node.checkAt is store separately
-func (db *nodeDB) StoreNode(node *vnode.Node) (err error) {
+func (db *DB) StoreNode(node *vnode.Node) (err error) {
 	data, err := node.Serialize()
 	if err != nil {
 		return
@@ -188,7 +204,7 @@ func (db *nodeDB) StoreNode(node *vnode.Node) (err error) {
 }
 
 // RemoveNode data about the specific NodeID
-func (db *nodeDB) RemoveNode(ID vnode.NodeID) {
+func (db *DB) RemoveNode(ID vnode.NodeID) {
 	id := ID.Bytes()
 
 	key := append(nodeDataPrefix, id...)
@@ -204,13 +220,12 @@ func (db *nodeDB) RemoveNode(ID vnode.NodeID) {
 	_ = db.Delete(key, nil)
 }
 
-// ReadNodes max count nodes from database, if time.Now().Sub(node.activeAt) < expiration
-func (db *nodeDB) ReadNodes(count int, expiration time.Duration) []*vnode.Node {
+// ReadNodes from database, if time.Now().Unix() - node.activeAt < expiration
+func (db *DB) ReadNodes(expiration int64) (nodes []*vnode.Node) {
 	itr := db.NewIterator(util.BytesPrefix(nodeActivePrefix), nil)
 	defer itr.Release()
 
-	nodes := make([]*vnode.Node, 0, count)
-	now := time.Now()
+	now := time.Now().Unix()
 	prefixLen := len(nodeActivePrefix)
 
 	for itr.Next() {
@@ -221,29 +236,26 @@ func (db *nodeDB) ReadNodes(count int, expiration time.Duration) []*vnode.Node {
 			continue
 		}
 
-		activeKey := append(nodeActivePrefix, id.Bytes()...)
-		if now.Sub(time.Unix(db.RetrieveInt64(activeKey), 0)) > expiration {
+		// too old
+		active := decodeVarint(itr.Value())
+		if now-active > expiration {
 			db.RemoveNode(id)
 			continue
 		}
 
 		node, err := db.RetrieveNode(id)
 		if err != nil {
-			_ = db.Delete(key, nil)
+			db.RemoveNode(id)
 			continue
 		}
 
 		nodes = append(nodes, node)
-
-		if len(nodes) > count {
-			break
-		}
 	}
 
 	return nodes
 }
 
-func (db *nodeDB) RetrieveInt64(key []byte) int64 {
+func (db *DB) RetrieveInt64(key []byte) int64 {
 	buf, err := db.Get(key, nil)
 	if err != nil {
 		return 0
@@ -252,19 +264,19 @@ func (db *nodeDB) RetrieveInt64(key []byte) int64 {
 	return decodeVarint(buf)
 }
 
-func (db *nodeDB) StoreInt64(key []byte, n int64) {
+func (db *DB) StoreInt64(key []byte, n int64) {
 	buf := make([]byte, binary.MaxVarintLen64)
 	buf = buf[:binary.PutVarint(buf, n)]
 
 	_ = db.Put(key, buf, nil)
 }
 
-// Clean nodes if time.Now().Sub(node.activeAt) > expiration
-func (db *nodeDB) Clean(expiration time.Duration) {
+// Clean nodes if time.Now().Unix() - node.activeAt > expiration
+func (db *DB) Clean(expiration int64) {
 	itr := db.NewIterator(util.BytesPrefix(nodeActivePrefix), nil)
 	defer itr.Release()
 
-	now := time.Now()
+	now := time.Now().Unix()
 	prefixLen := len(nodeActivePrefix)
 
 	for itr.Next() {
@@ -275,66 +287,39 @@ func (db *nodeDB) Clean(expiration time.Duration) {
 			continue
 		}
 
-		activeKey := append(nodeActivePrefix, id.Bytes()...)
-		if now.Sub(time.Unix(db.RetrieveInt64(activeKey), 0)) > expiration {
+		active := decodeVarint(itr.Value())
+		if now-active > expiration {
 			db.RemoveNode(id)
 			continue
 		}
 	}
 }
 
-// StoreEndPoint larger weight, more front
-func (db *nodeDB) StoreEndPoint(id vnode.NodeID, ep vnode.EndPoint, weight int64) {
-	data, err := ep.Serialize()
-	if err != nil {
-		return
-	}
-
-	key := append(nodeEndPointPrefix, id.Bytes()...)
-	err = db.Put(key, data, nil)
-	if err != nil {
-		return
-	}
-
-	key = append(nodeMarkPrefix, id.Bytes()...)
-	db.StoreInt64(key, weight)
-}
-
-func (db *nodeDB) RemoveEndPoint(id vnode.NodeID) {
-	key := append(nodeEndPointPrefix, id.Bytes()...)
-	_ = db.Delete(key, nil)
-
-	key = append(nodeMarkPrefix, id.Bytes()...)
-	_ = db.Delete(key, nil)
-}
-
 type mark struct {
-	mark int64
-	id   vnode.NodeID
+	id     vnode.NodeID
+	weight int64
 }
+
 type marks []mark
 
-func (m marks) Len() int {
-	return len(m)
+func (ms marks) Len() int {
+	return len(ms)
 }
 
-func (m marks) Less(i, j int) bool {
-	return m[i].mark > m[j].mark
+func (ms marks) Less(i, j int) bool {
+	return ms[i].weight > ms[j].weight
 }
 
-func (m marks) Swap(i, j int) {
-	m[i], m[j] = m[j], m[i]
+func (ms marks) Swap(i, j int) {
+	ms[i], ms[j] = ms[j], ms[i]
 }
 
-// RetrieveEndPoints return max count nodes, sort by mark from large to small
-func (db *nodeDB) RetrieveEndPoints(count int) (nodes []*vnode.Node) {
+func (db *DB) ReadMarkNodes() (nodes []*vnode.Node) {
 	itr := db.NewIterator(util.BytesPrefix(nodeMarkPrefix), nil)
 	defer itr.Release()
 
+	var ms marks
 	prefixLen := len(nodeMarkPrefix)
-
-	need := count * 2
-	ms := make(marks, 0, need)
 
 	for itr.Next() {
 		key := itr.Key()
@@ -344,49 +329,28 @@ func (db *nodeDB) RetrieveEndPoints(count int) (nodes []*vnode.Node) {
 			continue
 		}
 
-		weight := db.RetrieveInt64(key)
-		if weight >= int64(Superior) || len(ms) < need {
-			ms = append(ms, mark{
-				mark: weight,
-				id:   id,
-			})
-		} else {
-			continue
-		}
+		weight := decodeVarint(itr.Value())
+		ms = append(ms, mark{id, weight})
 	}
 
 	sort.Sort(ms)
 
-	nodes = make([]*vnode.Node, len(ms))
-	var j int
+	var err error
+	var node *vnode.Node
 	for _, m := range ms {
-		key := append(nodeEndPointPrefix, m.id.Bytes()...)
-
-		value, err := db.Get(key, nil)
+		node, err = db.RetrieveNode(m.id)
 		if err != nil {
-			_ = db.Delete(key, nil)
+			db.RemoveNode(m.id)
 			continue
 		}
 
-		var e vnode.EndPoint
-		err = e.Deserialize(value)
-		if err != nil {
-			_ = db.Delete(key, nil)
-			continue
-		}
-
-		nodes[j] = &vnode.Node{
-			ID:       m.id,
-			EndPoint: e,
-		}
-
-		j++
+		nodes = append(nodes, node)
 	}
 
-	return nodes[:j]
+	return nodes
 }
 
-func (db *nodeDB) Iterate(prefix []byte, fn func(key, value []byte) bool) {
+func (db *DB) Iterate(prefix []byte, fn func(key, value []byte) bool) {
 	itr := db.NewIterator(util.BytesPrefix(nodeMarkPrefix), nil)
 	defer itr.Release()
 
@@ -397,7 +361,7 @@ func (db *nodeDB) Iterate(prefix []byte, fn func(key, value []byte) bool) {
 	}
 }
 
-func (db *nodeDB) Register(prefix []byte) *prefixDB {
+func (db *DB) Register(prefix []byte) *prefixDB {
 	return &prefixDB{
 		db:     db.DB,
 		prefix: prefix,

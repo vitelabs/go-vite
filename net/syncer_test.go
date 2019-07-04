@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/vite/net/message"
-
 	"github.com/vitelabs/go-vite/net/vnode"
 
 	"github.com/vitelabs/go-vite/interfaces"
@@ -42,7 +40,7 @@ func TestSplitChunks(t *testing.T) {
 }
 
 func TestHashHeightTree(t *testing.T) {
-	hashHeightList1 := []*message.HashHeightPoint{
+	hashHeightList1 := []*HashHeightPoint{
 		{
 			HashHeight: ledger.HashHeight{100, mockHash()},
 		},
@@ -56,7 +54,7 @@ func TestHashHeightTree(t *testing.T) {
 			HashHeight: ledger.HashHeight{400, mockHash()},
 		},
 	}
-	hashHeightList2 := []*message.HashHeightPoint{
+	hashHeightList2 := []*HashHeightPoint{
 		{
 			HashHeight: ledger.HashHeight{100, mockHash()},
 		},
@@ -73,11 +71,11 @@ func TestHashHeightTree(t *testing.T) {
 			HashHeight: ledger.HashHeight{500, mockHash()},
 		},
 	}
-	hashHeightList3 := make([]*message.HashHeightPoint, 0, len(hashHeightList1)+1)
+	hashHeightList3 := make([]*HashHeightPoint, 0, len(hashHeightList1)+1)
 	for _, h := range hashHeightList1 {
 		hashHeightList3 = append(hashHeightList3, h)
 	}
-	hashHeightList3 = append(hashHeightList3, &message.HashHeightPoint{
+	hashHeightList3 = append(hashHeightList3, &HashHeightPoint{
 		HashHeight: ledger.HashHeight{500, mockHash()},
 	})
 
@@ -100,12 +98,12 @@ func TestHashHeightTree(t *testing.T) {
 }
 
 func TestConstructTasks(t *testing.T) {
-	var hhs []*message.HashHeightPoint
+	var hhs []*HashHeightPoint
 
 	const start uint64 = 100
 	const end uint64 = 10000
 	for i := start; i < end+1; i += 100 {
-		hhs = append(hhs, &message.HashHeightPoint{
+		hhs = append(hhs, &HashHeightPoint{
 			HashHeight: ledger.HashHeight{
 				Height: i,
 				Hash:   randomHash(),

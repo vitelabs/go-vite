@@ -27,7 +27,7 @@ import (
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 
-const bucketSize = 32
+const bucketSize = 64
 const bucketNum = 32
 
 type nodeCollector interface {
@@ -295,11 +295,11 @@ type table struct {
 	socket pinger
 }
 
-func newTable(id vnode.NodeID, netId int, bktSize, bucketNum int, fact func(bktSize int) bucket, socket pinger) *table {
+func newTable(id vnode.NodeID, netId int, fact func(bktSize int) bucket, socket pinger) *table {
 	tab := &table{
 		id:          id,
 		netId:       netId,
-		bucketSize:  bktSize,
+		bucketSize:  bucketSize,
 		bucketNum:   bucketNum,
 		minDistance: vnode.IDBits - uint(bucketNum) + 1,
 		buckets:     make([]bucket, bucketNum),
@@ -310,7 +310,7 @@ func newTable(id vnode.NodeID, netId int, bktSize, bucketNum int, fact func(bktS
 	}
 
 	for i := range tab.buckets {
-		tab.buckets[i] = tab.bucketFact(bktSize)
+		tab.buckets[i] = tab.bucketFact(bucketSize)
 	}
 
 	return tab

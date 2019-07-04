@@ -27,8 +27,6 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/net/message"
-	"github.com/vitelabs/go-vite/net/p2p"
 )
 
 const getHashHeightListTimeout = 10 * time.Second
@@ -36,7 +34,7 @@ const getHashHeightListTimeout = 10 * time.Second
 var errTimeout = errors.New("timeout")
 
 type hashHeightPeers struct {
-	*message.HashHeightPoint
+	*HashHeightPoint
 	ps map[peerId]*Peer
 }
 
@@ -51,20 +49,20 @@ func newHashHeightTree() *hashHeightNode {
 	}
 }
 
-func (t *hashHeightNode) addBranch(list []*message.HashHeightPoint, sender *Peer) {
+func (t *hashHeightNode) addBranch(list []*HashHeightPoint, sender *Peer) {
 	var tree = t
 	var subTree *hashHeightNode
 	var ok bool
 	for _, h := range list {
 		subTree, ok = tree.nodes[h.Hash]
 		if ok {
-			subTree.ps[sender.ID()] = sender
+			subTree.ps[sender.Id] = sender
 		} else {
 			subTree = &hashHeightNode{
 				hashHeightPeers{
 					h,
 					map[peerId]*Peer{
-						sender.ID(): sender,
+						sender.Id: sender,
 					},
 				},
 				make(map[types.Hash]*hashHeightNode),
@@ -76,7 +74,7 @@ func (t *hashHeightNode) addBranch(list []*message.HashHeightPoint, sender *Peer
 	}
 }
 
-func (t *hashHeightNode) bestBranch() (list []*message.HashHeightPoint) {
+func (t *hashHeightNode) bestBranch() (list []*HashHeightPoint) {
 	var tree = t
 	var subTree *hashHeightNode
 	var weight int
@@ -106,12 +104,12 @@ type pending struct {
 	tree *hashHeightNode
 }
 
-func (p *pending) done(msg p2p.Msg, sender *Peer, err error) {
+func (p *pending) done(msg Msg, sender *Peer, err error) {
 	p.wg.Done()
 	if err != nil {
 		netLog.Warn(fmt.Sprintf("failed to get HashHeight list from %s: %v", sender, err))
 	} else {
-		var hh = &message.HashHeightPointList{}
+		var hh = &HashHeightPointList{}
 		err = hh.Deserialize(msg.Payload)
 		if err != nil {
 			return
@@ -126,25 +124,25 @@ type skeleton struct {
 
 	tree *hashHeightNode
 
-	peers syncPeerSet
+	peers *peerSet
 	idGen MsgIder
 
 	mu      sync.Mutex
-	pending map[p2p.MsgId]*Peer
+	pending map[MsgId]*Peer
 
 	wg sync.WaitGroup
 }
 
-func newSkeleton(peers syncPeerSet, idGen MsgIder) *skeleton {
+func newSkeleton(peers *peerSet, idGen MsgIder) *skeleton {
 	return &skeleton{
 		peers:   peers,
 		idGen:   idGen,
-		pending: make(map[p2p.MsgId]*Peer),
+		pending: make(map[MsgId]*Peer),
 	}
 }
 
 // construct return a slice of HashHeight, every 100 step
-func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*message.HashHeightPoint) {
+func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*HashHeightPoint) {
 	if false == atomic.CompareAndSwapInt32(&sk.checking, 0, 1) {
 		netLog.Warn(fmt.Sprintf("skeleton is checking"))
 		return
@@ -153,9 +151,9 @@ func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*m
 
 	sk.tree = newHashHeightTree()
 
-	ps := sk.peers.pick(end)
+	ps := sk.peers.pickReliable(end)
 	if len(ps) > 0 {
-		msg := &message.GetHashHeightList{
+		msg := &GetHashHeightList{
 			From: start,
 			Step: syncTaskSize,
 			To:   end,
@@ -176,9 +174,9 @@ func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*m
 	return
 }
 
-func (sk *skeleton) getHashList(p *Peer, msg *message.GetHashHeightList) {
+func (sk *skeleton) getHashList(p *Peer, msg *GetHashHeightList) {
 	mid := sk.idGen.MsgID()
-	err := p.send(p2p.CodeGetHashList, mid, msg)
+	err := p.send(CodeGetHashList, mid, msg)
 	if err != nil {
 		sk.wg.Done()
 		p.catch(err)
@@ -194,29 +192,29 @@ func (sk *skeleton) getHashList(p *Peer, msg *message.GetHashHeightList) {
 	}
 }
 
-func (sk *skeleton) receiveHashList(msg p2p.Msg, sender *Peer) {
+func (sk *skeleton) receiveHashList(msg Msg) {
 	if atomic.LoadInt32(&sk.checking) == 1 {
-		var hh = &message.HashHeightPointList{}
+		var hh = &HashHeightPointList{}
 		err := hh.Deserialize(msg.Payload)
 		if err != nil {
-			sk.getHashListFailed(msg.Id, sender, err)
+			sk.getHashListFailed(msg.Id, msg.Sender, err)
 			return
 		}
 
 		sk.removePending(msg.Id)
 
 		sk.mu.Lock()
-		sk.tree.addBranch(hh.Points, sender)
+		sk.tree.addBranch(hh.Points, msg.Sender)
 		sk.mu.Unlock()
 	}
 }
 
-func (sk *skeleton) getHashListFailed(id p2p.MsgId, sender *Peer, err error) {
+func (sk *skeleton) getHashListFailed(id MsgId, sender *Peer, err error) {
 	sk.removePending(id)
 	netLog.Warn(fmt.Sprintf("failed to get HashHeight list from %s: %v", sender, err))
 }
 
-func (sk *skeleton) removePending(id p2p.MsgId) {
+func (sk *skeleton) removePending(id MsgId) {
 	sk.mu.Lock()
 	if _, ok := sk.pending[id]; ok {
 		delete(sk.pending, id)
@@ -235,7 +233,7 @@ func (sk *skeleton) reset() {
 		delete(sk.pending, id)
 		sk.wg.Done()
 	}
-	sk.pending = make(map[p2p.MsgId]*Peer)
+	sk.pending = make(map[MsgId]*Peer)
 	sk.tree = newHashHeightTree()
 	sk.mu.Unlock()
 }

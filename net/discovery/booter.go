@@ -6,7 +6,6 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
-	"time"
 
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net/vnode"
@@ -20,7 +19,7 @@ type booter interface {
 
 // booterDB can retrieve bootNodes
 type booterDB interface {
-	ReadNodes(count int, expiration time.Duration) []*Node
+	ReadNodes(count int, expiration int64) []*Node
 }
 
 // dbBooter supply bootNodes from database

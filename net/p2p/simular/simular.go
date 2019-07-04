@@ -48,7 +48,7 @@ func (mp *mockProtocol) ReceiveHandshake(msg *p2p.HandshakeMsg) (level p2p.Level
 	return
 }
 
-func (mp *mockProtocol) Handle(msg p2p.Msg) error {
+func (mp *mockProtocol) Handle(msg Msg) error {
 	fmt.Printf("receive message %d from %s\n", msg.Code, msg.Sender.Address())
 	return nil
 }
@@ -57,7 +57,7 @@ func (mp *mockProtocol) State() []byte {
 	return nil
 }
 
-func (mp *mockProtocol) SetState(state []byte, peer p2p.Peer) {
+func (mp *mockProtocol) SetState(state []byte, peer *Peer) {
 	return
 }
 
@@ -66,7 +66,7 @@ func (mp *mockProtocol) OnPeerAdded(peer p2p.Peer) error {
 		ticker := time.NewTicker(time.Second)
 		for {
 			<-ticker.C
-			err := peer.WriteMsg(p2p.Msg{
+			err := peer.WriteMsg(Msg{
 				Code:    0,
 				Id:      0,
 				Payload: []byte("hello"),
