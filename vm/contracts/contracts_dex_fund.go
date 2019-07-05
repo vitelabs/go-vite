@@ -156,7 +156,7 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewMarket, sendBlock.Data); err != nil {
 		return nil, err
 	}
-	if _, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok {
+	if mk, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok && mk.Valid { // if mk not valid, overwrite old marketInfo with new
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewMarket, dex.TradeMarketExistsErr, sendBlock)
 	}
 	marketInfo := &dex.MarketInfo{}
@@ -371,8 +371,8 @@ func (md MethodDexFundPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 	} else {
 		var (
 			vxBalance, amount, vxAmtLeaved *big.Int
-			amtForItems map[int32]*big.Int
-			success     bool
+			amtForItems                    map[int32]*big.Int
+			success                        bool
 		)
 		vxBalance = dex.GetVxBalance(db)
 		switch param.BizType {
@@ -675,10 +675,8 @@ func (md MethodDexFundGetTokenInfoCallback) DoReceive(db vm_db.VmDb, block *ledg
 				return appendBlocks, nil
 			}
 		} else {
-			if refundBlocks, err := dex.OnNewMarketGetTokenInfoFailed(db, callbackParam.TokenId); err != nil {
+			if err := dex.OnNewMarketGetTokenInfoFailed(db, callbackParam.TokenId); err != nil {
 				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundGetTokenInfoCallback, err, sendBlock)
-			} else {
-				return refundBlocks, nil
 			}
 		}
 	case dex.GetTokenForSetQuote:
