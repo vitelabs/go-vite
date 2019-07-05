@@ -3,9 +3,8 @@ package client
 import (
 	"strconv"
 
-	"github.com/vitelabs/go-vite/consensus"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 )
 

@@ -7,13 +7,11 @@ import (
 	"path"
 	"testing"
 
-	"github.com/vitelabs/go-vite/wallet/entropystore"
-
-	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/vitelabs/go-vite/common/types"
-
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/wallet"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
 
 var WalletDir string
@@ -114,6 +112,59 @@ func TestClient_SubmitRequestTx(t *testing.T) {
 		Amount:   big.NewInt(10000),
 		TokenId:  ledger.ViteTokenId,
 		Data:     []byte("hello pow"),
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = client.SignData(Wallet2, block)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = rpc.SendRawTx(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("submit request tx success.", block.Hash, block.Height)
+}
+
+func TestClient_CreateContract(t *testing.T) {
+	if err := PreTest(); err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	rpc, err := NewRpcClient(RawUrl)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	client, e := NewClient(rpc)
+	if e != nil {
+		t.Error(e)
+		return
+	}
+	self, err := types.HexToAddress("vite_165a295e214421ef1276e79990533953e901291d29b2d4851f")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	definition := ``
+	code := ``
+	block, err := client.BuildRequestCreateContractBlock(RequestCreateContractParams{
+		SelfAddr: self,
+		Amount:   big.NewInt(10000),
+		TokenId:  ledger.ViteTokenId,
+		abiStr:   definition,
+		metaParams: api.CreateContractDataParam{
+			Gid:         types.DELEGATE_GID,
+			ConfirmTime: 12,
+			SeedCount:   12,
+			QuotaRatio:  10,
+			HexCode:     code,
+		},
 	}, nil)
 	if err != nil {
 		t.Fatal(err)
