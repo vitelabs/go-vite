@@ -165,7 +165,11 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 	}
 	if marketInfo.Valid {
 		if appendBlock, err := dex.OnNewMarketValid(db, vm.ConsensusReader(), marketInfo, param.TradeToken, param.QuoteToken, &sendBlock.AccountAddress); err == nil {
-			return []*ledger.AccountBlock{appendBlock}, nil
+			if appendBlock != nil {
+				return []*ledger.AccountBlock{appendBlock}, nil
+			} else {
+				return nil, nil
+			}
 		} else {
 			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewMarket, err, sendBlock)
 		}
@@ -182,7 +186,6 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 			},
 		}, nil
 	}
-	return nil, nil
 }
 
 type MethodDexFundNewOrder struct {
