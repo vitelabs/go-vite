@@ -86,27 +86,19 @@ func (md *MethodDexFundUserWithdraw) DoSend(db vm_db.VmDb, block *ledger.Account
 func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamDexFundWithDraw)
 	var (
-		dexFund = &dex.UserFund{}
+		acc *dexproto.Account
 		err     error
-		ok      bool
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundUserWithdraw, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)
 	}
-	if dexFund, ok = dex.GetUserFund(db, sendBlock.AccountAddress); !ok {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, dex.ExceedFundAvailableErr, sendBlock)
+	if acc, err = dex.SubUserFund(db, sendBlock.AccountAddress, param.Token.Bytes(), param.Amount); err != nil {
+		handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)
+	} else {
+		if param.Token == dex.VxTokenId {
+			dex.OnWithdrawVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount, acc)
+		}
 	}
-	account, _ := dex.GetAccountByTokeIdFromFund(dexFund, param.Token)
-	available := dex.SubBigInt(account.Available, param.Amount.Bytes())
-	if available.Sign() < 0 {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, dex.ExceedFundAvailableErr, sendBlock)
-	}
-	account.Available = available.Bytes()
-	// must do after account updated by withdraw
-	if param.Token == dex.VxTokenId {
-		dex.OnWithdrawVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount, account)
-	}
-	dex.SaveUserFund(db, sendBlock.AccountAddress, dexFund)
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,
@@ -1036,7 +1028,7 @@ func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if code := dex.GetCodeByInviter(db, sendBlock.AccountAddress); code > 0 {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewInviter, dex.AlreadyIsInviterErr, sendBlock)
 	}
-	if err := dex.SubUserFund(db, sendBlock.AccountAddress, ledger.ViteTokenId.Bytes(), dex.NewInviterFeeAmount); err != nil {
+	if _, err := dex.SubUserFund(db, sendBlock.AccountAddress, ledger.ViteTokenId.Bytes(), dex.NewInviterFeeAmount); err != nil {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewInviter, err, sendBlock)
 	}
 	dex.SettleFeesWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenTypeInfo.Decimals, dex.ViteTokenType, nil, dex.NewInviterFeeAmount, nil)

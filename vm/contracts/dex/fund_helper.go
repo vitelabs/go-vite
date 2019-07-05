@@ -70,7 +70,7 @@ func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, t
 }
 
 func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block *ledger.AccountBlock, err error) {
-	if err = SubUserFund(db, *address, ledger.ViteTokenId.Bytes(), NewMarketFeeAmount); err != nil {
+	if _, err = SubUserFund(db, *address, ledger.ViteTokenId.Bytes(), NewMarketFeeAmount); err != nil {
 		DeleteMarketInfo(db, tradeToken, quoteToken)
 		AddErrEvent(db, err)
 		//WARN: when not enough fund, take receive as true, but not notify dexTrade
