@@ -574,7 +574,7 @@ func SaveUserFund(db vm_db.VmDb, address types.Address, dexFund *UserFund) {
 	serializeToDb(db, GetUserFundKey(address), dexFund)
 }
 
-func SubUserFund(db vm_db.VmDb, address types.Address, tokenId []byte, amount *big.Int) (err error) {
+func SubUserFund(db vm_db.VmDb, address types.Address, tokenId []byte, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
 	if userFund, ok := GetUserFund(db, address); ok {
 		var foundAcc bool
 		for _, acc := range userFund.Accounts {
@@ -582,22 +582,23 @@ func SubUserFund(db vm_db.VmDb, address types.Address, tokenId []byte, amount *b
 				foundAcc = true
 				available := new(big.Int).SetBytes(acc.Available)
 				if available.Cmp(amount) < 0 {
-					return ExceedFundAvailableErr
+					err = ExceedFundAvailableErr
 				} else {
-					acc.Available = available.Sub(available, NewMarketFeeAmount).Bytes()
+					acc.Available = available.Sub(available, amount).Bytes()
 				}
+				updatedAcc = acc
 				break
 			}
 		}
 		if foundAcc {
 			SaveUserFund(db, address, userFund)
 		} else {
-			return ExceedFundAvailableErr
+			err = ExceedFundAvailableErr
 		}
 	} else {
-		return ExceedFundAvailableErr
+		err = ExceedFundAvailableErr
 	}
-	return nil
+	return
 }
 
 func BatchSaveUserFund(db vm_db.VmDb, address types.Address, funds map[types.TokenTypeId]*big.Int) error {

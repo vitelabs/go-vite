@@ -63,7 +63,7 @@ func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 			return nil, PledgeForVipExistsErr
 		}
 	}
-	if err := SubUserFund(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
+	if _, err := SubUserFund(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err
 	} else {
 		var stakeHeight uint64
