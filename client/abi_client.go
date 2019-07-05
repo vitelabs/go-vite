@@ -3,9 +3,8 @@ package client
 import (
 	"strings"
 
-	"github.com/vitelabs/go-vite/rpcapi/api"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vm/abi"
 )
 

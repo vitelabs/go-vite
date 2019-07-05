@@ -3,11 +3,14 @@ package client
 import (
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/rpcapi/api"
+	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 )
@@ -25,6 +28,16 @@ type RequestTxParams struct {
 	Data     []byte
 }
 
+type RequestCreateContractParams struct {
+	SelfAddr   types.Address
+	Amount     *big.Int
+	TokenId    types.TokenTypeId
+	fee        *big.Int
+	arguments  []interface{}
+	abiStr     string
+	metaParams api.CreateContractDataParam
+}
+
 type ResponseTxParams struct {
 	SelfAddr    types.Address
 	RequestHash types.Hash
@@ -32,6 +45,7 @@ type ResponseTxParams struct {
 
 type Client interface {
 	BuildNormalRequestBlock(params RequestTxParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
+	BuildRequestCreateContractBlock(params RequestCreateContractParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
 	BuildResponseBlock(params ResponseTxParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, *big.Int, error)
 	GetBalanceAll(addr types.Address) (*api.RpcAccountInfo, *api.RpcAccountInfo, error)
@@ -70,6 +84,67 @@ func (c *client) BuildNormalRequestBlock(params RequestTxParams, prev *ledger.Ha
 			Data:           params.Data,
 			Nonce:          nil,
 			Signature:      nil,
+			Height:         strconv.FormatUint(prev.Height+1, 10),
+			Amount:         &amount,
+			Difficulty:     nil,
+		},
+		TokenInfo:          nil,
+		ConfirmedTimes:     nil,
+		ConfirmedHash:      nil,
+		ReceiveBlockHeight: nil,
+		ReceiveBlockHash:   nil,
+		Timestamp:          0,
+	}
+
+	accBlock, err := block.RpcToLedgerBlock()
+	if err != nil {
+		return nil, err
+	}
+	block.Hash = accBlock.ComputeHash()
+	return
+}
+
+func (c *client) BuildRequestCreateContractBlock(params RequestCreateContractParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error) {
+	if prev == nil {
+		prev, err = c.getPrev(params.SelfAddr)
+		if err != nil {
+			return
+		}
+	}
+	contractAddr := util.NewContractAddress(params.SelfAddr, prev.Height+1, prev.Hash)
+	abiContract, err := abi.JSONToABIContract(strings.NewReader(params.abiStr))
+	if err != nil {
+		return nil, err
+	}
+	constructorParams, err := abiContract.PackMethod("", params.arguments...)
+	if err != nil {
+		return nil, err
+	}
+	params.metaParams.Params = constructorParams
+	data, err := c.rpc.GetCreateContractData(params.metaParams)
+	if err != nil {
+		return nil, err
+	}
+
+	amount := params.Amount.String()
+	if params.fee == nil {
+		one := big.NewInt(1e18)
+		params.fee = one.Mul(one, big.NewInt(10))
+	}
+	fee := params.fee.String()
+	block = &api.AccountBlock{
+		RawTxBlock: &api.RawTxBlock{
+			BlockType:      ledger.BlockTypeSendCreate,
+			Hash:           types.Hash{},
+			PrevHash:       prev.Hash,
+			AccountAddress: params.SelfAddr,
+			PublicKey:      nil,
+			ToAddress:      contractAddr,
+			TokenId:        params.TokenId,
+			Data:           data,
+			Nonce:          nil,
+			Signature:      nil,
+			Fee:            &fee,
 			Height:         strconv.FormatUint(prev.Height+1, 10),
 			Amount:         &amount,
 			Difficulty:     nil,

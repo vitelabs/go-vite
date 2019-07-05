@@ -11,6 +11,7 @@ import (
 // ContractApi ...
 type ContractApi interface {
 	CallOffChainMethod(param api.CallOffChainMethodParam) ([]byte, error)
+	GetCreateContractData(param api.CreateContractDataParam) ([]byte, error)
 	GetContractStorage(addr types.Address, prefix string) (map[string]string, error)
 	GetContractInfo(addr types.Address) (*api.ContractInfo, error)
 }
@@ -23,6 +24,10 @@ func NewContractApi(cc *rpc.Client) ContractApi {
 	return &contractApi{cc: cc}
 }
 
+func (ci contractApi) GetCreateContractData(param api.CreateContractDataParam) (result []byte, err error) {
+	err = ci.cc.Call(&result, "contract_getCreateContractData", param)
+	return
+}
 func (ci contractApi) CallOffChainMethod(param api.CallOffChainMethodParam) (result []byte, err error) {
 	err = ci.cc.Call(&result, "contract_callOffChainMethod", param)
 	return
