@@ -155,8 +155,6 @@ func TestClient_CreateContract(t *testing.T) {
 	code := ``
 	block, err := client.BuildRequestCreateContractBlock(RequestCreateContractParams{
 		SelfAddr: self,
-		Amount:   big.NewInt(10000),
-		TokenId:  ledger.ViteTokenId,
 		abiStr:   definition,
 		metaParams: api.CreateContractDataParam{
 			Gid:         types.DELEGATE_GID,

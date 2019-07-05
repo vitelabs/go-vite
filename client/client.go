@@ -30,8 +30,6 @@ type RequestTxParams struct {
 
 type RequestCreateContractParams struct {
 	SelfAddr   types.Address
-	Amount     *big.Int
-	TokenId    types.TokenTypeId
 	fee        *big.Int
 	arguments  []interface{}
 	abiStr     string
@@ -126,7 +124,6 @@ func (c *client) BuildRequestCreateContractBlock(params RequestCreateContractPar
 		return nil, err
 	}
 
-	amount := params.Amount.String()
 	if params.fee == nil {
 		one := big.NewInt(1e18)
 		params.fee = one.Mul(one, big.NewInt(10))
@@ -140,13 +137,11 @@ func (c *client) BuildRequestCreateContractBlock(params RequestCreateContractPar
 			AccountAddress: params.SelfAddr,
 			PublicKey:      nil,
 			ToAddress:      contractAddr,
-			TokenId:        params.TokenId,
 			Data:           data,
 			Nonce:          nil,
 			Signature:      nil,
 			Fee:            &fee,
 			Height:         strconv.FormatUint(prev.Height+1, 10),
-			Amount:         &amount,
 			Difficulty:     nil,
 		},
 		TokenInfo:          nil,
