@@ -46,7 +46,7 @@ type finder struct {
 	maxPeers    int
 	staticNodes []*vnode.Node
 	resolver    interface {
-		ReadNodes(n int) []*vnode.Node
+		GetNodes(n int) []*vnode.Node
 	}
 
 	peers     *peerSet
@@ -63,8 +63,20 @@ type finder struct {
 	term chan struct{}
 }
 
+func (f *finder) FindNeighbors(fromId, target vnode.NodeID, count int) (eps []*vnode.EndPoint) {
+	f.rw.RLock()
+	defer f.rw.RUnlock()
+
+	eps = make([]*vnode.EndPoint, 0, len(f.targets))
+	for _, n := range f.targets {
+		eps = append(eps, &n.EndPoint)
+	}
+
+	return
+}
+
 func (f *finder) SetResolver(discv interface {
-	ReadNodes(n int) []*vnode.Node
+	GetNodes(n int) []*vnode.Node
 }) {
 	f.resolver = discv
 }
@@ -102,19 +114,6 @@ func newFinder(self types.Address, peers *peerSet, maxPeers int, staticNodes []s
 
 	consensus.SubscribeProducers(types.SNAPSHOT_GID, "sbpn", f.receiveProducers)
 
-	details, _, err := consensus.API().ReadVoteMap(time.Now())
-	if err == nil {
-		now := time.Now().Unix()
-		f.rw.Lock()
-		for _, d := range details {
-			f.sbps[d.CurrentAddr] = now
-			if d.CurrentAddr == self {
-				f._selfIsSBP = true
-			}
-		}
-		f.rw.Unlock()
-	}
-
 	return
 }
 
@@ -147,6 +146,19 @@ func (f *finder) notify() {
 
 func (f *finder) start() {
 	f.term = make(chan struct{})
+
+	details, _, err := f.consensus.API().ReadVoteMap(time.Now())
+	if err == nil {
+		now := time.Now().Unix()
+		f.rw.Lock()
+		for _, d := range details {
+			f.sbps[d.CurrentAddr] = now
+			if d.CurrentAddr == f.self {
+				f._selfIsSBP = true
+			}
+		}
+		f.rw.Unlock()
+	}
 
 	go f.loop()
 }
@@ -258,7 +270,7 @@ func (f *finder) loop() {
 
 			total := f.total()
 			if total < f.maxPeers {
-				nodes := f.resolver.ReadNodes((f.maxPeers - total) * 2)
+				nodes := f.resolver.GetNodes((f.maxPeers - total) * 2)
 				for _, node := range nodes {
 					f.dial(node)
 				}

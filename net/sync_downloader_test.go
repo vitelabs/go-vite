@@ -19,10 +19,8 @@
 package net
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -31,10 +29,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/vitelabs/go-vite/ledger"
-
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 
 	"github.com/vitelabs/go-vite/interfaces"
 )
@@ -72,10 +66,10 @@ import (
 
 //func TestMissingSegments(t *testing.T) {
 //	var chunks = interfaces.SegmentList{
-//		{Bound: [2]uint64{10, 20}},
-//		{Bound: [2]uint64{30, 40}},
-//		{Bound: [2]uint64{35, 45}},
-//		{Bound: [2]uint64{40, 50}},
+//		{From10, 20}},
+//		{From30, 40}},
+//		{From35, 45}},
+//		{From40, 50}},
 //	}
 //
 //	mis := missingSegments(chunks, 2, 60)
@@ -143,71 +137,39 @@ import (
 //	}
 //}
 
-func TestChunksOverlap(t *testing.T) {
-	var cs = make(chunks, 0, 1)
-	var ok bool
-	var chunk [2]uint64
-
-	if chunk, ok = cs.overlap(1, 9); !ok {
-		t.Errorf("should not overlap")
-	}
-
-	cs = [][2]uint64{
-		{10, 20},
-		{22, 40},
-		{41, 50},
-	}
-
-	if chunk, ok = cs.overlap(1, 9); !ok {
-		t.Errorf("should not overlap")
-	}
-
-	if chunk, ok = cs.overlap(51, 60); !ok {
-		t.Errorf("should not overlap")
-	}
-
-	if chunk, ok = cs.overlap(20, 21); ok || chunk != [2]uint64{10, 20} {
-		t.Errorf("should overlap")
-	}
-
-	if chunk, ok = cs.overlap(50, 61); ok || chunk != [2]uint64{41, 50} {
-		t.Errorf("should overlap")
-	}
-
-	if chunk, ok = cs.overlap(19, 42); ok || chunk != [2]uint64{10, 20} {
-		t.Errorf("should overlap")
-	}
-}
-
 func TestExecutor_cancel(t *testing.T) {
 	exec := newExecutor(100, 3, nil, nil)
 	exec.start()
 
 	exec.download(&syncTask{
 		Segment: interfaces.Segment{
-			Bound: [2]uint64{1, 10},
+			From: 1,
+			To:   10,
 		},
 	}, false)
 	exec.download(&syncTask{
 		Segment: interfaces.Segment{
-			Bound: [2]uint64{11, 20},
+			From: 11,
+			To:   20,
 		},
 	}, false)
 	exec.download(&syncTask{
 		Segment: interfaces.Segment{
-			Bound: [2]uint64{21, 30},
+			From: 21,
+			To:   30,
 		},
 	}, false)
 	exec.download(&syncTask{
 		Segment: interfaces.Segment{
-			Bound: [2]uint64{31, 40},
+			From: 31,
+			To:   40,
 		},
 	}, false)
 
 	if len(exec.tasks) != 2 {
 		t.Errorf("wrong tasks length: %d", len(exec.tasks))
 	}
-	if exec.tasks[1].Bound != [2]uint64{11, 12} {
+	if exec.tasks[1].From != 11 || exec.tasks[1].To != 12 {
 		t.Errorf("wrong task")
 	}
 }
@@ -216,32 +178,38 @@ func TestCancelTasks(t *testing.T) {
 	var tasks = syncTasks{
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{1, 10},
+				From: 1,
+				To:   10,
 			},
 		},
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{11, 20},
+				From: 11,
+				To:   20,
 			},
 		},
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{21, 30},
+				From: 21,
+				To:   30,
 			},
 		},
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{31, 40},
+				From: 31,
+				To:   40,
 			},
 		},
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{41, 50},
+				From: 41,
+				To:   50,
 			},
 		},
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{61, 60},
+				From: 61,
+				To:   60,
 			},
 		},
 	}
@@ -255,7 +223,7 @@ func TestCancelTasks(t *testing.T) {
 			t.Errorf("wrong end: %d", end)
 		}
 		for i, t2 := range tasks {
-			if t2.Bound != cs[i] {
+			if t2.From != cs[i][0] || t2.To != cs[i][1] {
 				t.Errorf("wrong task: %v", t2)
 			}
 		}
@@ -266,38 +234,38 @@ func TestRunTasks(t *testing.T) {
 	var tasks = syncTasks{
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{3, 10},
+				From: 3, To: 10,
 			},
 			st:     reqDone,
 			doneAt: time.Unix(time.Now().Unix()-10, 0), // will be clean
 		},
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{11, 15},
+				From: 11, To: 15,
 			},
 		},
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{16, 20},
+				From: 16, To: 20,
 			},
 			st:     reqDone,
 			doneAt: time.Now(),
 		},
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{21, 25},
+				From: 21, To: 25,
 			},
 			st: reqError,
 		},
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{26, 30},
+				From: 26, To: 30,
 			},
 			st: reqCancel,
 		},
 		{
 			Segment: interfaces.Segment{
-				Bound: [2]uint64{31, 35},
+				From: 31, To: 35,
 			},
 		},
 	}
@@ -305,10 +273,10 @@ func TestRunTasks(t *testing.T) {
 	var wg sync.WaitGroup
 	var run = func(t *syncTask) {
 		if t.st == reqDone || t.st == reqPending {
-			panic(fmt.Sprintf("run task %d-%d repeatedly", t.Bound[0], t.Bound[1]))
+			panic(fmt.Sprintf("run task %d-%d repeatedly", t.From, t.To))
 		}
 
-		fmt.Printf("run task %d-%d\n", t.Bound[0], t.Bound[1])
+		fmt.Printf("run task %d-%d\n", t.From, t.To)
 		t.st = reqPending
 
 		wg.Add(1)
@@ -339,24 +307,24 @@ func TestAddTasks(t *testing.T) {
 		tasks = syncTasks{
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{1, 100},
+					From: 1, To: 100,
 				},
 				st: reqDone,
 			},
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{101, 200},
+					From: 101, To: 200,
 				},
 			},
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{301, 400},
+					From: 301, To: 400,
 				},
 				st: reqDone,
 			},
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{501, 600},
+					From: 501, To: 600,
 				},
 				st: reqError,
 			},
@@ -372,17 +340,17 @@ func TestAddTasks(t *testing.T) {
 		{1, 100, true, syncTasks{
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{1, 100},
+					From: 1, To: 100,
 				},
 			},
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{101, 200},
+					From: 101, To: 200,
 				},
 			},
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{501, 600},
+					From: 501, To: 600,
 				},
 				st: reqError,
 			},
@@ -390,30 +358,30 @@ func TestAddTasks(t *testing.T) {
 		{601, 700, false, syncTasks{
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{1, 100},
+					From: 1, To: 100,
 				},
 				st: reqDone,
 			},
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{101, 200},
+					From: 101, To: 200,
 				},
 			},
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{301, 400},
+					From: 301, To: 400,
 				},
 				st: reqDone,
 			},
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{501, 600},
+					From: 501, To: 600,
 				},
 				st: reqError,
 			},
 			{
 				Segment: interfaces.Segment{
-					Bound: [2]uint64{601, 700},
+					From: 601, To: 700,
 				},
 			},
 		}},
@@ -422,14 +390,15 @@ func TestAddTasks(t *testing.T) {
 	for _, samp := range samples {
 		reset()
 		tasks = addTasks(tasks, &syncTask{Segment: interfaces.Segment{
-			Bound: [2]uint64{samp.from, samp.to},
+			From: samp.from,
+			To:   samp.to,
 		},
 		}, samp.must)
 		for i, tt := range samp.ts {
 			if tasks[i].equal(tt) && tasks[i].st == tt.st {
 				continue
 			}
-			t.Errorf("wrong task: %d-%d %d-%d", tasks[i].Bound[0], tasks[i].Bound[1], tt.Bound[0], tt.Bound[1])
+			t.Errorf("wrong task: %d-%d %d-%d", tasks[i].From, tasks[i].To, tt.From, tt.To)
 		}
 	}
 }
@@ -691,7 +660,7 @@ func (m *mockQueue) run(t *syncTask) {
 	go func() {
 		n := time.Duration(rand.Intn(500))
 		time.Sleep(n * time.Millisecond)
-		fmt.Printf("task %d-%d done\n", t.Bound[0], t.Bound[1])
+		fmt.Printf("task %d-%d done\n", t.From, t.To)
 		t.st = reqDone
 		t.doneAt = time.Now()
 		m.cond.Signal()
@@ -716,7 +685,7 @@ func (m *mockQueue) add(from, to uint64) bool {
 
 	m.tasks = append(m.tasks, &syncTask{
 		Segment: interfaces.Segment{
-			Bound: [2]uint64{from, to},
+			From: from, To: to,
 		},
 	})
 
@@ -788,111 +757,111 @@ func TestMockQueue(t *testing.T) {
 	wg.Wait()
 }
 
-type mockLedgerReader struct {
-	segment interfaces.Segment
-	size    int
-	buf     *bytes.Buffer
-}
+//type mockLedgerReader struct {
+//	segment interfaces.Segment
+//	size    int
+//	buf     *bytes.Buffer
+//}
+//
+//func (m *mockLedgerReader) Seg() interfaces.Segment {
+//	return m.segment
+//}
+//
+//func (m *mockLedgerReader) Size() int {
+//	return m.size
+//}
+//
+//func (m *mockLedgerReader) Read(p []byte) (n int, err error) {
+//	return m.buf.Read(p)
+//}
+//
+//func (m *mockLedgerReader) Close() error {
+//	return nil
+//}
+//
+//type mockChunk struct {
+//	seg      interfaces.Segment
+//	buf      *bytes.Buffer
+//	cache    *mockSyncCacher
+//	verified bool
+//}
+//
+//func (mc *mockChunk) Verified() bool {
+//	return mc.verified
+//}
+//
+//func (mc *mockChunk) Verify() {
+//	mc.verified = true
+//}
+//
+//func (mc *mockChunk) Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error) {
+//	panic("implement me")
+//}
+//
+//func (mc *mockChunk) Size() int64 {
+//	return int64(len(mc.buf.Bytes()))
+//}
+//
+//func (mc *mockChunk) Write(p []byte) (n int, err error) {
+//	return mc.buf.Write(p)
+//}
+//
+//func (mc *mockChunk) Close() error {
+//	mc.cache.r[mc.seg] = mc
+//	delete(mc.cache.w, mc.seg)
+//	return nil
+//}
+//
+//type mockSyncCacher struct {
+//	w map[interfaces.Segment]*mockChunk
+//	r map[interfaces.Segment]*mockChunk
+//}
+//
+//func (m *mockSyncCacher) NewWriter(segment interfaces.Segment) (io.WriteCloser, error) {
+//	c := &mockChunk{}
+//	m.w[segment] = c
+//	return c, nil
+//}
+//
+//func (m *mockSyncCacher) Chunks() (cs interfaces.SegmentList) {
+//	for seg := range m.r {
+//		cs = append(cs, seg)
+//	}
+//
+//	sort.Sort(cs)
+//	return
+//}
+//
+//func (m *mockSyncCacher) NewReader(segment interfaces.Segment) (interfaces.ChunkReader, error) {
+//	r, ok := m.r[segment]
+//	if ok {
+//		return r, nil
+//	}
+//
+//	return nil, errors.New("no resource")
+//}
+//
+//func (m *mockSyncCacher) Delete(seg interfaces.Segment) error {
+//	delete(m.r, seg)
+//	return nil
+//}
 
-func (m *mockLedgerReader) Seg() interfaces.Segment {
-	return m.segment
-}
-
-func (m *mockLedgerReader) Size() int {
-	return m.size
-}
-
-func (m *mockLedgerReader) Read(p []byte) (n int, err error) {
-	return m.buf.Read(p)
-}
-
-func (m *mockLedgerReader) Close() error {
-	return nil
-}
-
-type mockChunk struct {
-	seg      interfaces.Segment
-	buf      *bytes.Buffer
-	cache    *mockSyncCacher
-	verified bool
-}
-
-func (mc *mockChunk) Verified() bool {
-	return mc.verified
-}
-
-func (mc *mockChunk) Verify() {
-	mc.verified = true
-}
-
-func (mc *mockChunk) Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error) {
-	panic("implement me")
-}
-
-func (mc *mockChunk) Size() int64 {
-	return int64(len(mc.buf.Bytes()))
-}
-
-func (mc *mockChunk) Write(p []byte) (n int, err error) {
-	return mc.buf.Write(p)
-}
-
-func (mc *mockChunk) Close() error {
-	mc.cache.r[mc.seg] = mc
-	delete(mc.cache.w, mc.seg)
-	return nil
-}
-
-type mockSyncCacher struct {
-	w map[interfaces.Segment]*mockChunk
-	r map[interfaces.Segment]*mockChunk
-}
-
-func (m *mockSyncCacher) NewWriter(segment interfaces.Segment) (io.WriteCloser, error) {
-	c := &mockChunk{}
-	m.w[segment] = c
-	return c, nil
-}
-
-func (m *mockSyncCacher) Chunks() (cs interfaces.SegmentList) {
-	for seg := range m.r {
-		cs = append(cs, seg)
-	}
-
-	sort.Sort(cs)
-	return
-}
-
-func (m *mockSyncCacher) NewReader(segment interfaces.Segment) (interfaces.ChunkReader, error) {
-	r, ok := m.r[segment]
-	if ok {
-		return r, nil
-	}
-
-	return nil, errors.New("no resource")
-}
-
-func (m *mockSyncCacher) Delete(seg interfaces.Segment) error {
-	delete(m.r, seg)
-	return nil
-}
-
-type mockDownloaderChain struct {
-	readers []*mockLedgerReader
-	cache   *mockSyncCacher
-}
-
-func (m *mockDownloaderChain) GetSyncCache() interfaces.SyncCache {
-	return m.cache
-}
-
-func (m *mockDownloaderChain) GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error) {
-	for _, r := range m.readers {
-		seg := r.Seg()
-		if seg.Bound == [2]uint64{startHeight, endHeight} {
-			return r, nil
-		}
-	}
-
-	return nil, errors.New("no resource")
-}
+//type mockDownloaderChain struct {
+//	readers []*mockLedgerReader
+//	cache   *mockSyncCacher
+//}
+//
+//func (m *mockDownloaderChain) GetSyncCache() interfaces.SyncCache {
+//	return m.cache
+//}
+//
+//func (m *mockDownloaderChain) GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error) {
+//	for _, r := range m.readers {
+//		seg := r.Seg()
+//		if seg.From == startHeight && seg.To == endHeight {
+//			return r, nil
+//		}
+//	}
+//
+//	return nil, errors.New("no resource")
+//}

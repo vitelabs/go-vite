@@ -528,3 +528,28 @@ func (s stateHandler) handle(msg Msg) (err error) {
 
 	return
 }
+
+func splitChunk(from, to uint64, size uint64) (chunks [][2]uint64) {
+	// chunks may be only one block, then from == to
+	if from > to || to == 0 {
+		return
+	}
+
+	total := (to-from)/size + 1
+	chunks = make([][2]uint64, total)
+
+	var cTo uint64
+	var i int
+	for from <= to {
+		if cTo = from + size - 1; cTo > to {
+			cTo = to
+		}
+
+		chunks[i] = [2]uint64{from, cTo}
+
+		from = cTo + 1
+		i++
+	}
+
+	return chunks[:i]
+}

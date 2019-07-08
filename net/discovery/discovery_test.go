@@ -54,7 +54,7 @@ func (m *mockSocket) stop() error {
 }
 
 func TestFindNode(t *testing.T) {
-	tab := newTable(vnode.ZERO, self.Net, bucketSize, bucketNum, newListBucket, nil)
+	tab := newTable(vnode.ZERO, self.Net, newListBucket, nil)
 	tab.add(&Node{
 		Node: vnode.Node{
 			ID: vnode.RandFromDistance(tab.id, 100),
@@ -68,7 +68,7 @@ func TestFindNode(t *testing.T) {
 		},
 	})
 
-	var d = &discovery{
+	var d = &Discovery{
 		node: &vnode.Node{
 			ID: vnode.ZERO,
 			EndPoint: vnode.EndPoint{

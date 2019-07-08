@@ -25,7 +25,7 @@ func (mp *mockPinger) ping(n *Node) error {
 func TestTable_add(t *testing.T) {
 	// add until the nearest bucket is full
 	mp := &mockPinger{false}
-	tab := newTable(vnode.ZERO, self.Net, bucketSize, bucketNum, newListBucket, mp)
+	tab := newTable(vnode.ZERO, self.Net, newListBucket, mp)
 	var node *Node
 	var toCheck *Node
 	for i := 0; i < bucketSize; i++ {
@@ -87,7 +87,7 @@ func TestTable_add(t *testing.T) {
 func TestTable_add2(t *testing.T) {
 	// add until the nearest bucket is full
 	mp := &mockPinger{false}
-	tab := newTable(vnode.ZERO, self.Net, bucketSize, bucketNum, newListBucket, mp)
+	tab := newTable(vnode.ZERO, self.Net, newListBucket, mp)
 
 	tab.add(&Node{
 		Node: vnode.Node{
@@ -134,7 +134,7 @@ func TestTable_add2(t *testing.T) {
 func TestTable_add3(t *testing.T) {
 	// add until the nearest bucket is full
 	mp := &mockPinger{false}
-	tab := newTable(vnode.ZERO, self.Net, bucketSize, bucketNum, newListBucket, mp)
+	tab := newTable(vnode.ZERO, self.Net, newListBucket, mp)
 
 	node := &Node{
 		Node: vnode.Node{
@@ -216,7 +216,7 @@ func TestTable_add3(t *testing.T) {
 func TestTable_nodes(t *testing.T) {
 	var id vnode.NodeID
 	mp := &mockPinger{false}
-	tab := newTable(id, self.Net, bucketSize, bucketNum, newListBucket, mp)
+	tab := newTable(id, self.Net, newListBucket, mp)
 
 	// one node per bucket
 	for i := tab.minDistance; i <= vnode.IDBits; i++ {
@@ -251,7 +251,7 @@ func TestTable_nodes(t *testing.T) {
 
 func TestTable_getBucket(t *testing.T) {
 	var id = vnode.RandomNodeID()
-	tab := newTable(id, self.Net, bucketSize, bucketNum, newListBucket, nil)
+	tab := newTable(id, self.Net, newListBucket, nil)
 
 	for i := uint(0); i <= vnode.IDBits; i++ {
 		id2 := vnode.RandFromDistance(id, i)

@@ -33,7 +33,7 @@ import (
 
 const seedMaxAge = int64(7 * 24 * time.Hour)
 const tRefresh = 24 * time.Hour        // refresh the node table at tRefresh intervals
-const storeInterval = 15 * time.Minute // store nodes in table to db at storeDuration intervals
+const storeInterval = 1 * time.Minute  // store nodes in table to db at storeDuration intervals
 const checkInterval = 10 * time.Second // check the oldest node in table at checkInterval intervals
 const checkExpiration = time.Hour      // should check again if last check is an hour ago
 const stayInTable = 5 * time.Minute    // minimal duration node stay in table can be store in db
@@ -70,7 +70,7 @@ func (db *discvDB) StoreNode(node *Node) (err error) {
 	return
 }
 
-func (db *discvDB) ReadNodes(count int, expiration int64) (nodes []*Node) {
+func (db *discvDB) ReadNodes(expiration int64) (nodes []*Node) {
 	vnodes := db.NodeDB.ReadNodes(expiration)
 	nodes = make([]*Node, len(vnodes))
 	for i, n := range vnodes {
@@ -89,7 +89,8 @@ func (db *discvDB) ReadNodes(count int, expiration int64) (nodes []*Node) {
 type Discovery struct {
 	node *vnode.Node
 
-	booNodes, bootSeeds []string
+	bootNodes []string
+	bootSeeds []string
 
 	booters []booter
 
@@ -128,6 +129,21 @@ func (d *Discovery) Nodes() []*vnode.Node {
 	return vnodes
 }
 
+func (d *Discovery) SubscribeNode(receiver func(n *vnode.Node)) (subId int) {
+	return d.table.Sub(receiver)
+}
+func (d *Discovery) Unsubscribe(subId int) {
+	d.table.UnSub(subId)
+}
+
+func (d *Discovery) GetNodes(count int) (nodes []*vnode.Node) {
+	for _, n := range d.table.nodes(count) {
+		nodes = append(nodes, &n.Node)
+	}
+
+	return
+}
+
 func (d *Discovery) SetFinder(f Finder) {
 	if d.finder != nil {
 		d.finder.UnSub(d.table)
@@ -136,17 +152,6 @@ func (d *Discovery) SetFinder(f Finder) {
 	f.SetResolver(d)
 	d.finder = f
 	d.finder.Sub(d.table)
-}
-
-func (d *Discovery) ReadNodes(n int) []*vnode.Node {
-	nodes := d.table.nodes(n)
-	vnodes := make([]*vnode.Node, len(nodes))
-
-	for i, node := range nodes {
-		vnodes[i] = &node.Node
-	}
-
-	return vnodes
 }
 
 func (d *Discovery) Delete(id vnode.NodeID, reason error) {
@@ -175,15 +180,26 @@ func (d *Discovery) Resolve(id vnode.NodeID) (ret *vnode.Node) {
 }
 
 // New create a Discovery implementation
-func New(peerKey ed25519.PrivateKey, node *vnode.Node, booNodes, bootSeeds []string, listenAddress string, db NodeDB) *Discovery {
+func New(peerKey ed25519.PrivateKey, node *vnode.Node, bootNodes, bootSeeds []string, listenAddress string, db NodeDB) *Discovery {
 	d := &Discovery{
-		node:      node,
-		booNodes:  booNodes,
-		bootSeeds: bootSeeds,
-		stage:     make(map[string]*Node),
-		log:       discvLog,
+		node:       node,
+		bootNodes:  bootNodes,
+		bootSeeds:  bootSeeds,
+		booters:    nil,
+		table:      nil,
+		finder:     nil,
+		stage:      make(map[string]*Node),
+		mu:         sync.Mutex{},
+		socket:     nil,
+		db:         nil,
+		running:    0,
+		term:       nil,
+		looking:    0,
+		refreshing: false,
+		cond:       nil,
+		wg:         sync.WaitGroup{},
+		log:        discvLog,
 	}
-
 	if db != nil {
 		d.db = &discvDB{
 			db,
@@ -211,9 +227,9 @@ func (d *Discovery) Start() (err error) {
 	if len(d.bootSeeds) > 0 {
 		d.booters = append(d.booters, newNetBooter(d.node, d.bootSeeds))
 	}
-	if len(d.booNodes) > 0 {
+	if len(d.bootNodes) > 0 {
 		var bt booter
-		bt, err = newCfgBooter(d.booNodes, d.node)
+		bt, err = newCfgBooter(d.bootNodes, d.node)
 		if err != nil {
 			return err
 		}
@@ -339,12 +355,9 @@ Loop:
 func (d *Discovery) findLoop() {
 	defer d.wg.Done()
 
-	initduration := 10 * time.Second
-	maxDuration := 640 * time.Second
-	duration := initduration
-
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
+	duration := 10 * time.Second
+	ticker := time.NewTicker(duration)
+	defer ticker.Stop()
 
 Loop:
 	for {
@@ -352,18 +365,12 @@ Loop:
 		case <-d.term:
 			break Loop
 
-		case <-timer.C:
-			if distance := d.table.toFind(); distance > 0 {
+		case <-ticker.C:
+			if d.table.size() == 0 {
+				d.init()
+			} else if distance := d.table.subTreeToFind(); distance > 0 {
 				d.findSubTree(distance)
 			}
-
-			if duration < maxDuration {
-				duration *= 2
-			} else {
-				duration = initduration
-			}
-
-			timer.Reset(duration)
 		}
 	}
 }
@@ -380,7 +387,6 @@ func (d *Discovery) handle(pkt *packet) {
 			_ = d.socket.pong(pkt.hash, n)
 		}
 
-		d.table.bubble(n.ID)
 		d.table.add(n)
 
 	case codePong:
@@ -389,10 +395,16 @@ func (d *Discovery) handle(pkt *packet) {
 
 	case codeFindnode:
 		find := pkt.body.(*findnode)
-		nodes := d.table.findNeighbors(find.target, int(find.count))
-		eps := make([]*vnode.EndPoint, len(nodes))
-		for i, n := range nodes {
-			eps[i] = &n.EndPoint
+
+		var eps []*vnode.EndPoint
+		if d.finder != nil {
+			eps = d.finder.FindNeighbors(pkt.id, find.target, find.count/2)
+		}
+		if len(eps) < find.count {
+			nodes := d.table.findNeighbors(find.target, find.count-len(eps))
+			for _, n := range nodes {
+				eps = append(eps, &n.EndPoint)
+			}
 		}
 		_ = d.socket.sendNodes(eps, pkt.from)
 
@@ -477,11 +489,9 @@ func (d *Discovery) getBootNodes(num int) (bootNodes []*Node) {
 }
 
 func (d *Discovery) init() {
-	d.log.Info("init")
 	if d.loadBootNodes() {
 		d.refresh()
 	}
-	d.log.Info("init done")
 }
 
 func (d *Discovery) loadBootNodes() bool {
@@ -511,11 +521,9 @@ func (d *Discovery) findSubTree(distance uint) {
 		return
 	}
 
-	if d.loadBootNodes() {
-		id := vnode.RandFromDistance(d.node.ID, distance)
-		nodes := d.lookup(id, bucketSize)
-		d.table.addNodes(nodes)
-	}
+	id := vnode.RandFromDistance(d.node.ID, distance)
+	nodes := d.lookup(id, bucketSize)
+	d.table.addNodes(nodes)
 }
 
 func (d *Discovery) refresh() {
@@ -544,7 +552,7 @@ func (d *Discovery) refresh() {
 	d.cond.Broadcast()
 }
 
-func (d *Discovery) lookup(target vnode.NodeID, count int) []*Node {
+func (d *Discovery) lookup(target vnode.NodeID, count int) (result []*Node) {
 	// is looking
 	if !atomic.CompareAndSwapInt32(&d.looking, 0, 1) {
 		return nil
@@ -552,30 +560,31 @@ func (d *Discovery) lookup(target vnode.NodeID, count int) []*Node {
 
 	defer atomic.StoreInt32(&d.looking, 0)
 
-	var result = closet{
-		pivot: target,
-	}
+	nodes := d.table.findNeighbors(target, count)
 
-	result.nodes = d.table.findNeighbors(target, int(count))
-
-	if len(result.nodes) == 0 {
-		return nil
+	if len(nodes) == 0 {
+		return
 	}
 
 	asked := make(map[vnode.NodeID]struct{}) // nodes has sent findnode message
 	asked[d.node.ID] = struct{}{}
+	asked[target] = struct{}{}
+
 	// all nodes of responsive neighbors, use for filter to ensure the same node pushed once
 	seen := make(map[vnode.NodeID]struct{})
-	seen[target] = struct{}{}
+	seen[d.node.ID] = struct{}{}
+	for _, n := range nodes {
+		seen[n.ID] = struct{}{}
+	}
 
-	const alpha = 3
+	const alpha = 10
 	reply := make(chan []*Node, alpha)
 	queries := 0
 
 Loop:
 	for {
-		for i := 0; i < len(result.nodes) && queries < alpha; i++ {
-			n := result.nodes[i]
+		for i := 0; i < len(nodes) && queries < alpha; i++ {
+			n := nodes[i]
 			if _, ok := asked[n.ID]; !ok && n.couldFind() {
 				asked[n.ID] = struct{}{}
 				go d.findNode(target, count, n, reply)
@@ -590,20 +599,20 @@ Loop:
 		select {
 		case <-d.term:
 			break Loop
-		case nodes := <-reply:
+		case ns := <-reply:
 			queries--
-			for _, n := range nodes {
+			for _, n := range ns {
 				if n != nil && n.Net == d.node.Net {
 					if _, ok := seen[n.ID]; !ok {
 						seen[n.ID] = struct{}{}
-						result.push(n)
+						result = append(result, n)
 					}
 				}
 			}
 		}
 	}
 
-	return result.nodes
+	return
 }
 
 func (d *Discovery) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*Node) {
@@ -615,33 +624,36 @@ func (d *Discovery) findNode(target vnode.NodeID, count int, n *Node, ch chan<- 
 	}
 
 	eps := <-epChan
-	curr := make(chan struct{}, 10)
-	nch := make(chan *Node)
-	var wg sync.WaitGroup
-	for _, ep := range eps {
-		wg.Add(1)
-		go func(ep *vnode.EndPoint) {
-			defer wg.Done()
-			curr <- struct{}{}
-			defer func() {
-				<-curr
-			}()
-			node, e := d.receiveEndPoint(*ep)
-			if e != nil {
-				return
-			}
-			nch <- node
-		}(ep)
-	}
+	var nodes []*Node
+	if len(eps) > 0 {
+		curr := make(chan struct{}, 10)
+		nch := make(chan *Node)
+		var wg sync.WaitGroup
+		for _, ep := range eps {
+			wg.Add(1)
+			go func(ep *vnode.EndPoint) {
+				defer wg.Done()
+				curr <- struct{}{}
+				defer func() {
+					<-curr
+				}()
+				node, e := d.receiveEndPoint(*ep)
+				if e != nil {
+					return
+				}
+				nch <- node
+			}(ep)
+		}
 
-	go func() {
-		wg.Wait()
-		close(nch)
-	}()
+		go func() {
+			wg.Wait()
+			close(nch)
+		}()
 
-	nodes := make([]*Node, 0, len(eps))
-	for n = range nch {
-		nodes = append(nodes, n)
+		nodes = make([]*Node, 0, len(eps))
+		for n = range nch {
+			nodes = append(nodes, n)
+		}
 	}
 
 	ch <- nodes

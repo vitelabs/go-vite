@@ -27,19 +27,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/vnode"
-
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 
-	"github.com/vitelabs/go-vite/net/discovery"
+	"github.com/vitelabs/go-vite/p2p/discovery"
 )
-
-type config struct {
-	peerKey             ed25519.PrivateKey
-	node                *vnode.Node
-	booNodes, bootSeeds []string
-	listenAddress       string
-}
 
 func main() {
 	pwd, err := filepath.Abs(filepath.Dir(os.Args[0]))
@@ -48,7 +39,7 @@ func main() {
 	}
 
 	var port = 8081
-	const total = 55
+	const total = 100
 	type sample struct {
 		port int
 		dir  string
@@ -107,7 +98,6 @@ func main() {
 
 	for _, d := range ds {
 		go start(d)
-		time.Sleep(time.Second)
 	}
 
 	fmt.Println("start")
@@ -118,7 +108,7 @@ func main() {
 			select {
 			case <-ticker.C:
 				for i, d := range ds {
-					fmt.Println(i, len(d.AllNodes()))
+					fmt.Println(i, len(d.Nodes()))
 				}
 				fmt.Println("------------")
 			}

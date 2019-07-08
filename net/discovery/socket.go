@@ -37,7 +37,7 @@ var errIncompleteMessage = errors.New("incomplete message")
 var errSocketIsRunning = errors.New("udp socket is listening")
 var errSocketIsNotRunning = errors.New("udp socket is not running")
 
-const socketQueueLength = 30
+const socketQueueLength = 1000
 
 // sender return err is not nil if one of the following scene occur:
 // 1. failed to resolve net.UDPAddr of n
@@ -211,13 +211,14 @@ func (a *agent) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*v
 		return
 	}
 
+	now := time.Now()
 	_, err = a.write(message{
 		c:  codeFindnode,
 		id: a.node.ID,
 		body: &findnode{
 			target: target,
 			count:  count,
-			time:   time.Now(),
+			time:   now,
 		},
 	}, udp)
 
@@ -234,7 +235,7 @@ func (a *agent) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*v
 			count: count,
 			ch:    ch,
 		},
-		expiration: time.Now().Add(2 * expiration),
+		expiration: now.Add(2 * expiration),
 	})
 
 	return

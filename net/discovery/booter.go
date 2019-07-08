@@ -19,7 +19,7 @@ type booter interface {
 
 // booterDB can retrieve bootNodes
 type booterDB interface {
-	ReadNodes(count int, expiration int64) []*Node
+	ReadNodes(expiration int64) []*Node
 }
 
 // dbBooter supply bootNodes from database
@@ -34,7 +34,7 @@ func newDBBooter(db booterDB) booter {
 }
 
 func (d *dbBooter) getBootNodes(count int) []*Node {
-	return d.db.ReadNodes(count, seedMaxAge)
+	return d.db.ReadNodes(seedMaxAge)
 }
 
 // cfgBooter supply random bootNodes from config

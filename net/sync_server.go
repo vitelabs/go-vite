@@ -214,8 +214,8 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 		}
 
 		ready := &syncResponse{
-			from:     segment.Bound[0],
-			to:       segment.Bound[1],
+			from:     segment.From,
+			to:       segment.To,
 			size:     uint64(reader.Size()),
 			prevHash: segment.PrevHash,
 			endHash:  segment.Hash,
@@ -238,7 +238,7 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 		})
 
 		if err != nil {
-			s.log.Error(fmt.Sprintf("failed to send chunk response <%d-%d> to %s: %v", segment.Bound[0], segment.Bound[1], conn.RemoteAddr(), err))
+			s.log.Error(fmt.Sprintf("failed to send chunk response <%d-%d> to %s: %v", segment.From, segment.To, conn.RemoteAddr(), err))
 			return
 		}
 
@@ -252,10 +252,10 @@ func (s *syncServer) handleConn(conn net2.Conn) {
 		}
 
 		if err != nil {
-			s.log.Error(fmt.Sprintf("failed to send chunk<%d-%d> %d bytes to %s: %v", segment.Bound[0], segment.Bound[1], wn, conn.RemoteAddr(), err))
+			s.log.Error(fmt.Sprintf("failed to send chunk<%d-%d> %d bytes to %s: %v", segment.From, segment.To, wn, conn.RemoteAddr(), err))
 			return
 		} else {
-			s.log.Info(fmt.Sprintf("send chunk<%d-%d> %d bytes to %s done", segment.Bound[0], segment.Bound[1], wn, conn.RemoteAddr()))
+			s.log.Info(fmt.Sprintf("send chunk<%d-%d> %d bytes to %s done", segment.From, segment.To, wn, conn.RemoteAddr()))
 		}
 	}
 }

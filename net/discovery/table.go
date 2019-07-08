@@ -95,7 +95,7 @@ type nodeTable interface {
 	resolveAddr(address string) *Node
 	// toFind return the sub-tree need more nodes
 	// return distance from the sub-tree
-	toFind() uint
+	subTreeToFind() uint
 }
 
 type element struct {
@@ -598,7 +598,7 @@ func (tab *table) iterate(fn func(*Node)) {
 }
 
 // toFind return the sub-tree need more nodes
-func (tab *table) toFind() uint {
+func (tab *table) subTreeToFind() uint {
 	tab.rw.RLock()
 	defer tab.rw.RUnlock()
 

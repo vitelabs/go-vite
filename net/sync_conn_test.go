@@ -2,13 +2,14 @@ package net
 
 import (
 	"bytes"
-	crand "crypto/rand"
 	"fmt"
 	mrand "math/rand"
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/interfaces"
+
+	"github.com/vitelabs/go-vite/p2p/vnode"
 
 	"github.com/vitelabs/go-vite/common/types"
 )
@@ -303,15 +304,12 @@ func compare(m1, m2 *syncResponse) error {
 }
 func TestSyncReadyMsg(t *testing.T) {
 	var msg = &syncResponse{
-		from:     117,
-		to:       1189,
+		from:     101,
+		to:       200,
 		size:     20293,
-		prevHash: types.Hash{},
-		endHash:  types.Hash{},
+		prevHash: types.Hash{1},
+		endHash:  types.Hash{2},
 	}
-
-	_, _ = crand.Read(msg.prevHash[:])
-	_, _ = crand.Read(msg.endHash[:])
 
 	data, err := msg.Serialize()
 	if err != nil {
@@ -326,5 +324,35 @@ func TestSyncReadyMsg(t *testing.T) {
 
 	if err = compare(msg, msg2); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestSyncRequest_Serialize(t *testing.T) {
+	var segment = interfaces.Segment{
+		From:     101,
+		To:       200,
+		Hash:     types.Hash{1},
+		PrevHash: types.Hash{2},
+	}
+
+	var request = &syncRequest{
+		from:     segment.From,
+		to:       segment.To,
+		prevHash: segment.PrevHash,
+		endHash:  segment.Hash,
+	}
+
+	data, err := request.Serialize()
+	if err != nil {
+		panic(err)
+	}
+	var request2 = &syncRequest{}
+	err = request2.deserialize(data)
+	if err != nil {
+		panic(err)
+	}
+
+	if *request2 != *request {
+		t.Errorf("different request")
 	}
 }

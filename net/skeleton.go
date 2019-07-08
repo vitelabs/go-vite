@@ -19,17 +19,18 @@
 package net
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-const getHashHeightListTimeout = 10 * time.Second
+const getHashHeightListTimeout = 30 * time.Second
 
 var errTimeout = errors.New("timeout")
 
@@ -124,6 +125,8 @@ type skeleton struct {
 
 	tree *hashHeightNode
 
+	blackBlocks map[types.Hash]struct{}
+
 	peers *peerSet
 	idGen MsgIder
 
@@ -133,11 +136,12 @@ type skeleton struct {
 	wg sync.WaitGroup
 }
 
-func newSkeleton(peers *peerSet, idGen MsgIder) *skeleton {
+func newSkeleton(peers *peerSet, idGen MsgIder, blackBlocks map[types.Hash]struct{}) *skeleton {
 	return &skeleton{
-		peers:   peers,
-		idGen:   idGen,
-		pending: make(map[MsgId]*Peer),
+		peers:       peers,
+		idGen:       idGen,
+		pending:     make(map[MsgId]*Peer),
+		blackBlocks: blackBlocks,
 	}
 }
 
@@ -192,19 +196,29 @@ func (sk *skeleton) getHashList(p *Peer, msg *GetHashHeightList) {
 	}
 }
 
-func (sk *skeleton) receiveHashList(msg Msg) {
+func (sk *skeleton) receiveHashList(msg Msg, sender *Peer) {
 	if atomic.LoadInt32(&sk.checking) == 1 {
 		var hh = &HashHeightPointList{}
 		err := hh.Deserialize(msg.Payload)
 		if err != nil {
-			sk.getHashListFailed(msg.Id, msg.Sender, err)
+			sk.getHashListFailed(msg.Id, sender, err)
 			return
 		}
 
 		sk.removePending(msg.Id)
 
+		// is in black list
+		if len(sk.blackBlocks) > 0 {
+			for _, p := range hh.Points {
+				if _, ok := sk.blackBlocks[p.Hash]; ok {
+					sender.setReliable(false)
+					return
+				}
+			}
+		}
+
 		sk.mu.Lock()
-		sk.tree.addBranch(hh.Points, msg.Sender)
+		sk.tree.addBranch(hh.Points, sender)
 		sk.mu.Unlock()
 	}
 }

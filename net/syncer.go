@@ -36,8 +36,8 @@ const minHeightDifference = 100
 const waitEnoughPeers = 5 * time.Second
 const enoughPeers = 3
 const checkChainInterval = time.Second
-const syncTaskSize = 1000
-const maxBatchChunkSize = 100 * syncTaskSize
+const syncTaskSize = 100
+const maxBatchChunkSize = 500 * syncTaskSize
 
 func shouldSync(from, to uint64) bool {
 	if to >= from+minHeightDifference {
@@ -47,32 +47,11 @@ func shouldSync(from, to uint64) bool {
 	return false
 }
 
-func splitChunk(from, to uint64, size uint64) (chunks [][2]uint64) {
-	// chunks may be only one block, then from == to
-	if from > to || to == 0 {
-		return
-	}
-
-	total := (to-from)/size + 1
-	chunks = make([][2]uint64, total)
-
-	var cTo uint64
-	var i int
-	for from <= to {
-		if cTo = from + size - 1; cTo > to {
-			cTo = to
-		}
-
-		chunks[i] = [2]uint64{from, cTo}
-
-		from = cTo + 1
-		i++
-	}
-
-	return chunks[:i]
-}
-
 type syncer struct {
+	sbp bool
+
+	syncing int32
+
 	from, to uint64
 
 	state syncState
@@ -91,8 +70,6 @@ type syncer struct {
 	reader     syncCacheReader
 	irreader   IrreversibleReader
 
-	blackBlocks map[types.Hash]struct{}
-
 	curSubId int // for subscribe
 	subs     map[int]SyncStateCallback
 	mu       sync.Mutex
@@ -100,8 +77,6 @@ type syncer struct {
 	running int32
 	term    chan struct{}
 	log     log15.Logger
-
-	sbp bool
 }
 
 func (s *syncer) Peek() *Chunk {
@@ -129,26 +104,39 @@ func (s *syncer) handle(msg Msg) (err error) {
 	switch msg.Code {
 	case CodeHashList:
 		s.log.Info(fmt.Sprintf("receive HashHeightList from %s", msg.Sender))
-		s.sk.receiveHashList(msg)
+		s.sk.receiveHashList(msg, msg.Sender)
 	}
 
 	return nil
 }
 
 func newSyncer(chain syncChain, peers *peerSet, reader syncCacheReader, downloader syncDownloader, irreader IrreversibleReader, timeout time.Duration, blackBlocks map[types.Hash]struct{}) *syncer {
+	if len(blackBlocks) == 0 {
+		blackBlocks = make(map[types.Hash]struct{})
+	}
+
 	s := &syncer{
-		chain:       chain,
-		peers:       peers,
-		eventChan:   make(chan peerEvent, 1),
-		subs:        make(map[int]SyncStateCallback),
-		downloader:  downloader,
-		reader:      reader,
-		timeout:     timeout,
-		irreader:    irreader,
-		sk:          newSkeleton(peers, new(gid)),
-		blackBlocks: blackBlocks,
-		term:        make(chan struct{}),
-		log:         netLog.New("module", "syncer"),
+		sbp:          false,
+		syncing:      0,
+		from:         0,
+		to:           0,
+		state:        nil,
+		timeout:      timeout,
+		peers:        peers,
+		eventChan:    make(chan peerEvent, 1),
+		taskCanceled: 0,
+		sk:           newSkeleton(peers, new(gid), blackBlocks),
+		syncWG:       sync.WaitGroup{},
+		chain:        chain,
+		downloader:   downloader,
+		reader:       reader,
+		irreader:     irreader,
+		curSubId:     0,
+		subs:         make(map[int]SyncStateCallback),
+		mu:           sync.Mutex{},
+		running:      0,
+		term:         make(chan struct{}),
+		log:          netLog.New("module", "syncer"),
 	}
 
 	s.state = syncStateInit{s}
@@ -191,6 +179,42 @@ func (s *syncer) setState(state syncState) {
 
 	for _, sub := range subs {
 		sub(state.state())
+	}
+}
+
+func (s *syncer) checkLoop(run *int32) {
+	initDuration := 5 * time.Second
+	duration := initDuration
+	maxDuration := 80 * time.Second
+
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
+
+	for {
+		if *run == 0 {
+			return
+		}
+
+		<-timer.C
+
+		current := s.chain.GetLatestSnapshotBlock().Height
+		syncPeer := s.peers.syncPeer()
+		if syncPeer == nil {
+			duration *= 2
+			if duration >= maxDuration {
+				duration = initDuration
+			}
+			timer.Reset(duration)
+			continue
+		}
+
+		if shouldSync(current, syncPeer.Height) {
+			if atomic.LoadInt32(&s.running) == 1 {
+				continue
+			} else {
+				go s.start()
+			}
+		}
 	}
 }
 
@@ -266,7 +290,12 @@ Prepare:
 	s.from = current + 1
 	s.to = syncPeerHeight
 
-	go s.sync()
+	if s.sync() {
+		s.state.sync()
+		s.log.Info("syncing")
+	} else {
+		return
+	}
 
 	// check chain height
 	checkChainTicker := time.NewTicker(checkChainInterval)
@@ -327,45 +356,21 @@ func (s *syncer) getHeight() uint64 {
 	return s.chain.GetLatestSnapshotBlock().Height
 }
 
-func constructTasks(start *ledger.HashHeight, hhs []*HashHeightPoint) (ts syncTasks) {
-	count := len(hhs) - 1
-	ts = make(syncTasks, count)
-
-	for i := 0; i < count; i++ {
-		ts[i] = &syncTask{
-			Segment: interfaces.Segment{
-				Bound:    [2]uint64{start.Height + 1, hhs[i+1].Height},
-				PrevHash: start.Hash,
-				Hash:     hhs[i+1].Hash,
-			},
-		}
-		start = &(hhs[i+1].HashHeight)
-	}
-
-	return
-}
-
-// start [start0 = currentHeight / syncTaskSize * syncTaskSize, start1 = start0 - 100, start2 = irrevHeight ]
-func (s *syncer) sync() {
-	s.syncWG.Add(1)
-	defer s.syncWG.Done()
-
-	s.state.sync()
-	s.log.Info("syncing")
-
-	var start = make([]*ledger.HashHeight, 0, 3)
-	var end uint64
+// eg. current height is 768, IrreversibleBlock is 666, then return [700, 600]
+func (s *syncer) getInitStart() (start []*ledger.HashHeight) {
+	start = make([]*ledger.HashHeight, 0, 3)
 	var err error
 	var block *ledger.SnapshotBlock
 
-Start:
 	genesis := s.chain.GetGenesisSnapshotBlock()
 
+Start:
+	var irrevPoint *ledger.HashHeight
+	// compare IrreversibleBlock and genesis block
+	// set the real IrreversibleBlock
 	block = s.irreader.GetIrreversibleBlock()
-	var irrevHeight uint64
-	var irrevHash types.Hash
 	if block != nil {
-		irrevHeight = block.Height / syncTaskSize * syncTaskSize
+		irrevHeight := block.Height / syncTaskSize * syncTaskSize
 		if irrevHeight > genesis.Height {
 			block, err = s.chain.GetSnapshotBlockByHeight(irrevHeight)
 			if err != nil || block == nil {
@@ -378,162 +383,158 @@ Start:
 	} else {
 		block = genesis
 	}
-	irrevHeight = block.Height
-	irrevHash = block.Hash
+	irrevPoint = &ledger.HashHeight{block.Height, block.Hash}
 
-	height := s.getHeight()
-	startHeight := height / syncTaskSize * syncTaskSize
-	addIrreverse := false
+	height := s.getHeight() / syncTaskSize * syncTaskSize
 	for i := 0; i < 2; i++ {
-		if startHeight <= irrevHeight {
-			startHeight = irrevHeight
-
-			start = append(start, &ledger.HashHeight{
-				Height: irrevHeight,
-				Hash:   irrevHash,
-			})
-			addIrreverse = true
-			s.log.Warn(fmt.Sprintf("getIrreversibleBlock: %s/%d", irrevHash, irrevHeight))
-			break
+		if height <= irrevPoint.Height {
+			start = append(start, irrevPoint)
+			return
 		} else {
-			block, err = s.chain.GetSnapshotBlockByHeight(startHeight)
+			block, err = s.chain.GetSnapshotBlockByHeight(height)
 			if err != nil || block == nil {
-				s.log.Error(fmt.Sprintf("failed to find snapshot block at %d", startHeight))
+				s.log.Error(fmt.Sprintf("failed to find snapshot block at %d", height))
 				// maybe rollback
-				time.Sleep(200 * time.Millisecond)
 				goto Start
 			} else {
 				start = append(start, &ledger.HashHeight{
-					Height: startHeight,
+					Height: height,
 					Hash:   block.Hash,
 				})
 
-				if startHeight > syncTaskSize {
-					startHeight -= syncTaskSize
-				} else {
-					break
+				if height > syncTaskSize {
+					height -= syncTaskSize
 				}
 			}
 		}
 	}
 
-	if addIrreverse == false {
-		start = append(start, &ledger.HashHeight{
-			Height: irrevHeight,
-			Hash:   irrevHash,
-		})
-		s.log.Warn(fmt.Sprintf("getIrreversibleBlock: %s/%d", irrevHash, irrevHeight))
+	start = append(start, irrevPoint)
+
+	return
+}
+
+func (s *syncer) getEnd(start []*ledger.HashHeight) (end uint64) {
+	syncPeer := s.peers.syncPeer()
+	if syncPeer == nil {
+		return 0
 	}
 
-	// bugfix: 691500
-	const forkHeight = 691500
-	if irrevHeight > forkHeight {
-		block, err = s.chain.GetSnapshotBlockByHeight(forkHeight)
-		if err != nil {
-			panic(fmt.Sprintf("failed to get block at %d", forkHeight))
-		} else if block != nil {
-			start = append(start, &ledger.HashHeight{
-				Height: block.Height,
-				Hash:   block.Hash,
-			})
-		}
+	syncHeight := syncPeer.Height
+	atomic.StoreUint64(&s.to, syncHeight)
+
+	startHeight := start[0].Height
+	end = startHeight + maxBatchChunkSize
+	if end > syncHeight {
+		end = syncHeight
 	}
 
-	atomic.StoreInt32(&s.taskCanceled, 0)
-	first := true
+	return
+}
 
-Loop:
-	for {
-		if atomic.LoadInt32(&s.taskCanceled) == 1 {
-			break Loop
-		}
-
-		syncPeer := s.peers.syncPeer()
-		if syncPeer == nil {
-			break Loop
-		}
-
-		syncHeight := syncPeer.Height
-		syncHeight = syncHeight / syncTaskSize * syncTaskSize
-		atomic.StoreUint64(&s.to, syncHeight)
-
-		end = (startHeight + maxBatchChunkSize) / syncTaskSize * syncTaskSize
-		if end > syncHeight {
-			end = syncHeight
-		}
-
-		if start[0].Height >= end {
-			time.Sleep(time.Second)
-			continue
-		}
-
-		points := s.sk.construct(start, end)
-		if len(points) == 0 {
-			s.log.Warn(fmt.Sprintf("failed to construct skeleton: %d-%d", start[len(start)-1].Height, end))
-			time.Sleep(time.Second)
-			continue
-		}
-
-		// blackList, exit and sync done
-		if s.inBlackList(points) {
-			s.state.done()
-			s.stop()
-			return
-		}
-
-		var point *ledger.HashHeight
-		for _, point = range start {
-			if point.Height+1 == points[0].Height {
-				if first {
-					s.from = point.Height + 1
-				}
-
-				break
-			}
-		}
-
-		if point != nil {
-			s.log.Info(fmt.Sprintf("construct skeleton: %d-%d", point.Height, end))
-
-			first = false
-			if tasks := constructTasks(point, points); len(tasks) > 0 {
-				tasks = s.reader.compareCache(tasks)
-				for _, t := range tasks {
-					// could be blocked when downloader tasks queue is full
-					if false == s.downloader.download(t, false) && atomic.LoadInt32(&s.taskCanceled) == 1 {
-						break Loop
-					}
-				}
-			}
-
-			point = &(points[len(points)-1].HashHeight)
-			startHeight = point.Height
-			start = start[:1]
-			start[0] = &ledger.HashHeight{
-				Height: point.Height,
-				Hash:   point.Hash,
-			}
-		} else {
-			// wrong points
-			time.Sleep(200 * time.Millisecond)
-		}
+func (s *syncer) getHashHeightList(start []*ledger.HashHeight, end uint64) (list []*HashHeightPoint, err error) {
+	if start[0].Height >= end {
+		return nil, fmt.Errorf("start %d is not small than end %d", start[0].Height, end)
 	}
 
 	s.sk.reset()
-	s.downloader.cancelAllTasks()
+
+	return s.sk.construct(start, end), nil
 }
 
-func (s *syncer) inBlackList(list []*HashHeightPoint) bool {
-	for _, h := range list {
-		if _, ok := s.blackBlocks[h.Hash]; ok {
-			return true
+func (s *syncer) verifyHashHeightList(start []*ledger.HashHeight, points []*HashHeightPoint) (startPoint *ledger.HashHeight, ok bool) {
+	if len(points) == 0 {
+		return nil, false
+	}
+
+	var point *ledger.HashHeight
+	for _, point = range start {
+		if point.Height+1 == points[0].Height {
+			startPoint = point
+			break
 		}
 	}
-	return false
+
+	if startPoint == nil {
+		ok = false
+		s.log.Warn("skeleton has no right start point")
+		return
+	}
+
+	ok = true
+
+	return
+}
+
+// start [start0 = currentHeight / syncTaskSize * syncTaskSize, start1 = start0 - 100, start2 = irrevHeight ]
+func (s *syncer) sync() bool {
+	s.syncWG.Add(1)
+	defer s.syncWG.Done()
+
+	// get hash height list first
+	start := s.getInitStart()
+	end := s.getEnd(start)
+
+	// construct hash height list
+	points, err := s.getHashHeightList(start, end)
+	if err != nil {
+		return false
+	}
+
+	if startPoint, ok := s.verifyHashHeightList(start, points); false == ok {
+		return false
+	} else {
+		s.from = startPoint.Height + 1
+		go s.downloadLoop(startPoint, end, points)
+	}
+
+	return true
+}
+
+// init points will be construct before download
+func (s *syncer) downloadLoop(point *ledger.HashHeight, end uint64, points []*HashHeightPoint) {
+	atomic.StoreInt32(&s.taskCanceled, 0)
+
+	var err error
+
+Loop:
+	for {
+		s.log.Info(fmt.Sprintf("construct skeleton: %d-%d", point.Height, end))
+
+		if tasks := s.reader.compareCache(point, points); len(tasks) > 0 {
+			for _, t := range tasks {
+				// could be blocked when downloader tasks queue is full
+				if false == s.downloader.download(t, false) && atomic.LoadInt32(&s.taskCanceled) == 1 {
+					break Loop
+				}
+			}
+		}
+
+		// the last task has been submitted
+		if end%syncTaskSize != 0 {
+			return
+		}
+
+		// continue download
+		point = &(points[len(points)-1].HashHeight)
+		start := []*ledger.HashHeight{
+			{point.Height, point.Hash},
+		}
+		end = s.getEnd(start)
+
+		points, err = s.getHashHeightList(start, end)
+		if err != nil {
+			return
+		}
+
+		if _, ok := s.verifyHashHeightList(start, points); false == ok {
+			return
+		}
+	}
 }
 
 func (s *syncer) stopSync() {
-	s.downloader.cancelAllTasks()
+	s.downloader.cancelAllTasks() // cancel first, because downloadLoop is blocked when download task queue is full
 	atomic.StoreInt32(&s.taskCanceled, 1)
 	s.reader.reset()
 }

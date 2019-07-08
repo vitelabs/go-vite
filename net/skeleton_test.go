@@ -5,44 +5,25 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 func TestSkeleton_Construct(t *testing.T) {
 	peers := newPeerSet()
 	var err error
-	err = peers.add(&Peer{
-		Id:     vnode.RandomNodeID(),
-		Height: 100,
-	})
-	if err != nil {
-		panic(err)
-	}
-	err = peers.add(&Peer{
-		Id:     vnode.RandomNodeID(),
-		Height: 100,
-	})
-	if err != nil {
-		panic(err)
-	}
-	err = peers.add(&Peer{
-		Id:     vnode.RandomNodeID(),
-		Height: 100,
-	})
-	if err != nil {
-		panic(err)
-	}
-	err = peers.add(&Peer{
-		Id:     vnode.RandomNodeID(),
-		Height: 100,
-	})
-	if err != nil {
-		panic(err)
+	for i := 0; i < 4; i++ {
+		err = peers.add(&Peer{
+			Id:     vnode.RandomNodeID(),
+			Height: 100,
+		})
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	sk := newSkeleton(peers, new(gid))
+	sk := newSkeleton(peers, new(gid), make(map[types.Hash]struct{}))
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
@@ -66,36 +47,17 @@ func TestSkeleton_Construct(t *testing.T) {
 func TestSkeleton_Reset(t *testing.T) {
 	peers := newPeerSet()
 	var err error
-	err = peers.add(&Peer{
-		Id:     vnode.RandomNodeID(),
-		Height: 100,
-	})
-	if err != nil {
-		panic(err)
-	}
-	err = peers.add(&Peer{
-		Id:     vnode.RandomNodeID(),
-		Height: 100,
-	})
-	if err != nil {
-		panic(err)
-	}
-	err = peers.add(&Peer{
-		Id:     vnode.RandomNodeID(),
-		Height: 100,
-	})
-	if err != nil {
-		panic(err)
-	}
-	err = peers.add(&Peer{
-		Id:     vnode.RandomNodeID(),
-		Height: 100,
-	})
-	if err != nil {
-		panic(err)
+	for i := 0; i < 4; i++ {
+		err = peers.add(&Peer{
+			Id:     vnode.RandomNodeID(),
+			Height: 100,
+		})
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	sk := newSkeleton(peers, new(gid))
+	sk := newSkeleton(peers, new(gid), make(map[types.Hash]struct{}))
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {

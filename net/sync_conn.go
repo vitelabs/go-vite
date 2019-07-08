@@ -31,10 +31,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/crypto"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/net/vnode"
@@ -381,8 +380,8 @@ func (f *syncConn) isBusy() bool {
 }
 
 func isRightChunk(msg *syncResponse, t *syncTask) (seg interfaces.Segment, err error) {
-	if msg.from != t.Bound[0] || msg.to != t.Bound[1] {
-		err = fmt.Errorf("bound not equal: %d-%d %d-%d", msg.from, msg.to, t.Bound[0], t.Bound[1])
+	if msg.from != t.From || msg.to != t.To {
+		err = fmt.Errorf("bound not equal: %d-%d %d-%d", msg.from, msg.to, t.From, t.To)
 		return
 	}
 
@@ -403,8 +402,8 @@ func (f *syncConn) download(t *syncTask) (fatal bool, err error) {
 	f.task = *t
 
 	request := &syncRequest{
-		from:     t.Bound[0],
-		to:       t.Bound[1],
+		from:     t.From,
+		to:       t.To,
 		prevHash: t.PrevHash,
 		endHash:  t.Hash,
 	}
@@ -444,7 +443,7 @@ func (f *syncConn) download(t *syncTask) (fatal bool, err error) {
 	}
 
 	cache := f.cacher.GetSyncCache()
-	writer, err := cache.NewWriter(segment)
+	writer, err := cache.NewWriter(segment, int64(chunkInfo.size))
 	if err != nil {
 		return false, err
 	}
@@ -544,7 +543,7 @@ type FilePoolStatus struct {
 	Connections []SyncConnectionStatus `json:"connections"`
 }
 
-type connPoolImpl struct {
+type downloadConnPool struct {
 	mu        sync.Mutex
 	peers     *peerSet
 	mi        map[peerId]int // value is the index of `connPoolImpl.l`
@@ -552,27 +551,22 @@ type connPoolImpl struct {
 	blackList map[peerId]int64
 }
 
-func newPool(peers *peerSet) *connPoolImpl {
-	return &connPoolImpl{
-		mi:        make(map[peerId]int),
+func newDownloadConnPool(peers *peerSet) *downloadConnPool {
+	return &downloadConnPool{
 		peers:     peers,
+		mi:        make(map[peerId]int),
 		blackList: make(map[peerId]int64),
 	}
 }
 
-func (fp *connPoolImpl) blockPeer(id peerId) {
+func (fp *downloadConnPool) blockPeer(id peerId, duration time.Duration) {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
-	fp.blackList[id] = time.Now().Unix()
 
-	if index, ok := fp.mi[id]; ok {
-		c := fp.l[index]
-		_ = Disconnect(c.c, PeerBanned)
-		fp.delConnLocked(id)
-	}
+	fp.blackList[id] = time.Now().Add(duration).Unix()
 }
 
-func (fp *connPoolImpl) connections() []SyncConnectionStatus {
+func (fp *downloadConnPool) connections() []SyncConnectionStatus {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
@@ -586,7 +580,7 @@ func (fp *connPoolImpl) connections() []SyncConnectionStatus {
 }
 
 // delete filePeer and connection
-func (fp *connPoolImpl) delConn(c *syncConn) {
+func (fp *downloadConnPool) delConn(c *syncConn) {
 	_ = c.close()
 
 	fp.mu.Lock()
@@ -595,7 +589,7 @@ func (fp *connPoolImpl) delConn(c *syncConn) {
 	fp.delConnLocked(c.peer.Id)
 }
 
-func (fp *connPoolImpl) delConnLocked(id peerId) {
+func (fp *downloadConnPool) delConnLocked(id peerId) {
 	if i, ok := fp.mi[id]; ok {
 		delete(fp.mi, id)
 
@@ -603,7 +597,7 @@ func (fp *connPoolImpl) delConnLocked(id peerId) {
 	}
 }
 
-func (fp *connPoolImpl) addConn(c *syncConn) error {
+func (fp *downloadConnPool) addConn(c *syncConn) error {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
@@ -617,14 +611,14 @@ func (fp *connPoolImpl) addConn(c *syncConn) error {
 }
 
 // sort list, and update index to map
-func (fp *connPoolImpl) sort() {
+func (fp *downloadConnPool) sort() {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
 
 	fp.sortLocked()
 }
 
-func (fp *connPoolImpl) sortLocked() {
+func (fp *downloadConnPool) sortLocked() {
 	sort.Sort(fp.l)
 	for i, c := range fp.l {
 		fp.mi[c.peer.Id] = i
@@ -632,8 +626,8 @@ func (fp *connPoolImpl) sortLocked() {
 }
 
 // choose the fast fileConn, or create new conn randomly
-func (fp *connPoolImpl) chooseSource(t *syncTask) (*Peer, *syncConn, error) {
-	peerMap := fp.peers.pickDownloadPeers(t.Bound[1])
+func (fp *downloadConnPool) chooseSource(t *syncTask) (*Peer, *syncConn, error) {
+	peerMap := fp.peers.pickDownloadPeers(t.To)
 
 	if len(peerMap) == 0 {
 		return nil, nil, errNoSuitablePeer
@@ -650,7 +644,7 @@ func (fp *connPoolImpl) chooseSource(t *syncTask) (*Peer, *syncConn, error) {
 	// is in blackList
 	now := time.Now().Unix()
 	for k, p := range peerMap {
-		if tt, ok := fp.blackList[p.Id]; ok && now-tt < 60 {
+		if tt, ok := fp.blackList[p.Id]; ok && now > tt {
 			delete(peerMap, k)
 		}
 	}
@@ -662,7 +656,7 @@ func (fp *connPoolImpl) chooseSource(t *syncTask) (*Peer, *syncConn, error) {
 
 	fp.sortLocked()
 	for i, c := range fp.l {
-		if c.isBusy() || c.peer.Height < t.Bound[1] {
+		if c.isBusy() || c.peer.Height < t.To {
 			continue
 		}
 
@@ -687,17 +681,18 @@ func (fp *connPoolImpl) chooseSource(t *syncTask) (*Peer, *syncConn, error) {
 	return nil, nil, nil
 }
 
-func (fp *connPoolImpl) reset() {
+func (fp *downloadConnPool) reset() {
 	fp.mu.Lock()
-	defer fp.mu.Unlock()
 
 	fp.mi = make(map[peerId]int)
+	l := fp.l
+	fp.l = nil
 
-	for _, c := range fp.l {
+	fp.mu.Unlock()
+
+	for _, c := range l {
 		_ = c.close()
 	}
-
-	fp.l = nil
 }
 
 func xor(one, other []byte) (xor []byte) {

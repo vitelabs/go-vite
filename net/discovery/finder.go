@@ -10,6 +10,7 @@ type Observer interface {
 type Finder interface {
 	Observer
 	SetResolver(discv interface {
-		ReadNodes(n int) []*vnode.Node
+		GetNodes(count int) (nodes []*vnode.Node)
 	})
+	FindNeighbors(fromId, target vnode.NodeID, count int) []*vnode.EndPoint
 }

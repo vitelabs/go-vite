@@ -242,7 +242,7 @@ func (f *findNodeRequest) handle(pkt *packet, err error) bool {
 		f.rec = append(f.rec, n.endpoints...)
 
 		// the last packet maybe received first
-		if len(f.rec) >= int(f.count) || n.last {
+		if len(f.rec) >= f.count || n.last {
 			go f.done()
 			return true
 		}

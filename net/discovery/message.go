@@ -25,12 +25,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/vnode"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/net/discovery/protos"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 const version byte = 0

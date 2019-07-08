@@ -135,6 +135,14 @@ type Peer struct {
 	log log15.Logger
 }
 
+func (p *Peer) setReliable(bool2 bool) {
+	var v int32
+	if bool2 {
+		v = 1
+	}
+	atomic.StoreInt32(&p.reliable, v)
+}
+
 // WriteMsg will put msg into queue, then write asynchronously
 func (p *Peer) WriteMsg(msg Msg) (err error) {
 	p.write()
@@ -194,16 +202,19 @@ func (p *Peer) Info() PeerInfo {
 }
 
 func newPeer(c Codec, their *HandshakeMsg, publicAddress, fileAddress string, superior bool, flag PeerFlag, manager PeerManager, handler msgHandler) *Peer {
-	return &Peer{
+	peer := &Peer{
 		codec:         c,
 		Id:            their.ID,
 		Name:          their.Name,
 		Height:        their.Height,
 		Head:          their.Head,
 		Version:       their.Version,
+		publicAddress: publicAddress,
+		fileAddress:   fileAddress,
+		CreateAt:      their.Timestamp,
 		Flag:          flag,
 		Superior:      superior,
-		CreateAt:      their.Timestamp,
+		reliable:      0,
 		running:       0,
 		writable:      1,
 		writing:       0,
@@ -213,12 +224,13 @@ func newPeer(c Codec, their *HandshakeMsg, publicAddress, fileAddress string, su
 		wg:            sync.WaitGroup{},
 		manager:       manager,
 		handler:       handler,
-		fileAddress:   fileAddress,
-		publicAddress: publicAddress,
 		m:             make(map[peerId]struct{}),
 		m2:            nil,
 		once:          sync.Once{},
 	}
+	peer.log = netLog.New("peer", peer.String())
+
+	return peer
 }
 
 func (p *Peer) run() (err error) {
