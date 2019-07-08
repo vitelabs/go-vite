@@ -147,6 +147,7 @@ func (f *finder) notify() {
 func (f *finder) start() {
 	f.term = make(chan struct{})
 
+	// should invoked after consensus.Init()
 	details, _, err := f.consensus.API().ReadVoteMap(time.Now())
 	if err == nil {
 		now := time.Now().Unix()
@@ -192,12 +193,16 @@ func (f *finder) receiveProducers(event consensus.ProducersEvent) {
 
 	f.rw.Lock()
 
-	var self bool
+	var selfIsSBP bool
+	for _, addr := range event.Addrs {
+		if addr == f.self {
+			selfIsSBP = true
+		}
+	}
+	f._selfIsSBP = selfIsSBP
+
 	for _, addr := range event.Addrs {
 		f.sbps[addr] = now
-		if addr == f.self {
-			self = true
-		}
 
 		if node, ok := f.targets[addr]; ok {
 			if p := f.peers.get(node.ID); p != nil {
@@ -205,11 +210,11 @@ func (f *finder) receiveProducers(event consensus.ProducersEvent) {
 				continue
 			}
 
-			f.dial(node)
+			if f._selfIsSBP {
+				f.dial(node)
+			}
 		}
 	}
-
-	f._selfIsSBP = self
 
 	f.rw.Unlock()
 
@@ -263,8 +268,11 @@ func (f *finder) loop() {
 				for _, n := range f.staticNodes {
 					f.dial(n)
 				}
-				for _, t := range f.targets {
-					f.dial(t)
+
+				if f._selfIsSBP {
+					for _, t := range f.targets {
+						f.dial(t)
+					}
 				}
 			}
 

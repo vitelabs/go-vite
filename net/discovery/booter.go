@@ -34,7 +34,9 @@ func newDBBooter(db booterDB) booter {
 }
 
 func (d *dbBooter) getBootNodes(count int) []*Node {
-	return d.db.ReadNodes(seedMaxAge)
+	nodes := d.db.ReadNodes(seedMaxAge)
+	discvLog.Info(fmt.Sprintf("load %d nodes from db", len(nodes)))
+	return nodes
 }
 
 // cfgBooter supply random bootNodes from config
@@ -74,19 +76,6 @@ func newCfgBooter(bootNodes []string, node *vnode.Node) (booter, error) {
 }
 
 func (c *cfgBooter) getBootNodes(count int) []*Node {
-	total := len(c.bootNodes)
-
-	if count < total {
-		nodes := make([]*Node, count)
-		indexes := rand.Perm(total)
-
-		for i := 0; i < count; i++ {
-			nodes[i] = c.bootNodes[indexes[i]]
-		}
-
-		return nodes
-	}
-
 	return c.bootNodes
 }
 

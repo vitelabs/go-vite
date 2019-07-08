@@ -32,11 +32,11 @@ import (
 )
 
 const seedMaxAge = int64(7 * 24 * time.Hour)
-const tRefresh = 24 * time.Hour        // refresh the node table at tRefresh intervals
-const storeInterval = 1 * time.Minute  // store nodes in table to db at storeDuration intervals
-const checkInterval = 10 * time.Second // check the oldest node in table at checkInterval intervals
-const checkExpiration = time.Hour      // should check again if last check is an hour ago
-const stayInTable = 5 * time.Minute    // minimal duration node stay in table can be store in db
+const tRefresh = 24 * time.Hour            // refresh the node table at tRefresh intervals
+const storeInterval = 1 * time.Minute      // store nodes in table to db at storeDuration intervals
+const checkInterval = 10 * time.Second     // check the oldest node in table at checkInterval intervals
+const checkExpiration = int64(time.Hour)   // should check again if last check is an hour ago
+const stayInTable = int64(5 * time.Minute) // minimal duration node stay in table can be store in db
 const dbCleanInterval = time.Hour
 
 var errDiscoveryIsRunning = errors.New("discovery is running")
@@ -48,7 +48,7 @@ var discvLog = log15.New("module", "discovery")
 
 type NodeDB interface {
 	StoreNode(node *vnode.Node) (err error)
-	RemoveNode(ID vnode.NodeID)
+	RemoveNode(id vnode.NodeID)
 	ReadNodes(expiration int64) []*vnode.Node
 	RetrieveActiveAt(id vnode.NodeID) int64
 	StoreActiveAt(id vnode.NodeID, v int64)
@@ -64,8 +64,8 @@ type discvDB struct {
 
 func (db *discvDB) StoreNode(node *Node) (err error) {
 	err = db.NodeDB.StoreNode(&node.Node)
-	db.StoreActiveAt(node.ID, node.activeAt.Unix())
-	db.StoreCheckAt(node.ID, node.checkAt.Unix())
+	db.StoreActiveAt(node.ID, node.activeAt)
+	db.StoreCheckAt(node.ID, node.checkAt)
 
 	return
 }
@@ -76,11 +76,9 @@ func (db *discvDB) ReadNodes(expiration int64) (nodes []*Node) {
 	for i, n := range vnodes {
 		nodes[i] = &Node{
 			Node:     *n,
-			checkAt:  time.Time{},
-			activeAt: time.Time{},
+			checkAt:  db.RetrieveCheckAt(n.ID),
+			activeAt: db.RetrieveActiveAt(n.ID),
 		}
-		nodes[i].checkAt = time.Unix(db.RetrieveCheckAt(n.ID), 0)
-		nodes[i].activeAt = time.Unix(db.RetrieveActiveAt(n.ID), 0)
 	}
 
 	return
@@ -161,7 +159,7 @@ func (d *Discovery) Delete(id vnode.NodeID, reason error) {
 		d.db.RemoveNode(id)
 	}
 
-	d.log.Warn(fmt.Sprintf("remove node %s: %v", id.String(), reason))
+	d.log.Info(fmt.Sprintf("remove node %s from table: %v", id.String(), reason))
 }
 
 func (d *Discovery) Resolve(id vnode.NodeID) (ret *vnode.Node) {
@@ -293,7 +291,7 @@ func (d *Discovery) ping(n *Node) error {
 		return errDifferentNet
 	}
 
-	n.checkAt = time.Now()
+	n.checkAt = time.Now().Unix()
 	n.update(n2)
 	return nil
 }
@@ -406,6 +404,7 @@ func (d *Discovery) handle(pkt *packet) {
 				eps = append(eps, &n.EndPoint)
 			}
 		}
+
 		_ = d.socket.sendNodes(eps, pkt.from)
 
 	case codeNeighbors:
@@ -423,12 +422,12 @@ func (d *Discovery) receiveNode(n *Node) error {
 		return nil
 	}
 
-	if n.shouldCheck() {
+	// 30min
+	if time.Now().Unix()-n.checkAt > 30*60 {
 		return d.checkNode(n)
-	} else {
-		d.table.add(n)
 	}
 
+	d.table.add(n)
 	return nil
 }
 
@@ -458,8 +457,11 @@ func (d *Discovery) checkNode(n *Node) error {
 		return err
 	}
 
-	// add to stage first
 	d.mu.Lock()
+	if _, ok := d.stage[addr.String()]; ok {
+		d.mu.Unlock()
+		return nil
+	}
 	d.stage[addr.String()] = n
 	d.mu.Unlock()
 
@@ -577,7 +579,7 @@ func (d *Discovery) lookup(target vnode.NodeID, count int) (result []*Node) {
 		seen[n.ID] = struct{}{}
 	}
 
-	const alpha = 10
+	const alpha = 5
 	reply := make(chan []*Node, alpha)
 	queries := 0
 
@@ -585,7 +587,7 @@ Loop:
 	for {
 		for i := 0; i < len(nodes) && queries < alpha; i++ {
 			n := nodes[i]
-			if _, ok := asked[n.ID]; !ok && n.couldFind() {
+			if _, ok := asked[n.ID]; !ok {
 				asked[n.ID] = struct{}{}
 				go d.findNode(target, count, n, reply)
 				queries++

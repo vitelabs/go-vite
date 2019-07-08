@@ -2,65 +2,28 @@ package discovery
 
 import (
 	"net"
-	"sync"
 	"time"
 
 	"github.com/vitelabs/go-vite/net/netool"
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 
-var nodePool = sync.Pool{
-	New: func() interface{} {
-		return &Node{
-			Node: vnode.Node{
-				ID:       vnode.ZERO,
-				EndPoint: vnode.EndPoint{},
-				Net:      0,
-				Ext:      nil,
-			},
-			checkAt:  time.Time{},
-			addAt:    time.Time{},
-			activeAt: time.Time{},
-			checking: false,
-			finding:  false,
-			addr:     nil,
-		}
-	},
-}
-
-func newNode() *Node {
-	return nodePool.Get().(*Node)
-}
-
-func putBack(n *Node) {
-	n.ID = vnode.ZERO
-	n.EndPoint = vnode.EndPoint{}
-	n.Net = 0
-	n.Ext = nil
-	n.checkAt = time.Time{}
-	n.addAt = time.Time{}
-	n.activeAt = time.Time{}
-	n.checking = false
-	n.finding = false
-	n.addr = nil
-	nodePool.Put(n)
-}
-
 type Node struct {
 	vnode.Node
-	checkAt  time.Time
-	addAt    time.Time
-	activeAt time.Time
+	checkAt  int64
+	addAt    int64
+	activeAt int64
 	checking bool // is in check flow
 	finding  bool // is finding some target from this node
 	addr     *net.UDPAddr
-	parseAt  time.Time // last time addr parsed
+	parseAt  int64 // last time addr parsed
 }
 
 func (n *Node) udpAddr() (addr *net.UDPAddr, err error) {
-	now := time.Now()
+	now := time.Now().Unix()
 
-	if now.Sub(n.parseAt) > 15*time.Minute || n.addr == nil {
+	// 15min
+	if now-n.parseAt > 900 || n.addr == nil {
 		addr, err = net.ResolveUDPAddr("udp", n.Address())
 		if err != nil {
 			return
@@ -72,16 +35,6 @@ func (n *Node) udpAddr() (addr *net.UDPAddr, err error) {
 	}
 
 	return n.addr, nil
-}
-
-// couldFind return false, if there has a find task
-func (n *Node) couldFind() bool {
-	return !n.finding
-}
-
-// is not checking and last check is too long ago
-func (n *Node) shouldCheck() bool {
-	return !n.checking && time.Now().Sub(n.checkAt) > checkExpiration
 }
 
 func (n *Node) update(n2 *Node) {
@@ -125,7 +78,7 @@ func nodeFromEndPoint(e vnode.EndPoint) (n *Node, err error) {
 			EndPoint: e,
 		},
 		addr:    udp,
-		parseAt: time.Now(),
+		parseAt: time.Now().Unix(),
 	}, nil
 }
 
@@ -156,7 +109,7 @@ func nodeFromPing(res *packet) *Node {
 			Ext:      p.ext,
 		},
 		addr:    addr,
-		parseAt: time.Now(),
+		parseAt: time.Now().Unix(),
 	}
 }
 
@@ -173,6 +126,6 @@ func nodeFromPong(res *packet) *Node {
 			Ext:      p.ext,
 		},
 		addr:    addr,
-		parseAt: time.Now(),
+		parseAt: time.Now().Unix(),
 	}
 }

@@ -316,7 +316,7 @@ func New(cfg *config.Net, chain Chain, verifier Verifier, consensus Consensus, i
 	// from high to low
 	var confirmedHashList = make([]*ledger.HashHeight, 0, len(cfg.ConfirmedBlockList))
 	for _, hexStr := range cfg.ConfirmedBlockList {
-		strs := strings.Split(hexStr, "-")
+		strs := strings.Split(hexStr, "/")
 		var hash types.Hash
 		hash, err = types.HexToHash(strs[0])
 		if err != nil {

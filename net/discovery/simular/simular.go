@@ -22,81 +22,76 @@ import (
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
-	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-
-	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/net/discovery"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
-func main() {
-	pwd, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		panic(err)
-	}
+type config struct {
+	peerKey       ed25519.PrivateKey
+	node          *vnode.Node
+	bootNodes     []string
+	listenAddress string
+}
 
-	var port = 8081
+func main() {
+	var port = 9000
 	const total = 100
-	type sample struct {
-		port int
-		dir  string
-		key  ed25519.PrivateKey
-	}
-	var samples []sample
-	var configs []*discovery.Config
+
+	var err error
+	var last *vnode.Node
+	var configs []config
 	for i := 0; i < total; i++ {
+		var pub ed25519.PublicKey
 		var prv ed25519.PrivateKey
-		_, prv, err = ed25519.GenerateKey(nil)
+		pub, prv, err = ed25519.GenerateKey(nil)
 		if err != nil {
 			panic(err)
 		}
 
-		s := sample{
-			port: port,
-			dir:  ".mock" + strconv.Itoa(i+1),
-			key:  prv,
-		}
-		samples = append(samples, s)
-
-		cfg := &discovery.Config{
-			ListenAddress: "127.0.0.1:" + strconv.Itoa(s.port),
-			PublicAddress: "",
-			DataDir:       filepath.Join(pwd, s.dir),
-			PeerKey:       prv.Hex(),
-			BootNodes:     nil,
-			BootSeeds:     nil,
-			NetID:         10,
-		}
-
-		if err = cfg.Ensure(); err != nil {
-			panic(err)
+		id, _ := vnode.Bytes2NodeID(pub)
+		cfg := config{
+			peerKey: prv,
+			node: &vnode.Node{
+				ID: id,
+				EndPoint: vnode.EndPoint{
+					Host: []byte{127, 0, 0, 1},
+					Port: port,
+					Typ:  vnode.HostIPv4,
+				},
+				Net: 0,
+				Ext: nil,
+			},
+			listenAddress: "127.0.0.1:" + strconv.Itoa(port),
 		}
 
-		configs = append(configs, cfg)
+		if last != nil {
+			cfg.bootNodes = []string{
+				last.String(),
+			}
+		}
+
+		last = cfg.node
 
 		port++
+
+		configs = append(configs, cfg)
 	}
 
-	start := func(d discovery.Discovery) {
+	start := func(d *discovery.Discovery) {
 		err = d.Start()
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	var ds []discovery.Discovery
-	for i := 0; i < total; i++ {
-		if i != total-1 {
-			configs[i].BootNodes = append(configs[i].BootNodes, configs[i+1].Node().ID.String()+"@127.0.0.1:"+strconv.Itoa(samples[i+1].port)+"/10")
-		}
-
-		ds = append(ds, discovery.New(configs[i], nil))
-	}
-
-	for _, d := range ds {
+	var discovers []*discovery.Discovery
+	for _, cfg := range configs {
+		d := discovery.New(cfg.peerKey, cfg.node, cfg.bootNodes, nil, cfg.listenAddress, nil)
+		discovers = append(discovers, d)
 		go start(d)
 	}
 
@@ -107,7 +102,7 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				for i, d := range ds {
+				for i, d := range discovers {
 					fmt.Println(i, len(d.Nodes()))
 				}
 				fmt.Println("------------")

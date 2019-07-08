@@ -160,7 +160,7 @@ func (b *listBucket) bubble(id vnode.NodeID) bool {
 	}
 
 	if b.tail.ID == id {
-		b.tail.activeAt = time.Now()
+		b.tail.activeAt = time.Now().Unix()
 		return true
 	}
 
@@ -168,7 +168,7 @@ func (b *listBucket) bubble(id vnode.NodeID) bool {
 		if current.ID == id {
 			prev.next = current.next
 			current.next = nil
-			current.activeAt = time.Now()
+			current.activeAt = time.Now().Unix()
 
 			b.tail.next = current
 			b.tail = current
@@ -191,7 +191,7 @@ func (b *listBucket) add(n *Node) (toCheck *Node) {
 
 	// bucket is not full, add to tail
 	if b.count < b.cap {
-		n.addAt = time.Now()
+		n.addAt = time.Now().Unix()
 
 		e := &element{
 			Node: n,
@@ -530,14 +530,14 @@ func (tab *table) findNeighbors(target vnode.NodeID, count int) (nodes []*Node) 
 }
 
 func (tab *table) oldest() (nodes []*Node) {
-	now := time.Now()
+	now := time.Now().Unix()
 
 	tab.rw.RLock()
 	defer tab.rw.RUnlock()
 
 	for _, bkt := range tab.buckets {
 		if n := bkt.oldest(); n != nil {
-			if now.Sub(n.activeAt) > checkExpiration {
+			if now-n.activeAt > checkExpiration {
 				nodes = append(nodes, n)
 			}
 		}
@@ -579,12 +579,12 @@ func (tab *table) resolveAddr(address string) *Node {
 }
 
 func (tab *table) store(db nodeStore) {
-	now := time.Now()
+	now := time.Now().Unix()
 
 	nodes := tab.nodes(0)
 
 	for _, n := range nodes {
-		if now.Sub(n.addAt) > stayInTable {
+		if now-n.addAt > stayInTable {
 			_ = db.StoreNode(n)
 		}
 	}
