@@ -12,22 +12,35 @@ import (
 
 func TestSkeleton_Construct(t *testing.T) {
 	peers := newPeerSet()
-	peers.add(&mockPeer{
-		id:     vnode.RandomNodeID(),
-		height: 100,
+	var err error
+	err = peers.add(&Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 100,
 	})
-	peers.add(&mockPeer{
-		id:     vnode.RandomNodeID(),
-		height: 100,
+	if err != nil {
+		panic(err)
+	}
+	err = peers.add(&Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 100,
 	})
-	peers.add(&mockPeer{
-		id:     vnode.RandomNodeID(),
-		height: 100,
+	if err != nil {
+		panic(err)
+	}
+	err = peers.add(&Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 100,
 	})
-	peers.add(&mockPeer{
-		id:     vnode.RandomNodeID(),
-		height: 100,
+	if err != nil {
+		panic(err)
+	}
+	err = peers.add(&Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 100,
 	})
+	if err != nil {
+		panic(err)
+	}
 
 	sk := newSkeleton(peers, new(gid))
 
@@ -52,22 +65,35 @@ func TestSkeleton_Construct(t *testing.T) {
 
 func TestSkeleton_Reset(t *testing.T) {
 	peers := newPeerSet()
-	peers.add(&mockPeer{
-		id:     vnode.RandomNodeID(),
-		height: 100,
+	var err error
+	err = peers.add(&Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 100,
 	})
-	peers.add(&mockPeer{
-		id:     vnode.RandomNodeID(),
-		height: 100,
+	if err != nil {
+		panic(err)
+	}
+	err = peers.add(&Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 100,
 	})
-	peers.add(&mockPeer{
-		id:     vnode.RandomNodeID(),
-		height: 100,
+	if err != nil {
+		panic(err)
+	}
+	err = peers.add(&Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 100,
 	})
-	peers.add(&mockPeer{
-		id:     vnode.RandomNodeID(),
-		height: 100,
+	if err != nil {
+		panic(err)
+	}
+	err = peers.add(&Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 100,
 	})
+	if err != nil {
+		panic(err)
+	}
 
 	sk := newSkeleton(peers, new(gid))
 

@@ -1,15 +1,6 @@
 package net
 
-import (
-	"fmt"
-	"testing"
-	"time"
-
-	"github.com/vitelabs/go-vite/common/types"
-
-	"github.com/vitelabs/go-vite/net/vnode"
-)
-
+/*
 func TestRecord_Fail(t *testing.T) {
 	var r = &record{
 		st:    reqPending,
@@ -313,3 +304,4 @@ func TestPolicy_SnapshotTarget(t *testing.T) {
 		t.Errorf("should be the %d peer", keepFails)
 	}
 }
+*/

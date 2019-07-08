@@ -3,22 +3,18 @@ package net
 import (
 	"fmt"
 	"math/rand"
-	net2 "net"
 	"sort"
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/net/p2p"
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 func TestPeerSet_Add(t *testing.T) {
 	var m = newPeerSet()
 	var p = &Peer{
-		id:
-	}(vnode.RandomNodeID(), 1)
+		Id: vnode.RandomNodeID(),
+	}
 
 	// add first time
 	if m.add(p) != nil {
@@ -33,14 +29,16 @@ func TestPeerSet_Add(t *testing.T) {
 
 func TestPeerSet_Del(t *testing.T) {
 	var m = newPeerSet()
-	var p = newMockPeer(vnode.RandomNodeID(), 1)
+	var p = &Peer{
+		Id: vnode.RandomNodeID(),
+	}
 
 	// should have no error
 	if m.add(p) != nil {
 		t.Fail()
 	}
 
-	p2, err := m.remove(p.ID())
+	p2, err := m.remove(p.Id)
 	if err != nil {
 		t.Fail()
 	}
@@ -49,14 +47,14 @@ func TestPeerSet_Del(t *testing.T) {
 		t.Fail()
 	}
 
-	if p2 = m.get(p.ID()); p2 != nil {
+	if p2 = m.get(p.Id); p2 != nil {
 		t.Fail()
 	}
 }
 
 func TestPeerSet_SyncPeer(t *testing.T) {
 	var m = newPeerSet()
-	var p Peer
+	var p *Peer
 	var err error
 
 	if m.syncPeer() != nil {
@@ -68,15 +66,18 @@ func TestPeerSet_SyncPeer(t *testing.T) {
 	}
 
 	for i := 0; i < 2; i++ {
-		p = newMockPeer(vnode.RandomNodeID(), uint64(i))
+		p = &Peer{
+			Id:     vnode.RandomNodeID(),
+			Height: uint64(i),
+		}
 		if err = m.add(p); err != nil {
 			t.Errorf("failed to add peer: %v", err)
 		}
 	}
 
 	// only two peers
-	if p = m.syncPeer(); p.Height() != 1 {
-		t.Errorf("wrong sync peer height: %d", p.Height())
+	if p = m.syncPeer(); p.Height != 1 {
+		t.Errorf("wrong sync peer height: %d", p.Height)
 	}
 
 	// reset
@@ -84,28 +85,34 @@ func TestPeerSet_SyncPeer(t *testing.T) {
 
 	const total = 10
 	for i := 0; i < total; i++ {
-		p = newMockPeer(vnode.RandomNodeID(), uint64(i))
+		p = &Peer{
+			Id:     vnode.RandomNodeID(),
+			Height: uint64(i),
+		}
 		if m.add(p) != nil {
 			t.Fail()
 		}
 	}
 
 	// the 1/3 peer
-	if p = m.syncPeer(); p.Height() != 6 {
-		t.Errorf("wrong sync peer height: %d", p.Height())
+	if p = m.syncPeer(); p.Height != 6 {
+		t.Errorf("wrong sync peer height: %d", p.Height)
 	}
-	if p = m.bestPeer(); p.Height() != total-1 {
-		t.Errorf("wrong best peer height: %d", p.Height())
+	if p = m.bestPeer(); p.Height != total-1 {
+		t.Errorf("wrong best peer height: %d", p.Height)
 	}
 }
 
 func TestPeerSet_Pick(t *testing.T) {
 	var m = newPeerSet()
-	var p Peer
+	var p *Peer
 
 	const total = 10
 	for i := 0; i < total; i++ {
-		p = newMockPeer(vnode.RandomNodeID(), uint64(i))
+		p = &Peer{
+			Id:     vnode.RandomNodeID(),
+			Height: uint64(i),
+		}
 		if m.add(p) != nil {
 			t.Fail()
 		}
@@ -118,46 +125,36 @@ func TestPeerSet_Pick(t *testing.T) {
 		t.Errorf("wrong peer number: %d", len(ps))
 	}
 	for _, p = range ps {
-		if p.Height() < target {
-			t.Errorf("wrong peer height: %d", p.Height())
+		if p.Height < target {
+			t.Errorf("wrong peer height: %d", p.Height)
 		}
 	}
 }
 
-func ExamplePeerSet_Get() {
-	var m1 = newPeerSet()
-	var p1 = m1.get(vnode.ZERO)
-
-	var m2 = make(map[string]Peer)
-	var p2 = m2["hello"]
-
-	var m3 = make(map[string]*peer)
-	var p3 Peer = m3["hello"]
-
-	fmt.Println(p1 == nil)
-	fmt.Println(p2 == nil)
-	fmt.Println(p3 == nil)
-	// Output:
-	// true
-	// true
-	// false
-}
-
 func ExamplePeersSort() {
 	var ps peers
-	ps = append(ps, newMockPeer(vnode.RandomNodeID(), 1))
-	ps = append(ps, newMockPeer(vnode.RandomNodeID(), 2))
-	ps = append(ps, newMockPeer(vnode.RandomNodeID(), 3))
+	ps = append(ps, &Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 1,
+	})
+	ps = append(ps, &Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 2,
+	})
+	ps = append(ps, &Peer{
+		Id:     vnode.RandomNodeID(),
+		Height: 3,
+	})
 
 	sort.Sort(ps)
-	fmt.Println(ps[0].Height())
+	fmt.Println(ps[0].Height)
 	// Output:
 	// 3
 }
 
 // test read write concurrently
 func TestPeer_peers(t *testing.T) {
-	var p = &peer{
+	var p = &Peer{
 		m: make(map[peerId]struct{}),
 	}
 
@@ -207,7 +204,7 @@ func TestPeer_peers2(t *testing.T) {
 		m[pids[i]] = struct{}{}
 	}
 
-	var p = &peer{
+	var p = &Peer{
 		m: m,
 	}
 

@@ -80,9 +80,9 @@ func TestHashHeightTree(t *testing.T) {
 	})
 
 	tree := newHashHeightTree()
-	tree.addBranch(hashHeightList1, newMockPeer(vnode.RandomNodeID(), 100))
-	tree.addBranch(hashHeightList2, newMockPeer(vnode.RandomNodeID(), 100))
-	tree.addBranch(hashHeightList3, newMockPeer(vnode.RandomNodeID(), 100))
+	tree.addBranch(hashHeightList1, &Peer{Id: vnode.RandomNodeID(), Height: 100})
+	tree.addBranch(hashHeightList2, &Peer{Id: vnode.RandomNodeID(), Height: 100})
+	tree.addBranch(hashHeightList3, &Peer{Id: vnode.RandomNodeID(), Height: 100})
 
 	list := tree.bestBranch()
 

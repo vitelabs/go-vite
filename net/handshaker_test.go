@@ -20,45 +20,35 @@ package net
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
-	"net"
+	_net "net"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/crypto"
 
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/net/netool"
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 
-func TestHandshakeMsg_Serialize(t *testing.T) {
-	var msg HandshakeMsg
-	data, err := msg.Serialize()
-	if err != nil {
-		t.Error("serialize error")
-	}
-
-	var msg2 HandshakeMsg
-	err = msg2.Deserialize(data)
-	if err != nil {
-		t.Error("deserialize error")
-	}
-}
-
 func TestProtoHandshakeMsg_Serialize(t *testing.T) {
 	msg := HandshakeMsg{
-		Version:     1,
-		NetID:       7,
-		Name:        "vite",
-		ID:          vnode.RandomNodeID(),
-		Timestamp:   time.Now().Unix() - 100,
-		Height:      9384,
-		Head:        types.Hash{1, 2, 4},
-		Genesis:     types.Hash{4, 5, 6},
-		Key:         []byte{1, 2, 3},
-		Token:       []byte{5, 6, 7},
-		FileAddress: []byte{1, 2},
+		Version:       12,
+		NetID:         76,
+		Name:          "vite",
+		ID:            vnode.RandomNodeID(),
+		Timestamp:     time.Now().Unix() - 100,
+		Height:        9384,
+		Head:          types.Hash{1, 2, 4},
+		Genesis:       types.Hash{4, 5, 6},
+		Key:           []byte{1, 2, 3},
+		Token:         []byte{5, 6, 7},
+		FileAddress:   []byte{1, 2},
+		PublicAddress: []byte{3, 4},
 	}
 
 	data, err := msg.Serialize()
@@ -102,15 +92,17 @@ func TestProtoHandshakeMsg_Serialize(t *testing.T) {
 	if false == bytes.Equal(msg.FileAddress, msg2.FileAddress) {
 		t.Errorf("different fileAddress: %v %v", msg.FileAddress, msg2.FileAddress)
 	}
+	if false == bytes.Equal(msg.PublicAddress, msg2.PublicAddress) {
+		t.Errorf("different publicAddress: %v %v", msg.PublicAddress, msg2.PublicAddress)
+	}
 	if false == bytes.Equal(msg.Token, msg2.Token) {
 		t.Errorf("different token: %v %v", msg.Token, msg2.Token)
 	}
-
 }
 
 func TestExtractFileAddress(t *testing.T) {
 	type sample struct {
-		sender net.Addr
+		sender *_net.TCPAddr
 		buf    []byte
 		handle func(str string) error
 	}
@@ -127,7 +119,7 @@ func TestExtractFileAddress(t *testing.T) {
 
 	var samples = []sample{
 		{
-			sender: &net.TCPAddr{
+			sender: &_net.TCPAddr{
 				IP:   []byte{192, 168, 0, 1},
 				Port: 8483,
 			},
@@ -140,7 +132,7 @@ func TestExtractFileAddress(t *testing.T) {
 			},
 		},
 		{
-			sender: &net.TCPAddr{
+			sender: &_net.TCPAddr{
 				IP:   []byte{192, 168, 0, 1},
 				Port: 8483,
 			},
@@ -152,10 +144,23 @@ func TestExtractFileAddress(t *testing.T) {
 				return nil
 			},
 		},
+		{
+			sender: &_net.TCPAddr{
+				IP:   []byte{117, 0, 0, 3},
+				Port: 8483,
+			},
+			buf: buf,
+			handle: func(str string) error {
+				if str != "117.0.0.3:8484" {
+					return fmt.Errorf("wrong fileAddress: %s", str)
+				}
+				return nil
+			},
+		},
 	}
 
 	for _, samp := range samples {
-		if err := samp.handle(extractFileAddress(samp.sender, samp.buf)); err != nil {
+		if err = samp.handle(extractAddress(samp.sender, samp.buf, 8484)); err != nil {
 			t.Error(err)
 		}
 	}
@@ -182,7 +187,11 @@ func TestHandshake(t *testing.T) {
 	id1, _ := vnode.Bytes2NodeID(pub1)
 	id2, _ := vnode.Bytes2NodeID(pub3)
 
-	var genesis = types.Hash{1, 2, 3}
+	codecFac := &transportFactory{
+		minCompressLength: 100,
+		readTimeout:       readMsgTimeout,
+		writeTimeout:      writeMsgTimeout,
+	}
 
 	var wg sync.WaitGroup
 
@@ -192,18 +201,29 @@ func TestHandshake(t *testing.T) {
 		defer wg.Done()
 
 		hk := &handshaker{
-			version:     1,
-			netId:       7,
-			name:        "node1",
-			id:          id1,
-			genesis:     genesis,
-			fileAddress: nil,
-			peerKey:     priv1,
-			key:         priv2,
-			protocol:    &mockProtocol{},
+			version:       1,
+			netId:         7,
+			name:          "node1",
+			id:            id1,
+			fileAddress:   nil,
+			publicAddress: nil,
+			peerKey:       priv1,
+			key:           priv2,
+			codecFactory:  codecFac,
+			chain:         nil,
+			blackList: netool.NewBlackList(func(t int64, count int) bool {
+				return false
+			}),
+			onHandshaker: func(c Codec, flag PeerFlag, their *HandshakeMsg) (superior bool, err error) {
+				fmt.Printf("%+v\n", their)
+				return false, nil
+			},
 		}
+		hk.setChain(mockChain{
+			height: 100,
+		})
 
-		ln, err := net.Listen("tcp", addr)
+		ln, err := _net.Listen("tcp", addr)
 		if err != nil {
 			panic(err)
 		}
@@ -213,9 +233,7 @@ func TestHandshake(t *testing.T) {
 			panic(err)
 		}
 
-		c := NewTransport(conn, 100, readMsgTimeout, writeMsgTimeout)
-
-		_, err = hk.ReceiveHandshake(c)
+		_, _, _, err = hk.ReceiveHandshake(conn)
 		if err != nil {
 			panic(err)
 		}
@@ -225,28 +243,182 @@ func TestHandshake(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		hk := &handshaker{
-			version:  1,
-			netId:    7,
-			name:     "node2",
-			id:       id2,
-			genesis:  genesis,
-			peerKey:  priv3,
-			key:      priv4,
-			protocol: &mockProtocol{},
+		var e = vnode.EndPoint{
+			Host: []byte{117, 0, 0, 1},
+			Port: 8888,
+			Typ:  vnode.HostIPv4,
 		}
+		publicAddress, _ := e.Serialize()
+		e = vnode.EndPoint{
+			Host: []byte{117, 0, 0, 2},
+			Port: 9999,
+			Typ:  vnode.HostIPv4,
+		}
+		fileAddress, _ := e.Serialize()
+
+		hk := &handshaker{
+			version:       1,
+			netId:         7,
+			name:          "node2",
+			id:            id2,
+			fileAddress:   fileAddress,
+			publicAddress: publicAddress,
+			peerKey:       priv3,
+			key:           priv4,
+			codecFactory:  codecFac,
+			chain:         nil,
+			blackList: netool.NewBlackList(func(t int64, count int) bool {
+				return false
+			}),
+			onHandshaker: func(c Codec, flag PeerFlag, their *HandshakeMsg) (superior bool, err error) {
+				fmt.Printf("%+v\n", their)
+				return false, nil
+			},
+		}
+		hk.setChain(mockChain{
+			height: 200,
+		})
 
 		time.Sleep(time.Second)
-		conn, err := net.Dial("tcp", addr)
+		conn, err := _net.Dial("tcp", addr)
 		if err != nil {
 			panic(err)
 		}
-		c := NewTransport(conn, 100, readMsgTimeout, writeMsgTimeout)
-		_, err = hk.InitiateHandshake(c, id1)
+
+		_, _, _, err = hk.InitiateHandshake(conn, id1)
 		if err != nil {
 			panic(err)
 		}
 	}()
 
 	wg.Wait()
+}
+
+func TestHandshaker_makeHandshake(t *testing.T) {
+	_, priv1, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+	_, priv2, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+
+	_, priv3, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+
+	once := false
+check:
+
+	hkr := &handshaker{
+		peerKey: priv1,
+		key:     priv3,
+	}
+	hkr.setChain(mockChain{
+		height: 111,
+	})
+	hkr.id, _ = vnode.Bytes2NodeID(priv1.PubByte())
+
+	theirId, _ := vnode.Bytes2NodeID(priv2.PubByte())
+	secret, err := hkr.getSecret(theirId)
+	if err != nil {
+		panic(err)
+	}
+
+	our := hkr.makeHandshake(secret)
+	err = hkr.verifyHandshake(our, secret)
+	if err != nil {
+		panic(err)
+	}
+
+	hkr.key = nil
+	if !once {
+		once = true
+		goto check
+	}
+}
+
+func TestHandshaker_verifyHandshake(t *testing.T) {
+	pub1, priv1, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+	_, priv2, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+
+	_, priv3, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+	_, priv4, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+
+	hkr := &handshaker{
+		peerKey: priv1,
+		key:     priv3,
+	}
+	hkr.setChain(mockChain{
+		height: 111,
+	})
+	hkr.id, _ = vnode.Bytes2NodeID(pub1)
+
+	makeHandshake := func(peerKey, mineKey ed25519.PrivateKey, theirId vnode.NodeID) (secret []byte, our *HandshakeMsg) {
+		ourId, _ := vnode.Bytes2NodeID(peerKey.PubByte())
+		our = &HandshakeMsg{
+			Version:       2,
+			NetID:         3,
+			Name:          "hello",
+			ID:            ourId,
+			Timestamp:     1000,
+			Height:        0,
+			Head:          types.Hash{},
+			Genesis:       types.Hash{},
+			FileAddress:   nil,
+			PublicAddress: nil,
+		}
+
+		pub := ed25519.PublicKey(theirId.Bytes()).ToX25519Pk()
+		priv := peerKey.ToX25519Sk()
+		secret, err := crypto.X25519ComputeSecret(priv, pub)
+		if err != nil {
+			panic(err)
+		}
+
+		t := make([]byte, 8)
+		binary.BigEndian.PutUint64(t, uint64(our.Timestamp))
+		hash := crypto.Hash256(t)
+		our.Token = xor(hash, secret)
+		if mineKey != nil {
+			our.Key = mineKey.PubByte()
+			our.Token = ed25519.Sign(mineKey, our.Token)
+		}
+
+		return
+	}
+
+	secret, our := makeHandshake(priv2, priv4, hkr.id)
+	err = hkr.verifyHandshake(our, secret)
+	if err != nil {
+		panic(err)
+	}
+
+	our.Timestamp = time.Now().Unix()
+	err = hkr.verifyHandshake(our, secret)
+	if err == nil {
+		t.Fatal("should verify failed")
+	} else {
+		fmt.Println(err)
+	}
+
+	_, our = makeHandshake(priv2, nil, hkr.id)
+	err = hkr.verifyHandshake(our, secret)
+	if err != nil {
+		panic(err)
+	}
 }

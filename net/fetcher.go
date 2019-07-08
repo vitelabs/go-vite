@@ -470,7 +470,7 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 
 	for _, p := range ps {
 		if p != nil {
-			addr := nilAddress
+			addr := ZERO_ADDRESS
 			if address != nil {
 				addr = *address
 			}
@@ -517,7 +517,7 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 
 	for _, p := range ps {
 		if p != nil {
-			addr := nilAddress
+			addr := ZERO_ADDRESS
 			if address != nil {
 				addr = *address
 			}

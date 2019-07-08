@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/golang/snappy"
-	"github.com/vitelabs/go-vite/net/p2p/bytes_pool"
 )
 
 const maxPayloadLength = 3
@@ -224,11 +223,10 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 			return
 		}
 
-		msg.Payload = bytes_pool.Get(int(length))
+		msg.Payload = make([]byte, length)
 		_, err = io.ReadFull(t.Conn, msg.Payload)
 		if err != nil {
 			err = fmt.Errorf("failed to read message payload: %v", err)
-			bytes_pool.Put(msg.Payload)
 			return
 		}
 	}
@@ -241,10 +239,8 @@ func (t *transport) ReadMsg() (msg Msg, err error) {
 			return
 		}
 
-		payloadUncompressed := bytes_pool.Get(payloadReadLength)
+		payloadUncompressed := make([]byte, payloadReadLength)
 		payloadUncompressed, err = snappy.Decode(payloadUncompressed, msg.Payload)
-		// recycle old payload
-		bytes_pool.Put(msg.Payload)
 
 		if err != nil {
 			err = fmt.Errorf("failed to decode message payload: %v", err)

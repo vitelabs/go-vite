@@ -28,6 +28,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -310,6 +312,26 @@ func (m *mockSyncDownloader) stop() {
 	return
 }
 
+type mockVerifier struct {
+	black map[types.Hash]struct{}
+}
+
+func (mv mockVerifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
+	if _, ok := mv.black[block.Hash]; ok {
+		return errors.New("black hash")
+	}
+
+	return nil
+}
+
+func (mv mockVerifier) VerifyNetAb(block *ledger.AccountBlock) error {
+	if _, ok := mv.black[block.Hash]; ok {
+		return errors.New("black hash")
+	}
+
+	return nil
+}
+
 func TestSyncCache_read(t *testing.T) {
 	const end = 50
 	chain := &mockCacheChain{
@@ -322,10 +344,11 @@ func TestSyncCache_read(t *testing.T) {
 		},
 	}
 
-	reader := newCacheReader(chain, mockVerifier{}, &mockSyncDownloader{
+	var reader = newCacheReader(chain, mockVerifier{
+		black: make(map[types.Hash]struct{}),
+	}, &mockSyncDownloader{
 		chain: chain,
-	})
-
+	}, nil, make(map[types.Hash]struct{}))
 	reader.start()
 
 	pending := make(chan struct{})
@@ -367,9 +390,11 @@ func TestSyncCache_read_error(t *testing.T) {
 		},
 	}
 
-	reader := newCacheReader(chain, mockVerifier{}, &mockSyncDownloader{
+	reader := newCacheReader(chain, mockVerifier{
+		black: make(map[types.Hash]struct{}),
+	}, &mockSyncDownloader{
 		chain: chain,
-	})
+	}, nil, make(map[types.Hash]struct{}))
 
 	reader.start()
 

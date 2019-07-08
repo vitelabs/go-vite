@@ -23,7 +23,7 @@ import (
 	crand "crypto/rand"
 	"fmt"
 	mrand "math/rand"
-	"net"
+	_net "net"
 	"net/http"
 	_ "net/http/pprof"
 	"strings"
@@ -221,7 +221,7 @@ func TestRetrieveMeta(t *testing.T) {
 
 func TestCodec(t *testing.T) {
 	const addr = "127.0.0.1:10000"
-	ln, err := net.Listen("tcp", addr)
+	ln, err := _net.Listen("tcp", addr)
 	if err != nil {
 		panic(err)
 	}
@@ -281,7 +281,7 @@ func TestCodec(t *testing.T) {
 		var msg, msg2 Msg
 		var rerr error
 
-		conn, rerr := net.Dial("tcp", addr)
+		conn, rerr := _net.Dial("tcp", addr)
 		if rerr != nil {
 			panic(rerr)
 		}
@@ -321,7 +321,7 @@ func TestCodec(t *testing.T) {
 
 func BenchmarkMockCodec_WriteMsg(b *testing.B) {
 	const addr = "127.0.0.1:10000"
-	ln, err := net.Listen("tcp", addr)
+	ln, err := _net.Listen("tcp", addr)
 	if err != nil {
 		panic(err)
 	}
@@ -377,7 +377,7 @@ func BenchmarkMockCodec_WriteMsg(b *testing.B) {
 		var msg Msg
 		var rerr error
 
-		conn, rerr := net.Dial("tcp", addr)
+		conn, rerr := _net.Dial("tcp", addr)
 		if rerr != nil {
 			panic(rerr)
 		}

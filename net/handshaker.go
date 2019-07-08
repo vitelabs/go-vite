@@ -174,8 +174,6 @@ func (h *handshaker) readHandshake(c Codec) (their *HandshakeMsg, msgId MsgId, e
 		} else {
 			err = PeerUnknownReason
 		}
-
-		h.banAddr(c.Address(), 60)
 		return
 	}
 
@@ -194,59 +192,42 @@ func (h *handshaker) readHandshake(c Codec) (their *HandshakeMsg, msgId MsgId, e
 	return
 }
 
-func (h *handshaker) ReceiveHandshake(conn _net.Conn) (c Codec, their *HandshakeMsg, superior bool, err error) {
-	c = h.codecFactory.CreateCodec(conn)
-
-	if h.bannedAddr(conn.RemoteAddr()) {
-		err = PeerBanned
-		return
-	}
-
-	their, msgId, err := h.readHandshake(c)
-	if err != nil {
-		return
-	}
-
-	pub := ed25519.PublicKey(their.ID.Bytes()).ToX25519Pk()
+func (h *handshaker) getSecret(theirId peerId) (secret []byte, err error) {
+	pub := ed25519.PublicKey(theirId.Bytes()).ToX25519Pk()
 	priv := h.peerKey.ToX25519Sk()
-	secret, err := crypto.X25519ComputeSecret(priv, pub)
+
+	secret, err = crypto.X25519ComputeSecret(priv, pub)
 	if err != nil {
 		err = PeerInvalidToken
-		h.blackList.Ban(their.ID.Bytes(), 60)
 		return
 	}
 
+	return
+}
+
+func (h *handshaker) verifyHandshake(their *HandshakeMsg, secret []byte) (err error) {
 	t := make([]byte, 8)
 	binary.BigEndian.PutUint64(t, uint64(their.Timestamp))
 	hash := crypto.Hash256(t)
 	token := xor(hash, secret)
 	if len(their.Key) != 0 {
 		if false == ed25519.Verify(their.Key, token, their.Token) {
-			h.blackList.Ban(their.ID.Bytes(), 60)
 			err = PeerInvalidSignature
 			return
 		}
 	} else {
 		if false == bytes.Equal(token, their.Token) {
-			h.blackList.Ban(their.ID.Bytes(), 60)
 			err = PeerInvalidToken
 			return
 		}
 	}
 
-	err = h.doHandshake(c, PeerFlagInbound, their)
-	if err != nil {
-		h.banAddr(c.Address(), 60)
-		return
-	}
+	return
+}
 
-	superior, err = h.onHandshaker(c, PeerFlagOutbound, their)
-	if err != nil {
-		return
-	}
-
+func (h *handshaker) makeHandshake(secret []byte) (our *HandshakeMsg) {
 	latestBlock := h.chain.GetLatestSnapshotBlock()
-	response := HandshakeMsg{
+	our = &HandshakeMsg{
 		Version:       int64(h.version),
 		NetID:         int64(h.netId),
 		Name:          h.name,
@@ -261,14 +242,21 @@ func (h *handshaker) ReceiveHandshake(conn _net.Conn) (c Codec, their *Handshake
 		PublicAddress: h.publicAddress,
 	}
 
-	binary.BigEndian.PutUint64(t, uint64(response.Timestamp))
-	hash = crypto.Hash256(t)
-	response.Token = xor(hash, secret)
-	if len(h.key) != 0 {
-		response.Key = h.key.PubByte()
-		response.Token = ed25519.Sign(h.key, response.Token)
+	t := make([]byte, 8)
+	binary.BigEndian.PutUint64(t, uint64(our.Timestamp))
+	hash := crypto.Hash256(t)
+
+	our.Token = xor(hash, secret)
+	if h.key != nil {
+		our.Key = h.key.PubByte()
+		our.Token = ed25519.Sign(h.key, our.Token)
 	}
-	data, err := response.Serialize()
+
+	return
+}
+
+func (h *handshaker) sendHandshake(c Codec, our *HandshakeMsg, msgId MsgId) (err error) {
+	data, err := our.Serialize()
 	if err != nil {
 		err = PeerUnmarshalError
 		return
@@ -284,85 +272,85 @@ func (h *handshaker) ReceiveHandshake(conn _net.Conn) (c Codec, their *Handshake
 		err = PeerNetworkError
 		return
 	}
+	return
+}
 
+func (h *handshaker) ReceiveHandshake(conn _net.Conn) (c Codec, their *HandshakeMsg, superior bool, err error) {
+	c = h.codecFactory.CreateCodec(conn)
+
+	if h.bannedAddr(conn.RemoteAddr()) {
+		err = PeerBanned
+		return
+	}
+
+	defer func() {
+		if err != nil {
+			h.banAddr(conn.RemoteAddr(), 60)
+		}
+	}()
+
+	their, msgId, err := h.readHandshake(c)
+	if err != nil {
+		return
+	}
+
+	secret, err := h.getSecret(their.ID)
+	if err != nil {
+		return
+	}
+
+	err = h.verifyHandshake(their, secret)
+	if err != nil {
+		return
+	}
+
+	err = h.doHandshake(c, PeerFlagInbound, their)
+	if err != nil {
+		return
+	}
+
+	superior, err = h.onHandshaker(c, PeerFlagOutbound, their)
+	if err != nil {
+		return
+	}
+
+	our := h.makeHandshake(secret)
+	err = h.sendHandshake(c, our, msgId)
 	return
 }
 
 func (h *handshaker) InitiateHandshake(conn _net.Conn, id vnode.NodeID) (c Codec, their *HandshakeMsg, superior bool, err error) {
 	c = h.codecFactory.CreateCodec(conn)
 
-	latestBlock := h.chain.GetLatestSnapshotBlock()
-	request := HandshakeMsg{
-		Version:       int64(h.version),
-		NetID:         int64(h.netId),
-		Name:          h.name,
-		ID:            h.id,
-		Timestamp:     time.Now().Unix(),
-		Height:        latestBlock.Height,
-		Head:          latestBlock.Hash,
-		Genesis:       h.genesis,
-		Key:           nil,
-		Token:         nil,
-		FileAddress:   h.fileAddress,
-		PublicAddress: h.publicAddress,
-	}
-
-	t := make([]byte, 8)
-	binary.BigEndian.PutUint64(t, uint64(request.Timestamp))
-	hash := crypto.Hash256(t)
-	priv := h.peerKey.ToX25519Sk()
-	pub := ed25519.PublicKey(id.Bytes()).ToX25519Pk()
-	secret, err := crypto.X25519ComputeSecret(priv, pub)
+	secret, err := h.getSecret(id)
 	if err != nil {
-		err = PeerInvalidToken
 		return
 	}
 
-	request.Token = xor(hash, secret)
-	if h.key != nil {
-		request.Key = h.key.PubByte()
-		request.Token = ed25519.Sign(h.key, request.Token)
-	}
-	data, err := request.Serialize()
-	if err != nil {
-		err = PeerUnmarshalError
-		return
-	}
+	defer func() {
+		if err != nil {
+			h.blackList.Ban(id.Bytes(), 60)
+		}
+	}()
 
-	c.SetWriteTimeout(handshakeTimeout)
-	err = c.WriteMsg(Msg{
-		Code:    CodeHandshake,
-		Payload: data,
-	})
+	our := h.makeHandshake(secret)
+	err = h.sendHandshake(c, our, 0)
 	if err != nil {
-		err = PeerNetworkError
 		return
 	}
 
 	their, _, err = h.readHandshake(c)
 	if err != nil {
-		h.blackList.Ban(id.Bytes(), 60)
 		return
 	}
 
-	binary.BigEndian.PutUint64(t, uint64(their.Timestamp))
-	hash = crypto.Hash256(t)
-	token := xor(hash, secret)
-	if len(their.Key) != 0 {
-		if false == ed25519.Verify(their.Key, token, their.Token) {
-			err = PeerInvalidSignature
-			h.blackList.Ban(id.Bytes(), 60)
-			return
-		}
-	} else if false == bytes.Equal(their.Token, token) {
-		err = PeerInvalidToken
-		h.blackList.Ban(id.Bytes(), 60)
+	err = h.verifyHandshake(their, secret)
+	if err != nil {
 		return
 	}
 
 	err = h.doHandshake(c, PeerFlagOutbound, their)
 	if err != nil {
-		h.blackList.Ban(id.Bytes(), 60)
 		return
 	}
 

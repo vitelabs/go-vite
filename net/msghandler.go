@@ -365,7 +365,7 @@ func (a *getAccountBlocksHandler) codes() []Code {
 	return []Code{CodeGetAccountBlocks}
 }
 
-var nilAddress = types.Address{}
+var ZERO_ADDRESS types.Address
 var errGetABlocksMissingParam = errors.New("missing param to GetAccountBlocks")
 
 func (a *getAccountBlocksHandler) handle(msg Msg) (err error) {
@@ -385,7 +385,7 @@ func (a *getAccountBlocksHandler) handle(msg Msg) (err error) {
 	if req.From.Hash != types.ZERO_HASH {
 		// only need hash
 		block, err = a.chain.GetAccountBlockByHash(req.From.Hash)
-	} else if req.Address == nilAddress {
+	} else if req.Address == ZERO_ADDRESS {
 		// missing start hash and address, so we can`t handle it
 		return errGetABlocksMissingParam
 	} else {

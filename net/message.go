@@ -27,8 +27,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vitepb"
-
-	"github.com/vitelabs/go-vite/net/p2p/bytes_pool"
 )
 
 const (
@@ -70,7 +68,6 @@ type Msg struct {
 
 // Recycle will put Msg.Payload back to pool
 func (m Msg) Recycle() {
-	bytes_pool.Put(m.Payload)
 }
 
 type MsgReader interface {
