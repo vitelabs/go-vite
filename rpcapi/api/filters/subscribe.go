@@ -154,6 +154,7 @@ type SnapshotBlock struct {
 type Logs struct {
 	Log              *ledger.VmLog  `json:"log"`
 	AccountBlockHash types.Hash     `json:"accountBlockHash"`
+	AccountHeight    string         `json:"accountHeight"`
 	Addr             *types.Address `json:"addr"`
 	Removed          bool           `json:"removed"`
 }
@@ -562,15 +563,19 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 		if acc == nil {
 			continue
 		}
+		if startHeight == 0 {
+			startHeight = 1
+		}
 		if endHeight == 0 || endHeight > acc.Height {
 			endHeight = acc.Height
 		}
 		for {
-			end, count, finish := getHeightPage(startHeight, endHeight, getAccountBlocksCount)
+			offset, count, finish := getHeightPage(startHeight, endHeight, getAccountBlocksCount)
 			if count == 0 {
 				break
 			}
-			blocks, err := s.vite.Chain().GetAccountBlocksByHeight(addr, end, count)
+			startHeight = offset + 1
+			blocks, err := s.vite.Chain().GetAccountBlocksByHeight(addr, offset, count)
 			if err != nil {
 				return nil, err
 			}
@@ -582,7 +587,7 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 					}
 					for _, l := range list {
 						if filterLog(filterParam, l) {
-							logs = append(logs, &Logs{l, blocks[i-1].Hash, &addr, false})
+							logs = append(logs, &Logs{l, blocks[i-1].Hash, api.Uint64ToString(blocks[i-1].Height), &addr, false})
 						}
 					}
 				}
@@ -590,15 +595,15 @@ func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
 			if finish {
 				break
 			}
-			startHeight = startHeight + count
 		}
 	}
 	return logs, nil
 }
 
 func getHeightPage(start uint64, end uint64, count uint64) (uint64, uint64, bool) {
-	if end < count || end-count <= start {
-		return end, end - start, true
+	gap := end - start + 1
+	if gap <= count {
+		return end, gap, true
 	}
-	return end, count, false
+	return start + count - 1, count, false
 }

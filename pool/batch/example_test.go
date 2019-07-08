@@ -1,60 +1,36 @@
-package batch
+package batch_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/pool/batch"
 )
-
-type mockItem struct {
-	prevHash *types.Hash
-	hash     types.Hash
-	height   uint64
-	addr     *types.Address
-}
-
-func (m *mockItem) ReferHashes() ([]types.Hash, []types.Hash, *types.Hash) {
-	return []types.Hash{m.hash}, nil, m.prevHash
-}
-
-func (m *mockItem) Owner() *types.Address {
-	return m.addr
-}
-
-func (m *mockItem) Hash() types.Hash {
-	return m.hash
-}
-
-func (m *mockItem) Height() uint64 {
-	return m.height
-}
-
-func (m *mockItem) PrevHash() types.Hash {
-	return *m.prevHash
-}
 
 // ExampleBatchSnapshot_Batch
 func ExampleBatchSnapshot_Batch() {
-	batch := NewBatch(snapshotExists, accountExists, 1, 100)
+	b := batch.NewBatch(snapshotExists, accountExists, 1, 100)
 
-	prev := common.MockHash(0)
-	sItem := &mockItem{prevHash: &prev, hash: common.MockHash(1), height: 1, addr: nil}
-
-	prev = common.MockHash(0)
 	addr := common.MockAddress(1)
-	aItem := &mockItem{prevHash: &prev, hash: common.MockHash(1), height: 1, addr: &addr}
+	aItem := batch.NewMockSendBlcok(batch.NewGenesisBlock(&addr))
 
-	batch.AddAItem(aItem, nil)
-	batch.AddSItem(sItem)
-	err := batch.Batch(execute, execute)
+	var accBlocks []batch.Item
+	accBlocks = append(accBlocks, aItem)
+	sItem := batch.NewMockSnapshotBlock(batch.NewGenesisBlock(nil), accBlocks)
+
+	b.AddAItem(aItem, nil)
+	b.AddSItem(sItem)
+
+	err := b.Batch(execute, execute)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 }
 
-func execute(p Batch, l Level, bucket Bucket, version uint64) error {
-	fmt.Println("execute ", p.Version(), l.Index(), len(bucket.Items()), version)
+func execute(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error {
+	fmt.Println("execute ", l.Snapshot(), p.Version(), l.Index(), len(bucket.Items()), version)
 	return nil
 }
 
@@ -63,4 +39,8 @@ func snapshotExists(hash types.Hash) error {
 }
 func accountExists(hash types.Hash) error {
 	return nil
+}
+
+func TestExample(t *testing.T) {
+	ExampleBatchSnapshot_Batch()
 }

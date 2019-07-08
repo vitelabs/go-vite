@@ -74,6 +74,14 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	}
 }
 
+func (t Tx) checkSnapshotValid(latestSb *ledger.SnapshotBlock) error {
+	nowTime := time.Now()
+	if nowTime.Before(latestSb.Timestamp.Add(-10*time.Minute)) || nowTime.After(latestSb.Timestamp.Add(10*time.Minute)) {
+		return IllegalNodeTime
+	}
+	return nil
+}
+
 func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock, error) {
 
 	if param.Amount == nil {

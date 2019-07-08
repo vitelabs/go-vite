@@ -333,7 +333,10 @@ func (node *Node) WalletManager() *wallet.Manager {
 
 //wallet start
 func (node *Node) startWallet() (err error) {
-	node.walletManager.Start()
+	err = node.walletManager.Start()
+	if err != nil {
+		return
+	}
 	//unlock account
 	if node.config.EntropyStorePath != "" {
 

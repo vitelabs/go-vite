@@ -53,6 +53,9 @@ type Level interface {
 	// Done mean all item have been added to chain
 	Done()
 	HasDone() bool
+
+	// The count of Items
+	Size() int
 }
 
 // Bucket is a item(account and snapshot block) collection for same address

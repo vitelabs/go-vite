@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/common/fork"
 
 	"github.com/vitelabs/go-vite/chain/plugins"
@@ -78,6 +79,10 @@ type chain struct {
 func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *chain {
 	if chainCfg == nil {
 		chainCfg = defaultConfig()
+	}
+
+	if !fork.IsInit() {
+		fork.SetForkPoints(genesisCfg.ForkPoints)
 	}
 
 	c := &chain{

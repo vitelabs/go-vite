@@ -118,6 +118,14 @@ func (abi ABIContract) DirectUnpackMethodInput(name string, input []byte) ([]int
 	return nil, errCouldNotLocateNamedMethod
 }
 
+// DirectUnpackOffchainOutput output in param list according to the abi specification
+func (abi ABIContract) DirectUnpackOffchainOutput(name string, output []byte) ([]interface{}, error) {
+	if offchain, ok := abi.OffChains[name]; ok {
+		return offchain.Outputs.DirectUnpack(output)
+	}
+	return nil, errOffchainNotFound(name)
+}
+
 // UnpackEvent output in v according to the abi specification
 func (abi ABIContract) UnpackEvent(v interface{}, name string, input []byte) (err error) {
 	if len(input) == 0 {

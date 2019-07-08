@@ -112,6 +112,21 @@ func (mr *MockChainMockRecorder) GetGenesisSnapshotBlock() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGenesisSnapshotBlock", reflect.TypeOf((*MockChain)(nil).GetGenesisSnapshotBlock))
 }
 
+// GetLastUnpublishedSeedSnapshotHeader mocks base method
+func (m *MockChain) GetLastUnpublishedSeedSnapshotHeader(arg0 types.Address, arg1 time.Time) (*ledger.SnapshotBlock, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLastUnpublishedSeedSnapshotHeader", arg0, arg1)
+	ret0, _ := ret[0].(*ledger.SnapshotBlock)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLastUnpublishedSeedSnapshotHeader indicates an expected call of GetLastUnpublishedSeedSnapshotHeader
+func (mr *MockChainMockRecorder) GetLastUnpublishedSeedSnapshotHeader(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastUnpublishedSeedSnapshotHeader", reflect.TypeOf((*MockChain)(nil).GetLastUnpublishedSeedSnapshotHeader), arg0, arg1)
+}
+
 // GetLatestSnapshotBlock mocks base method
 func (m *MockChain) GetLatestSnapshotBlock() *ledger.SnapshotBlock {
 	m.ctrl.T.Helper()
