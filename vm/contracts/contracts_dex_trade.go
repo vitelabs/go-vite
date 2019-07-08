@@ -29,7 +29,7 @@ func (md *MethodDexTradeNewOrder) GetRefundData(sendBlock *ledger.AccountBlock) 
 }
 
 func (md *MethodDexTradeNewOrder) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexTradeNewOrderGas, data)
+	return util.TotalGasCost(util.TxGas, data)
 }
 
 func (md *MethodDexTradeNewOrder) GetReceiveQuota() uint64 {
@@ -80,7 +80,7 @@ func (md *MethodDexTradeCancelOrder) GetRefundData(sendBlock *ledger.AccountBloc
 }
 
 func (md *MethodDexTradeCancelOrder) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexTradeCancelOrderGas, data)
+	return util.TotalGasCost(util.TxGas, data)
 }
 
 func (md *MethodDexTradeCancelOrder) GetReceiveQuota() uint64 {
@@ -137,7 +137,7 @@ func (md *MethodDexTradeNotifyNewMarket) GetRefundData(sendBlock *ledger.Account
 }
 
 func (md *MethodDexTradeNotifyNewMarket) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexTradeNotifyNewMarketGas, data)
+	return util.TotalGasCost(util.TxGas, data)
 }
 
 func (md *MethodDexTradeNotifyNewMarket) GetReceiveQuota() uint64 {
