@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/net/database"
+
 	"github.com/vitelabs/go-vite/net/discovery"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -39,6 +41,8 @@ type Connector interface {
 type finder struct {
 	self       types.Address
 	_selfIsSBP bool
+
+	db *database.DB
 
 	rw          sync.RWMutex
 	targets     map[types.Address]*vnode.Node
@@ -89,7 +93,7 @@ func (f *finder) UnSub(sub discovery.Subscriber) {
 	sub.UnSub(f.subId)
 }
 
-func newFinder(self types.Address, peers *peerSet, maxPeers int, staticNodes []string, connect Connector, consensus Consensus) (f *finder, err error) {
+func newFinder(self types.Address, peers *peerSet, maxPeers int, staticNodes []string, db *database.DB, connect Connector, consensus Consensus) (f *finder, err error) {
 	f = &finder{
 		self:      self,
 		targets:   make(map[types.Address]*vnode.Node),
@@ -100,6 +104,7 @@ func newFinder(self types.Address, peers *peerSet, maxPeers int, staticNodes []s
 		dialing:   make(map[peerId]struct{}),
 		sbps:      make(map[types.Address]int64),
 		observers: make(map[int]func(_selfIsSBP bool)),
+		db:        db,
 	}
 
 	f.staticNodes = make([]*vnode.Node, 0, len(staticNodes))
@@ -246,7 +251,9 @@ func (f *finder) receiveNode(node *vnode.Node) {
 	}
 
 	if f.total() < f.maxPeers {
+		f.rw.Lock()
 		f.dial(node)
+		f.rw.Unlock()
 	}
 }
 
@@ -261,10 +268,18 @@ func (f *finder) loop() {
 	checkTicker := time.NewTicker(time.Second)
 	defer checkTicker.Stop()
 
+	f.rw.Lock()
+	nodes := f.db.ReadMarkNodes()
+	for _, node := range nodes {
+		f.dial(node)
+	}
+	f.rw.Unlock()
+
 	for {
 		select {
 		case <-checkTicker.C:
 			if f.total() < f.maxPeers {
+				f.rw.Lock()
 				for _, n := range f.staticNodes {
 					f.dial(n)
 				}
@@ -274,14 +289,17 @@ func (f *finder) loop() {
 						f.dial(t)
 					}
 				}
+				f.rw.Unlock()
 			}
 
 			total := f.total()
 			if total < f.maxPeers {
 				nodes := f.resolver.GetNodes((f.maxPeers - total) * 2)
+				f.rw.Lock()
 				for _, node := range nodes {
 					f.dial(node)
 				}
+				f.rw.Unlock()
 			}
 		case <-f.term:
 			return

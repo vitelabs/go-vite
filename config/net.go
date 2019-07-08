@@ -91,7 +91,7 @@ type Net struct {
 	AccessDenyKeys  []string
 
 	BlackBlockHashList []string
-	ConfirmedBlockList []string
+	WhiteBlockList     []string
 
 	MineKey ed25519.PrivateKey
 }

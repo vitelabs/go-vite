@@ -63,7 +63,7 @@ type Config struct {
 	AccessAllowKeys    []string
 	AccessDenyKeys     []string
 	BlackBlockHashList []string
-	ConfirmedBlockList []string // from high to low, like: "xxxxxx-10001"
+	WhiteBlockList     []string // from high to low, like: "xxxxxx-10001"
 	ForwardStrategy    string
 
 	//producer
@@ -168,7 +168,7 @@ func (c *Config) makeNetConfig() *config.Net {
 		AccessAllowKeys:    c.AccessAllowKeys,
 		AccessDenyKeys:     c.AccessDenyKeys,
 		BlackBlockHashList: c.BlackBlockHashList,
-		ConfirmedBlockList: c.ConfirmedBlockList,
+		WhiteBlockList:     c.WhiteBlockList,
 		MineKey:            nil,
 	}
 }

@@ -183,28 +183,19 @@ func (s *syncer) setState(state syncState) {
 }
 
 func (s *syncer) checkLoop(run *int32) {
-	initDuration := 5 * time.Second
-	duration := initDuration
-	maxDuration := 80 * time.Second
-
-	timer := time.NewTimer(time.Second)
-	defer timer.Stop()
+	checkTicker := time.NewTicker(5 * time.Second)
+	defer checkTicker.Stop()
 
 	for {
 		if *run == 0 {
 			return
 		}
 
-		<-timer.C
+		<-checkTicker.C
 
 		current := s.chain.GetLatestSnapshotBlock().Height
 		syncPeer := s.peers.syncPeer()
 		if syncPeer == nil {
-			duration *= 2
-			if duration >= maxDuration {
-				duration = initDuration
-			}
-			timer.Reset(duration)
 			continue
 		}
 

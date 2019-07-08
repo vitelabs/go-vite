@@ -32,6 +32,10 @@ type blockFeed struct {
 }
 
 func newBlockFeeder(blackBlocks map[types.Hash]struct{}) *blockFeed {
+	if len(blackBlocks) == 0 {
+		blackBlocks = make(map[types.Hash]struct{})
+	}
+
 	return &blockFeed{
 		aSubs:       make(map[int]AccountBlockCallback),
 		bSubs:       make(map[int]SnapshotBlockCallback),

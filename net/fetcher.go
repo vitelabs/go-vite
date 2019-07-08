@@ -29,7 +29,7 @@ type MsgIder interface {
 // fetch filter
 const maxMark = 2       // times
 const timeThreshold = 3 // second
-const expiration = 10   // 60s
+const expiration = 300  // 5min
 
 type record struct {
 	id          MsgId
@@ -75,7 +75,7 @@ func (r *record) done(msg Msg, err error) {
 	r.t = time.Now().Unix()
 
 	if r.callback != nil {
-		r.callback(msg, err)
+		go r.callback(msg, err)
 	}
 }
 
@@ -174,6 +174,18 @@ func (f *filter) hold(hash types.Hash) (r *record, hold bool) {
 	return r, false
 }
 
+func (f *filter) add(hash types.Hash) (r *record) {
+	r = f.pool.Get().(*record)
+	r.reset()
+	r.id = f.idGen.MsgID()
+
+	f.mu.Lock()
+	f.idToHash[r.id] = r
+	f.mu.Unlock()
+
+	return r
+}
+
 func (f *filter) done(id MsgId, msg Msg) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -258,6 +270,10 @@ type fetcher struct {
 }
 
 func newFetcher(peers *peerSet, receiver blockReceiver, blackBlocks map[types.Hash]struct{}) *fetcher {
+	if len(blackBlocks) == 0 {
+		blackBlocks = make(map[types.Hash]struct{})
+	}
+
 	return &fetcher{
 		filter:      newFilter(),
 		peers:       peers,
@@ -324,15 +340,13 @@ func (f *fetcher) handle(msg Msg) (err error) {
 		}
 		msg.Recycle()
 
-		f.log.Info(fmt.Sprintf("receive %d snapshotblocks from %s", len(bs.Blocks), msg.Sender))
+		f.log.Info(fmt.Sprintf("receive %d snapshotblocks %d from %s", len(bs.Blocks), msg.Id, msg.Sender))
 
 		for _, block := range bs.Blocks {
 			if err = f.receiver.receiveSnapshotBlock(block, types.RemoteFetch); err != nil {
 				return err
 			}
 		}
-
-		f.log.Info(fmt.Sprintf("receive %d snapshotblocks from %s done", len(bs.Blocks), msg.Sender))
 
 		if len(bs.Blocks) > 0 {
 			f.filter.done(msg.Id, msg)
@@ -353,8 +367,6 @@ func (f *fetcher) handle(msg Msg) (err error) {
 				return err
 			}
 		}
-
-		f.log.Info(fmt.Sprintf("receive %d accountblocks from %s done", len(bs.Blocks), msg.Sender))
 
 		if len(bs.Blocks) > 0 {
 			f.filter.done(msg.Id, msg)
@@ -552,8 +564,14 @@ func (f *fetcher) fetchSnapshotBlock(hash types.Hash, peer *Peer, callback func(
 		Forward: false,
 	}
 
-	r, _ := f.filter.hold(hash)
+	r := f.filter.add(hash)
 	r.callback = callback
 
-	_ = peer.send(CodeGetSnapshotBlocks, r.id, m)
+	err := peer.send(CodeGetSnapshotBlocks, r.id, m)
+	if err != nil {
+		r.done(Msg{}, err)
+		f.log.Warn(fmt.Sprintf("failed to query reliable %s to %s", hash, peer))
+	} else {
+		f.log.Info(fmt.Sprintf("query reliable %s %d to %s", hash, r.id, peer))
+	}
 }

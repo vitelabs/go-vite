@@ -45,6 +45,8 @@ type net struct {
 
 	discover *discovery.Discovery
 
+	db *database.DB
+
 	dialer   _net.Dialer
 	listener _net.Listener
 	hkr      *handshaker
@@ -161,17 +163,12 @@ func (n *net) onConnection(conn _net.Conn, id peerId, inbound bool) {
 	}
 
 	peer := newPeer(c, their, publicAddress, fileAddress, superior, flag, n.peers, n.handlers)
+
 	if err = n.onPeerAdded(peer); err != nil {
 		_ = Disconnect(c, err)
-		return
 	}
-	defer n.onPeerRemoved(peer)
 
-	if err = peer.run(); err != nil {
-		n.log.Warn(fmt.Sprintf("peer %s run done: %v", peer, err))
-	} else {
-		n.log.Info(fmt.Sprintf("peer %s run done", peer))
-	}
+	n.onPeerRemoved(peer)
 }
 
 func (n *net) authorize(c Codec, flag PeerFlag, msg *HandshakeMsg) (superior bool, err error) {
@@ -237,37 +234,69 @@ func (n *net) authorize(c Codec, flag PeerFlag, msg *HandshakeMsg) (superior boo
 	return
 }
 
+func (n *net) checkPeer(peer *Peer) {
+	if len(n.confirmedHashHeightList) == 0 {
+		// default is reliable
+		peer.setReliable(true)
+		return
+	}
+
+	if false == n.peers.has(peer.Id) {
+		return
+	}
+
+	var shouldCheck bool
+	for _, hashheight := range n.confirmedHashHeightList {
+		if hashheight.Height <= peer.Height {
+			shouldCheck = true
+			n.fetcher.fetchSnapshotBlock(hashheight.Hash, peer, func(msg Msg, err error) {
+				var interval time.Duration
+				if err != nil {
+					peer.setReliable(false)
+					interval = 20 * time.Second
+				} else {
+					peer.setReliable(true)
+					interval = 20 * time.Minute
+				}
+
+				time.AfterFunc(interval, func() {
+					n.checkPeer(peer)
+				})
+			})
+			break
+		}
+	}
+
+	if false == shouldCheck {
+		peer.setReliable(true)
+		lowest := n.confirmedHashHeightList[len(n.confirmedHashHeightList)-1].Height
+		if lowest > peer.Height {
+			time.Sleep(time.Duration(lowest-peer.Height) * time.Second)
+			n.checkPeer(peer)
+		}
+	}
+
+	height := n.confirmedHashHeightList[0].Height
+	if peer.Height > height+3600*24 {
+		return
+	}
+}
+
 func (n *net) onPeerAdded(peer *Peer) (err error) {
 	err = n.peers.add(peer)
 	if err != nil {
 		return
 	}
 
-	var ch = make(chan error, 1)
-	var shouldCheck bool
-	for _, hashheight := range n.confirmedHashHeightList {
-		if hashheight.Height <= peer.Height {
-			shouldCheck = true
-			n.fetcher.fetchSnapshotBlock(hashheight.Hash, peer, func(msg Msg, err error) {
-				ch <- err
-			})
-		}
-	}
+	go n.checkPeer(peer)
 
-	if false == shouldCheck {
-		atomic.StoreInt32(&peer.reliable, 1)
+	if err = peer.run(); err != nil {
+		n.log.Warn(fmt.Sprintf("peer %s run done: %v", peer, err))
 	} else {
-		err = <-ch
-		if err != nil {
-			atomic.StoreInt32(&peer.reliable, 0)
-		} else {
-			atomic.StoreInt32(&peer.reliable, 1)
-		}
+		n.log.Info(fmt.Sprintf("peer %s run done", peer))
 	}
 
-	go n.syncer.start()
-
-	return nil
+	return
 }
 
 func (n *net) onPeerRemoved(peer *Peer) {
@@ -314,8 +343,8 @@ func New(cfg *config.Net, chain Chain, verifier Verifier, consensus Consensus, i
 	}
 
 	// from high to low
-	var confirmedHashList = make([]*ledger.HashHeight, 0, len(cfg.ConfirmedBlockList))
-	for _, hexStr := range cfg.ConfirmedBlockList {
+	var confirmedHashList = make([]*ledger.HashHeight, 0, len(cfg.WhiteBlockList))
+	for _, hexStr := range cfg.WhiteBlockList {
 		strs := strings.Split(hexStr, "/")
 		var hash types.Hash
 		hash, err = types.HexToHash(strs[0])
@@ -431,13 +460,13 @@ func New(cfg *config.Net, chain Chain, verifier Verifier, consensus Consensus, i
 		onHandshaker: n.authorize,
 	}
 
-	db, err := database.New(path.Join(cfg.DataDir, DBDirName), 1, n.node.ID)
+	n.db, err = database.New(path.Join(cfg.DataDir, DBDirName), 1, n.node.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	if cfg.Discover {
-		n.discover = discovery.New(peerKey, n.node, cfg.BootNodes, cfg.BootSeeds, cfg.ListenInterface+":"+strconv.Itoa(cfg.Port), db)
+		n.discover = discovery.New(peerKey, n.node, cfg.BootNodes, cfg.BootSeeds, cfg.ListenInterface+":"+strconv.Itoa(cfg.Port), n.db)
 	}
 
 	var addr types.Address
@@ -445,7 +474,7 @@ func New(cfg *config.Net, chain Chain, verifier Verifier, consensus Consensus, i
 		addr = types.PubkeyToAddress(n.config.MineKey.PubByte())
 	}
 
-	n.finder, err = newFinder(addr, n.peers, cfg.MaxPeers, cfg.StaticNodes, n, consensus)
+	n.finder, err = newFinder(addr, n.peers, cfg.MaxPeers, cfg.StaticNodes, n.db, n, consensus)
 	if err != nil {
 		return nil, err
 	}
@@ -496,6 +525,57 @@ func New(cfg *config.Net, chain Chain, verifier Verifier, consensus Consensus, i
 	}
 
 	return n, nil
+}
+
+func (n *net) beatLoop() {
+	defer n.wg.Done()
+
+	beatTicker := time.NewTicker(10 * time.Second)
+	defer beatTicker.Stop()
+	storeTicker := time.NewTicker(time.Minute)
+	defer storeTicker.Stop()
+
+	for {
+		select {
+		case <-beatTicker.C:
+			if n.running == 0 {
+				return
+			}
+
+			for _, pe := range n.peers.peers() {
+				_ = pe.WriteMsg(Msg{
+					Code:    CodeHeartBeat,
+					Payload: n.hb.state(),
+				})
+			}
+
+		case <-storeTicker.C:
+			if n.running == 0 {
+				return
+			}
+
+			for _, pe := range n.peers.peers() {
+				ep, err := vnode.ParseEndPoint(pe.publicAddress)
+				if err != nil {
+					continue
+				}
+				_ = n.db.StoreNode(&vnode.Node{
+					ID:       pe.Id,
+					EndPoint: ep,
+					Net:      n.node.Net,
+				})
+
+				var weight int64
+				if pe.Superior {
+					weight = 1000
+				} else if pe.reliable == 1 {
+					weight = 100
+				}
+
+				n.db.StoreMark(pe.Id, weight)
+			}
+		}
+	}
 }
 
 type heartBeater struct {
@@ -591,6 +671,11 @@ func (n *net) Start() (err error) {
 		n.query.start()
 
 		n.fetcher.start()
+
+		go n.syncer.checkLoop(&n.running)
+
+		n.wg.Add(1)
+		go n.beatLoop()
 
 		return
 	}

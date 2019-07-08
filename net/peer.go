@@ -75,6 +75,7 @@ type PeerInfo struct {
 	Address    string   `json:"address"`
 	Flag       PeerFlag `json:"flag"`
 	Superior   bool     `json:"superior"`
+	Reliable   bool     `json:"reliable"`
 	CreateAt   string   `json:"createAt"`
 	ReadQueue  int      `json:"readQueue"`
 	WriteQueue int      `json:"writeQueue"`
@@ -141,6 +142,11 @@ func (p *Peer) setReliable(bool2 bool) {
 		v = 1
 	}
 	atomic.StoreInt32(&p.reliable, v)
+	if v > 0 {
+		p.log.Info("set reliable true")
+	} else {
+		p.log.Info("set reliable false")
+	}
 }
 
 // WriteMsg will put msg into queue, then write asynchronously
@@ -168,7 +174,6 @@ func (p *Peer) writeDone() {
 	atomic.AddInt32(&p.writing, -1)
 }
 
-// todo
 func (p *Peer) Info() PeerInfo {
 	var ps []string
 
@@ -194,6 +199,7 @@ func (p *Peer) Info() PeerInfo {
 		Address:    p.codec.Address().String(),
 		Flag:       p.Flag,
 		Superior:   p.Superior,
+		Reliable:   atomic.LoadInt32(&p.reliable) == 1,
 		CreateAt:   time.Unix(p.CreateAt, 0).Format("2006-01-02 15:04:05"),
 		ReadQueue:  len(p.readQueue),
 		WriteQueue: len(p.writeQueue),
@@ -560,7 +566,7 @@ func (m *peerSet) bestPeer() (best *Peer) {
 // choose middle peer but not the highest peer is to defend fake height attack. because
 // it`s more hard to fake.
 func (m *peerSet) syncPeer() *Peer {
-	l := m.sortPeers()
+	l := m.sortPeers(true)
 	if len(l) == 0 {
 		return nil
 	}
@@ -658,17 +664,26 @@ func (m *peerSet) peers() (l peers) {
 }
 
 // peers return all peers sort from low to high
-func (m *peerSet) sortPeers() (l peers) {
+func (m *peerSet) sortPeers(reliable bool) (l peers) {
 	m.prw.RLock()
 
 	l = make(peers, len(m.m))
 	i := 0
 	for _, p := range m.m {
-		l[i] = p
-		i++
+		if reliable {
+			if atomic.LoadInt32(&p.reliable) == 1 {
+				l[i] = p
+				i++
+			}
+		} else {
+			l[i] = p
+			i++
+		}
 	}
+
 	m.prw.RUnlock()
 
+	l = l[:i]
 	sort.Sort(l)
 
 	return
