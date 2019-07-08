@@ -1,14 +1,17 @@
 package quota
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"math"
 	"math/big"
+	"strconv"
 	"testing"
 )
 
@@ -768,6 +771,86 @@ func TestCalcPledgeAmountByUtps(t *testing.T) {
 		}
 		if error == nil && utps.err == nil && result.Cmp(utps.expectedResult) != 0 {
 			t.Fatalf("param: %v, result expected %v, but got %v", utps.utps, utps.expectedResult, result)
+		}
+	}
+}
+
+var (
+	testTokenId     = types.TokenTypeId{'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N'}
+	testAddr, _     = types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
+	testUint8       = uint8(1)
+	testUint16      = uint16(1)
+	testUint32      = uint32(1)
+	testUint64      = uint64(1)
+	testUint256     = big.NewInt(1)
+	testInt32       = int32(1)
+	testInt64       = int64(1)
+	testBool        = true
+	testTokenSymbol = "ABCDEFGHIJ"
+	testPrice       = "1.1111111111111111111"
+	testOrderId, _  = hex.DecodeString("01010101010101010101010101010101010101010101")
+	numeratorList   = makeNumeratorList()
+)
+
+func makeNumeratorList() []uint64 {
+	numeratorList := make([]uint64, 0)
+	for i := uint64(1); i <= 75*20; i++ {
+		if i <= 75 || i%75 == 0 {
+			numeratorList = append(numeratorList, i)
+		}
+	}
+	return numeratorList
+}
+
+func TestCalcDexQuota(t *testing.T) {
+	InitQuotaConfig(false, false)
+	dataLenMap := make(map[string]int)
+	methodNameDexFundUserDepositData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundUserDeposit)
+	dataLenMap[abi.MethodNameDexFundUserDeposit] = len(methodNameDexFundUserDepositData)
+	methodNameDexFundUserWithdrawData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundUserWithdraw, testTokenId, testUint256)
+	dataLenMap[abi.MethodNameDexFundUserWithdraw] = len(methodNameDexFundUserWithdrawData)
+	methodNameDexFundNewOrderData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewOrder, testTokenId, testTokenId, testBool, testUint8, testPrice, testUint256)
+	dataLenMap[abi.MethodNameDexFundNewOrder] = len(methodNameDexFundNewOrderData)
+	methodNameDexFundPeriodJobData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundPeriodJob, testUint64, testUint8)
+	dataLenMap[abi.MethodNameDexFundPeriodJob] = len(methodNameDexFundPeriodJobData)
+	methodNameDexFundNewMarketData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewMarket, testTokenId, testTokenId)
+	dataLenMap[abi.MethodNameDexFundNewMarket] = len(methodNameDexFundNewMarketData)
+	methodNameDexFundPledgeForVxData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundPledgeForVx, testUint8, testUint256)
+	dataLenMap[abi.MethodNameDexFundPledgeForVx] = len(methodNameDexFundPledgeForVxData)
+	methodNameDexFundPledgeForVipData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundPledgeForVip, testUint8)
+	dataLenMap[abi.MethodNameDexFundPledgeForVip] = len(methodNameDexFundPledgeForVipData)
+	methodNameDexFundOwnerConfigData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundOwnerConfig, testUint8, testAddr, testAddr, testAddr, testBool, testAddr, testAddr)
+	dataLenMap[abi.MethodNameDexFundOwnerConfig] = len(methodNameDexFundOwnerConfigData)
+	methodNameDexFundOwnerConfigTradeData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundOwnerConfigTrade, testUint8, testTokenId, testTokenId, testBool, testTokenId, testUint8, testUint8, testUint256, testUint8, testUint256)
+	dataLenMap[abi.MethodNameDexFundOwnerConfigTrade] = len(methodNameDexFundOwnerConfigTradeData)
+	methodNameDexFundMarketOwnerConfigData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundMarketOwnerConfig, testUint8, testTokenId, testTokenId, testAddr, testInt32, testInt32, testBool)
+	dataLenMap[abi.MethodNameDexFundMarketOwnerConfig] = len(methodNameDexFundMarketOwnerConfigData)
+	methodNameDexFundTransferTokenOwnerData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundTransferTokenOwner, testTokenId, testAddr)
+	dataLenMap[abi.MethodNameDexFundTransferTokenOwner] = len(methodNameDexFundTransferTokenOwnerData)
+	methodNameDexFundNotifyTimeData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNotifyTime, testInt64)
+	dataLenMap[abi.MethodNameDexFundNotifyTime] = len(methodNameDexFundNotifyTimeData)
+	methodNameDexFundNewInviterData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewInviter)
+	dataLenMap[abi.MethodNameDexFundNewInviter] = len(methodNameDexFundNewInviterData)
+	methodNameDexFundBindInviteCodeData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundBindInviteCode, testUint32)
+	dataLenMap[abi.MethodNameDexFundBindInviteCode] = len(methodNameDexFundBindInviteCodeData)
+	methodNameDexTradeCancelOrderData, _ := abi.ABIDexTrade.PackMethod(abi.MethodNameDexTradeCancelOrder, testOrderId)
+	dataLenMap[abi.MethodNameDexTradeCancelOrder] = len(methodNameDexTradeCancelOrderData)
+	fmt.Println("quota for dex tx")
+	for name, length := range dataLenMap {
+		f := float64(util.TxGas+uint64(length)*util.TxDataGas) / float64(util.TxGas) / float64(75)
+		minPledgeAmount, _ := CalcPledgeAmountByUtps(f)
+		fmt.Printf("%v\t%v\t%v\n", name, util.TxGas+uint64(length)*util.TxDataGas, minPledgeAmount.Div(minPledgeAmount, big.NewInt(1e18)))
+	}
+	fmt.Println("pledge amount for dex tx")
+	for name, length := range dataLenMap {
+		for _, numerator := range numeratorList {
+			f := float64(numerator*(util.TxGas+uint64(length)*util.TxDataGas)) / float64(util.TxGas) / float64(75)
+			pledgeAmount, _ := CalcPledgeAmountByUtps(f)
+			if numerator < 75 {
+				fmt.Printf("%v\t%v\t%v\n", name, strconv.Itoa(int(numerator))+"("+strconv.Itoa(int(numerator))+"/75 tps)", pledgeAmount.Div(pledgeAmount, big.NewInt(1e18)))
+			} else {
+				fmt.Printf("%v\t%v\t%v\n", name, strconv.Itoa(int(numerator))+"("+strconv.Itoa(int(numerator/75))+" tps)", pledgeAmount.Div(pledgeAmount, big.NewInt(1e18)))
+			}
 		}
 	}
 }
