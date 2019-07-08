@@ -258,5 +258,3 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 		},
 	}, nil
 }
-
-

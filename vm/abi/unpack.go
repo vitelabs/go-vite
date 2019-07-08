@@ -2,7 +2,6 @@ package abi
 
 import (
 	"encoding/binary"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
@@ -50,24 +49,10 @@ func readBool(word []byte) (bool, error) {
 	}
 }
 
-// A function type is simply the address with the function selection signature at the end.
-// This enforces that standard by always presenting it as a 24-array (address + sig = 24 bytes)
-func readFunctionType(t Type, word []byte) (funcTy [24]byte, err error) {
-	if t.T != FunctionTy {
-		return [24]byte{}, fmt.Errorf("abi: invalid type in call to make function type byte array")
-	}
-	if garbage := binary.BigEndian.Uint64(word[24:32]); garbage != 0 {
-		err = fmt.Errorf("abi: got improperly encoded function type, got %v", word)
-	} else {
-		copy(funcTy[:], word[0:24])
-	}
-	return
-}
-
 // through reflection, creates a fixed array to be read from
 func readFixedBytes(t Type, word []byte) (interface{}, error) {
 	if t.T != FixedBytesTy {
-		return nil, fmt.Errorf("abi: invalid type in call to make fixed byte array")
+		return nil, errInvalidlFixedBytesType
 	}
 	// convert
 	array := reflect.New(t.Type).Elem()
@@ -91,10 +76,10 @@ func getFullElemSize(elem *Type) int {
 // iteratively unpack elements
 func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) {
 	if size < 0 {
-		return nil, fmt.Errorf("cannot marshal input to array, size is negative (%d)", size)
+		return nil, errNegativeInputSize(size)
 	}
 	if start+helper.WordSize*size > len(output) {
-		return nil, fmt.Errorf("abi: cannot marshal in to go array: offset %d would go over slice boundary (len=%d)", len(output), start+helper.WordSize*size)
+		return nil, errArrayOffsetOverflow(output, start, size)
 	}
 
 	// this value will become our slice or our array, depending on the type
@@ -107,7 +92,7 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 		// declare our array
 		refSlice = reflect.New(t.Type).Elem()
 	} else {
-		return nil, fmt.Errorf("abi: invalid type in array/slice unpacking stage")
+		return nil, errInvalidlArrayType
 	}
 
 	// Arrays have packed elements, resulting in longer unpack steps.
@@ -136,7 +121,7 @@ func forEachUnpack(t Type, output []byte, start, size int) (interface{}, error) 
 // into a go type with accordance with the ABI spec.
 func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	if index+helper.WordSize > len(output) {
-		return nil, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %d require %d", len(output), index+helper.WordSize)
+		return nil, errInsufficientLength(output, index)
 	}
 
 	var (
@@ -175,17 +160,12 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	case TokenIdTy:
 		tokenId, _ := types.BytesToTokenTypeId(returnOutput[helper.WordSize-types.TokenTypeIdSize : helper.WordSize])
 		return tokenId, nil
-	case HashTy:
-		hash, _ := types.BytesToHash(returnOutput)
-		return hash, nil
 	case BytesTy:
 		return output[begin : begin+end], nil
 	case FixedBytesTy:
 		return readFixedBytes(t, returnOutput)
-	case FunctionTy:
-		return readFunctionType(t, returnOutput)
 	default:
-		return nil, fmt.Errorf("abi: unknown type %v", t.T)
+		return nil, errUnknownType(t)
 	}
 }
 
@@ -196,11 +176,11 @@ func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err 
 	outputLength := big.NewInt(int64(len(output)))
 
 	if bigOffsetEnd.Cmp(outputLength) > 0 {
-		return 0, 0, fmt.Errorf("abi: cannot marshal in to go slice: offset %v would go over slice boundary (len=%v)", bigOffsetEnd, outputLength)
+		return 0, 0, errBigSliceOffsetOverflow(bigOffsetEnd, outputLength)
 	}
 
 	if bigOffsetEnd.BitLen() > 63 {
-		return 0, 0, fmt.Errorf("abi offset larger than int64: %v", bigOffsetEnd)
+		return 0, 0, errBigOffsetOverflow(bigOffsetEnd)
 	}
 
 	offsetEnd := int(bigOffsetEnd.Uint64())
@@ -210,11 +190,11 @@ func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err 
 	totalSize.Add(totalSize, bigOffsetEnd)
 	totalSize.Add(totalSize, lengthBig)
 	if totalSize.BitLen() > 63 {
-		return 0, 0, fmt.Errorf("abi length larger than int64: %v", totalSize)
+		return 0, 0, errBigLengthOverflow(totalSize)
 	}
 
 	if totalSize.Cmp(outputLength) > 0 {
-		return 0, 0, fmt.Errorf("abi: cannot marshal in to go type: length insufficient %v require %v", outputLength, totalSize)
+		return 0, 0, errInsufficientBigLength(outputLength, totalSize)
 	}
 	start = int(bigOffsetEnd.Uint64())
 	length = int(lengthBig.Uint64())

@@ -59,7 +59,7 @@ func (accV *accountVerifier) verifyAccount(b *accountPoolBlock, latest *ledger.S
 	result := &poolAccountVerifyStat{}
 	// todo how to fix for stat
 
-	task, blocks, err := accV.v.VerifyPoolAccBlock(b.block, &latest.Hash)
+	task, blocks, err := accV.v.VerifyPoolAccBlock(b.block, latest)
 	if err != nil {
 		result.err = err
 		result.result = verifier.FAIL

@@ -123,6 +123,10 @@ func (reader *Reader) Read() (ab *ledger.AccountBlock, sb *ledger.SnapshotBlock,
 		reader.readBuffer = make([]byte, size)
 	}
 
+	if size == 0 {
+		return nil, nil, errors.New("0 size")
+	}
+
 	buf = reader.readBuffer[:size]
 	if _, err = fd.Read(buf); err != nil {
 		return

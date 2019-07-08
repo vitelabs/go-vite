@@ -2,6 +2,7 @@ package chain
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
@@ -38,6 +39,131 @@ func TestSnapshotBlocks(t *testing.T) {
 
 		fmt.Printf("check snapshot block %d\n", sb.Height)
 	}
+}
+
+func TestChain_GetSeedConfirmedSnapshotBlock(t *testing.T) {
+
+	if err := CheckGetSeedConfirmedSnapshotBlock(false, 2, []uint64{2, 3, 4}, []int64{-1, -1, -1}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := CheckGetSeedConfirmedSnapshotBlock(true, 2, []uint64{2, 0, 4}, []int64{-1, -1, 3}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := CheckGetSeedConfirmedSnapshotBlock(true, 1, []uint64{0, 2, 0, 0, 2}, []int64{-1, 2, 2, 2, 2}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := CheckGetSeedConfirmedSnapshotBlock(true, 3, []uint64{0, 2, 0, 2, 2, 0, 2}, []int64{-1, -1, -1, -1, 5, 5, 5}); err != nil {
+		t.Fatal(err)
+	}
+
+}
+
+func CheckGetSeedConfirmedSnapshotBlock(isContract bool, seedConfirmTimes uint8, seeds []uint64, offset []int64) error {
+
+	// insert send and receive block
+	chainInstance, accounts, _ := SetUp(2, 0, 0)
+	defer func() {
+		TearDown(chainInstance)
+	}()
+	// get two account
+	accountList := make([]*Account, 0, len(accounts))
+	for _, account := range accounts {
+		accountList = append(accountList, account)
+	}
+
+	sendCreateAccount := accountList[0]
+	contractAccount := accountList[1]
+
+	var contractMeta *ledger.ContractMeta
+	if isContract {
+		contractMeta = &ledger.ContractMeta{
+			Gid:                types.DELEGATE_GID,
+			SendConfirmedTimes: 1,
+			QuotaRatio:         10, // the ratio of quota cost for the send block
+			SeedConfirmedTimes: seedConfirmTimes,
+		}
+	}
+
+	sendCreateBlock, err := sendCreateAccount.CreateSendBlock(contractAccount, &CreateTxOptions{
+		ContractMeta: contractMeta,
+	})
+	if err != nil {
+		return err
+	}
+	// insert to chain
+	if err := chainInstance.InsertAccountBlock(sendCreateBlock); err != nil {
+		return err
+	}
+	// insert to memory
+	sendCreateAccount.InsertBlock(sendCreateBlock, accounts)
+
+	receiveBlock, err := contractAccount.CreateReceiveBlock(nil)
+	if err != nil {
+		return err
+	}
+	// insert to chain
+	if err := chainInstance.InsertAccountBlock(receiveBlock); err != nil {
+		return err
+	}
+
+	// insert to memory
+	contractAccount.InsertBlock(receiveBlock, accounts)
+
+	snapshotBlockLatestHeight := chainInstance.GetLatestSnapshotBlock().Height;
+
+	// case 0 : not confirm
+
+	snapshotBlock, err := chainInstance.GetSeedConfirmedSnapshotBlock(receiveBlock.AccountBlock.AccountAddress, sendCreateBlock.AccountBlock.Hash)
+
+	if isContract {
+		if snapshotBlock != nil || err == nil {
+			return errors.New(fmt.Sprintf("1.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+		}
+	} else {
+		if snapshotBlock != nil || err != nil {
+			return errors.New(fmt.Sprintf("2.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+		}
+	}
+
+	for index, seed := range seeds {
+		accountBlockListReturn, err := chainInstance.InsertSnapshotBlock(createSnapshotBlock(chainInstance, createSbOption{SnapshotAll: true, Seed: seed}))
+		if len(accountBlockListReturn) != 0 || err != nil {
+			return errors.New(fmt.Sprintf("3.accountBlockListReturn is %v, err is %+v", accountBlockListReturn, err))
+		}
+		snapshotBlock, err = chainInstance.GetSeedConfirmedSnapshotBlock(receiveBlock.AccountBlock.AccountAddress, sendCreateBlock.AccountBlock.Hash)
+		if !isContract {
+			if snapshotBlock != nil || err != nil {
+				return errors.New(fmt.Sprintf("4.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+			}
+
+			if offset[index] != -1 {
+				return errors.New(fmt.Sprintf("5.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+			}
+
+			continue
+		}
+
+		if snapshotBlock == nil && err != nil {
+			if offset[index] == -1 {
+				continue
+			} else {
+				return errors.New(fmt.Sprintf("6.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+			}
+		} else if snapshotBlock != nil && err == nil {
+			if offset[index] != -1 && snapshotBlock.Height-snapshotBlockLatestHeight == uint64(offset[index]) {
+				continue
+			} else {
+				return errors.New(fmt.Sprintf("7.snapshotBlock index %d is %+v, latestHeight %d ,err is %+v", 0, snapshotBlock, snapshotBlockLatestHeight, err))
+			}
+		} else {
+			return errors.New(fmt.Sprintf("8.unkown status snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+		}
+	}
+
+	return nil
 }
 
 func IsSnapshotBlockExisted(chainInstance *chain, snapshotBlockList []*ledger.SnapshotBlock) {

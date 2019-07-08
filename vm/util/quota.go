@@ -99,7 +99,7 @@ func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft uint64, e
 		if qUsed < quotaAddition {
 			return 0, qUsed
 		} else {
-			return quotaTotal - quotaAddition - quotaLeft, qUsed
+			return qUsed - quotaAddition, qUsed
 		}
 	}
 }

@@ -25,8 +25,6 @@ func SubBalance(db dbInterface, id *types.TokenTypeId, amount *big.Int) {
 	if b.Cmp(amount) >= 0 {
 		b.Sub(b, amount)
 		db.SetBalance(id, b)
-	} else {
-		panic(ErrInsufficientBalance)
 	}
 }
 

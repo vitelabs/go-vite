@@ -45,7 +45,7 @@ func (c *chain) GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int)
 		}
 		if b == nil {
 			c.DeleteOnRoad(addr, v)
-			c.log.Error(fmt.Sprintf("block is not exit, hash %s, hash is deleted", v), "method", "GetOnRoadBlocksByAddr")
+			c.log.Error(fmt.Sprintf("block is not exit, hash %s. fix onroad, hash %s is deleted", v, v), "method", "GetOnRoadBlocksByAddr")
 			continue
 		}
 		blockList[count] = b

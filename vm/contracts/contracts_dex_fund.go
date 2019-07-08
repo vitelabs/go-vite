@@ -87,7 +87,7 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 	param := new(dex.ParamDexFundWithDraw)
 	var (
 		acc *dexproto.Account
-		err     error
+		err error
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundUserWithdraw, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)

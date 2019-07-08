@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/onroad"
 
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -15,8 +14,8 @@ type Verifier interface {
 	VerifyNetSb(block *ledger.SnapshotBlock) error
 	VerifyNetAb(block *ledger.AccountBlock) error
 
-	VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*vm_db.VmAccountBlock, error)
-	VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error)
+	VerifyRPCAccBlock(block *ledger.AccountBlock, snapshot *ledger.SnapshotBlock) (*vm_db.VmAccountBlock, error)
+	VerifyPoolAccBlock(block *ledger.AccountBlock, snapshot *ledger.SnapshotBlock) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error)
 
 	VerifyAccBlockNonce(block *ledger.AccountBlock) error
 	VerifyAccBlockHash(block *ledger.AccountBlock) error
@@ -68,15 +67,18 @@ func (v *verifier) VerifyNetAb(block *ledger.AccountBlock) error {
 	return nil
 }
 
-func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error) {
+func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshot *ledger.SnapshotBlock) (*AccBlockPendingTask, *vm_db.VmAccountBlock, error) {
 	eLog := v.log.New("method", "VerifyPoolAccBlock")
 
-	detail := fmt.Sprintf("sbHash=%v; block:addr=%v height=%v hash=%v; ", snapshotHash, block.AccountAddress, block.Height, block.Hash)
+	detail := fmt.Sprintf("sbHash:%v %v; block:addr=%v height=%v hash=%v; ", snapshot.Hash, snapshot.Height, block.AccountAddress, block.Height, block.Hash)
 	if block.IsReceiveBlock() {
 		detail += fmt.Sprintf("fromHash=%v;", block.FromBlockHash)
 	}
-
-	verifyResult, task, err := v.Av.verifyReferred(block)
+	snapshotHashHeight := &ledger.HashHeight{
+		Height: snapshot.Height,
+		Hash:   snapshot.Hash,
+	}
+	verifyResult, task, err := v.Av.verifyReferred(block, snapshotHashHeight)
 	if err != nil {
 		eLog.Error(err.Error(), "d", detail)
 	}
@@ -84,7 +86,7 @@ func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *
 	case PENDING:
 		return task, nil, nil
 	case SUCCESS:
-		blocks, err := v.Av.vmVerify(block, snapshotHash)
+		blocks, err := v.Av.vmVerify(block, snapshotHashHeight)
 		if err != nil {
 			eLog.Error(err.Error(), "d", detail)
 			return nil, nil, err
@@ -95,15 +97,20 @@ func (v *verifier) VerifyPoolAccBlock(block *ledger.AccountBlock, snapshotHash *
 	}
 }
 
-func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *types.Hash) (*vm_db.VmAccountBlock, error) {
+func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshot *ledger.SnapshotBlock) (*vm_db.VmAccountBlock, error) {
 	log := v.log.New("method", "VerifyRPCAccBlock")
 
-	detail := fmt.Sprintf("sbHash:%v, addr:%v, height:%v, hash:%v", snapshotHash, block.AccountAddress, block.Height, block.Hash)
+	detail := fmt.Sprintf("sbHash:%v %v; addr:%v, height:%v, hash:%v", snapshot.Hash, snapshot.Height, block.AccountAddress, block.Height, block.Hash)
 	if block.IsReceiveBlock() {
 		detail += fmt.Sprintf(",fromH:%v", block.FromBlockHash)
 	}
 
-	if verifyResult, task, err := v.Av.verifyReferred(block); verifyResult != SUCCESS {
+	snapshotHashHeight := &ledger.HashHeight{
+		Height: snapshot.Height,
+		Hash:   snapshot.Hash,
+	}
+
+	if verifyResult, task, err := v.Av.verifyReferred(block, snapshotHashHeight); verifyResult != SUCCESS {
 		if err != nil {
 			log.Error(err.Error(), "d", detail)
 			return nil, err
@@ -112,7 +119,7 @@ func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshotHash *t
 		return nil, ErrVerifyRPCBlockPendingState
 	}
 
-	vmBlock, err := v.Av.vmVerify(block, snapshotHash)
+	vmBlock, err := v.Av.vmVerify(block, snapshotHashHeight)
 	if err != nil {
 		log.Error(err.Error(), "d", detail)
 		return nil, err
