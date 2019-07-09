@@ -1099,7 +1099,7 @@ func (md *MethodDexFundEndorseVxMinePool) GetRefundData(sendBlock *ledger.Accoun
 }
 
 func (md *MethodDexFundEndorseVxMinePool) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexFundEndorseVxMinePoolGas, data)
+	return util.TotalGasCost(util.TxGas, data)
 }
 
 func (md *MethodDexFundEndorseVxMinePool) GetReceiveQuota() uint64 {
@@ -1132,7 +1132,7 @@ func (md *MethodDexFundSettleMakerMinedVx) GetRefundData(sendBlock *ledger.Accou
 }
 
 func (md *MethodDexFundSettleMakerMinedVx) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(dexFundSettleMakerMinedVxGas, data)
+	return util.TotalGasCost(util.TxGas, data)
 }
 
 func (md *MethodDexFundSettleMakerMinedVx) GetReceiveQuota() uint64 {
