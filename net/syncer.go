@@ -415,7 +415,7 @@ func (s *syncer) getEnd(start []*ledger.HashHeight) (end uint64) {
 	atomic.StoreUint64(&s.to, syncHeight)
 
 	startHeight := start[0].Height
-	end = startHeight + maxBatchChunkSize
+	end = (startHeight + maxBatchChunkSize) / maxBatchChunkSize * maxBatchChunkSize
 	if end > syncHeight {
 		end = syncHeight
 	}
