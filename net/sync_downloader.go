@@ -445,6 +445,7 @@ func (e *executor) createConn(p *Peer) (c *syncConn, err error) {
 
 	// dial error
 	if err != nil {
+		e.addBlackList(p.Id)
 		e.log.Error(fmt.Sprintf("failed to create sync connection %s: %v", addr, err))
 		return
 	}
@@ -454,6 +455,7 @@ func (e *executor) createConn(p *Peer) (c *syncConn, err error) {
 	if err != nil {
 		_ = tcp.Close()
 		e.log.Error(fmt.Sprintf("failed to create sync connection %s: %v", addr, err))
+		e.addBlackList(p.Id)
 		return
 	}
 

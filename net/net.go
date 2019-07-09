@@ -291,6 +291,7 @@ func (n *net) onPeerAdded(peer *Peer) (err error) {
 	go n.checkPeer(peer)
 
 	if err = peer.run(); err != nil {
+		n.blackList.Ban(peer.Id.Bytes(), 10)
 		n.log.Warn(fmt.Sprintf("peer %s run done: %v", peer, err))
 	} else {
 		n.log.Info(fmt.Sprintf("peer %s run done", peer))

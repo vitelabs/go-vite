@@ -134,8 +134,12 @@ func (q *queryHandler) stop() {
 
 func (q *queryHandler) handle(msg Msg) error {
 	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	if q.queue.Size() > 1000 {
+		return nil
+	}
 	q.queue.Append(msg)
-	q.lock.Unlock()
 
 	return nil
 }
@@ -169,7 +173,11 @@ func (q *queryHandler) loop() {
 		if index == 0 {
 			time.Sleep(20 * time.Millisecond)
 		} else {
+			now := time.Now().Unix()
 			for _, msg := range tasks[:index] {
+				if now-msg.ReceivedAt > 20 {
+					continue
+				}
 				// allocate to handlers
 				if err := q.msgHandlers.handle(msg); err != nil {
 					msg.Sender.catch(err)
