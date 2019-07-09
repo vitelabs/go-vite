@@ -333,8 +333,15 @@ func compareCache(segments interfaces.SegmentList, hashHeightList []*HashHeightP
 	//choose valid segments and delete invalid segments
 	var validSegments interfaces.SegmentList
 	var index int
+	hashHeightStart := hashHeightList[0].Height
 	hashHeightEnd := hashHeightList[len(hashHeightList)-1].Height
 	for _, segment := range segments {
+		// too low
+		if segment.To <= hashHeightStart {
+			continue
+		}
+
+		// too high
 		if segment.From > hashHeightEnd {
 			break
 		}
@@ -726,9 +733,14 @@ Loop:
 			continue
 		}
 
+		readHeight := atomic.LoadUint64(&s.readHeight)
 		// read chunks
 		for _, c := range cs {
-			readHeight := atomic.LoadUint64(&s.readHeight)
+			// changed
+			currReadHeight := atomic.LoadUint64(&s.readHeight)
+			if currReadHeight != readHeight {
+				continue Loop
+			}
 
 			// chunk has read
 			if c.To <= readHeight {
@@ -752,6 +764,7 @@ Loop:
 			} else {
 				s.log.Info(fmt.Sprintf("read cache %d-%d done", c.From, c.To))
 				if atomic.CompareAndSwapUint64(&s.readHeight, readHeight, c.To) {
+					readHeight = c.To
 					// will be block
 					s.addChunkToBuffer(chunk)
 				}

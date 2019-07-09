@@ -210,30 +210,30 @@ func (e *executor) status() DownloaderStatus {
 
 // from must be larger than 0
 func addTasks(tasks syncTasks, t2 *syncTask, must bool) syncTasks {
-	var exist bool
-
-	if must {
-		var j int
-		for i, t := range tasks {
-			if t.st == reqDone {
-				continue
-			}
-
-			if t.equal(t2) {
-				exist = true
-			}
-
-			tasks[j] = tasks[i]
-			j++
-		}
-
-		tasks = tasks[:j]
-	}
-
-	if false == exist {
-		tasks = append(tasks, t2)
-		sort.Sort(tasks)
-	}
+	//var exist bool
+	//
+	//if must {
+	//	var j int
+	//	for i, t := range tasks {
+	//		if t.st == reqDone {
+	//			continue
+	//		}
+	//
+	//		if t.equal(t2) {
+	//			exist = true
+	//		}
+	//
+	//		tasks[j] = tasks[i]
+	//		j++
+	//	}
+	//
+	//	tasks = tasks[:j]
+	//}
+	//
+	//if false == exist {
+	tasks = append(tasks, t2)
+	sort.Sort(tasks)
+	//}
 
 	return tasks
 }
