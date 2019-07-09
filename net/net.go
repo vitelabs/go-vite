@@ -334,8 +334,9 @@ func New(cfg *config.Net, chain Chain, verifier Verifier, consensus Consensus, i
 
 	var blackHashList = make(map[types.Hash]struct{}, len(cfg.BlackBlockHashList))
 	for _, hexStr := range cfg.BlackBlockHashList {
+		strs := strings.Split(hexStr, "/")
 		var hash types.Hash
-		hash, err = types.HexToHash(hexStr)
+		hash, err = types.HexToHash(strs[0])
 		if err != nil {
 			return nil, err
 		}

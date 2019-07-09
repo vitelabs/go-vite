@@ -62,7 +62,7 @@ type Config struct {
 	AccessControl      string
 	AccessAllowKeys    []string
 	AccessDenyKeys     []string
-	BlackBlockHashList []string
+	BlackBlockHashList []string // from high to low, like: "xxxxxx-11111"
 	WhiteBlockList     []string // from high to low, like: "xxxxxx-10001"
 	ForwardStrategy    string
 
