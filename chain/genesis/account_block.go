@@ -44,7 +44,7 @@ func newGenesisConsensusGroupContractBlocks(cfg *config.Genesis, list []*vm_db.V
 			Amount:         big.NewInt(0),
 			Fee:            big.NewInt(0),
 		}
-		vmdb := vm_db.NewEmptyVmDB(&contractAddr)
+		vmdb := vm_db.NewGenesisVmDB(&contractAddr)
 		for gidStr, groupInfo := range cfg.ConsensusGroupInfo.ConsensusGroupInfoMap {
 			gid, err := types.HexToGid(gidStr)
 			dealWithError(err)
@@ -160,7 +160,7 @@ func newGenesisMintageContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccoun
 			Amount:         big.NewInt(0),
 			Fee:            big.NewInt(0),
 		}
-		vmdb := vm_db.NewEmptyVmDB(&contractAddr)
+		vmdb := vm_db.NewGenesisVmDB(&contractAddr)
 		tokenList := make([]*tokenInfoForSort, 0, len(cfg.MintageInfo.TokenInfoMap))
 		for tokenIdStr, tokenInfo := range cfg.MintageInfo.TokenInfoMap {
 			tokenId, err := types.HexToTokenTypeId(tokenIdStr)
@@ -218,7 +218,7 @@ func newGenesisPledgeContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccount
 			Amount:         big.NewInt(0),
 			Fee:            big.NewInt(0),
 		}
-		vmdb := vm_db.NewEmptyVmDB(&contractAddr)
+		vmdb := vm_db.NewGenesisVmDB(&contractAddr)
 		for pledgeAddrStr, pledgeInfoList := range cfg.PledgeInfo.PledgeInfoMap {
 			pledgeAddr, err := types.HexToAddress(pledgeAddrStr)
 			dealWithError(err)
@@ -264,7 +264,7 @@ func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountB
 			Amount:         big.NewInt(0),
 			Fee:            big.NewInt(0),
 		}
-		vmdb := vm_db.NewEmptyVmDB(&addr)
+		vmdb := vm_db.NewGenesisVmDB(&addr)
 		for tokenIdStr, balance := range balanceMap {
 			tokenId, err := types.HexToTokenTypeId(tokenIdStr)
 			dealWithError(err)

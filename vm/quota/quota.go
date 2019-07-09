@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
+	"math"
 	"math/big"
 )
 
@@ -289,4 +290,19 @@ func CalcPoWDifficulty(quotaRequired uint64, q types.Quota) (*big.Int, error) {
 	}
 	difficulty := nodeConfig.difficultyList[index]
 	return difficulty, nil
+}
+
+func CalcPledgeAmountByUtps(utps float64) (*big.Int, error) {
+	if utps < 0 || utps > getMaxUtps() {
+		return nil, util.ErrInvalidMethodParam
+	} else if utps == 0 {
+		return big.NewInt(0), nil
+	}
+	q := uint64(math.Ceil(utps * float64(quotaForUtps)))
+	index := (q + quotaForSection - 1) / quotaForSection
+	return new(big.Int).Set(nodeConfig.pledgeAmountList[index]), nil
+}
+
+func getMaxUtps() float64 {
+	return float64(len(nodeConfig.sectionList)) * float64(quotaForSection) / float64(quotaForUtps)
 }

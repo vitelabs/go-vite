@@ -35,7 +35,8 @@ func NewChainInstanceFromDir(dirName string, clear bool, genesis string) (chain.
 }
 
 func TestContractDposCs_ElectionIndexReader(t *testing.T) {
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
+	return
+	dir := UnitTestDir
 	genesisJson := GenesisJson
 	c, err := NewChainInstanceFromDir(dir, false, genesisJson)
 
@@ -74,8 +75,8 @@ func TestContractDposCs_ElectionIndexReader(t *testing.T) {
 }
 
 func TestConsensus(t *testing.T) {
-	//dir := UnitTestDir
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
+	return
+	dir := UnitTestDir
 	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
 	if err != nil {
 		t.Error(err)
@@ -111,8 +112,8 @@ func TestConsensus(t *testing.T) {
 }
 
 func TestChainSnapshot(t *testing.T) {
-	//dir := UnitTestDir
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
+	return
+	dir := UnitTestDir
 	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
 	if err != nil {
 		t.Error(err)
@@ -143,7 +144,8 @@ func TestChainSnapshot(t *testing.T) {
 }
 
 func TestChainAcc(t *testing.T) {
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
+	return
+	dir := UnitTestDir
 	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
 	if err != nil {
 		t.Error(err)
@@ -175,7 +177,8 @@ func TestChainAcc(t *testing.T) {
 }
 
 func TestChainAll(t *testing.T) {
-	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
+	return
+	dir := UnitTestDir
 	genesisJson := GenesisJson
 	c, err := NewChainInstanceFromDir(dir, false, genesisJson)
 	if err != nil {

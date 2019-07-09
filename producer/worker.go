@@ -28,6 +28,7 @@ type worker struct {
 	mu        sync.Mutex
 	wg        sync.WaitGroup
 	seedCache *lru.Cache
+	log       log15.Logger
 }
 
 func newWorker(chain *tools, coinbase *AddressContext) *worker {
@@ -35,7 +36,7 @@ func newWorker(chain *tools, coinbase *AddressContext) *worker {
 	if err != nil {
 		panic(err)
 	}
-	return &worker{tools: chain, coinbase: coinbase, seedCache: cache}
+	return &worker{tools: chain, coinbase: coinbase, seedCache: cache, log: log15.New("module", "producer/worker")}
 }
 
 func (self *worker) Init() error {
@@ -121,7 +122,7 @@ func (self *worker) getSeedByHash(hash *types.Hash) uint64 {
 	fmt.Printf("query seed, hash:%s\n", hash)
 	value, ok := self.seedCache.Get(*hash)
 	if ok {
-		fmt.Printf("query seed, hash:%s, seed:%d\n", hash, value.(uint64))
+		self.log.Info(fmt.Sprintf("query seed, hash:%s, seed:%d\n", hash, value.(uint64)))
 		return value.(uint64)
 	} else {
 		// default-> zero
@@ -135,6 +136,6 @@ func (self *worker) storeSeedHash(seed uint64, hash *types.Hash) {
 	if hash == nil {
 		return
 	}
-	fmt.Printf("store seed, hash:%s, seed:%d\n", hash, seed)
+	self.log.Info(fmt.Sprintf("store seed, hash:%s, seed:%d\n", hash, seed))
 	self.seedCache.Add(*hash, seed)
 }

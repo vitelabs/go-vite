@@ -43,7 +43,9 @@ func testBuiltInContract(t *testing.T, chainInstance *chain, accounts map[types.
 				//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(1000), rand.Intn(20), false)...)
 
 				// insert snapshot block
-				snapshotBlock := createSnapshotBlock(chainInstance, false)
+				snapshotBlock := createSnapshotBlock(chainInstance,  createSbOption{
+					SnapshotAll: false,
+				})
 
 				mu.Lock()
 				snapshotBlockList = append(snapshotBlockList, snapshotBlock)
