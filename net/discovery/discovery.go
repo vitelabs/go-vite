@@ -31,12 +31,12 @@ import (
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 
-const seedMaxAge = int64(7 * 24 * time.Hour)
-const tRefresh = 24 * time.Hour            // refresh the node table at tRefresh intervals
-const storeInterval = 1 * time.Minute      // store nodes in table to db at storeDuration intervals
-const checkInterval = 10 * time.Second     // check the oldest node in table at checkInterval intervals
-const checkExpiration = int64(time.Hour)   // should check again if last check is an hour ago
-const stayInTable = int64(5 * time.Minute) // minimal duration node stay in table can be store in db
+const seedMaxAge = 7 * 24 * 3600       // 7d
+const tRefresh = 24 * time.Hour        // refresh the node table at tRefresh intervals
+const storeInterval = 5 * time.Minute  // store nodes in table to db at storeDuration intervals
+const checkInterval = 10 * time.Second // check the oldest node in table at checkInterval intervals
+const checkExpiration = 3600           // should check again if last check is an hour ago
+const stayInTable = 300                // minimal duration node stay in table can be store in db
 const dbCleanInterval = time.Hour
 
 var errDiscoveryIsRunning = errors.New("discovery is running")

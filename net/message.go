@@ -173,7 +173,7 @@ type SnapshotBlocks struct {
 }
 
 func (b *SnapshotBlocks) String() string {
-	return "SnapshotBlocks<" + strconv.FormatInt(int64(len(b.Blocks)), 10) + ">"
+	return "SnapshotBlocks<" + strconv.Itoa(len(b.Blocks)) + ">"
 }
 
 func (b *SnapshotBlocks) Serialize() ([]byte, error) {
@@ -278,7 +278,7 @@ type AccountBlocks struct {
 }
 
 func (a *AccountBlocks) String() string {
-	return "AccountBlocks<" + strconv.FormatInt(int64(len(a.Blocks)), 10) + ">"
+	return "AccountBlocks<" + strconv.Itoa(len(a.Blocks)) + ">"
 }
 
 func (a *AccountBlocks) Serialize() ([]byte, error) {
