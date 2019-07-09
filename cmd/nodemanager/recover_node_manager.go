@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -48,6 +49,8 @@ func (nodeManager *RecoverNodeManager) Start() error {
 	dataDir := viteConfig.DataDir
 	chainCfg := viteConfig.Chain
 	genesisCfg := viteConfig.Genesis
+	// set fork points
+	fork.SetForkPoints(viteConfig.ForkPoints)
 
 	c := chain.NewChain(dataDir, chainCfg, genesisCfg)
 

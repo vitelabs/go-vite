@@ -12,9 +12,8 @@ import (
 // holds type information (inputs) about the yielded output. Anonymous events
 // don't get the signature canonical representation as the first LOG topic.
 type Event struct {
-	Name      string
-	Anonymous bool
-	Inputs    Arguments
+	Name   string
+	Inputs Arguments
 }
 
 func (e Event) String() string {
@@ -43,7 +42,7 @@ func (e Event) Id() types.Hash {
 
 func (e Event) Pack(args ...interface{}) ([]types.Hash, []byte, error) {
 	if len(args) != len(e.Inputs) {
-		return nil, nil, fmt.Errorf("event argument count mismatch: %d for %d", len(args), len(e.Inputs))
+		return nil, nil, errArgLengthMismatch(args, e.Inputs)
 	}
 	topics := make([]types.Hash, e.Inputs.LengthIndexed()+1)
 	topics[0] = e.Id()
@@ -74,5 +73,32 @@ func (e Event) Pack(args ...interface{}) ([]types.Hash, []byte, error) {
 	} else {
 		return topics, nil, nil
 	}
+}
 
+func (e Event) DirectUnPack(topics []types.Hash, data []byte) ([]interface{}, error) {
+	nonIndexedParams, err := e.Inputs.NonIndexed().DirectUnpack(data)
+	if err != nil {
+		return nil, err
+	}
+	nonIndex := 0
+	index := 1
+	args := make([]interface{}, 0)
+	for _, arg := range e.Inputs {
+		if arg.Indexed {
+			if arg.Type.T == ArrayTy || arg.Type.T == StringTy || arg.Type.T == SliceTy || arg.Type.T == BytesTy {
+				args = append(args, topics[index])
+			} else {
+				arg, err := toGoType(0, arg.Type, topics[index].Bytes())
+				if err != nil {
+					return nil, err
+				}
+				args = append(args, arg)
+			}
+			index = index + 1
+		} else {
+			args = append(args, nonIndexedParams[nonIndex])
+			nonIndex = nonIndex + 1
+		}
+	}
+	return args, nil
 }

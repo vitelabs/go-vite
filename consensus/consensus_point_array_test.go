@@ -33,10 +33,6 @@ func TestPeriodLinkedArray_GetByIndex(t *testing.T) {
 	b5 := GenSnapshotBlock(5, "e0de77ffdc2719eb1d8e89139da9747bd413bfe59781c43fc078bb37d8cbd77a", b4.Hash, simpleGenesis.Add(time.Second*4))
 	b6 := GenSnapshotBlock(6, "e0de77ffdc2719eb1d8e89139da9747bd413bfe59781c43fc078bb37d8cbd77a", b5.Hash, simpleGenesis.Add(time.Second*5))
 
-	fmt.Println(b1.Hash)
-	fmt.Println(b2.Hash)
-	fmt.Println(b6.Hash)
-
 	mch.EXPECT().IsGenesisSnapshotBlock(gomock.Not(b1.Hash)).Return(false).Times(1)
 	var r []*ledger.SnapshotBlock
 	r = append(r, b6)
@@ -46,7 +42,7 @@ func TestPeriodLinkedArray_GetByIndex(t *testing.T) {
 	r = append(r, b2)
 	r = append(r, b1)
 	mch.EXPECT().GetSnapshotHeadersAfterOrEqualTime(gomock.Eq(&ledger.HashHeight{Hash: b6.Hash, Height: b6.Height}), gomock.Eq(&simpleGenesis), gomock.Nil()).Return(r, nil)
-	mch.EXPECT().GetSnapshotBlockByHash(gomock.Eq(b6.Hash)).Return(&ledger.SnapshotBlock{Hash: b6.Hash, Height: b6.Height}, nil)
+	mch.EXPECT().GetSnapshotBlockByHash(gomock.Eq(b6.Hash)).Return(&ledger.SnapshotBlock{Hash: b6.Hash, Height: b6.Height, Timestamp: b6.Timestamp}, nil)
 
 	stime, etime := simple.Index2Time(0)
 	mproof.EXPECT().ProofEmpty(stime, etime).Return(false, nil).Times(1)
@@ -56,10 +52,6 @@ func TestPeriodLinkedArray_GetByIndex(t *testing.T) {
 
 	point, err := periods.GetByIndex(0)
 	assert.NoError(t, err)
-
-	for k, v := range point.Sbps {
-		t.Log(k, v)
-	}
 
 	assert.Equal(t, uint32(3), point.Sbps[b1.Producer()].FactualNum)
 	assert.Equal(t, uint32(3), point.Sbps[b1.Producer()].ExpectedNum)

@@ -3,6 +3,7 @@ package generator
 import (
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
@@ -21,7 +22,8 @@ type Consensus interface {
 
 type chain interface {
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
-	GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error)
+	GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error)
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 }
 
@@ -119,9 +121,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 			if fromBlock != nil {
 				errDetail += fmt.Sprintf("fromBlock(addr:%v hash:%v)", fromBlock.AccountAddress, fromBlock.Hash)
 			}
-
 			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
-
 			result = &GenResult{}
 			resultErr = errors.New("generator_vm panic error")
 		}
@@ -131,12 +131,33 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 		if fromBlock == nil {
 			return nil, errors.New("need to pass in sendBlock when generate receiveBlock")
 		}
-		sb, stateErr := gen.chain.GetSnapshotBlockByContractMeta(&block.AccountAddress, &fromBlock.Hash)
-		if stateErr != nil {
-			return nil, fmt.Errorf("GetSnapshotBlockByContractMeta failed", "err", stateErr)
+		latestSb, _ := gen.GetVMDB().LatestSnapshotBlock()
+		if latestSb == nil {
+			return nil, fmt.Errorf("vmDb's latestSnapshotBlock is nil")
 		}
-		if sb != nil {
-			state = NewVMGlobalStatus(gen.chain, sb, fromBlock.Hash)
+
+		limitSb, err := gen.chain.GetSnapshotBlockByContractMeta(block.AccountAddress, fromBlock.Hash)
+		if err != nil {
+			return nil, fmt.Errorf("GetSnapshotBlockByContractMeta failed", "err", err)
+		}
+		if fork.IsSeedFork(latestSb.Height) {
+			limitSeedSb, err := gen.chain.GetSeedConfirmedSnapshotBlock(block.AccountAddress, fromBlock.Hash)
+			if err != nil {
+				return nil, fmt.Errorf("GetSeedConfirmedSnapshotBlock failed", "err", err)
+			}
+			if limitSb == nil {
+				if limitSeedSb != nil {
+					limitSb = limitSeedSb
+				}
+			} else {
+				if limitSeedSb != nil && limitSb.Height < limitSeedSb.Height {
+					limitSb = limitSeedSb
+				}
+			}
+		}
+		if limitSb != nil {
+			state = NewVMGlobalStatus(gen.chain, limitSb, fromBlock.Hash)
+			gen.log.Info("gen GlobalStatus", "hash", limitSb.Hash, "fromHash", fromBlock.Hash)
 		}
 	}
 

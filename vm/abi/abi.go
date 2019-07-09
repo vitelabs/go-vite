@@ -3,7 +3,6 @@ package abi
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"io"
 )
@@ -44,28 +43,35 @@ func (abi ABIContract) PackMethod(name string, args ...interface{}) ([]byte, err
 	}
 	method, exist := abi.Methods[name]
 	if !exist {
-		return nil, fmt.Errorf("method '%s' not found", name)
+		return nil, errMethodNotFound(name)
 	}
-	return abi.packMethod(method, name, args...)
+	return abi.packMethod(method, args...)
 }
-func getCallBackName(name string) string {
-	return name + "Callback"
-}
+
 func (abi ABIContract) PackCallback(name string, args ...interface{}) ([]byte, error) {
 	callbackName := getCallBackName(name)
 	method, exist := abi.Callbacks[callbackName]
 	if !exist {
-		return nil, fmt.Errorf("callback '%s' not found", name)
+		return nil, errCallbackNotFound(name)
 	}
-	return abi.packMethod(method, callbackName, args...)
+	return abi.packMethod(method, args...)
 }
 
 func (abi ABIContract) PackOffChain(name string, args ...interface{}) ([]byte, error) {
 	method, exist := abi.OffChains[name]
 	if !exist {
-		return nil, fmt.Errorf("offchain '%s' not found", name)
+		return nil, errOffchainNotFound(name)
 	}
-	return abi.packMethod(method, name, args...)
+	return abi.packMethod(method, args...)
+}
+
+func (abi ABIContract) PackVariable(name string, args ...interface{}) ([]byte, error) {
+	variable, exist := abi.Variables[name]
+	if !exist {
+		return nil, errVariableNotFound(name)
+	}
+
+	return variable.Inputs.Pack(args...)
 }
 
 // Pack the given method name to conform the ABI. Method call's data
@@ -73,7 +79,7 @@ func (abi ABIContract) PackOffChain(name string, args ...interface{}) ([]byte, e
 // of 4 bytes and arguments are all 32 bytes.
 // Method ids are created from the first 4 bytes of the hash of the
 // methods string signature. (signature = baz(uint32,string32))
-func (abi ABIContract) packMethod(method Method, name string, args ...interface{}) ([]byte, error) {
+func (abi ABIContract) packMethod(method Method, args ...interface{}) ([]byte, error) {
 	arguments, err := method.Inputs.Pack(args...)
 	if err != nil {
 		return nil, err
@@ -82,68 +88,100 @@ func (abi ABIContract) packMethod(method Method, name string, args ...interface{
 	return append(method.Id(), arguments...), nil
 }
 
-func (abi ABIContract) PackVariable(name string, args ...interface{}) ([]byte, error) {
-	variable, exist := abi.Variables[name]
-	if !exist {
-		return nil, fmt.Errorf("varible '%s' not found", name)
-	}
-
-	arguments, err := variable.Inputs.Pack(args...)
-	if err != nil {
-		return nil, err
-	}
-	return arguments, nil
-}
-
-func (abi ABIContract) PackEvent(name string, args ...interface{}) ([]types.Hash, []byte, error) {
+func (abi ABIContract) PackEvent(name string, args ...interface{}) (topics []types.Hash, data []byte, err error) {
 	e, exist := abi.Events[name]
 	if !exist {
-		return nil, nil, fmt.Errorf("event '%s' not found", name)
+		return nil, nil, errEventNotFound(name)
 	}
 	return e.Pack(args...)
 }
 
 // UnpackMethod output in v according to the abi specification
-func (abi ABIContract) UnpackMethod(v interface{}, name string, output []byte) (err error) {
-	if len(output) <= 4 {
-		return errEmptyOutput
+func (abi ABIContract) UnpackMethod(v interface{}, name string, input []byte) (err error) {
+	if len(input) <= 4 {
+		return errEmptyInput
 	}
-	if method, err := abi.MethodById(output[0:4]); err == nil && method.Name == name {
-		return method.Inputs.Unpack(v, output[4:])
+	if method, err := abi.MethodById(input[0:4]); err == nil && method.Name == name {
+		return method.Inputs.Unpack(v, input[4:])
 	}
-	return fmt.Errorf("abi: could not locate named method")
+	return errCouldNotLocateNamedMethod
+}
+
+// DirectUnpackMethodInput output in param list according to the abi specification
+func (abi ABIContract) DirectUnpackMethodInput(name string, input []byte) ([]interface{}, error) {
+	if len(input) <= 4 {
+		return nil, errEmptyInput
+	}
+	if method, err := abi.MethodById(input[0:4]); err == nil && method.Name == name {
+		return method.Inputs.DirectUnpack(input[4:])
+	}
+	return nil, errCouldNotLocateNamedMethod
+}
+
+// DirectUnpackOffchainOutput output in param list according to the abi specification
+func (abi ABIContract) DirectUnpackOffchainOutput(name string, output []byte) ([]interface{}, error) {
+	if offchain, ok := abi.OffChains[name]; ok {
+		return offchain.Outputs.DirectUnpack(output)
+	}
+	return nil, errOffchainNotFound(name)
 }
 
 // UnpackEvent output in v according to the abi specification
-func (abi ABIContract) UnpackEvent(v interface{}, name string, output []byte) (err error) {
-	if len(output) == 0 {
-		return errEmptyOutput
+func (abi ABIContract) UnpackEvent(v interface{}, name string, input []byte) (err error) {
+	if len(input) == 0 {
+		return errEmptyInput
 	}
 	if event, ok := abi.Events[name]; ok {
-		return event.Inputs.Unpack(v, output)
+		return event.Inputs.Unpack(v, input)
 	}
-	return fmt.Errorf("abi: could not locate named event")
+	return errCouldNotLocateNamedEvent
 }
 
-func (abi ABIContract) UnpackVariable(v interface{}, name string, output []byte) (err error) {
-	if len(output) == 0 {
-		return errEmptyOutput
+// DirectUnpackEvent output in param list according to the abi specification
+func (abi ABIContract) DirectUnpackEvent(topics []types.Hash, data []byte) (string, []interface{}, error) {
+	if len(topics) < 1 {
+		return "", nil, errEmptyInput
+	}
+	for _, event := range abi.Events {
+		if event.Id() == topics[0] {
+			params, err := event.DirectUnPack(topics, data)
+			return event.String(), params, err
+		}
+	}
+	return "", nil, errCouldNotLocateNamedEvent
+}
+
+func (abi ABIContract) UnpackVariable(v interface{}, name string, input []byte) (err error) {
+	if len(input) == 0 {
+		return errEmptyInput
 	}
 	if variable, ok := abi.Variables[name]; ok {
-		return variable.Inputs.Unpack(v, output)
+		return variable.Inputs.Unpack(v, input)
 	}
-	return fmt.Errorf("abi: could not locate named variable")
+	return errCouldNotLocateNamedVariable
+}
+
+// MethodById looks up a method by the 4-byte id
+// returns nil if none found
+func (abi *ABIContract) MethodById(sigdata []byte) (*Method, error) {
+	if len(sigdata) < 4 {
+		return nil, errMethodIdNotSpecified
+	}
+	for _, method := range abi.Methods {
+		if bytes.Equal(method.Id(), sigdata[:4]) {
+			return &method, nil
+		}
+	}
+	return nil, errNoMethodId(sigdata[:4])
 }
 
 // UnmarshalJSON implements json.Unmarshaler interface
 func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 	var fields []struct {
-		Type      string
-		Name      string
-		Constant  bool
-		Anonymous bool
-		Inputs    []Argument
-		Outputs   []Argument
+		Type    string
+		Name    string
+		Inputs  []Argument
+		Outputs []Argument
 	}
 
 	if err := json.Unmarshal(data, &fields); err != nil {
@@ -165,31 +203,28 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 		case "function", "":
 			abi.Methods[field.Name] = Method{
 				Name:   field.Name,
-				Const:  field.Constant,
 				Inputs: field.Inputs,
 			}
 		case "callback":
-			callbackName := getCallBackName(field.Name)
-			abi.Callbacks[callbackName] = Method{
-				Name:   callbackName,
-				Const:  field.Constant,
+			name := getCallBackName(field.Name)
+			abi.Callbacks[name] = Method{
+				Name:   name,
 				Inputs: field.Inputs,
 			}
 		case "offchain":
 			abi.OffChains[field.Name] = Method{
-				Name:   field.Name,
-				Const:  field.Constant,
-				Inputs: field.Inputs,
+				Name:    field.Name,
+				Inputs:  field.Inputs,
+				Outputs: field.Outputs,
 			}
 		case "event":
 			abi.Events[field.Name] = Event{
-				Name:      field.Name,
-				Anonymous: field.Anonymous,
-				Inputs:    field.Inputs,
+				Name:   field.Name,
+				Inputs: field.Inputs,
 			}
 		case "variable":
 			if len(field.Inputs) == 0 {
-				return fmt.Errorf("abi: could not unmarshal empty variable inputs")
+				return errInvalidEmptyVariableInput
 			}
 			abi.Variables[field.Name] = Variable{
 				Name:   field.Name,
@@ -200,16 +235,6 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MethodById looks up a method by the 4-byte id
-// returns nil if none found
-func (abi *ABIContract) MethodById(sigdata []byte) (*Method, error) {
-	if len(sigdata) < 4 {
-		return nil, fmt.Errorf("method id is not specified")
-	}
-	for _, method := range abi.Methods {
-		if bytes.Equal(method.Id(), sigdata[:4]) {
-			return &method, nil
-		}
-	}
-	return nil, fmt.Errorf("no method with id: %#x", sigdata[:4])
+func getCallBackName(name string) string {
+	return name + "Callback"
 }
