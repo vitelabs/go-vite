@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	txDataGas             uint64 = 68
+	TxDataGas             uint64 = 68
 	TxGas                 uint64 = 21000 // Per transaction not creating a contract.
 	txContractCreationGas uint64 = 53000 // Per transaction that creates a contract.
 	ConfirmGas            uint64 = 200
@@ -68,10 +68,10 @@ func IntrinsicGasCost(data []byte, isCreate bool, confirmTime uint8) (uint64, er
 func DataGasCost(data []byte) (uint64, error) {
 	var gas uint64
 	if l := uint64(len(data)); l > 0 {
-		if helper.MaxUint64/txDataGas < l {
+		if helper.MaxUint64/TxDataGas < l {
 			return 0, ErrGasUintOverflow
 		}
-		gas = l * txDataGas
+		gas = l * TxDataGas
 	}
 	return gas, nil
 }
