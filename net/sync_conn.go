@@ -452,7 +452,13 @@ func (f *syncConn) download(t *syncTask) (fatal bool, err error) {
 	var nr, nw int
 	var total, count uint64
 	var rerr, werr error
-	_ = f.conn.SetReadDeadline(time.Now().Add(fileTimeout))
+
+	if f._speed < 10240 { // 10k/s
+		f._speed = 10240
+	}
+
+	timeout := time.Duration(2*chunkInfo.size/f._speed) * time.Second
+	_ = f.conn.SetReadDeadline(time.Now().Add(timeout))
 	for {
 		count = chunkInfo.size - total
 		if count > 1024 {
