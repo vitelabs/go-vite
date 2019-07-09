@@ -102,6 +102,14 @@ func IsSeedFork(snapshotHeight uint64) bool {
 	return snapshotHeight >= seedForkPoint.Height
 }
 
+func IsQuotaFork(snapshotHeight uint64) bool {
+	quotaForkPoint, ok := forkPointMap["QuotaFork"]
+	if !ok {
+		panic("check quota fork failed. QuotaFork is not existed.")
+	}
+	return snapshotHeight >= quotaForkPoint.Height
+}
+
 func IsForkPoint(snapshotHeight uint64) bool {
 	// assume that fork point list is sorted by height asc
 	for i := len(forkPointList) - 1; i >= 0; i-- {

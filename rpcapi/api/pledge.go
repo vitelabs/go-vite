@@ -8,7 +8,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
-	"github.com/vitelabs/go-vite/vm/util"
 	"sort"
 	"strconv"
 )
@@ -73,7 +72,7 @@ func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &QuotaAndTxNum{Uint64ToString(q.PledgeQuotaPerSnapshotBlock()), Uint64ToString(q.Current()), Uint64ToString(q.Current() / util.TxGas)}, nil
+	return &QuotaAndTxNum{Uint64ToString(q.PledgeQuotaPerSnapshotBlock()), Uint64ToString(q.Current()), Uint64ToString(q.Current() / quota.QuotaForUtps)}, nil
 }
 
 type PledgeInfoList struct {

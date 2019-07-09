@@ -154,6 +154,7 @@ type VM struct {
 	reader util.ConsensusReader
 	// latest snapshot block height, used for fork check
 	latestSnapshotHeight uint64
+	gasTable             *util.GasTable
 }
 
 // NewVM is a constructor of VM. This method is called before running an
@@ -217,6 +218,7 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 	sb, err := db.LatestSnapshotBlock()
 	util.DealWithErr(err)
 	vm.latestSnapshotHeight = sb.Height
+	vm.gasTable = util.GasTableByHeight(sb.Height)
 	// In case vm will update some fields of block, make a copy of block.
 	blockCopy := block.Copy()
 	if blockCopy.IsSendBlock() {
@@ -290,7 +292,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	// Check quota for transaction.
 	quotaLeft := quotaTotal
 	if useQuota {
-		cost, err := gasNormalSendCall(block)
+		cost, err := gasSendCreate(block, vm.gasTable)
 		if err != nil {
 			return nil, err
 		}
@@ -392,7 +394,7 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 		return nil, noRetry, util.ErrAddressCollision
 	}
 	// Check quota for transaction.
-	cost, err := gasReceiveCreate(block, meta)
+	cost, err := gasReceiveCreate(block, meta, vm.gasTable)
 	if err != nil {
 		return nil, noRetry, err
 	}
@@ -411,7 +413,7 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 	code, err := c.run(vm)
 	if err == nil && len(code) <= maxCodeSize {
 		code := util.PackContractCode(util.GetContractTypeFromCreateContractData(sendBlock.Data), code)
-		codeCost := uint64(len(code)) * contractCodeGas
+		codeCost := uint64(len(code)) * vm.gasTable.CodeGas
 		c.quotaLeft, err = util.UseQuota(c.quotaLeft, codeCost)
 		if err == nil {
 			db.SetContractCode(code)
@@ -489,7 +491,7 @@ func (vm *VM) sendCall(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool,
 	} else {
 		block.Fee = helper.Big0
 		if useQuota {
-			quotaLeft, err = useQuotaForSend(block, db, quotaLeft)
+			quotaLeft, err = useQuotaForSend(block, db, quotaLeft, vm.gasTable)
 			if err != nil {
 				return nil, err
 			}
@@ -566,7 +568,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		block.Difficulty)
 	util.DealWithErr(err)
 	quotaLeft := quotaTotal
-	cost, err := gasReceive(block, meta)
+	cost, err := gasReceive(block, meta, vm.gasTable)
 	if err != nil {
 		return nil, noRetry, err
 	}
@@ -705,7 +707,7 @@ func (vm *VM) sendReward(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	quotaLeft := quotaTotal
 	if useQuota {
 		var err error
-		quotaLeft, err = useQuotaForSend(block, db, quotaLeft)
+		quotaLeft, err = useQuotaForSend(block, db, quotaLeft, vm.gasTable)
 		if err != nil {
 			return nil, err
 		}
@@ -725,7 +727,7 @@ func (vm *VM) sendRefund(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	quotaLeft := quotaTotal
 	if useQuota {
 		var err error
-		quotaLeft, err = useQuotaForSend(block, db, quotaLeft)
+		quotaLeft, err = useQuotaForSend(block, db, quotaLeft, vm.gasTable)
 		if err != nil {
 			return nil, err
 		}
@@ -753,7 +755,7 @@ func (vm *VM) receiveReward(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 			block.Difficulty)
 		util.DealWithErr(err)
 		quotaLeft = quotaTotal
-		cost, err := gasReceive(block, meta)
+		cost, err := gasReceive(block, meta, vm.gasTable)
 		if err != nil {
 			return nil, noRetry, err
 		}
@@ -778,7 +780,7 @@ func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 		block.Difficulty)
 	util.DealWithErr(err)
 	quotaLeft := quotaTotal
-	cost, err := gasReceive(block, meta)
+	cost, err := gasReceive(block, meta, vm.gasTable)
 	if err != nil {
 		return nil, noRetry, err
 	}
@@ -885,6 +887,7 @@ func (vm *VM) OffChainReader(db vm_db.VmDb, code []byte, data []byte) (result []
 		return nil, err
 	}
 	vm.i = newInterpreter(sb.Height, true)
+	vm.gasTable = util.GasTableByHeight(sb.Height)
 	c := newContract(&ledger.AccountBlock{AccountAddress: *db.Address()}, db, &ledger.AccountBlock{ToAddress: *db.Address()}, data, offChainReaderGas)
 	c.setCallCode(*db.Address(), code)
 	return c.run(vm)
@@ -896,8 +899,8 @@ func getPledgeAmount(db vm_db.VmDb) *big.Int {
 	return pledgeAmount
 }
 
-func useQuotaForSend(block *ledger.AccountBlock, db vm_db.VmDb, quotaLeft uint64) (uint64, error) {
-	cost, err := gasNormalSendCall(block)
+func useQuotaForSend(block *ledger.AccountBlock, db vm_db.VmDb, quotaLeft uint64, gasTable *util.GasTable) (uint64, error) {
+	cost, err := gasSendCall(block, gasTable)
 	if err != nil {
 		return quotaLeft, err
 	}

@@ -298,11 +298,11 @@ func CalcPledgeAmountByUtps(utps float64) (*big.Int, error) {
 	} else if utps == 0 {
 		return big.NewInt(0), nil
 	}
-	q := uint64(math.Ceil(utps * float64(quotaForUtps)))
+	q := uint64(math.Ceil(utps * float64(QuotaForUtps)))
 	index := (q + quotaForSection - 1) / quotaForSection
 	return new(big.Int).Set(nodeConfig.pledgeAmountList[index]), nil
 }
 
 func getMaxUtps() float64 {
-	return float64(len(nodeConfig.sectionList)) * float64(quotaForSection) / float64(quotaForUtps)
+	return float64(len(nodeConfig.sectionList)) * float64(quotaForSection) / float64(QuotaForUtps)
 }

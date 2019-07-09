@@ -220,7 +220,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if err != nil {
 		return nil, err
 	}
-	quotaRequired, err := vm.GasRequiredForBlock(db, block)
+	quotaRequired, err := vm.GasRequiredForBlock(db, block, util.GasTableByHeight(sb.Height))
 	if err != nil {
 		return nil, err
 	}
