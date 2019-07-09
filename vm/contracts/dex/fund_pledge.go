@@ -11,13 +11,13 @@ import (
 	"math/big"
 )
 
-func HandlePledgeAction(db vm_db.VmDb, block *ledger.AccountBlock, pledgeType uint8, actionType uint8, address types.Address, amount *big.Int) ([]*ledger.AccountBlock, error) {
+func HandlePledgeAction(db vm_db.VmDb, block *ledger.AccountBlock, pledgeType uint8, actionType uint8, address types.Address, amount *big.Int, stakeHeight uint64) ([]*ledger.AccountBlock, error) {
 	var (
 		methodData []byte
 		err        error
 	)
 	if actionType == Pledge {
-		if methodData, err = pledgeRequest(db, address, pledgeType, amount); err != nil {
+		if methodData, err = pledgeRequest(db, address, pledgeType, amount, stakeHeight); err != nil {
 			return []*ledger.AccountBlock{}, err
 		} else {
 			return []*ledger.AccountBlock{
@@ -57,7 +57,7 @@ func DoCancelPledge(db vm_db.VmDb, block *ledger.AccountBlock, address types.Add
 	}
 }
 
-func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]byte, error) {
+func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int, stakeHeight uint64) ([]byte, error) {
 	if pledgeType == PledgeForVip {
 		if _, ok := GetPledgeForVip(db, address); ok {
 			return nil, PledgeForVipExistsErr
@@ -66,13 +66,6 @@ func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 	if _, err := SubUserFund(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err
 	} else {
-		var stakeHeight uint64
-		switch pledgeType {
-		case PledgeForVip:
-			stakeHeight = 3600 * 24 * 30
-		case PledgeForVx:
-			stakeHeight = 3600 * 24 * 3
-		}
 		if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, pledgeType, stakeHeight); err != nil {
 			return nil, err
 		} else {

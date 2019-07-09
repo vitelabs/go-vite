@@ -90,7 +90,7 @@ func innerTestNewMarket(t *testing.T, db *testDatabase) {
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = userAddress1
 	senderAccBlock.TokenId = ETH.tokenId
-	senderAccBlock.Amount = new(big.Int).Div(dex.NewMarketFeeDividendAmount, big.NewInt(2))
+	senderAccBlock.Amount = new(big.Int).Div(dex.NewMarketFeeMineAmount, big.NewInt(2))
 	senderAccBlock.Data, _ = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundNewMarket, VITE.tokenId, ETH.tokenId)
 	method := contracts.MethodDexFundNewMarket{}
 	err := method.DoSend(db, senderAccBlock)
@@ -98,14 +98,14 @@ func innerTestNewMarket(t *testing.T, db *testDatabase) {
 	senderAccBlock.TokenId = VITE.tokenId
 	err = method.DoSend(db, senderAccBlock)
 	assert.Equal(t, "fee for create market not enough", err.Error())
-	senderAccBlock.Amount = new(big.Int).Add(dex.NewMarketFeeAmount, dex.NewMarketFeeDividendAmount)
+	senderAccBlock.Amount = new(big.Int).Add(dex.NewMarketFeeAmount, dex.NewMarketFeeMineAmount)
 
 	receiveBlock := &ledger.AccountBlock{}
 	err = doNewMarket(db, method, receiveBlock, senderAccBlock)
 	assert.True(t, err == nil)
 	dexFund, _ := dex.GetUserFund(db, userAddress1)
 	acc := dexFund.Accounts[0]
-	assert.True(t, dex.CmpForBigInt(dex.NewMarketFeeDividendAmount.Bytes(), acc.Available) == 0)
+	assert.True(t, dex.CmpForBigInt(dex.NewMarketFeeMineAmount.Bytes(), acc.Available) == 0)
 
 	marketInfo, ok := dex.GetMarketInfo(db, VITE.tokenId, ETH.tokenId)
 	assert.True(t, ok)
@@ -118,7 +118,7 @@ func innerTestNewMarket(t *testing.T, db *testDatabase) {
 	userFees, _ := dex.GetUserFees(db, userAddress1.Bytes())
 	assert.Equal(t, 1, len(userFees.Fees))
 	assert.True(t, bytes.Equal(userFees.Fees[0].UserFees[0].Token, VITE.tokenId.Bytes()))
-	assert.True(t, bytes.Equal(userFees.Fees[0].UserFees[0].Amount, dex.NewMarketFeeDividendAmount.Bytes()))
+	assert.True(t, bytes.Equal(userFees.Fees[0].UserFees[0].Amount, dex.NewMarketFeeMineAmount.Bytes()))
 }
 
 func innerTestVerifyBalance(t *testing.T, db *testDatabase) {
@@ -236,10 +236,10 @@ func innerTestSettleOrder(t *testing.T, db *testDatabase, userAddress types.Addr
 	assert.Equal(t, 2, len(dexFee.Fees))
 	if bytes.Equal(dexFee.Fees[0].Token, ETH.tokenId.Bytes()) {
 		assert.True(t, checkBigEqualToInt(15, dexFee.Fees[0].Amount))
-		assert.True(t, bytes.Equal(dex.NewMarketFeeDividendAmount.Bytes(), dexFee.Fees[1].Amount))
+		assert.True(t, bytes.Equal(dex.NewMarketFeeMineAmount.Bytes(), dexFee.Fees[1].Amount))
 	} else {
 		assert.True(t, checkBigEqualToInt(15, dexFee.Fees[1].Amount))
-		assert.True(t, bytes.Equal(dex.NewMarketFeeDividendAmount.Bytes(), dexFee.Fees[0].Amount))
+		assert.True(t, bytes.Equal(dex.NewMarketFeeMineAmount.Bytes(), dexFee.Fees[0].Amount))
 	}
 }
 

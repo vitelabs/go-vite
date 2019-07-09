@@ -69,7 +69,7 @@ func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, t
 	marketInfo.Owner = tradeTokenInfo.Owner
 }
 
-func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block *ledger.AccountBlock, err error) {
+func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block []*ledger.AccountBlock, err error) {
 	if _, err = SubUserFund(db, *address, ledger.ViteTokenId.Bytes(), NewMarketFeeAmount); err != nil {
 		DeleteMarketInfo(db, tradeToken, quoteToken)
 		AddErrEvent(db, err)
@@ -78,26 +78,40 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	}
 	userFee := &dexproto.UserFeeSettle{}
 	userFee.Address = address.Bytes()
-	userFee.BaseFee = NewMarketFeeDividendAmount.Bytes()
+	userFee.BaseFee = NewMarketFeeMineAmount.Bytes()
 	SettleFeesWithTokenId(db, reader, true, ledger.ViteTokenId, ViteTokenTypeInfo.Decimals, ViteTokenType, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
 	AddMarketEvent(db, marketInfo)
-	var marketBytes, blockData []byte
+	var marketBytes, syncData, burnData []byte
 	if marketBytes, err = marketInfo.Serialize(); err != nil {
 		panic(err)
 	} else {
-		if blockData, err = cabi.ABIDexTrade.PackMethod(cabi.MethodNameDexTradeNotifyNewMarket, marketBytes); err != nil {
+		var syncNewMarketBlock, newMarketFeeBurnBlock *ledger.AccountBlock
+		if syncData, err = cabi.ABIDexTrade.PackMethod(cabi.MethodNameDexTradeNotifyNewMarket, marketBytes); err != nil {
 			panic(err)
 		} else {
-			return &ledger.AccountBlock{
+			syncNewMarketBlock = &ledger.AccountBlock{
 				AccountAddress: types.AddressDexFund,
 				ToAddress:      types.AddressDexTrade,
 				BlockType:      ledger.BlockTypeSendCall,
 				TokenId:        ledger.ViteTokenId,
 				Amount:         big.NewInt(0),
-				Data:           blockData,
-			}, nil
+				Data:           syncData,
+			}
 		}
+		if burnData, err = cabi.ABIMintage.PackMethod(cabi.MethodNameBurn); err != nil {
+			panic(err)
+		} else {
+			newMarketFeeBurnBlock = &ledger.AccountBlock{
+				AccountAddress: types.AddressDexFund,
+				ToAddress:      types.AddressMintage,
+				BlockType:      ledger.BlockTypeSendCall,
+				TokenId:        ledger.ViteTokenId,
+				Amount:         NewMarketFeeBurnAmount,
+				Data:           burnData,
+			}
+		}
+		return []*ledger.AccountBlock{syncNewMarketBlock, newMarketFeeBurnBlock}, nil
 	}
 }
 
@@ -137,10 +151,10 @@ func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, 
 						DeleteMarketInfo(db, tradeTokenId, quoteTokenId)
 						AddErrEvent(db, bizErr)
 					} else {
-						var block *ledger.AccountBlock
-						if block, err = OnNewMarketValid(db, reader, marketInfo, tradeTokenId, quoteTokenId, &creator); err == nil {
-							if block != nil {
-								appendBlocks = append(appendBlocks, block)
+						var blocks []*ledger.AccountBlock
+						if blocks, err = OnNewMarketValid(db, reader, marketInfo, tradeTokenId, quoteTokenId, &creator); err == nil {
+							if len(blocks) > 0 {
+								appendBlocks = append(appendBlocks, blocks...)
 							}
 						} else {
 							return

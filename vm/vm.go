@@ -307,7 +307,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 			return nil, util.ErrInvalidMethodParam
 		}
 	} else {
-		if len(block.Data) < util.CreateContractDataLengthMinDex {
+		if len(block.Data) < util.CreateContractDataLengthMinRand {
 			return nil, util.ErrInvalidMethodParam
 		}
 	}

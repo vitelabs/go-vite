@@ -210,21 +210,21 @@ func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader ut
 	return nil
 }
 
-func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxBalance *big.Int, rateSum string, begin, end int)(amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
-	if vxBalance.Sign() > 0 {
+func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rateSum string, begin, end int)(amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
+	if vxPool.Sign() > 0 {
 		success = true
 		toDivideTotal := GetVxToMineByPeriodId(db, periodId)
 		toDivideTotalF := new(big.Float).SetPrec(bigFloatPrec).SetInt(toDivideTotal)
 		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString(rateSum)
 		amountSum := RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
 		var notEnough bool
-		if amountSum.Cmp(vxBalance) > 0 {
-			amountSum.Set(vxBalance)
+		if amountSum.Cmp(vxPool) > 0 {
+			amountSum.Set(vxPool)
 			notEnough = true
 		}
 		amount := new(big.Int).Div(amountSum, big.NewInt(int64(end - begin + 1)))
 		amountForItems = make(map[int32]*big.Int)
-		vxAmtLeaved = new(big.Int).Set(vxBalance)
+		vxAmtLeaved = new(big.Int).Set(vxPool)
 		for i := begin; i <= end; i++ {
 			if vxAmtLeaved.Cmp(amount) >= 0 {
 				amountForItems[int32(i)] = new(big.Int).Set(amount)
@@ -243,19 +243,17 @@ func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxBalance *big.In
 	return
 }
 
-func GetVxAmountToMine(db vm_db.VmDb, periodId uint64, vxBalance *big.Int, rate string) (amount, vxAmtLeaved *big.Int, success bool) {
-	if vxBalance.Sign() > 0 {
+func GetVxAmountToMine(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rate string) (amount, vxAmtLeaved *big.Int, success bool) {
+	if vxPool.Sign() > 0 {
 		success = true
 		toDivideTotal := GetVxToMineByPeriodId(db, periodId)
 		toDivideTotalF := new(big.Float).SetPrec(bigFloatPrec).SetInt(toDivideTotal)
 		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString(rate)
 		amount = RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
-		if amount.Cmp(vxBalance) > 0 {
-			amount.Set(vxBalance)
-		} else {
-			vxBalance.Sub(vxBalance, amount)
+		if amount.Cmp(vxPool) > 0 {
+			amount.Set(vxPool)
 		}
-		vxAmtLeaved = new(big.Int).Sub(vxBalance, amount)
+		vxAmtLeaved = new(big.Int).Sub(vxPool, amount)
 	} else {
 		success = false
 	}

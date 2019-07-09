@@ -249,6 +249,18 @@ func MnemonicToPrimaryAddr(mnemonic string) (primaryAddress *types.Address, e er
 	return primaryAddress, nil
 }
 
+func NewMnemonic() (mnemonic string, err error) {
+	entropy, err := bip39.NewEntropy(256)
+	if err != nil {
+		return "", err
+	}
+	mnemonic, err = bip39.NewMnemonic(entropy)
+	if err != nil {
+		return "", err
+	}
+	return mnemonic, nil
+}
+
 // it is very fast(in my mac 2.8GHZ intel cpu 10Ks search cost 728ms) so we dont need cache the relation
 func FindAddrFromSeed(seed []byte, addr types.Address, maxSearchIndex uint32) (key *derivation.Key, index uint32, e error) {
 	for i := uint32(0); i < maxSearchIndex; i++ {

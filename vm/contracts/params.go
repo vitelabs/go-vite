@@ -20,42 +20,28 @@ const (
 	CancelConsensusGroupGas   uint64 = 83200
 	ReCreateConsensusGroupGas uint64 = 62200
 
-	dexFundDepositGas                     uint64 = 300
 	dexFundDepositReceiveGas              uint64 = 1
-	dexFundWithdrawGas                    uint64 = 300
 	dexFundWithdrawReceiveGas             uint64 = 1
-	dexFundNewMarketGas                   uint64 = 300
 	dexFundNewMarketReceiveGas            uint64 = 1
-	dexFundNewOrderGas                    uint64 = 300
 	dexFundNewOrderReceiveGas             uint64 = 1
-	dexFundSettleOrdersGas                uint64 = 300
 	dexFundSettleOrdersReceiveGas         uint64 = 1
-	dexFundPeriodJobGas                   uint64 = 300
 	dexFundPeriodJobReceiveGas            uint64 = 1
-	dexFundPledgeForVxGas                 uint64 = 300
 	dexFundPledgeForVxReceiveGas          uint64 = 1
-	dexFundPledgeForVipGas                uint64 = 300
 	dexFundPledgeForVipReceiveGas         uint64 = 1
-	dexFundPledgeCallbackGas              uint64 = 300
 	dexFundPledgeCallbackReceiveGas       uint64 = 1
-	dexFundCancelPledgeCallbackGas        uint64 = 300
 	dexFundCancelPledgeCallbackReceiveGas uint64 = 1
-	dexFundGetTokenInfoCallbackGas        uint64 = 300
 	dexFundGetTokenInfoCallbackReceiveGas uint64 = 1
-	DexFundOwnerConfigGas                 uint64 = 300
 	DexFundOwnerConfigReceiveGas          uint64 = 1
-	DexFundOwnerConfigTradeGas            uint64 = 300
 	DexFundOwnerConfigTradeReceiveGas     uint64 = 1
-	DexFundMarketOwnerConfigGas           uint64 = 300
 	DexFundMarketOwnerConfigReceiveGas    uint64 = 1
-	dexFundTransferTokenOwnerGas          uint64 = 300
 	dexFundTransferTokenOwnerReceiveGas   uint64 = 1
-	dexFundNotifyTimeGas                  uint64 = 300
 	dexFundNotifyTimeReceiveGas           uint64 = 1
-	dexFundNewInviterGas                  uint64 = 300
 	dexFundNewInviterReceiveGas           uint64 = 1
-	dexFundBindInviteCodeGas              uint64 = 300
 	dexFundBindInviteCodeReceiveGas       uint64 = 1
+	dexFundEndorseVxMinePoolGas           uint64 = 300
+	dexFundEndorseVxMinePoolReceiveGas    uint64 = 1
+	dexFundSettleMakerMinedVxGas          uint64 = 300
+	dexFundSettleMakerMinedVxReceiveGas   uint64 = 1
 
 	dexTradeNewOrderGas        uint64 = 300
 	dexTradeCancelOrderGas     uint64 = 300
@@ -102,6 +88,7 @@ type ContractsParams struct {
 	PledgeHeight                     uint64 // pledge height for stake
 	CreateConsensusGroupPledgeHeight uint64 // Pledge height for registering to be a super node of snapshot group and common delegate group
 	MintPledgeHeight                 uint64 // Pledge height for mintage if choose to pledge instead of destroy vite token
+	ViteXVipPledgeHeight             uint64 // Pledge height for dex_fund contract, in order to upgrade to viteX vip
 }
 
 var (
@@ -110,11 +97,13 @@ var (
 		PledgeHeight:                     1,
 		CreateConsensusGroupPledgeHeight: 1,
 		MintPledgeHeight:                 1,
+		ViteXVipPledgeHeight:             1,
 	}
 	ContractsParamsMainNet = ContractsParams{
 		RegisterMinPledgeHeight:          3600 * 24 * 3,
 		PledgeHeight:                     3600 * 24 * 3,
 		CreateConsensusGroupPledgeHeight: 3600 * 24 * 3,
 		MintPledgeHeight:                 3600 * 24 * 30 * 3,
+		ViteXVipPledgeHeight:             3600 * 24 * 30,
 	}
 )

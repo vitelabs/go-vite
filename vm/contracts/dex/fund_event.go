@@ -88,6 +88,14 @@ func AddInviteRelationEvent(db vm_db.VmDb, inviter, invitee types.Address, invit
 	doEmitEventLog(db, event)
 }
 
+func AddSettleMakerMinedVxEvent(db vm_db.VmDb, periodId uint64, page int32, finish bool) {
+	event := &SettleMakerMinedVxEvent{}
+	event.PeriodId = periodId
+	event.Page = page
+	event.Finish = finish
+	doEmitEventLog(db, event)
+}
+
 func AddErrEvent(db vm_db.VmDb, err error) {
 	event := &ErrEvent{}
 	event.error = err
