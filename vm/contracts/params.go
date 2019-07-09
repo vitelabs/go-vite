@@ -56,6 +56,10 @@ const (
 	dexFundNewInviterReceiveGas           uint64 = 1
 	dexFundBindInviteCodeGas              uint64 = 300
 	dexFundBindInviteCodeReceiveGas       uint64 = 1
+	dexFundEndorseVxMinePoolGas           uint64 = 300
+	dexFundEndorseVxMinePoolReceiveGas    uint64 = 1
+	dexFundSettleMakerMinedVxGas          uint64 = 300
+	dexFundSettleMakerMinedVxReceiveGas   uint64 = 1
 
 	dexTradeNewOrderGas        uint64 = 300
 	dexTradeCancelOrderGas     uint64 = 300
@@ -102,6 +106,7 @@ type ContractsParams struct {
 	PledgeHeight                     uint64 // pledge height for stake
 	CreateConsensusGroupPledgeHeight uint64 // Pledge height for registering to be a super node of snapshot group and common delegate group
 	MintPledgeHeight                 uint64 // Pledge height for mintage if choose to pledge instead of destroy vite token
+	ViteXVipPledgeHeight             uint64 // Pledge height for dex_fund contract, in order to upgrade to viteX vip
 }
 
 var (
@@ -110,11 +115,13 @@ var (
 		PledgeHeight:                     1,
 		CreateConsensusGroupPledgeHeight: 1,
 		MintPledgeHeight:                 1,
+		ViteXVipPledgeHeight:             1,
 	}
 	ContractsParamsMainNet = ContractsParams{
 		RegisterMinPledgeHeight:          3600 * 24 * 3,
 		PledgeHeight:                     3600 * 24 * 3,
 		CreateConsensusGroupPledgeHeight: 3600 * 24 * 3,
 		MintPledgeHeight:                 3600 * 24 * 30 * 3,
+		ViteXVipPledgeHeight:             3600 * 24 * 30,
 	}
 )

@@ -117,6 +117,17 @@ message PledgesForVx {
     repeated PledgeForVxByPeriod pledges = 1;
 }
 
+message VxSettleAction {
+    bytes Address = 1;
+    bytes Amount = 2;
+}
+
+message VxSettleActions {
+    uint64 Period = 1;
+    int32 Page = 2;
+    repeated VxSettleAction actions = 3;
+}
+
 //event
 message PeriodWithBiz {
     uint64 Period = 1;
@@ -167,4 +178,11 @@ message InviteRelation {
     bytes Inviter = 1;
     bytes Invitee = 2;
     uint32 InviteCode = 3;
+}
+
+//event
+message SettleMakerMinedVx {
+    uint64 PeriodId = 1;
+    int32 Page = 2;
+    bool  finish = 3;
 }

@@ -53,33 +53,31 @@ var (
 	pledgeForVxKeyPrefix  = []byte("pldVx:") // pledgeForVx: types.Address
 
 	tokenInfoKeyPrefix = []byte("tk:") // token:tokenId
-	vxBalanceKey       = []byte("vxAmt:")
+	vxMinePoolKey      = []byte("vxmPl:")
 
 	codeByInviterKeyPrefix    = []byte("itr2cd:")
 	inviterByCodeKeyPrefix    = []byte("cd2itr:")
 	inviterByInviteeKeyPrefix = []byte("ite2itr:")
 
-	maintainerKey     = []byte("mtA:")
-	makerMineProxyKey = []byte("mmpA:")
+	maintainerKey                   = []byte("mtA:")
+	makerMineProxyKey               = []byte("mmpA:")
 	makerMineProxyAmountByPeriodKey = []byte("mmpaP:")
 
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 
 	VxTokenId, _          = types.HexToTokenTypeId("tti_340b335ce06aa2a0a6db3c0a")
-	VxInitAmount          = new(big.Int).Mul(commonTokenPow, big.NewInt(100000000))
 	VxMinedAmtFirstPeriod = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(13)), nil), big.NewInt(47703236213)) // 477032.36213
 
-	VxDividendThreshold        = new(big.Int).Mul(commonTokenPow, big.NewInt(10))
-	NewMarketFeeAmount         = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
-	NewMarketFeeDividendAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
-	NewMarketFeeDonateAmount   = new(big.Int).Sub(NewMarketFeeAmount, NewMarketFeeDividendAmount)
-	NewInviterFeeAmount        = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
+	VxDividendThreshold      = new(big.Int).Mul(commonTokenPow, big.NewInt(10))
+	NewMarketFeeAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	NewMarketFeeMineAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
+	NewMarketFeeDonateAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(4000))
+	NewMarketFeeBurnAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(5000))
+	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
 	PledgeForVxMinAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
 	PledgeForVipAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	PledgeForVxThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-
-	PledgeForVipDuration int64 = 3600 * 24 * 30
 
 	ViteTokenTypeInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteTokenType: ViteTokenType}
 
@@ -93,9 +91,9 @@ var (
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
 	usdMineThreshold     = big.NewInt(2000000)                                // 0.1USD
 
-	RateSumForFeeMine                = "0.6" // 15% * 4
-	RateForPledgeMine                = "0.2" // 20%
-	RateSumForMakerAndMaintainerMine = "0.2" // 10% + 10%
+	RateSumForFeeMine                = "0.6"                                             // 15% * 4
+	RateForPledgeMine                = "0.2"                                             // 20%
+	RateSumForMakerAndMaintainerMine = "0.2"                                             // 10% + 10%
 	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 
 	QuoteTokenTypeInfos = map[int32]*QuoteTokenTypeInfo{
@@ -889,7 +887,23 @@ func SaveVxSumFunds(db vm_db.VmDb, vxSumFunds *VxFunds) {
 }
 
 func SaveMakerProxyAmountByPeriodId(db vm_db.VmDb, periodId uint64, amount *big.Int) {
-	setValueToDb(db, append(makerMineProxyAmountByPeriodKey, Uint64ToBytes(periodId)...), amount.Bytes())
+	setValueToDb(db, GetMarkerProxyAmountByPeriodIdKey(periodId), amount.Bytes())
+}
+
+func GetMakerProxyAmountByPeriodId(db vm_db.VmDb, periodId uint64) *big.Int {
+	if amtBytes := getValueFromDb(db, GetMarkerProxyAmountByPeriodIdKey(periodId)); len(amtBytes) > 0 {
+		return new(big.Int).SetBytes(amtBytes)
+	} else {
+		return new(big.Int)
+	}
+}
+
+func DeleteMakerProxyAmountByPeriodId(db vm_db.VmDb, periodId uint64) {
+	setValueToDb(db, GetMarkerProxyAmountByPeriodIdKey(periodId), nil)
+}
+
+func GetMarkerProxyAmountByPeriodIdKey(periodId uint64) []byte {
+	return append(makerMineProxyAmountByPeriodKey, Uint64ToBytes(periodId)...)
 }
 
 func GetLastJobPeriodIdByBizType(db vm_db.VmDb, bizType uint8) uint64 {
@@ -935,7 +949,6 @@ func GetCurrentPeriodId(db vm_db.VmDb, reader util.ConsensusReader) uint64 {
 func GetPeriodIdByTimestamp(reader util.ConsensusReader, timestamp int64) uint64 {
 	return reader.GetIndexByTime(timestamp, 0)
 }
-
 
 //handle case on duplicate callback for getTokenInfo
 func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quoteTokens [][]byte, err error) {
@@ -1210,6 +1223,14 @@ func SaveMakerMineProxy(db vm_db.VmDb, addr types.Address) {
 	setValueToDb(db, makerMineProxyKey, addr.Bytes())
 }
 
+func IsMakerMineProxy(db vm_db.VmDb, addr types.Address) bool {
+	if mmpBytes := getValueFromDb(db, makerMineProxyKey); len(mmpBytes) == types.AddressSize {
+		return bytes.Equal(addr.Bytes(), mmpBytes)
+	} else {
+		return false
+	}
+}
+
 func GetMaintainer(db vm_db.VmDb) *types.Address {
 	if mtBytes := getValueFromDb(db, maintainerKey); len(mtBytes) == types.AddressSize {
 		if maintainer, err := types.BytesToAddress(mtBytes); err == nil {
@@ -1482,16 +1503,16 @@ func NewInviteCode(db vm_db.VmDb, hash types.Hash) uint32 {
 	return 0
 }
 
-func GetVxBalance(db vm_db.VmDb) *big.Int {
-	if data := getValueFromDb(db, vxBalanceKey); len(data) > 0 {
+func GetVxMinePool(db vm_db.VmDb) *big.Int {
+	if data := getValueFromDb(db, vxMinePoolKey); len(data) > 0 {
 		return new(big.Int).SetBytes(data)
 	} else {
-		return new(big.Int).Set(VxInitAmount)
+		return new(big.Int)
 	}
 }
 
-func SaveVxBalance(db vm_db.VmDb, amount *big.Int) {
-	setValueToDb(db, vxBalanceKey, amount.Bytes())
+func SaveVxMinePool(db vm_db.VmDb, amount *big.Int) {
+	setValueToDb(db, vxMinePoolKey, amount.Bytes())
 }
 
 func deserializeFromDb(db vm_db.VmDb, key []byte, serializable SerializableDex) bool {

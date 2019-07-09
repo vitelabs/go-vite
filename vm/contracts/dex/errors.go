@@ -5,6 +5,8 @@ import (
 )
 
 var (
+	InvalidInputParamErr = errors.New("invalid input param data")
+
 	InvalidOrderIdErr       = errors.New("invalid order id")
 	InvalidOrderTypeErr     = errors.New("invalid order type")
 	InvalidOrderPriceErr    = errors.New("invalid order price format")

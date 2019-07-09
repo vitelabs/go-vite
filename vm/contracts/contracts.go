@@ -103,6 +103,8 @@ var simpleContracts = map[types.Address]*builtinContract{
 			cabi.MethodNameDexFundNotifyTime:           &MethodDexFundNotifyTime{},
 			cabi.MethodNameDexFundNewInviter:           &MethodDexFundNewInviter{},
 			cabi.MethodNameDexFundBindInviteCode:       &MethodDexFundBindInviteCode{},
+			cabi.MethodNameDexFundEndorseVxMinePool:    &MethodDexFundEndorseVxMinePool{},
+			cabi.MethodNameDexFunSettleMakerMinedVx:    &MethodDexFundSettleMakerMinedVx{},
 		},
 		cabi.ABIDexFund,
 	},

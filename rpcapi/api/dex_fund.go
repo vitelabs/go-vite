@@ -260,12 +260,21 @@ func (f DexFundApi) GetVxFunds(address types.Address) (*apidex.RpcVxFunds, error
 	}
 }
 
-func (f DexFundApi) GetVxBalanceToMine() (string, error) {
+func (f DexFundApi) GetVxMinePool() (string, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return "", err
 	}
-	balance := dex.GetVxBalance(db)
+	balance := dex.GetVxMinePool(db)
+	return balance.String(), nil
+}
+
+func (f DexFundApi) GetMakerProxyAmount(periodId uint64) (string, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return "", err
+	}
+	balance := dex.GetMakerProxyAmountByPeriodId(db, periodId)
 	return balance.String(), nil
 }
 

@@ -21,6 +21,7 @@ const minedVxForInviteeFeeEventName = "minedVxForInviteeFeeEvent"
 const minedVxForPledgeEventName = "minedVxForPledgeEvent"
 const minedVxForOperationEventName = "minedVxForOperation"
 const inviteRelationEventName = "inviteRelationEvent"
+const settleMakerMinedVxEventName = "settleMakerMinedVxEvent"
 const errEventName = "errEvent"
 
 type DexEvent interface {
@@ -79,6 +80,10 @@ type MinedVxForOperationEvent struct {
 
 type InviteRelationEvent struct {
 	dexproto.InviteRelation
+}
+
+type SettleMakerMinedVxEvent struct {
+	dexproto.SettleMakerMinedVx
 }
 
 type ErrEvent struct {
@@ -313,6 +318,24 @@ func (ir InviteRelationEvent) toDataBytes() []byte {
 func (ir InviteRelationEvent) FromBytes(data []byte) interface{} {
 	event := InviteRelationEvent{}
 	if err := proto.Unmarshal(data, &event.InviteRelation); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (smmv SettleMakerMinedVxEvent) GetTopicId() types.Hash {
+	return fromNameToHash(inviteRelationEventName)
+}
+
+func (smmv SettleMakerMinedVxEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&smmv.SettleMakerMinedVx)
+	return data
+}
+
+func (smmv SettleMakerMinedVxEvent) FromBytes(data []byte) interface{} {
+	event := SettleMakerMinedVxEvent{}
+	if err := proto.Unmarshal(data, &event.SettleMakerMinedVx); err != nil {
 		return nil
 	} else {
 		return event
