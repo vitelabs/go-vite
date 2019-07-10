@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+
 	"github.com/vitelabs/go-vite/interfaces"
 
 	"github.com/vitelabs/go-vite/log15"
@@ -432,6 +434,13 @@ func (e *executor) doJob(c *syncConn, t *syncTask) error {
 
 func (e *executor) createConn(p *Peer) (c *syncConn, err error) {
 	addr := p.fileAddress
+	if addr == "" {
+		return nil, errors.New("error file address")
+	}
+
+	if e.pool.blocked(p.Id) {
+		return nil, errors.New("peer is blocked")
+	}
 
 	e.mu.Lock()
 	if _, ok := e.dialing[addr]; ok {
@@ -451,7 +460,6 @@ func (e *executor) createConn(p *Peer) (c *syncConn, err error) {
 	// dial error
 	if err != nil {
 		e.addBlackList(p.Id)
-		e.log.Error(fmt.Sprintf("failed to create sync connection %s: %v", addr, err))
 		return
 	}
 
@@ -459,7 +467,6 @@ func (e *executor) createConn(p *Peer) (c *syncConn, err error) {
 	c, err = e.factory.initiate(tcp, p)
 	if err != nil {
 		_ = tcp.Close()
-		e.log.Error(fmt.Sprintf("failed to create sync connection %s: %v", addr, err))
 		e.addBlackList(p.Id)
 		return
 	}

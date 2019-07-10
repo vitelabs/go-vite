@@ -572,6 +572,25 @@ func (fp *downloadConnPool) blockPeer(id peerId, duration time.Duration) {
 	fp.blackList[id] = time.Now().Add(duration).Unix()
 }
 
+func (fp *downloadConnPool) blocked(id peerId) bool {
+	now := time.Now().Unix()
+
+	fp.mu.Lock()
+	defer fp.mu.Unlock()
+
+	t, ok := fp.blackList[id]
+	if !ok {
+		return false
+	}
+
+	if t > now {
+		return true
+	}
+
+	delete(fp.blackList, id)
+	return false
+}
+
 func (fp *downloadConnPool) connections() []SyncConnectionStatus {
 	fp.mu.Lock()
 	defer fp.mu.Unlock()
