@@ -1107,8 +1107,8 @@ func (md *MethodDexFundEndorseVxMinePool) GetReceiveQuota() uint64 {
 }
 
 func (md *MethodDexFundEndorseVxMinePool) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() <= 0 {
-		return fmt.Errorf("endorse amount is zero")
+	if block.Amount.Sign() <= 0 || block.TokenId != dex.VxTokenId {
+		return dex.InvalidInputParamErr
 	}
 	return nil
 }
@@ -1176,7 +1176,7 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 	}
 	for _, action := range actions.Actions {
 		if addr, err := types.BytesToAddress(action.Address); err != nil {
-			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, fmt.Errorf(""), sendBlock)
+			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, dex.InternalErr, sendBlock)
 		} else {
 			amt := new(big.Int).SetBytes(action.Amount)
 			if amt.Cmp(poolAmt) > 0 {
