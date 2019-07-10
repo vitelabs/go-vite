@@ -1115,7 +1115,7 @@ func (md *MethodDexFundEndorseVxMinePool) DoSend(db vm_db.VmDb, block *ledger.Ac
 
 func (md MethodDexFundEndorseVxMinePool) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	poolAmount := dex.GetVxMinePool(db)
-	poolAmount.Add(poolAmount, block.Amount)
+	poolAmount.Add(poolAmount, sendBlock.Amount)
 	dex.SaveVxMinePool(db, poolAmount)
 	return nil, nil
 }
@@ -1162,7 +1162,7 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, dex.InvalidSourceAddressErr, sendBlock)
 	}
 	param := new(dex.ParamDexSerializedData)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFunSettleMakerMinedVx, block.Data); err != nil {
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFunSettleMakerMinedVx, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, err, sendBlock)
 	}
 	actions := &dexproto.VxSettleActions{}
