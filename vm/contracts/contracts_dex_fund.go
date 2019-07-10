@@ -1107,15 +1107,15 @@ func (md *MethodDexFundEndorseVxMinePool) GetReceiveQuota() uint64 {
 }
 
 func (md *MethodDexFundEndorseVxMinePool) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() <= 0 {
-		return fmt.Errorf("endorse amount is zero")
+	if block.Amount.Sign() <= 0 || block.TokenId != dex.VxTokenId {
+		return dex.InvalidInputParamErr
 	}
 	return nil
 }
 
 func (md MethodDexFundEndorseVxMinePool) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	poolAmount := dex.GetVxMinePool(db)
-	poolAmount.Add(poolAmount, block.Amount)
+	poolAmount.Add(poolAmount, sendBlock.Amount)
 	dex.SaveVxMinePool(db, poolAmount)
 	return nil, nil
 }
@@ -1162,7 +1162,7 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, dex.InvalidSourceAddressErr, sendBlock)
 	}
 	param := new(dex.ParamDexSerializedData)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFunSettleMakerMinedVx, block.Data); err != nil {
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFunSettleMakerMinedVx, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, err, sendBlock)
 	}
 	actions := &dexproto.VxSettleActions{}
@@ -1176,7 +1176,7 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 	}
 	for _, action := range actions.Actions {
 		if addr, err := types.BytesToAddress(action.Address); err != nil {
-			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, fmt.Errorf(""), sendBlock)
+			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, dex.InternalErr, sendBlock)
 		} else {
 			amt := new(big.Int).SetBytes(action.Amount)
 			if amt.Cmp(poolAmt) > 0 {
