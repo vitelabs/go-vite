@@ -240,6 +240,11 @@ func addTasks(tasks syncTasks, t2 *syncTask, must bool) syncTasks {
 
 // will be blocked when task queue is full
 func (e *executor) download(t *syncTask, must bool) bool {
+	if t.From > t.To {
+		e.log.Warn(fmt.Sprintf("from is larger than to: %s", t))
+		return true
+	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
