@@ -796,7 +796,7 @@ func (md MethodDexFundOwnerConfigTrade) DoReceive(db vm_db.VmDb, block *ledger.A
 			}
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigNewQuoteToken) {
-			if param.QuoteTokenType <= dex.ViteTokenType || param.QuoteTokenType > dex.UsdTokenType {
+			if param.QuoteTokenType < dex.ViteTokenType || param.QuoteTokenType > dex.UsdTokenType {
 				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundOwnerConfigTrade, dex.InvalidQuoteTokenTypeErr, sendBlock)
 			}
 			if tokenInfo, ok := dex.GetTokenInfo(db, param.NewQuoteToken); !ok {
