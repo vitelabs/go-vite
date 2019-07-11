@@ -1027,7 +1027,7 @@ func (md MethodDexFundNewInviter) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if _, err := dex.SubUserFund(db, sendBlock.AccountAddress, ledger.ViteTokenId.Bytes(), dex.NewInviterFeeAmount); err != nil {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewInviter, err, sendBlock)
 	}
-	dex.SettleFeesWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenTypeInfo.Decimals, dex.ViteTokenType, nil, dex.NewInviterFeeAmount, nil)
+	dex.SettleFeesWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenDecimals, dex.ViteTokenType, nil, dex.NewInviterFeeAmount, nil)
 	if inviteCode := dex.NewInviteCode(db, block.PrevHash); inviteCode == 0 {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewInviter, dex.NewInviteCodeFailErr, sendBlock)
 	} else {

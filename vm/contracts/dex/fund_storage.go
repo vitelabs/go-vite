@@ -79,8 +79,6 @@ var (
 	PledgeForVipAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	PledgeForVxThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
 
-	ViteTokenTypeInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteTokenType: ViteTokenType}
-
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
 	bitcoinMinAmount = big.NewInt(50000)                                 // 0.0005 BTC
@@ -95,6 +93,8 @@ var (
 	RateForPledgeMine                = "0.2"                                             // 20%
 	RateSumForMakerAndMaintainerMine = "0.2"                                             // 10% + 10%
 	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
+
+	ViteTokenDecimals int32 = 18
 
 	QuoteTokenTypeInfos = map[int32]*QuoteTokenTypeInfo{
 		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, DefaultTradeThreshold: viteMinAmount, DefaultMineThreshold: viteMineThreshold},
@@ -1076,10 +1076,6 @@ func SavePendingTransferTokenOwners(db vm_db.VmDb, pendings *PendingTransferToke
 
 func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (tokenInfo *TokenInfo, ok bool) {
 	tokenInfo = &TokenInfo{}
-	if token == ledger.ViteTokenId {
-		tokenInfo.TokenInfo = ViteTokenTypeInfo
-		return tokenInfo, true
-	}
 	ok = deserializeFromDb(db, GetTokenInfoKey(token), tokenInfo)
 	return
 }
