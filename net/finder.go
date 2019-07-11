@@ -47,7 +47,7 @@ type finder struct {
 	rw          sync.RWMutex
 	targets     map[types.Address]*vnode.Node
 	subId       int // table sub
-	maxPeers    int
+	minPeers    int
 	staticNodes []*vnode.Node
 	resolver    interface {
 		GetNodes(n int) []*vnode.Node
@@ -93,12 +93,12 @@ func (f *finder) UnSub(sub discovery.Subscriber) {
 	sub.UnSub(f.subId)
 }
 
-func newFinder(self types.Address, peers *peerSet, maxPeers int, staticNodes []string, db *database.DB, connect Connector, consensus Consensus) (f *finder, err error) {
+func newFinder(self types.Address, peers *peerSet, minPeers int, staticNodes []string, db *database.DB, connect Connector, consensus Consensus) (f *finder, err error) {
 	f = &finder{
 		self:      self,
 		targets:   make(map[types.Address]*vnode.Node),
 		peers:     peers,
-		maxPeers:  maxPeers,
+		minPeers:  minPeers,
 		connect:   connect,
 		consensus: consensus,
 		dialing:   make(map[peerId]struct{}),
@@ -250,7 +250,7 @@ func (f *finder) receiveNode(node *vnode.Node) {
 		f.rw.Unlock()
 	}
 
-	if f.total() < f.maxPeers {
+	if f.total() < f.minPeers {
 		f.rw.Lock()
 		f.dial(node)
 		f.rw.Unlock()
@@ -278,7 +278,7 @@ func (f *finder) loop() {
 	for {
 		select {
 		case <-checkTicker.C:
-			if f.total() < f.maxPeers {
+			if f.total() < f.minPeers {
 				f.rw.Lock()
 				for _, n := range f.staticNodes {
 					f.dial(n)
@@ -293,8 +293,8 @@ func (f *finder) loop() {
 			}
 
 			total := f.total()
-			if total < f.maxPeers {
-				nodes := f.resolver.GetNodes((f.maxPeers - total) * 2)
+			if total < f.minPeers {
+				nodes := f.resolver.GetNodes((f.minPeers - total) * 2)
 				f.rw.Lock()
 				for _, node := range nodes {
 					f.dial(node)
