@@ -227,7 +227,8 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 				db,
 				blockCopy.AccountAddress,
 				getPledgeAmount(db),
-				blockCopy.Difficulty)
+				blockCopy.Difficulty,
+				sb.Height)
 			if err != nil {
 				return nil, noRetry, err
 			}
@@ -239,7 +240,8 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 				db,
 				blockCopy.AccountAddress,
 				getPledgeAmount(db),
-				blockCopy.Difficulty)
+				blockCopy.Difficulty,
+				sb.Height)
 			if err != nil {
 				return nil, noRetry, err
 			}
@@ -565,7 +567,8 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		db,
 		block.AccountAddress,
 		getPledgeAmount(db),
-		block.Difficulty)
+		block.Difficulty,
+		vm.latestSnapshotHeight)
 	util.DealWithErr(err)
 	quotaLeft := quotaTotal
 	cost, err := gasReceive(block, meta, vm.gasTable)
@@ -752,7 +755,8 @@ func (vm *VM) receiveReward(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 			db,
 			block.AccountAddress,
 			getPledgeAmount(db),
-			block.Difficulty)
+			block.Difficulty,
+			vm.latestSnapshotHeight)
 		util.DealWithErr(err)
 		quotaLeft = quotaTotal
 		cost, err := gasReceive(block, meta, vm.gasTable)
@@ -777,7 +781,8 @@ func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 		db,
 		block.AccountAddress,
 		getPledgeAmount(db),
-		block.Difficulty)
+		block.Difficulty,
+		vm.latestSnapshotHeight)
 	util.DealWithErr(err)
 	quotaLeft := quotaTotal
 	cost, err := gasReceive(block, meta, vm.gasTable)

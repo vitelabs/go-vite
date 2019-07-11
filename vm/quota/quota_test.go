@@ -199,7 +199,7 @@ func TestCalcPoWDifficulty(t *testing.T) {
 	}
 	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
-		difficulty, err := CalcPoWDifficulty(testCase.quotaRequired, testCase.q)
+		difficulty, err := CalcPoWDifficulty(nil, testCase.quotaRequired, testCase.q, 1)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v CalcPoWDifficulty failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}
@@ -630,7 +630,7 @@ func TestCalcQuotaForBlock(t *testing.T) {
 	InitQuotaConfig(false, false)
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, updateUnconfirmedQuotaInfo(testCase.quotaInfoList, testCase.unconfirmedList), testCase.unconfirmedList}
-		quotaTotal, quotaAddition, err := CalcQuotaForBlock(db, testCase.addr, getPledgeAmount(testCase.pledgeAmount), testCase.difficulty)
+		quotaTotal, quotaAddition, err := CalcQuotaForBlock(db, testCase.addr, getPledgeAmount(testCase.pledgeAmount), testCase.difficulty, 1)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v TestCalcQuotaForBlock failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}

@@ -194,12 +194,12 @@ func (p *PledgeApi) GetAgentPledgeInfo(params PledgeQueryParams) (*PledgeInfo, e
 	return NewPledgeInfo(info, snapshotBlock), nil
 }
 
-type QuotaConefficientInfo struct {
+type QuotaCoefficientInfo struct {
 	Qc          string `json:"qc"`
 	GlobalQuota string `json:"globalQuota"`
 }
 
-func (p *PledgeApi) GetQuotaCoefficient() (*QuotaConefficientInfo, error) {
-	qc, globalQuota := quota.CalcQc(p.chain)
-	return &QuotaConefficientInfo{strconv.FormatFloat(qc, 'g', 18, 64), Uint64ToString(globalQuota)}, nil
+func (p *PledgeApi) GetQuotaCoefficient() (*QuotaCoefficientInfo, error) {
+	qc, globalQuota := quota.CalcQc(p.chain, p.chain.GetLatestSnapshotBlock().Height)
+	return &QuotaCoefficientInfo{strconv.FormatFloat(qc, 'g', 18, 64), Uint64ToString(globalQuota)}, nil
 }

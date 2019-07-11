@@ -227,7 +227,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		return nil, err
 	}
 
-	qc, _ := quota.CalcQc(db)
+	qc, _ := quota.CalcQc(db, sb.Height)
 	qcStr := strconv.FormatFloat(qc, 'g', 18, 64)
 
 	// get current quota
@@ -238,7 +238,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		if err != nil {
 			return nil, err
 		}
-		q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount)
+		q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount, sb.Height)
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +254,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if !canPoW {
 		return nil, util.ErrCalcPoWTwice
 	}
-	d, err := quota.CalcPoWDifficulty(db, quotaRequired, q)
+	d, err := quota.CalcPoWDifficulty(db, quotaRequired, q, sb.Height)
 	if err != nil {
 		return nil, err
 	}
