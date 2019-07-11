@@ -185,7 +185,7 @@ func (s *syncer) setState(state syncState) {
 }
 
 func (s *syncer) checkLoop(run *int32) {
-	checkTicker := time.NewTicker(5 * time.Second)
+	checkTicker := time.NewTicker(3 * time.Second)
 	defer checkTicker.Stop()
 
 	for {

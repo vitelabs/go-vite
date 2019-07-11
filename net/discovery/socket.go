@@ -324,7 +324,7 @@ func (a *agent) readLoop() {
 		p.from = addr
 		err = unPacket(buf[:n], p)
 		if err != nil {
-			a.log.Error(fmt.Sprintf("failed to unpack message from %s: %v", addr, err))
+			a.log.Warn(fmt.Sprintf("failed to unpack message from %s: %v", addr, err))
 			recyclePacket(p)
 			continue
 		}
