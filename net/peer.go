@@ -136,6 +136,10 @@ type Peer struct {
 	log log15.Logger
 }
 
+func (p *Peer) isReliable() bool {
+	return atomic.LoadInt32(&p.reliable) == 1
+}
+
 func (p *Peer) setReliable(bool2 bool) {
 	var v int32
 	if bool2 {

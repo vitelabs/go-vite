@@ -24,6 +24,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
@@ -281,10 +283,11 @@ Prepare:
 	s.from = current + 1
 	s.to = syncPeerHeight
 
-	if s.sync() {
+	if err := s.sync(); err == nil {
 		s.state.sync()
 		s.log.Info("syncing")
 	} else {
+		s.log.Warn(fmt.Sprintf("failed to sync: %v", err))
 		return
 	}
 
@@ -433,9 +436,9 @@ func (s *syncer) getHashHeightList(start []*ledger.HashHeight, end uint64) (list
 	return s.sk.construct(start, end), nil
 }
 
-func (s *syncer) verifyHashHeightList(start []*ledger.HashHeight, points []*HashHeightPoint) (startPoint *ledger.HashHeight, ok bool) {
+func (s *syncer) verifyHashHeightList(start []*ledger.HashHeight, points []*HashHeightPoint) (startPoint *ledger.HashHeight, err error) {
 	if len(points) == 0 {
-		return nil, false
+		return nil, errors.New("hash height list is nil")
 	}
 
 	var point *ledger.HashHeight
@@ -447,18 +450,14 @@ func (s *syncer) verifyHashHeightList(start []*ledger.HashHeight, points []*Hash
 	}
 
 	if startPoint == nil {
-		ok = false
-		s.log.Warn("skeleton has no right start point")
-		return
+		return nil, errors.New("skeleton has no right start point")
 	}
-
-	ok = true
 
 	return
 }
 
 // start [start0 = currentHeight / syncTaskSize * syncTaskSize, start1 = start0 - 100, start2 = irrevHeight ]
-func (s *syncer) sync() bool {
+func (s *syncer) sync() error {
 	s.syncWG.Add(1)
 	defer s.syncWG.Done()
 
@@ -469,17 +468,18 @@ func (s *syncer) sync() bool {
 	// construct hash height list
 	points, err := s.getHashHeightList(start, end)
 	if err != nil {
-		return false
+		return fmt.Errorf("failed to get hashheight list: %v", err)
 	}
 
-	if startPoint, ok := s.verifyHashHeightList(start, points); false == ok {
-		return false
-	} else {
-		s.from = startPoint.Height + 1
-		go s.downloadLoop(startPoint, end, points)
+	startPoint, err := s.verifyHashHeightList(start, points)
+	if err != nil {
+		return err
 	}
 
-	return true
+	s.from = startPoint.Height + 1
+	go s.downloadLoop(startPoint, end, points)
+
+	return nil
 }
 
 // init points will be construct before download
@@ -503,6 +503,7 @@ Loop:
 
 		// the last task has been submitted
 		if end%syncTaskSize != 0 {
+			s.log.Info(fmt.Sprintf("download loop done at end: %d", end))
 			return
 		}
 
@@ -515,10 +516,12 @@ Loop:
 
 		points, err = s.getHashHeightList(start, end)
 		if err != nil {
+			s.log.Warn(fmt.Sprintf("failed to get hash height list: %v", err))
 			return
 		}
 
-		if _, ok := s.verifyHashHeightList(start, points); false == ok {
+		if _, err = s.verifyHashHeightList(start, points); err != nil {
+			s.log.Warn(fmt.Sprintf("failed to verify hash height list: %v", err))
 			return
 		}
 	}

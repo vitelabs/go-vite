@@ -245,6 +245,12 @@ func (n *net) checkPeer(peer *Peer) {
 		return
 	}
 
+	highest := n.confirmedHashHeightList[0].Height
+	// peer is too high
+	if peer.isReliable() && peer.Height > highest+3600*24 {
+		return
+	}
+
 	var shouldCheck bool
 	for _, hashheight := range n.confirmedHashHeightList {
 		if hashheight.Height <= peer.Height {
@@ -253,10 +259,10 @@ func (n *net) checkPeer(peer *Peer) {
 				var interval time.Duration
 				if err != nil {
 					peer.setReliable(false)
-					interval = 20 * time.Second
+					interval = time.Minute
 				} else {
 					peer.setReliable(true)
-					interval = 20 * time.Minute
+					interval = 10 * time.Minute
 				}
 
 				time.AfterFunc(interval, func() {
@@ -271,14 +277,15 @@ func (n *net) checkPeer(peer *Peer) {
 		peer.setReliable(true)
 		lowest := n.confirmedHashHeightList[len(n.confirmedHashHeightList)-1].Height
 		if lowest > peer.Height {
-			time.Sleep(time.Duration(lowest-peer.Height) * time.Second)
-			n.checkPeer(peer)
+			const maxDuration = 10 * time.Minute
+			duration := time.Duration(lowest-peer.Height) * time.Second
+			if duration > maxDuration {
+				duration = maxDuration
+			}
+			time.AfterFunc(duration, func() {
+				n.checkPeer(peer)
+			})
 		}
-	}
-
-	height := n.confirmedHashHeightList[0].Height
-	if peer.Height > height+3600*24 {
-		return
 	}
 }
 
