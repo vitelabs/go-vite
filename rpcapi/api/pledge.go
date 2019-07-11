@@ -161,7 +161,7 @@ func (p *PledgeApi) GetPledgeAmountByUtps(utps string) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	amount, err := quota.CalcPledgeAmountByUtps(utpfF)
+	amount, err := quota.CalcPledgeAmountByUtps(p.chain, utpfF)
 	if err != nil {
 		return nil, err
 	}
@@ -192,4 +192,14 @@ func (p *PledgeApi) GetAgentPledgeInfo(params PledgeQueryParams) (*PledgeInfo, e
 		return nil, nil
 	}
 	return NewPledgeInfo(info, snapshotBlock), nil
+}
+
+type QuotaConefficientInfo struct {
+	Qc          string `json:"qc"`
+	GlobalQuota string `json:"globalQuota"`
+}
+
+func (p *PledgeApi) GetQuotaCoefficient() (*QuotaConefficientInfo, error) {
+	qc, globalQuota := quota.CalcQc(p.chain)
+	return &QuotaConefficientInfo{strconv.FormatFloat(qc, 'g', 18, 64), Uint64ToString(globalQuota)}, nil
 }

@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	qmDivision = big.NewInt(1e18)
+	qcDivision = big.NewInt(1e18)
 )
 
 type QuotaParams struct {
@@ -3610,11 +3610,11 @@ var (
 	QuotaParamMainnet = NewQuotaParams("4.201037667e-24", "6.259408129e-10")
 	QuotaParamTestnet = NewQuotaParams("4.200617563e-21", "6.409829346e-07")
 
-	qmGapMainnet      uint64 = 21000 * 74
-	qmIndexMinMainnet uint64 = 51
-	qmIndexMaxMainnet uint64 = 500
+	qcGapMainnet      uint64 = 21000 * 74
+	qcIndexMinMainnet uint64 = 51
+	qcIndexMaxMainnet uint64 = 500
 
-	qmMapMainnet = map[uint64]*big.Int{
+	qcMapMainnet = map[uint64]*big.Int{
 		51:  big.NewInt(987080173288357376),
 		52:  big.NewInt(973993424654456192),
 		53:  big.NewInt(960737597495985792),

@@ -1,6 +1,7 @@
 package quota
 
 import (
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -13,10 +14,10 @@ type NodeConfig struct {
 	sectionList      []*big.Float
 	difficultyList   []*big.Int
 	pledgeAmountList []*big.Int
-	qmGap            uint64
-	qmIndexMin       uint64
-	qmIndexMax       uint64
-	qmMap            map[uint64]*big.Int
+	qcGap            uint64
+	qcIndexMin       uint64
+	qcIndexMax       uint64
+	qcMap            map[uint64]*big.Int
 	calcQuotaFunc    func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, err error)
 }
 
@@ -50,10 +51,10 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 		nodeConfig.pledgeAmountList = pledgeAmountList
 	}
 
-	nodeConfig.qmGap = qmGapMainnet
-	nodeConfig.qmIndexMin = qmIndexMinMainnet
-	nodeConfig.qmIndexMax = qmIndexMaxMainnet
-	nodeConfig.qmMap = qmMapMainnet
+	nodeConfig.qcGap = qcGapMainnet
+	nodeConfig.qcIndexMin = qcIndexMinMainnet
+	nodeConfig.qcIndexMax = qcIndexMaxMainnet
+	nodeConfig.qcMap = qcMapMainnet
 
 	if isTest {
 		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, err error) {
@@ -78,10 +79,7 @@ func CalcBlockQuota(db quotaDb, block *ledger.AccountBlock) (uint64, error) {
 	if !util.IsPoW(block) {
 		return block.QuotaUsed, nil
 	}
-	powQuota, err := calcPoWQuota(db, block.Difficulty)
-	if err != nil {
-		return 0, err
-	}
+	powQuota := calcPoWQuotaByQc(db, block.Difficulty)
 	if block.QuotaUsed > powQuota {
 		return block.QuotaUsed - powQuota, nil
 	}
@@ -136,10 +134,7 @@ func CheckQuota(db quotaDb, q types.Quota, addr types.Address) bool {
 func calcQuotaV3(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, err error) {
 	powFlag := difficulty != nil && difficulty.Sign() > 0
 	if powFlag {
-		canPoW, err := CanPoW(db, addr)
-		if err != nil {
-			return 0, 0, 0, 0, 0, false, err
-		}
+		canPoW := CanPoW(db, addr)
 		if !canPoW {
 			return 0, 0, 0, 0, 0, false, util.ErrCalcPoWTwice
 		}
@@ -174,15 +169,9 @@ func calcQuotaTotal(db quotaDb, addr types.Address, pledgeAmount *big.Int, diffi
 	if err != nil {
 		return 0, 0, 0, 0, 0, false, err
 	}
-
-	quotaPledge, err = calcPledgeQuota(db, pledgeAmount)
-	if err != nil {
-		return 0, 0, 0, 0, 0, false, err
-	}
-	quotaAddition, err = calcPoWQuota(db, difficulty)
-	if err != nil {
-		return 0, 0, 0, 0, 0, false, err
-	}
+	qc, _, isCongestion := calcQc(db)
+	quotaPledge = calcPledgeQuota(qc, isCongestion, pledgeAmount)
+	quotaAddition = calcPoWQuota(qc, isCongestion, difficulty)
 	quotaList := db.GetQuotaUsedList(addr)
 	quotaTotal = uint64(0)
 	quotaUsedTotal := uint64(0)
@@ -227,18 +216,28 @@ func calcQuotaTotal(db quotaDb, addr types.Address, pledgeAmount *big.Int, diffi
 	return quotaTotal + quotaAddition, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg, blocked, nil
 }
 
-func calcPledgeQuota(db quotaDb, pledgeAmount *big.Int) (uint64, error) {
+func calcPledgeQuota(qc *big.Int, isCongestion bool, pledgeAmount *big.Int) uint64 {
 	if pledgeAmount == nil || pledgeAmount.Sign() <= 0 {
-		return 0, nil
+		return 0
 	}
-	return calcQuotaByIndex(getIndexInBigIntList(pledgeAmount, nodeConfig.pledgeAmountList, 0, len(nodeConfig.sectionList)-1)), nil
+	pledgeAmount = calcPledgeParam(qc, isCongestion, pledgeAmount)
+	return calcQuotaByIndex(getIndexInBigIntList(pledgeAmount, nodeConfig.pledgeAmountList, 0, len(nodeConfig.sectionList)-1))
 }
 
-func calcPoWQuota(db quotaDb, difficulty *big.Int) (uint64, error) {
+func calcPoWQuotaByQc(db quotaDb, difficulty *big.Int) uint64 {
 	if difficulty == nil || difficulty.Sign() <= 0 {
-		return 0, nil
+		return 0
 	}
-	return calcQuotaByIndex(getIndexInBigIntList(difficulty, nodeConfig.difficultyList, 0, len(nodeConfig.sectionList)-1)), nil
+	difficulty = calcPledgeParamByQc(db, difficulty)
+	return calcQuotaByIndex(getIndexInBigIntList(difficulty, nodeConfig.difficultyList, 0, len(nodeConfig.sectionList)-1))
+}
+
+func calcPoWQuota(qc *big.Int, isCongestion bool, difficulty *big.Int) uint64 {
+	if difficulty == nil || difficulty.Sign() <= 0 {
+		return 0
+	}
+	difficulty = calcPledgeParam(qc, isCongestion, difficulty)
+	return calcQuotaByIndex(getIndexInBigIntList(difficulty, nodeConfig.difficultyList, 0, len(nodeConfig.sectionList)-1))
 }
 
 func calcQuotaByIndex(index int) uint64 {
@@ -279,17 +278,17 @@ func getExactIndex(x *big.Int, list []*big.Int, index int) int {
 	}
 }
 
-func CanPoW(db quotaDb, address types.Address) (bool, error) {
+func CanPoW(db quotaDb, address types.Address) bool {
 	blocks := db.GetUnconfirmedBlocks(address)
 	for _, b := range blocks {
 		if util.IsPoW(b) {
-			return false, nil
+			return false
 		}
 	}
-	return true, nil
+	return true
 }
 
-func CalcPoWDifficulty(quotaRequired uint64, q types.Quota) (*big.Int, error) {
+func CalcPoWDifficulty(db quotaDb, quotaRequired uint64, q types.Quota) (*big.Int, error) {
 	if quotaRequired > quotaLimitForBlock {
 		return nil, util.ErrBlockQuotaLimitReached
 	}
@@ -301,10 +300,11 @@ func CalcPoWDifficulty(quotaRequired uint64, q types.Quota) (*big.Int, error) {
 		return nil, err
 	}
 	difficulty := nodeConfig.difficultyList[index]
-	return difficulty, nil
+	difficultyByQc, _, err := calcPledgeTargetParam(db, difficulty)
+	return difficultyByQc, err
 }
 
-func CalcPledgeAmountByUtps(utps float64) (*big.Int, error) {
+func CalcPledgeAmountByUtps(db quotaDb, utps float64) (*big.Int, error) {
 	if utps < 0 || utps > getMaxUtps() {
 		return nil, util.ErrInvalidMethodParam
 	} else if utps == 0 {
@@ -315,6 +315,58 @@ func CalcPledgeAmountByUtps(utps float64) (*big.Int, error) {
 	return new(big.Int).Set(nodeConfig.pledgeAmountList[index]), nil
 }
 
+func calcPledgeTargetParam(db quotaDb, target *big.Int) (*big.Int, *big.Int, error) {
+	qc, _, isCongestion := calcQc(db)
+	if !isCongestion {
+		return target, qc, nil
+	}
+	newTarget := new(big.Int).Mul(target, qcDivision)
+	newTarget.Div(newTarget, qc)
+	for true {
+		calcTarget := calcPledgeParam(qc, isCongestion, newTarget)
+		if calcTarget.Cmp(target) >= 0 {
+			break
+		}
+		newTarget.Add(newTarget, helper.Big1)
+	}
+	if newTarget.BitLen() <= 256 {
+		return newTarget, qc, nil
+	} else {
+		return nil, qc, util.ErrBlockQuotaLimitReached
+	}
+}
+
 func getMaxUtps() float64 {
 	return float64(len(nodeConfig.sectionList)) * float64(quotaForSection) / float64(QuotaForUtps)
+}
+
+func calcPledgeParamByQc(db quotaDb, param *big.Int) *big.Int {
+	qc, _, isCongestion := calcQc(db)
+	return calcPledgeParam(qc, isCongestion, param)
+}
+
+func calcPledgeParam(qc *big.Int, isCongestion bool, param *big.Int) *big.Int {
+	if !isCongestion {
+		return param
+	}
+	newParam := new(big.Int).Mul(param, qc)
+	newParam = newParam.Div(newParam, qcDivision)
+	return newParam
+}
+
+func calcQc(db quotaDb) (*big.Int, uint64, bool) {
+	// TODO hardfork
+	globalQuota := db.GetGlobalQuota().QuotaUsedTotal
+	qmIndex := (globalQuota + nodeConfig.qcGap - 1) / nodeConfig.qcGap
+	if qmIndex < nodeConfig.qcIndexMin {
+		return qcDivision, globalQuota, false
+	} else if qmIndex >= nodeConfig.qcIndexMax {
+		return nodeConfig.qcMap[nodeConfig.qcIndexMax], globalQuota, true
+	}
+	return nodeConfig.qcMap[qmIndex], globalQuota, true
+}
+
+func CalcQc(db quotaDb) (float64, uint64) {
+	qm, qlobalQuota, _ := calcQc(db)
+	return float64(qm.Uint64()) / float64(qcDivision.Uint64()), qlobalQuota
 }

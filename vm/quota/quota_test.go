@@ -224,7 +224,7 @@ func TestCanPoW(t *testing.T) {
 	addr := types.Address{}
 	for _, testCase := range testCases {
 		db := &testQuotaDb{addr, nil, testCase.blockList}
-		result, _ := CanPoW(db, addr)
+		result := CanPoW(db, addr)
 		if result != testCase.result {
 			t.Fatalf("%v CanPoW failed, result not match, expected %v, got %v", testCase.name, testCase.result, result)
 		}
@@ -778,40 +778,40 @@ var (
 	t3 = uint64(500 * 74 * 21000)
 )
 
-//Qm(x) = 1, if x<=T1
+//Qc(x) = 1, if x<=T1
 //      = a-exp(bx-bT1), if T1 <x <= T2
 //      = exp(cT2-cx)-d, if T2 <x
-// Qm(T1) = 1
-// Qm(T2) = 0.1
-// Qm(T3) = 134/(425000000)
-func TestCalcQm(t *testing.T) {
-	qmT1 := float64(1)
-	qmT2 := float64(0.1)
-	qmT3 := float64(0.000000536)
+// Qc(T1) = 1
+// Qc(T2) = 0.1
+// Qc(T3) = 134/(425000000)
+func TestCalcQc(t *testing.T) {
+	qcT1 := float64(1)
+	qcT2 := float64(0.1)
+	qcT3 := float64(0.000000536)
 
-	a := 1 + qmT1
-	b := math.Log(a-qmT2) / float64(t2-t1)
-	d := 1 - qmT2
-	c := math.Log(qmT3+d) / (float64(t2) - float64(t3))
+	a := 1 + qcT1
+	b := math.Log(a-qcT2) / float64(t2-t1)
+	d := 1 - qcT2
+	c := math.Log(qcT3+d) / (float64(t2) - float64(t3))
 	fmt.Println("a", a, "b", b, "c", c, "d", d)
 	// a=2 b=6.112894154022806e-07 c =1.254284763124381e-08 d=0.9
 	// TODO choose sections
 	/*lastNum := uint64(1000000000000000000)
 	for x := uint64(0); x <= t3; x = x + 21000*74 {
-		newNum := uint64(calcQm(a, b, c, d, x) * 1e18)
+		newNum := uint64(testCalcQc(a, b, c, d, x) * 1e18)
 		fmt.Println(x/21000, x, newNum, newNum-lastNum)
 		lastNum = newNum
 	}*/
 	gap := uint64(21000 * 74)
-	fmt.Println("qmMapMainnet = map[uint64]*big.Int{")
+	fmt.Println("qcMapMainnet = map[uint64]*big.Int{")
 	for x := t1 + gap; x <= t3; x = x + gap {
-		newNum := uint64(calcQm(a, b, c, d, x) * 1e18)
+		newNum := uint64(testCalcQc(a, b, c, d, x) * 1e18)
 		fmt.Printf("%v: big.NewInt(%v),\n", x/gap, newNum)
 	}
 	fmt.Println("}")
 }
 
-func calcQm(a, b, c, d float64, x uint64) float64 {
+func testCalcQc(a, b, c, d float64, x uint64) float64 {
 	if x <= t1 {
 		return float64(1)
 	} else if x <= t2 {
