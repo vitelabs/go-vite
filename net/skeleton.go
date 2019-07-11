@@ -30,7 +30,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
-const getHashHeightListTimeout = 30 * time.Second
+const getHashHeightListTimeout = 10 * time.Second
 
 var errTimeout = errors.New("timeout")
 
@@ -161,6 +161,11 @@ func (sk *skeleton) construct(start []*ledger.HashHeight, end uint64) (list []*H
 			From: start,
 			Step: syncTaskSize,
 			To:   end,
+		}
+
+		// max 10 peers
+		if len(ps) > 10 {
+			ps = ps[:10]
 		}
 
 		for _, p := range ps {
