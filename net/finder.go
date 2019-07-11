@@ -278,19 +278,17 @@ func (f *finder) loop() {
 	for {
 		select {
 		case <-checkTicker.C:
-			if f.total() < f.minPeers {
-				f.rw.Lock()
-				for _, n := range f.staticNodes {
-					f.dial(n)
-				}
-
-				if f._selfIsSBP {
-					for _, t := range f.targets {
-						f.dial(t)
-					}
-				}
-				f.rw.Unlock()
+			f.rw.Lock()
+			for _, n := range f.staticNodes {
+				f.dial(n)
 			}
+
+			if f._selfIsSBP {
+				for _, t := range f.targets {
+					f.dial(t)
+				}
+			}
+			f.rw.Unlock()
 
 			total := f.total()
 			if total < f.minPeers {
