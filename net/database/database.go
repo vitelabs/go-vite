@@ -157,9 +157,15 @@ func (db *DB) RetrieveMark(id vnode.NodeID) int64 {
 	return db.RetrieveInt64(key)
 }
 
+// value + time
 func (db *DB) StoreMark(id vnode.NodeID, v int64) {
 	key := append(nodeMarkPrefix, id.Bytes()...)
-	db.StoreInt64(key, v)
+
+	value := make([]byte, 16)
+	binary.BigEndian.PutUint64(value, uint64(v))
+	binary.BigEndian.PutUint64(value[8:], uint64(time.Now().Unix()))
+
+	_ = db.DB.Put(key, value, nil)
 }
 
 func (db *DB) BlockIP(ip net.IP, expiration int64) {
@@ -314,12 +320,14 @@ func (ms marks) Swap(i, j int) {
 	ms[i], ms[j] = ms[j], ms[i]
 }
 
-func (db *DB) ReadMarkNodes() (nodes []*vnode.Node) {
+func (db *DB) ReadMarkNodes(n int) (nodes []*vnode.Node) {
 	itr := db.NewIterator(util.BytesPrefix(nodeMarkPrefix), nil)
 	defer itr.Release()
 
 	var ms marks
 	prefixLen := len(nodeMarkPrefix)
+
+	now := time.Now().Unix()
 
 	for itr.Next() {
 		key := itr.Key()
@@ -329,11 +337,29 @@ func (db *DB) ReadMarkNodes() (nodes []*vnode.Node) {
 			continue
 		}
 
-		weight := decodeVarint(itr.Value())
-		ms = append(ms, mark{id, weight})
+		data := itr.Value()
+		if len(data) < 16 {
+			_ = db.Delete(key, nil)
+			continue
+		}
+
+		markValue := int64(binary.BigEndian.Uint64(data[:8]))
+		markAt := int64(binary.BigEndian.Uint64(data[8:]))
+
+		// 7d
+		if now-markAt > 24*3600*7 {
+			_ = db.Delete(key, nil)
+			continue
+		}
+
+		ms = append(ms, mark{id, markValue})
 	}
 
 	sort.Sort(ms)
+
+	if len(ms) > n {
+		ms = ms[:n]
+	}
 
 	var err error
 	var node *vnode.Node

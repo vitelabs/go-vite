@@ -91,12 +91,14 @@ type queryHandler struct {
 	queue list.List
 	term  chan struct{}
 	wg    sync.WaitGroup
+	log   log15.Logger
 }
 
 func newQueryHandler(chain Chain) (q *queryHandler, err error) {
 	q = &queryHandler{
 		msgHandlers: newHandlers("query"),
 		queue:       list.New(),
+		log:         netLog.New("module", "query"),
 	}
 
 	if err = q.register(&getSnapshotBlocksHandler{chain}); err != nil {
@@ -137,6 +139,7 @@ func (q *queryHandler) handle(msg Msg) error {
 	defer q.lock.Unlock()
 
 	if q.queue.Size() > 1000 {
+		q.log.Warn(fmt.Sprintf("query queue is more than 1000, discard message from %s", msg.Sender.String()))
 		return nil
 	}
 	q.queue.Append(msg)
@@ -176,6 +179,7 @@ func (q *queryHandler) loop() {
 			now := time.Now().Unix()
 			for _, msg := range tasks[:index] {
 				if now-msg.ReceivedAt > 20 {
+					q.log.Warn(fmt.Sprintf("fetch message from %s is expired", msg.Sender))
 					continue
 				}
 				// allocate to handlers

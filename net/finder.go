@@ -265,11 +265,11 @@ func (f *finder) total() int {
 }
 
 func (f *finder) loop() {
-	checkTicker := time.NewTicker(time.Second)
+	checkTicker := time.NewTicker(5 * time.Second)
 	defer checkTicker.Stop()
 
 	f.rw.Lock()
-	nodes := f.db.ReadMarkNodes()
+	nodes := f.db.ReadMarkNodes(30) // more than sbp count
 	for _, node := range nodes {
 		f.dial(node)
 	}
@@ -292,7 +292,7 @@ func (f *finder) loop() {
 
 			total := f.total()
 			if total < f.minPeers {
-				nodes := f.resolver.GetNodes((f.minPeers - total) * 2)
+				nodes = f.resolver.GetNodes((f.minPeers - total) * 2)
 				f.rw.Lock()
 				for _, node := range nodes {
 					f.dial(node)
