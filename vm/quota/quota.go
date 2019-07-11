@@ -13,6 +13,10 @@ type NodeConfig struct {
 	sectionList      []*big.Float
 	difficultyList   []*big.Int
 	pledgeAmountList []*big.Int
+	qmGap            uint64
+	qmIndexMin       uint64
+	qmIndexMax       uint64
+	qmMap            map[uint64]*big.Int
 	calcQuotaFunc    func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, err error)
 }
 
@@ -23,6 +27,7 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 	for i, str := range sectionStrList {
 		sectionList[i], _ = new(big.Float).SetPrec(precForFloat).SetString(str)
 	}
+
 	if isTestParam {
 		nodeConfig = NodeConfig{
 			QuotaParams:    QuotaParamTestnet,
@@ -44,6 +49,12 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 		}
 		nodeConfig.pledgeAmountList = pledgeAmountList
 	}
+
+	nodeConfig.qmGap = qmGapMainnet
+	nodeConfig.qmIndexMin = qmIndexMinMainnet
+	nodeConfig.qmIndexMax = qmIndexMaxMainnet
+	nodeConfig.qmMap = qmMapMainnet
+
 	if isTest {
 		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, err error) {
 			return 75000000, 1000000, 0, 1000000, 0, false, nil
@@ -56,6 +67,7 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 }
 
 type quotaDb interface {
+	GetGlobalQuota() types.QuotaInfo
 	GetQuotaUsedList(address types.Address) []types.QuotaInfo
 	GetUnconfirmedBlocks(address types.Address) []*ledger.AccountBlock
 	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)

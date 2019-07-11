@@ -771,3 +771,52 @@ func TestCalcPledgeAmountByUtps(t *testing.T) {
 		}
 	}
 }
+
+var (
+	t1 = uint64(50 * 74 * 21000)
+	t2 = uint64(100 * 74 * 21000)
+	t3 = uint64(500 * 74 * 21000)
+)
+
+//Qm(x) = 1, if x<=T1
+//      = a-exp(bx-bT1), if T1 <x <= T2
+//      = exp(cT2-cx)-d, if T2 <x
+// Qm(T1) = 1
+// Qm(T2) = 0.1
+// Qm(T3) = 134/(425000000)
+func TestCalcQm(t *testing.T) {
+	qmT1 := float64(1)
+	qmT2 := float64(0.1)
+	qmT3 := float64(0.000000536)
+
+	a := 1 + qmT1
+	b := math.Log(a-qmT2) / float64(t2-t1)
+	d := 1 - qmT2
+	c := math.Log(qmT3+d) / (float64(t2) - float64(t3))
+	fmt.Println("a", a, "b", b, "c", c, "d", d)
+	// a=2 b=6.112894154022806e-07 c =1.254284763124381e-08 d=0.9
+	// TODO choose sections
+	/*lastNum := uint64(1000000000000000000)
+	for x := uint64(0); x <= t3; x = x + 21000*74 {
+		newNum := uint64(calcQm(a, b, c, d, x) * 1e18)
+		fmt.Println(x/21000, x, newNum, newNum-lastNum)
+		lastNum = newNum
+	}*/
+	gap := uint64(21000 * 74)
+	fmt.Println("qmMapMainnet = map[uint64]*big.Int{")
+	for x := t1 + gap; x <= t3; x = x + gap {
+		newNum := uint64(calcQm(a, b, c, d, x) * 1e18)
+		fmt.Printf("%v: big.NewInt(%v),\n", x/gap, newNum)
+	}
+	fmt.Println("}")
+}
+
+func calcQm(a, b, c, d float64, x uint64) float64 {
+	if x <= t1 {
+		return float64(1)
+	} else if x <= t2 {
+		return a - math.Exp(b*float64(x)-b*float64(t1))
+	} else {
+		return math.Exp(c*float64(t2)-c*float64(x)) - d
+	}
+}
