@@ -37,13 +37,13 @@ func TestAlgo_FilterVotes(t *testing.T) {
 	})
 	ag := NewAlgo(info)
 	printResult(ag, 1000, 25)
-	printResult(ag, 100000, 26)
-	printResult(ag, 100000, 27)
-	printResult(ag, 100000, 28)
-	printResult(ag, 100000, 28)
-	printResult(ag, 100000, 99)
-	printResult(ag, 100000, 100)
-	printResult(ag, 100000, 101)
+	//printResult(ag, 100000, 26)
+	//printResult(ag, 100000, 27)
+	//printResult(ag, 100000, 28)
+	//printResult(ag, 100000, 28)
+	//printResult(ag, 100000, 99)
+	//printResult(ag, 100000, 100)
+	//printResult(ag, 100000, 101)
 
 }
 
@@ -79,7 +79,7 @@ func TestAlgo_FilterVotes2(t *testing.T) {
 		print("\""+v.Name+"\"", ",")
 	}
 	println()
-	expected := []string{"wj_83", "wj_97", "wj_89", "wj_91", "wj_92", "wj_96", "wj_87", "wj_77", "wj_75", "wj_88", "wj_86", "wj_79", "wj_81", "wj_80", "wj_82", "wj_95", "wj_98", "wj_84", "wj_99", "wj_90", "wj_94", "wj_85", "wj_78", "wj_49", "wj_27"}
+	expected := []string{"wj_99", "wj_98", "wj_97", "wj_96", "wj_95", "wj_94", "wj_92", "wj_91", "wj_90", "wj_89", "wj_88", "wj_87", "wj_86", "wj_85", "wj_84", "wj_83", "wj_82", "wj_81", "wj_80", "wj_79", "wj_78", "wj_77", "wj_75", "wj_49", "wj_27"}
 	for _, v := range expected {
 		print("\""+v+"\"", ",")
 	}

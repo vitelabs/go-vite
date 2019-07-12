@@ -12,7 +12,7 @@ import (
 
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 	// FOR DEBUG
-	// c.log.Info(fmt.Sprintf("insert account block %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash))
+	c.log.Info(fmt.Sprintf("insert account block %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash))
 	c.flushMu.RLock()
 	defer c.flushMu.RUnlock()
 
@@ -44,13 +44,13 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
 
 func (c *chain) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error) {
 	// FOR DEBUG
-	// c.log.Info(fmt.Sprintf("insert snapshot block %s %d\n", snapshotBlock.Hash, snapshotBlock.Height))
+	c.log.Info(fmt.Sprintf("insert snapshot block %s %d\n", snapshotBlock.Hash, snapshotBlock.Height))
 	if err := c.insertSnapshotBlock(snapshotBlock); err != nil {
 		return nil, err
 	}
 
 	// delete invalidBlocks
-	invalidBlocks := c.filterUnconfirmedBlocks(true)
+	invalidBlocks := c.filterUnconfirmedBlocks(snapshotBlock, true)
 
 	if len(invalidBlocks) > 0 {
 		if err := c.deleteAccountBlocks(invalidBlocks); err != nil {

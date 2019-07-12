@@ -271,6 +271,22 @@ func (self *tree) findEmptyForHead(headHeight uint64, headHash types.Hash) *bran
 	return nil
 }
 
+func (self *tree) Brothers(b Branch) (result []Branch) {
+	if b.Type() == Disk {
+		return
+	}
+
+	br := b.(*branch)
+	tailHeight, tailHash := b.TailHH()
+	for _, v := range br.allChildren() {
+		if v.tailHeight == tailHeight &&
+			v.tailHash == tailHash {
+			result = append(result, v)
+		}
+	}
+	return
+}
+
 func (self *tree) Branches() map[string]Branch {
 	self.branchMu.RLock()
 	defer self.branchMu.RUnlock()

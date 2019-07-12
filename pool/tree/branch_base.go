@@ -24,6 +24,9 @@ type branchBase struct {
 func (self *branchBase) size() uint64 {
 	return self.headHeight - self.tailHeight
 }
+func (self branch) UTime() time.Time {
+	return self.utime
+}
 
 func (self *branchBase) SprintHead() string {
 	return fmt.Sprintf("%d-%s", self.headHeight, self.headHash)

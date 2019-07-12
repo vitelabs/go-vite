@@ -3,11 +3,12 @@ package api
 import (
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
+	"strings"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"math/big"
-	"strings"
 )
 
 func convert(params []string, arguments abi.Arguments) ([]interface{}, error) {
@@ -185,7 +186,6 @@ func convertToBool(param string) (interface{}, error) {
 	} else {
 		return false, nil
 	}
-	return nil, errors.New(param + " convert to bool failed")
 }
 
 func convertToInt(param string, size int) (interface{}, error) {

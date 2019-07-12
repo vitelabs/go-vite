@@ -268,7 +268,7 @@ func (sp *snapshotPool) snapshotInsertItems(p batch.Batch, items []batch.Item, v
 			if err != nil {
 				return nil, item, err
 			}
-			sp.log.Info(fmt.Sprintf("[%d]insert snapshot block[%d-%s]%d-%d success.", p.Id(), block.Height(), block.Hash(), i, len(items)))
+			sp.log.Info(fmt.Sprintf("[%d]insert snapshot block[%d-%s]%d-%d [latency:%s]success.", p.Id(), block.Height(), block.Hash(), i, len(items), block.Latency()))
 			if len(accBlocks) > 0 {
 				return accBlocks, item, err
 			}

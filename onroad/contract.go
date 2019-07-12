@@ -3,6 +3,7 @@ package onroad
 import (
 	"container/heap"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/fork"
 	"strconv"
 	"sync"
 
@@ -20,10 +21,12 @@ var signalLog = slog.New("signal", "contract")
 
 // ContractWorker managers the task processor, it also maintains the blacklist and queues with priority for callers.
 type ContractWorker struct {
+	address types.Address
+
 	manager *Manager
 
-	gid     types.Gid
-	address types.Address
+	gid                 types.Gid
+	contractAddressList []types.Address
 
 	status      int
 	statusMutex sync.Mutex
@@ -35,8 +38,6 @@ type ContractWorker struct {
 
 	contractTaskProcessors []*ContractTaskProcessor
 
-	contractAddressList []types.Address
-
 	blackList      map[types.Address]bool
 	blackListMutex sync.RWMutex
 
@@ -46,7 +47,7 @@ type ContractWorker struct {
 	contractTaskPQueue contractTaskPQueue
 	ctpMutex           sync.RWMutex
 
-	selectivePendingCache sync.Map //map[types.Address]*callerPendingMap
+	selectivePendingCache *sync.Map //map[types.Address]*callerPendingMap
 
 	log log15.Logger
 }
@@ -60,8 +61,9 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		isCancel:     atomic.NewBool(false),
 		newBlockCond: common.NewTimeoutCond(),
 
-		blackList:       make(map[types.Address]bool),
-		workingAddrList: make(map[types.Address]bool),
+		blackList:             make(map[types.Address]bool),
+		workingAddrList:       make(map[types.Address]bool),
+		selectivePendingCache: &sync.Map{},
 
 		log: slog.New("worker", "contract"),
 	}
@@ -82,14 +84,14 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 	w.log = slog.New("worker", "contract", "gid", accEvent.Gid)
 
 	log := w.log.New("method", "start")
-	log.Info("Start() current status" + strconv.Itoa(w.status))
+	log.Info("Start() status=" + strconv.Itoa(w.status))
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status != start {
 		w.isCancel.Store(false)
 
 		// 1. get gid`s all contract address if error happened return immediately
-		addressList, err := w.manager.chain.GetContractList(w.gid)
+		addressList, err := w.manager.Chain().GetContractList(w.gid)
 		if err != nil {
 			w.log.Error("GetAddrListByGid ", "err", err)
 			return
@@ -99,25 +101,28 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 			return
 		}
 		w.contractAddressList = addressList
-		log.Info("get addresslist", "len", len(addressList))
+		log.Info(fmt.Sprintf("get addresslist len %v", len(addressList)))
 
 		// 2. get getAndSortAllAddrQuota it is a heavy operation so we call it only once in start
 		w.getAndSortAllAddrQuota()
-		log.Info("getAndSortAllAddrQuota", "len", len(w.contractTaskPQueue))
+		log.Info(fmt.Sprintf("getAndSortAllAddrQuota len %v", len(w.contractTaskPQueue)))
 
+		// 3. register listening events, including addContractLis and addSnapshotEventLis
 		w.manager.addContractLis(w.gid, func(address types.Address) {
 			if w.isContractInBlackList(address) {
 				return
 			}
-
 			q := w.GetPledgeQuota(address)
 			c := &contractTask{
 				Addr:  address,
 				Quota: q,
 			}
-			w.pushContractTask(c)
-			signalLog.Info(fmt.Sprintf("signal to %v and wake it up", address))
-			w.wakeupOneTp()
+
+			if !w.isCancel.Load() {
+				w.pushContractTask(c)
+				signalLog.Info(fmt.Sprintf("signal to %v and wake it up", address))
+				w.wakeupOneTp()
+			}
 		})
 
 		log.Info("addSnapshotEventLis", "gid", w.gid, "event", "snapshotEvent")
@@ -127,14 +132,18 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 					continue
 				}
 				count := w.releaseContractCallers(addr, RETRY)
-				signalLog.Info(fmt.Sprintf("snapshot line changed, signal to %v to release RETRY callers, len %v", addr, count), "snapshot", latestHeight, "event", "snapshotEvent")
-				if count > 0 {
-					q := w.GetPledgeQuota(addr)
-					c := &contractTask{
-						Addr:  addr,
-						Quota: q,
-					}
+				if count <= 0 {
+					continue
+				}
+
+				q := w.GetPledgeQuota(addr)
+				c := &contractTask{
+					Addr:  addr,
+					Quota: q,
+				}
+				if !w.isCancel.Load() {
 					w.pushContractTask(c)
+					signalLog.Info(fmt.Sprintf("snapshot line changed, signal to %v to release RETRY callers, len %v", addr, count), "snapshot", latestHeight, "event", "snapshotEvent")
 					w.wakeupOneTp()
 				}
 			}
@@ -157,7 +166,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 // Stop is to stop the ContractWorker and free up memory.
 func (w *ContractWorker) Stop() {
 	log := w.log.New("method", "stop")
-	log.Info("Stop()", "current status", w.status)
+	log.Info("Stop() status=" + strconv.Itoa(w.status))
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status == start {
@@ -169,13 +178,12 @@ func (w *ContractWorker) Stop() {
 		w.isCancel.Store(true)
 		w.newBlockCond.Broadcast()
 
-		w.clearContractBlackList()
-		w.clearWorkingAddrList()
-
 		log.Info("stop all task")
 		w.wg.Wait()
 		log.Info("end stop all task")
 
+		w.clearContractBlackList()
+		w.clearWorkingAddrList()
 		w.clearSelectiveBlocksCache()
 
 		w.status = stop
@@ -251,6 +259,10 @@ func (w *ContractWorker) clearWorkingAddrList() {
 	w.workingAddrList = make(map[types.Address]bool)
 }
 
+func (w *ContractWorker) clearSelectiveBlocksCache() {
+	w.selectivePendingCache = &sync.Map{}
+}
+
 // Don't deal with it for this around of blocks-generating period
 func (w *ContractWorker) addContractIntoWorkingList(addr types.Address) bool {
 	w.workingAddrListMutex.Lock()
@@ -292,10 +304,6 @@ func (w *ContractWorker) isContractInBlackList(addr types.Address) bool {
 		w.log.Info("isContractInBlackList", "addr", addr, "in", ok)
 	}
 	return ok
-}
-
-func (w *ContractWorker) clearSelectiveBlocksCache() {
-	w.selectivePendingCache = sync.Map{}
 }
 
 func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger.AccountBlock {
@@ -413,8 +421,8 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 	return quotas
 }
 
-func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash) error {
-	meta, err := w.manager.chain.GetContractMeta(*contractAddr)
+func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash, sbHeight uint64) error {
+	meta, err := w.manager.Chain().GetContractMeta(*contractAddr)
 	if err != nil {
 		return err
 	}
@@ -424,13 +432,22 @@ func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromH
 	if meta.SendConfirmedTimes == 0 {
 		return nil
 	}
-	sendConfirmedTimes, err := w.manager.chain.GetConfirmedTimes(*fromHash)
+	sendConfirmedTimes, err := w.manager.Chain().GetConfirmedTimes(*fromHash)
 	if err != nil {
 		return err
 	}
 	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
-		//w.log.Info(fmt.Sprintf("contract(addr:%v,ct:%v), from(hash:%v,ct:%v),", contractAddr, meta.SendConfirmedTimes, fromHash, sendConfirmedTimes))
-		return errors.New("sendBlock is not ready")
+		return errors.New("sendBlock confirmedTimes is not ready")
+	}
+
+	if fork.IsSeedFork(sbHeight) && meta.SeedConfirmedTimes > 0 {
+		isSeedCountOk, err := w.manager.Chain().IsSeedConfirmedNTimes(*fromHash, uint64(meta.SeedConfirmedTimes))
+		if err != nil {
+			return err
+		}
+		if !isSeedCountOk {
+			return errors.New("sendBlock seed confirmedTimes is not ready")
+		}
 	}
 	return nil
 }

@@ -62,7 +62,7 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	if err != nil {
 		return err
 	}
-	result, err := v.VerifyRPCAccBlock(lb, &latestSb.Hash)
+	result, err := v.VerifyRPCAccBlock(lb, latestSb)
 	if err != nil {
 		return err
 	}
@@ -71,6 +71,13 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 		return t.vite.Pool().AddDirectAccountBlock(result.AccountBlock.AccountAddress, result)
 	} else {
 		return errors.New("generator gen an empty block")
+	}
+}
+
+func (t Tx) checkSnapshotValid(latestSb *ledger.SnapshotBlock) error {
+	nowTime := time.Now()
+	if nowTime.Before(latestSb.Timestamp.Add(-10*time.Minute)) || nowTime.After(latestSb.Timestamp.Add(10*time.Minute)) {
+		return IllegalNodeTime
 	}
 	return nil
 }

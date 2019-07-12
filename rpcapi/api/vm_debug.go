@@ -3,6 +3,13 @@ package api
 import (
 	"bytes"
 	"encoding/hex"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,12 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
 )
 
 type VmDebugApi struct {
@@ -149,7 +150,7 @@ type CreateContractResult struct {
 	AccountPrivateKey string              `json:"accountPrivateKey"`
 	ContractAddr      types.Address       `json:"contractAddr"`
 	SendBlockHash     types.Hash          `json:"sendBlockHash"`
-	MethodList        []CallContractParam `json:"methodList"'`
+	MethodList        []CallContractParam `json:"methodList"`
 }
 
 func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContractResult, error) {
@@ -177,13 +178,18 @@ func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContrac
 		if err != nil {
 			return nil, err
 		}
-		createContractData, err := v.contract.GetCreateContractData(CreateContractDataParam{types.DELEGATE_GID, 1, 10, c.code, paramBytes})
+		createContractData, err := v.contract.GetCreateContractData(CreateContractDataParam{types.DELEGATE_GID, 1, 1, 10, c.code, paramBytes})
 		if err != nil {
 			return nil, err
 		}
 		if len(txParam.Amount) == 0 {
 			txParam.Amount = "0"
 		}
+		abiContract, err := abi.JSONToABIContract(strings.NewReader(c.abiJson))
+		if err != nil {
+			return nil, err
+		}
+
 		sendBlock, err := v.tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
 			SelfAddr:    &testAccount.Addr,
 			TokenTypeId: ledger.ViteTokenId,
@@ -195,6 +201,9 @@ func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContrac
 		if err != nil {
 			return nil, err
 		}
+
+		vm.AddContractABI(sendBlock.ToAddress, abiContract)
+
 		// save contractAddress and contract data
 		if err := writeContractData(c.abiJson, sendBlock.ToAddress); err != nil {
 			return nil, err
@@ -331,7 +340,7 @@ func (v *VmDebugApi) GetContractStorage(addr types.Address) (map[string]string, 
 	for {
 		if !iter.Next() {
 			if iter.Error() != nil {
-				return nil, err
+				return nil, iter.Error()
 			}
 			return m, nil
 		}

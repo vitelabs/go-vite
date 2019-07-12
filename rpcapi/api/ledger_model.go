@@ -344,15 +344,249 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 	return rt
 }
 
-func (ab *AccountBlock) IsSendBlock() bool {
-	return ab.BlockType == ledger.BlockTypeSendCreate ||
-		ab.BlockType == ledger.BlockTypeSendCall ||
-		ab.BlockType == ledger.BlockTypeSendReward ||
-		ab.BlockType == ledger.BlockTypeSendRefund
+type TxParam interface {
+	LedgerAccountBlock() (*ledger.AccountBlock, error)
 }
 
-func (ab *AccountBlock) IsReceiveBlock() bool {
-	return ab.BlockType == ledger.BlockTypeReceive ||
-		ab.BlockType == ledger.BlockTypeReceiveError ||
-		ab.BlockType == ledger.BlockTypeGenesisReceive
+type NormalRequestRawTxParam struct {
+	BlockType byte       `json:"blockType"` // 1
+	Height    string     `json:"height"`
+	Hash      types.Hash `json:"hash"`
+	PrevHash  types.Hash `json:"prevHash"`
+
+	AccountAddress types.Address `json:"accountAddress"`
+	PublicKey      []byte        `json:"publicKey"`
+
+	ToAddress types.Address     `json:"toAddress"`
+	TokenId   types.TokenTypeId `json:"tokenId"`
+	Amount    string            `json:"amount"`
+
+	Data []byte `json:"data"`
+
+	Difficulty *string `json:"difficulty"`
+	Nonce      []byte  `json:"nonce"`
+
+	Signature []byte `json:"signature"`
 }
+
+func (param NormalRequestRawTxParam) LedgerAccountBlock() (*ledger.AccountBlock, error) {
+	if types.IsContractAddr(param.AccountAddress) {
+		return nil, errors.New("can't send tx for the contract")
+	}
+
+	lAb := &ledger.AccountBlock{
+		BlockType:      param.BlockType,
+		Hash:           param.Hash,
+		PrevHash:       param.PrevHash,
+		AccountAddress: param.AccountAddress,
+		PublicKey:      param.PublicKey,
+		ToAddress:      param.ToAddress,
+		TokenId:        param.TokenId,
+		Data:           param.Data,
+
+		Signature: param.Signature,
+	}
+
+	var err error
+
+	lAb.Height, err = strconv.ParseUint(param.Height, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	lAb.Amount = big.NewInt(0)
+	if _, ok := lAb.Amount.SetString(param.Amount, 10); !ok {
+		return nil, ErrStrToBigInt
+	}
+
+	if param.Nonce != nil {
+		if param.Difficulty == nil {
+			return nil, errors.New("lack of difficulty field")
+		} else {
+			difficultyStr, ok := new(big.Int).SetString(*param.Difficulty, 10)
+			if !ok {
+				return nil, ErrStrToBigInt
+			}
+			lAb.Difficulty = difficultyStr
+			lAb.Nonce = param.Nonce
+		}
+	}
+	return lAb, nil
+}
+
+/*
+type AccountBlock struct {
+	*ledger.AccountBlock
+
+	FromAddress types.Address `json:"FromAddress"`
+
+	Height string `json:"height"`
+
+	Amount    *string       `json:"amount"`
+	Fee       *string       `json:"fee"`
+	TokenInfo *RpcTokenInfo `json:"tokenInfo"`
+
+	Difficulty *string `json:"difficulty"`
+	Quota      *string `json:"quota"`
+
+	Timestamp int64 `json:"timestamp"`
+
+	ConfirmedTimes *string     `json:"confirmedTimes"`
+	ConfirmedHash  *types.Hash `json:"confirmedHash"`
+
+	ReceiveBlockHeight string      `json:"receiveBlockHeight"`
+	ReceiveBlockHash   *types.Hash `json:"receiveBlockHash"`
+}
+
+
+// TODO set timestamp
+func (ab *AccountBlock) LedgerAccountBlock() (*ledger.AccountBlock, error) {
+	lAb := ab.AccountBlock
+	if lAb == nil {
+		lAb = &ledger.AccountBlock{}
+	}
+
+	var err error
+	lAb.Height, err = strconv.ParseUint(ab.Height, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	if ab.Quota != nil {
+		lAb.Quota, err = strconv.ParseUint(*ab.Quota, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	lAb.Amount = big.NewInt(0)
+	if ab.Amount != nil {
+		if _, ok := lAb.Amount.SetString(*ab.Amount, 10); !ok {
+			return nil, ErrStrToBigInt
+		}
+	}
+
+	lAb.Fee = big.NewInt(0)
+	if ab.Fee != nil {
+		if _, ok := lAb.Fee.SetString(*ab.Fee, 10); !ok {
+			return nil, ErrStrToBigInt
+		}
+	}
+
+	if ab.AccountBlock != nil && ab.AccountBlock.Nonce != nil {
+		if ab.Difficulty == nil {
+			return nil, errors.New("lack of difficulty field")
+		} else {
+			setString, ok := new(big.Int).SetString(*ab.Difficulty, 10)
+			if !ok {
+				return nil, ErrStrToBigInt
+			}
+			lAb.Difficulty = setString
+		}
+	}
+
+	return lAb, nil
+}
+
+func ledgerToRpcBlock(block *ledger.AccountBlock, chain chain.Chain) (*AccountBlock, error) {
+	latestSb := chain.GetLatestSnapshotBlock()
+
+	confirmedBlock, err := chain.GetConfirmSnapshotHeaderByAbHash(block.Hash)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var confirmedTimes uint64
+	var confirmedHash types.Hash
+	var timestamp int64
+
+	if confirmedBlock != nil && latestSb != nil && confirmedBlock.Height <= latestSb.Height {
+		confirmedHash = confirmedBlock.Hash
+		confirmedTimes = latestSb.Height - confirmedBlock.Height + 1
+		timestamp = confirmedBlock.Timestamp.Unix()
+	}
+
+	var fromAddress, toAddress types.Address
+	if block.IsReceiveBlock() {
+		toAddress = block.AccountAddress
+		sendBlock, err := chain.GetAccountBlockByHash(block.FromBlockHash)
+		if err != nil {
+			return nil, err
+		}
+
+		if sendBlock != nil {
+			fromAddress = sendBlock.AccountAddress
+			block.TokenId = sendBlock.TokenId
+			block.Amount = sendBlock.Amount
+			block.Fee = sendBlock.Fee
+		}
+	} else {
+		fromAddress = block.AccountAddress
+		toAddress = block.ToAddress
+	}
+
+	token, _ := chain.GetTokenInfoById(block.TokenId)
+	rpcAccountBlock := createAccountBlock(block, token, confirmedTimes)
+
+	if confirmedTimes > 0 {
+		rpcAccountBlock.ConfirmedHash = &confirmedHash
+	}
+
+	rpcAccountBlock.FromAddress = fromAddress
+	rpcAccountBlock.ToAddress = toAddress
+	rpcAccountBlock.Timestamp = timestamp
+
+	if block.IsSendBlock() {
+		receiveBlock, err := chain.GetReceiveAbBySendAb(block.Hash)
+		if err != nil {
+			return nil, err
+		}
+		if receiveBlock != nil {
+			rpcAccountBlock.ReceiveBlockHeight = strconv.FormatUint(receiveBlock.Height, 10)
+			rpcAccountBlock.ReceiveBlockHash = &receiveBlock.Hash
+		}
+	}
+
+	return rpcAccountBlock, nil
+}
+
+func createAccountBlock(ledgerBlock *ledger.AccountBlock, token *types.TokenInfo, confirmedTimes uint64) *AccountBlock {
+	zero := "0"
+	quota := strconv.FormatUint(ledgerBlock.Quota, 10)
+	confirmedTimeStr := strconv.FormatUint(confirmedTimes, 10)
+	ab := &AccountBlock{
+		AccountBlock: ledgerBlock,
+
+		Height: strconv.FormatUint(ledgerBlock.Height, 10),
+		Quota:  &quota,
+
+		Amount:         &zero,
+		Fee:            &zero,
+		TokenInfo:      RawTokenInfoToRpc(token, ledgerBlock.TokenId),
+		ConfirmedTimes: &confirmedTimeStr,
+	}
+
+	if ledgerBlock.Difficulty != nil {
+		difficulty := ledgerBlock.Difficulty.String()
+		ab.Difficulty = &difficulty
+	}
+
+	//if ledgerBlock.Timestamp != nil {
+	//	ab.Timestamp = ledgerBlock.Timestamp.Unix()
+	//}
+
+	if token != nil {
+		ab.TokenInfo = RawTokenInfoToRpc(token, ledgerBlock.TokenId)
+	}
+	if ledgerBlock.Amount != nil {
+		a := ledgerBlock.Amount.String()
+		ab.Amount = &a
+	}
+	if ledgerBlock.Fee != nil {
+		s := ledgerBlock.Fee.String()
+		ab.Fee = &s
+	}
+
+	return ab
+}
+*/

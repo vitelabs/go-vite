@@ -7,28 +7,26 @@ import (
 )
 
 type poolEventBus struct {
-	newABlock           chan struct{}
-	newSBlock           chan struct{}
 	snapshotForkChecker *time.Ticker
+	accountCompactT     *time.Ticker
+	snapshotCompactT    *time.Ticker
 	broadcasterT        *time.Ticker
 	clearT              *time.Ticker
+	accDestroyT         *time.Ticker
 	irreversibleT       *time.Ticker
+
+	accContext      *poolContext
+	snapshotContext *poolContext
 
 	wait *common.CondTimer
 }
 
 func (bus *poolEventBus) newABlockEvent() {
-	select {
-	case bus.newABlock <- struct{}{}:
-	default:
-	}
+	bus.accContext.setCompactDirty(true)
 	bus.wait.Signal()
 }
 func (bus *poolEventBus) newSBlockEvent() {
-	select {
-	case bus.newSBlock <- struct{}{}:
-	default:
-	}
+	bus.snapshotContext.setCompactDirty(true)
 	bus.wait.Signal()
 }
 
@@ -46,16 +44,27 @@ func (w *worker) work() {
 	defer bus.wait.Stop()
 	for {
 		sum := 0
+		if bus.accContext.compactDirty {
+			w.p.log.Debug("account compacts")
+			bus.accContext.setCompactDirty(false)
+			sum += w.p.accountsCompact(true)
+		}
+
+		if bus.snapshotContext.compactDirty {
+			bus.snapshotContext.setCompactDirty(false)
+			sum += w.p.snapshotCompact()
+		}
+
 		select {
-		case <-bus.newABlock:
-			sum += w.p.accountsCompact()
+		case <-bus.accountCompactT.C:
+			sum += w.p.accountsCompact(false)
 		case <-w.closed:
 			return
 		default:
 		}
 
 		select {
-		case <-bus.newSBlock:
+		case <-bus.snapshotCompactT.C:
 			sum += w.p.snapshotCompact()
 		case <-w.closed:
 			return
@@ -67,6 +76,8 @@ func (w *worker) work() {
 			w.p.checkFork()
 		case <-bus.broadcasterT.C:
 			w.p.broadcastUnConfirmedBlocks()
+		case <-bus.accDestroyT.C:
+			w.p.destroyAccounts()
 		case <-bus.clearT.C:
 			w.p.delUseLessChains()
 		case <-bus.irreversibleT.C:
@@ -86,9 +97,10 @@ func (w *worker) work() {
 
 		if sum > 0 {
 			w.p.insert()
-		} else {
-			w.p.compact()
-			w.p.insert()
+			continue
+		}
+		if bus.accContext.compactDirty || bus.snapshotContext.compactDirty {
+			continue
 		}
 		bus.wait.Wait()
 	}
@@ -98,14 +110,20 @@ func (w *worker) init() {
 	checkForkT := time.NewTicker(time.Second * 2)
 	broadcasterT := time.NewTicker(time.Second * 30)
 	clearT := time.NewTicker(time.Minute)
+	accDestroyT := time.NewTicker(time.Minute * 10)
 	irreversibleT := time.NewTicker(time.Minute * 3)
+	accountCompactT := time.NewTicker(time.Second * 6)
+	snapshotCompactT := time.NewTicker(time.Second * 1)
 
 	w.bus = &poolEventBus{
-		newABlock:           make(chan struct{}, 1),
-		newSBlock:           make(chan struct{}, 1),
 		snapshotForkChecker: checkForkT,
 		broadcasterT:        broadcasterT,
+		accountCompactT:     accountCompactT,
+		snapshotCompactT:    snapshotCompactT,
+		accContext:          &poolContext{},
+		snapshotContext:     &poolContext{},
 		clearT:              clearT,
+		accDestroyT:         accDestroyT,
 		irreversibleT:       irreversibleT,
 		wait:                common.NewCondTimer(),
 	}

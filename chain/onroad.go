@@ -37,21 +37,27 @@ func (c *chain) GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int)
 
 	blockList := make([]*ledger.AccountBlock, len(hashList))
 	count := 0
+
 	for _, v := range hashList {
 		b, err := c.GetAccountBlockByHash(v)
 		if err != nil {
 			return nil, err
 		}
 		if b == nil {
+			c.DeleteOnRoad(addr, v)
+			c.log.Error(fmt.Sprintf("block is not exit, hash %s. fix onroad, hash %s is deleted", v, v), "method", "GetOnRoadBlocksByAddr")
 			continue
 		}
 		blockList[count] = b
 		count++
 	}
+
 	return blockList[:count], nil
 }
 
 func (c *chain) DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash) {
+	c.flushMu.RLock()
+	defer c.flushMu.RUnlock()
 	c.indexDB.DeleteOnRoad(toAddress, sendBlockHash)
 }
 

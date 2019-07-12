@@ -98,3 +98,71 @@ func containsAuxCode(code []byte) bool {
 	}
 	return false
 }
+
+var (
+	auxCodePrefixWithFE          = []byte{0xfe, 0xa1, 0x65, 'b', 'z', 'z', 'r', '0', 0x58, 0x20}
+	pushCheckCount               = 3
+	statusCodeListOfConfirmTimes = []opCode{HEIGHT, TIMESTAMP, DELEGATECALL, EXTCODESIZE, EXTCODECOPY}
+	statusCodeListOfSeedCount    = []opCode{SEED, RANDOM}
+)
+
+func ContainsCertainStatusCode(code []byte) (containsConfirmTimeCode, containsSeedCountCode bool) {
+	if len(code) == 0 {
+		return false, false
+	}
+	resultCode := getCodeWithoutAuxCodeAndParams(code)
+	m := codeBitmap(resultCode)
+	containsConfirmTimeCode = false
+	containsSeedCountCode = false
+	for i := uint64(0); i < uint64(len(resultCode)); i++ {
+		if m.codeSegment(i) {
+			for _, c := range statusCodeListOfConfirmTimes {
+				if opCode(resultCode[i]) == c {
+					containsConfirmTimeCode = true
+					if containsSeedCountCode {
+						return
+					}
+				}
+			}
+			for _, c := range statusCodeListOfSeedCount {
+				if opCode(resultCode[i]) == c {
+					containsSeedCountCode = true
+					if containsConfirmTimeCode {
+						return
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
+func getCodeWithoutAuxCodeAndParams(code []byte) []byte {
+	originM := codeBitmap(code)
+	var resultCode []byte
+	prevIndex := 0
+	for {
+		index := bytes.Index(code, auxCodePrefixWithFE)
+		if index < 0 || index > len(code)-44 {
+			resultCode = append(resultCode, code[:]...)
+			break
+		}
+		flag := false
+		for i := 0; i < pushCheckCount; i++ {
+			if !originM.codeSegment(uint64(prevIndex + index + i)) {
+				flag = true
+				break
+			}
+		}
+		if flag {
+			newIndex := index + len(auxCodePrefixWithFE)
+			resultCode = append(resultCode, code[:newIndex]...)
+			code = code[newIndex:]
+			prevIndex = prevIndex + newIndex
+		} else {
+			resultCode = append(resultCode, code[:index+1]...)
+			break
+		}
+	}
+	return resultCode
+}

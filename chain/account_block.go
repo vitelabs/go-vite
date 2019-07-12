@@ -3,7 +3,6 @@ package chain
 import (
 	"errors"
 	"fmt"
-
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -60,6 +59,23 @@ func (c *chain) GetAccountBlockByHeight(addr types.Address, height uint64) (*led
 	}
 
 	return block, nil
+}
+
+func (c *chain) GetAccountBlockHashByHeight(addr types.Address, height uint64) (*types.Hash, error) {
+	// cache
+	if block := c.cache.GetAccountBlockByHeight(addr, height); block != nil {
+		return &block.Hash, nil
+	}
+
+	// query location
+	hash, _, err := c.indexDB.GetAccountBlockLocationByHeight(&addr, height)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockHashByHeight failed, error is %s, address is %s, height is %d",
+			err.Error(), addr, height))
+		c.log.Error(cErr.Error(), "method", "GetAccountBlockHashByHeight")
+		return nil, err
+	}
+	return hash, nil
 }
 
 func (c *chain) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
@@ -211,6 +227,44 @@ func (c *chain) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
 		return 0, nil
 	}
 	return latestHeight + 1 - confirmHeight, nil
+}
+
+func (c *chain) IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, error) {
+	if n <= 0 {
+		return false, errors.New("n can't be 0")
+	}
+
+	confirmedHeight, err := c.indexDB.GetConfirmHeightByHash(&blockHash)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetConfirmHeightByHash failed, blockHash is %s. Error: %s",
+			blockHash, err.Error()))
+		c.log.Error(cErr.Error(), "method", "IsSeedConfirmedNTimes")
+		return false, cErr
+	}
+
+	if confirmedHeight <= 0 {
+		return false, nil
+	}
+
+	seedCount := uint64(0)
+
+	for h := confirmedHeight; seedCount < n; h++ {
+		snapshotBlock, err := c.GetSnapshotBlockByHeight(h)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.GetSnapshotBlockByHeight failed, height is %d. Error: %s",
+				h, err.Error()))
+			c.log.Error(cErr.Error(), "method", "IsSeedConfirmedNTimes")
+			return false, cErr
+		}
+
+		if snapshotBlock == nil {
+			return false, nil
+		} else if snapshotBlock.Seed > 0 {
+			seedCount += 1
+		}
+	}
+
+	return true, nil
 }
 
 func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {

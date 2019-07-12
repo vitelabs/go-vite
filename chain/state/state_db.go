@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/patrickmn/go-cache"
+	"github.com/vitelabs/go-vite/config"
 
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/chain/utils"
@@ -20,6 +21,13 @@ import (
 type StateDB struct {
 	chain Chain
 
+	chainCfg *config.Chain
+
+	// contract address white list which save VM logs
+	vmLogWhiteListSet map[types.Address]struct{}
+	// save all VM logs
+	vmLogAll bool
+
 	store *chain_db.Store
 	cache *cache.Cache
 
@@ -29,7 +37,7 @@ type StateDB struct {
 	useCache bool
 }
 
-func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
+func NewStateDB(chain Chain, chainCfg *config.Chain, chainDir string) (*StateDB, error) {
 
 	store, err := chain_db.NewStore(path.Join(chainDir, "state"), "stateDb")
 
@@ -37,23 +45,33 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 		return nil, err
 	}
 
-	storageRedo, err := NewStorageRedo(chain, chainDir)
+	redoStore, err := chain_db.NewStore(path.Join(chainDir, "state_redo"), "stateDbRedo")
+	if err != nil {
+		return nil, err
+	}
+
+	return NewStateDBWithStore(chain, chainCfg, store, redoStore)
+}
+
+func NewStateDBWithStore(chain Chain, chainCfg *config.Chain, store *chain_db.Store, redoStore *chain_db.Store) (*StateDB, error) {
+	storageRedo, err := NewStorageRedoWithStore(chain, redoStore)
 	if err != nil {
 		return nil, err
 	}
 
 	stateDb := &StateDB{
-		chain:    chain,
-		log:      log15.New("module", "stateDB"),
-		store:    store,
-		useCache: false,
-
-		redo: storageRedo,
+		chain:             chain,
+		chainCfg:          chainCfg,
+		vmLogWhiteListSet: parseVmLogWhiteList(chainCfg.VmLogWhiteList),
+		vmLogAll:          chainCfg.VmLogAll,
+		log:               log15.New("module", "stateDB"),
+		store:             store,
+		useCache:          false,
+		redo:              storageRedo,
 	}
 	if err := stateDb.newCache(); err != nil {
 		return nil, err
 	}
-
 	return stateDb, nil
 }
 
@@ -325,4 +343,13 @@ func (sDB *StateDB) GetStatus() []interfaces.DBStatus {
 		Size:   uint64(statusList[1].Size),
 		Status: statusList[1].Status,
 	}}
+}
+
+func parseVmLogWhiteList(list []types.Address) map[types.Address]struct{} {
+	set := make(map[types.Address]struct{}, len(list))
+	for _, item := range list {
+		set[item] = struct{}{}
+	}
+	return set
+
 }

@@ -100,6 +100,9 @@ func (db *testDatabase) SetContractMeta(toAddr types.Address, meta *ledger.Contr
 	db.contractMetaMap[toAddr] = meta
 }
 func (db *testDatabase) GetContractMeta() (*ledger.ContractMeta, error) {
+	if types.IsBuiltinContractAddrInUse(db.addr) {
+		return &ledger.ContractMeta{QuotaRatio: 10}, nil
+	}
 	return db.contractMetaMap[db.addr], nil
 }
 func (db *testDatabase) SetContractCode(code []byte) {
@@ -182,6 +185,9 @@ func (db *testDatabase) GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.
 func (db *testDatabase) GetContractMetaInSnapshot(contractAddress types.Address, snapshotBlock *ledger.SnapshotBlock) (*ledger.ContractMeta, error) {
 	meta := db.contractMetaMap[contractAddress]
 	return meta, nil
+}
+func (db *testDatabase) CanWrite() bool {
+	return false
 }
 
 type testIteratorItem struct {
@@ -273,6 +279,21 @@ func (db *testDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int
 
 func (db *testDatabase) DebugGetStorage() (map[string][]byte, error) {
 	return db.storageMap[db.addr], nil
+}
+func (db *testDatabase) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
+	return 1, nil
+}
+func (db *testDatabase) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
+	if m, ok := db.accountBlockMap[addr]; ok {
+		var block *ledger.AccountBlock
+		for _, b := range m {
+			if block == nil || block.Height < b.Height {
+				block = b
+			}
+		}
+		return block, nil
+	}
+	return nil, nil
 }
 
 func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address, privKey ed25519.PrivateKey, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {

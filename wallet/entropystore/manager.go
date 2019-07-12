@@ -2,6 +2,7 @@ package entropystore
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
@@ -150,6 +151,14 @@ func (km *Manager) SignData(a types.Address, data []byte) (signedData, pubkey []
 	return key.SignData(data)
 }
 
+func (km *Manager) GetPrivateKey(a types.Address) (ed25519.PrivateKey, error) {
+	key, _, e := FindAddrFromSeed(km.unlockedSeed, a, km.maxSearchIndex)
+	if e != nil {
+		return nil, walleterrors.ErrAddressNotFound
+	}
+	return key.PrivateKey()
+}
+
 func (km *Manager) SignDataWithPassphrase(addr types.Address, passphrase string, data []byte) (signedData, pubkey []byte, err error) {
 	seed, _, err := km.ks.ExtractSeed(passphrase)
 	if err != nil {
@@ -238,6 +247,18 @@ func MnemonicToPrimaryAddr(mnemonic string) (primaryAddress *types.Address, e er
 		return nil, e
 	}
 	return primaryAddress, nil
+}
+
+func NewMnemonic() (mnemonic string, err error) {
+	entropy, err := bip39.NewEntropy(256)
+	if err != nil {
+		return "", err
+	}
+	mnemonic, err = bip39.NewMnemonic(entropy)
+	if err != nil {
+		return "", err
+	}
+	return mnemonic, nil
 }
 
 // it is very fast(in my mac 2.8GHZ intel cpu 10Ks search cost 728ms) so we dont need cache the relation

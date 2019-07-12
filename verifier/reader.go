@@ -22,4 +22,5 @@ type accountChain interface {
 	IsReceived(sendBlockHash types.Hash) (bool, error)
 	GetReceiveAbBySendAb(sendBlockHash types.Hash) (*ledger.AccountBlock, error)
 	IsGenesisAccountBlock(block types.Hash) bool
+	IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, error)
 }

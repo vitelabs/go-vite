@@ -238,3 +238,17 @@ func (a *Address) UnmarshalJSON(input []byte) error {
 func (a Address) MarshalText() ([]byte, error) {
 	return []byte(a.String()), nil
 }
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (a *Address) UnmarshalText(input []byte) error {
+	if !isString(input) {
+		return ErrJsonNotString
+	}
+
+	addresses, e := HexToAddress(strings.Trim(string(input), "\""))
+	if e != nil {
+		return e
+	}
+	a.SetBytes(addresses.Bytes())
+	return nil
+}

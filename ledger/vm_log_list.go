@@ -2,19 +2,20 @@ package ledger
 
 import (
 	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/vitepb"
 )
 
 type VmLog struct {
-	Topics []types.Hash `json:"topics"`
-	Data   []byte       `json:"data"`
+	Topics []types.Hash `json:"topics"` // the abstract information about the log
+	Data   []byte       `json:"data"`   // the detail information about the log
 }
 
 type VmLogList []*VmLog
 
-func (vll VmLogList) Hash() *types.Hash {
+func (vll VmLogList) Hash(snapshotHeight uint64, address types.Address, prevHash types.Hash) *types.Hash {
 	if len(vll) == 0 {
 		return nil
 	}
@@ -26,6 +27,12 @@ func (vll VmLogList) Hash() *types.Hash {
 			source = append(source, topic.Bytes()...)
 		}
 		source = append(source, vmLog.Data...)
+	}
+
+	if fork.IsSeedFork(snapshotHeight) {
+		// append address bytes
+		source = append(source, address.Bytes()...)
+		source = append(source, prevHash.Bytes()...)
 	}
 
 	hash, _ := types.BytesToHash(crypto.Hash256(source))

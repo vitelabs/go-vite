@@ -2,10 +2,11 @@ package chain
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"sort"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/helper"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/file_manager"
@@ -56,6 +57,23 @@ func (c *chain) GetSnapshotHeightByHash(hash types.Hash) (uint64, error) {
 	}
 
 	return height, nil
+}
+
+func (c *chain) GetSnapshotHashByHeight(height uint64) (*types.Hash, error) {
+	// cache
+	if header := c.cache.GetSnapshotHeaderByHeight(height); header != nil {
+		return &header.Hash, nil
+	}
+
+	// query location
+	hash, _, err := c.indexDB.GetSnapshotBlockByHeight(height)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.indexDB.GetSnapshotBlockByHeight failed,  height is %d. Error: %s,",
+			height, err.Error()))
+		c.log.Error(cErr.Error(), "method", "GetSnapshotBlockByHeight")
+		return nil, cErr
+	}
+	return hash, nil
 }
 
 // header without snapshot content
@@ -512,15 +530,15 @@ func (c *chain) GetRandomSeed(snapshotHash types.Hash, n int) uint64 {
 
 const DefaultSeedRangeCount = 25
 
-func (c *chain) GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error) {
-	meta, err := c.GetContractMeta(*addr)
+func (c *chain) GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error) {
+	meta, err := c.GetContractMeta(addr)
 	if err != nil {
 		return nil, err
 	}
 	if meta == nil || meta.SendConfirmedTimes == 0 {
 		return nil, nil
 	}
-	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(*fromHash)
+	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(fromHash)
 	if err != nil {
 		return nil, err
 	}
@@ -537,6 +555,53 @@ func (c *chain) GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *ty
 	return limitSb, nil
 }
 
+func (c *chain) GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error) {
+	meta, err := c.GetContractMeta(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	// return nil when meta.SeedConfirmedTimes is nil
+	if meta == nil || meta.SeedConfirmedTimes == 0 {
+		return nil, nil
+	}
+
+	firstConfirmedSb, err := c.GetConfirmSnapshotHeaderByAbHash(fromHash)
+	if err != nil {
+		return nil, err
+	}
+	if firstConfirmedSb == nil {
+		return nil, errors.New("failed to find referred sendBlock' confirmSnapshotBlock")
+	}
+
+	latestHeight := c.GetLatestSnapshotBlock().Height
+
+	seedCount := uint8(0)
+	for h := firstConfirmedSb.Height; h <= latestHeight; h++ {
+		snapshotBlock, err := c.GetSnapshotBlockByHeight(h)
+		if err != nil {
+			cErr := errors.New(fmt.Sprintf("c.GetSnapshotBlockByHeight failed, height is %d. Error: %s",
+				h, err.Error()))
+			c.log.Error(cErr.Error(), "method", "GetSeedConfirmedSnapshotBlock")
+			return nil, cErr
+		}
+
+		if snapshotBlock == nil {
+			break
+		}
+
+		if snapshotBlock.Seed > 0 {
+			seedCount += 1
+		}
+
+		if seedCount == meta.SeedConfirmedTimes {
+			return snapshotBlock, nil
+		}
+	}
+
+	return nil, errors.New("fromBlock confirmed times not enough")
+}
+
 func (c *chain) GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error) {
 	seed := c.GetRandomSeed(limitSb.Hash, DefaultSeedRangeCount)
 	seedByte := helper.LeftPadBytes(new(big.Int).SetUint64(seed).Bytes(), types.HashSize)
@@ -547,7 +612,7 @@ func (c *chain) GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uin
 	return helper.BytesToU64(resultSeed.Bytes()), nil
 }
 
-func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.SnapshotBlock, error) {
+func (c *chain) GetLastUnpublishedSeedSnapshotHeader(producer types.Address, beforeTime time.Time) (*ledger.SnapshotBlock, error) {
 	headHeight := c.GetLatestSnapshotBlock().Height
 
 	tailHeight := uint64(1)
@@ -555,13 +620,12 @@ func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.Snaps
 	if headHeight > count {
 		tailHeight = headHeight - count
 	}
-
+	seeds := make(map[uint64]struct{})
 	for h := headHeight; h >= tailHeight; h-- {
-
 		snapshotHeader, err := c.GetSnapshotHeaderByHeight(h)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("c.GetSnapshotHeaderByHeight failed, error is %s", err.Error()))
-			c.log.Error(cErr.Error(), "method", "GetLastSeedSnapshotHeader")
+			c.log.Error(cErr.Error(), "method", "GetLastUnpublishedSeedSnapshotHeader")
 			return nil, nil
 		}
 
@@ -572,9 +636,32 @@ func (c *chain) GetLastSeedSnapshotHeader(producer types.Address) (*ledger.Snaps
 			return nil, nil
 		}
 
-		if snapshotHeader.Producer() == producer && snapshotHeader.SeedHash != nil {
+		if snapshotHeader.Producer() != producer {
+			continue
+		}
+
+		if snapshotHeader.SeedHash == nil {
+			continue
+		}
+
+		if !snapshotHeader.Timestamp.Before(beforeTime) {
+			seeds[snapshotHeader.Seed] = struct{}{}
+			continue
+		}
+
+		published := false
+		for seed := range seeds {
+			seedHash := ledger.ComputeSeedHash(seed, snapshotHeader.PrevHash, snapshotHeader.Timestamp)
+			if seedHash == *snapshotHeader.SeedHash {
+				published = true
+				break
+			}
+		}
+		if !published {
 			return snapshotHeader, nil
 		}
+
+		seeds[snapshotHeader.Seed] = struct{}{}
 	}
 
 	return nil, nil

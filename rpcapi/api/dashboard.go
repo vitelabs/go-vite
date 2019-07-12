@@ -40,7 +40,7 @@ func (api DashboardApi) OsInfo(id *string) map[string]interface{} {
 		result["err"] = e
 	}
 	memS, e := mem.VirtualMemory()
-	if e != nil {
+	if e == nil {
 		result["memTotal"] = memS.Total
 		result["memFree"] = memS.Free
 	}
