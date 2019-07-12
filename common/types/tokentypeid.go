@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/helper"
-	vcrypto "github.com/vitelabs/go-vite/crypto"
 	"math/big"
 	"strings"
+
+	"github.com/vitelabs/go-vite/common/helper"
+	vcrypto "github.com/vitelabs/go-vite/crypto"
 )
 
 const (
@@ -112,4 +113,18 @@ func (tid *TokenTypeId) UnmarshalJSON(input []byte) error {
 
 func (tid TokenTypeId) MarshalText() ([]byte, error) {
 	return []byte(tid.String()), nil
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (tid *TokenTypeId) UnmarshalText(input []byte) error {
+	if !isString(input) {
+		return ErrJsonNotString
+	}
+
+	tti, e := HexToTokenTypeId(string(trimLeftRightQuotation(input)))
+	if e != nil {
+		return e
+	}
+	tid.SetBytes(tti.Bytes())
+	return nil
 }

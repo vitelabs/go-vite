@@ -139,7 +139,7 @@ func GetTokenMap(db StorageDatabase) (map[types.TokenTypeId]*types.TokenInfo, er
 	for {
 		if !iterator.Next() {
 			if iterator.Error() != nil {
-				return nil, err
+				return nil, iterator.Error()
 			}
 			break
 		}

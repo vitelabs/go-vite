@@ -43,7 +43,9 @@ func testDataDir() string {
 
 func prepareChain() chain.Chain {
 	clearChain(nil)
-	c := chain.NewChain(testDataDir(), nil, config_gen.MakeGenesisConfig(""))
+	cfg := config_gen.MakeGenesisConfig("")
+
+	c := chain.NewChain(testDataDir(), nil, cfg)
 
 	err := c.Init()
 	if err != nil {
@@ -70,9 +72,6 @@ func Test_chainRw(t *testing.T) {
 	c := prepareChain()
 	defer clearChain(c)
 
-	//log := log15.New("unittest", "chainrw")
-	//rw := newChainRw(c, log)
-	//rw.initArray(nil)
 }
 
 func TestChainRw_GetMemberInfo(t *testing.T) {
@@ -104,8 +103,8 @@ func TestChainRw_GetMemberInfo(t *testing.T) {
 }
 
 func TestChainRw_GetMemberInfo2(t *testing.T) {
-	c := NewChain(t, UnitTestDir, GenesisJson)
-	defer ClearChain(UnitTestDir)
+	c := prepareChain()
+	defer clearChain(c)
 	genesis := c.GetGenesisSnapshotBlock()
 	infos, err := c.GetConsensusGroupList(genesis.Hash)
 	if err != nil {

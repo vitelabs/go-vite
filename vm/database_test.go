@@ -100,6 +100,9 @@ func (db *testDatabase) SetContractMeta(toAddr types.Address, meta *ledger.Contr
 	db.contractMetaMap[toAddr] = meta
 }
 func (db *testDatabase) GetContractMeta() (*ledger.ContractMeta, error) {
+	if types.IsBuiltinContractAddrInUse(db.addr) {
+		return &ledger.ContractMeta{QuotaRatio: 10}, nil
+	}
 	return db.contractMetaMap[db.addr], nil
 }
 func (db *testDatabase) SetContractCode(code []byte) {
@@ -182,6 +185,9 @@ func (db *testDatabase) GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.
 func (db *testDatabase) GetContractMetaInSnapshot(contractAddress types.Address, snapshotBlock *ledger.SnapshotBlock) (*ledger.ContractMeta, error) {
 	meta := db.contractMetaMap[contractAddress]
 	return meta, nil
+}
+func (db *testDatabase) CanWrite() bool {
+	return false
 }
 
 type testIteratorItem struct {

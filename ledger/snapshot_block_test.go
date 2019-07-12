@@ -3,8 +3,12 @@ package ledger
 import (
 	"encoding/base64"
 	"encoding/json"
+
 	"fmt"
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -28,14 +32,14 @@ func createSnapshotContent(count int) SnapshotContent {
 	return sc
 }
 
-func createSnapshotBlock(scCount int) *SnapshotBlock {
+func createSnapshotBlock(scCount int, sbheight uint64) *SnapshotBlock {
 	_, privateKey, _ := types.CreateAddress()
 	now := time.Now()
 	prevHash, _ := types.BytesToHash(crypto.Hash256([]byte("This is prevHash")))
 
 	sb := &SnapshotBlock{
 		PrevHash:        prevHash,
-		Height:          123,
+		Height:          sbheight,
 		PublicKey:       privateKey.PubByte(),
 		Timestamp:       &now,
 		SnapshotContent: createSnapshotContent(scCount),
@@ -89,7 +93,7 @@ func TestSignature(t *testing.T) {
 
 func BmSnapshotBlockHash(b *testing.B, scCount int) {
 	b.StopTimer()
-	block := createSnapshotBlock(scCount)
+	block := createSnapshotBlock(scCount, 123)
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -99,7 +103,7 @@ func BmSnapshotBlockHash(b *testing.B, scCount int) {
 
 func BmSnapshotBlockSerialize(b *testing.B, scCount int) {
 	b.StopTimer()
-	block := createSnapshotBlock(scCount)
+	block := createSnapshotBlock(scCount, 123)
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -111,7 +115,7 @@ func BmSnapshotBlockSerialize(b *testing.B, scCount int) {
 
 func BmSnapshotBlockDeserialize(b *testing.B, scCount int) {
 	b.StopTimer()
-	block := createSnapshotBlock(scCount)
+	block := createSnapshotBlock(scCount, 123)
 	buf, err := block.Serialize()
 	if err != nil {
 		b.Fatal(err)
@@ -128,7 +132,7 @@ func BmSnapshotBlockDeserialize(b *testing.B, scCount int) {
 
 func BmSnapshotBlockVerifySignature(b *testing.B, scCount int) {
 	b.StopTimer()
-	block := createSnapshotBlock(scCount)
+	block := createSnapshotBlock(scCount, 123)
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -208,4 +212,25 @@ func BenchmarkSnapshotBlock_VerifySignature(b *testing.B) {
 	b.Run("snapshot 100000 accounts", func(b *testing.B) {
 		BmSnapshotBlockVerifySignature(b, 100000)
 	})
+}
+
+func TestForkComputeHash(t *testing.T) {
+
+	snapshotBlock := createSnapshotBlock(1, 10000000000000)
+	hashold := snapshotBlock.Hash
+	fork.SetForkPoints(&config.ForkPoints{
+		SeedFork: &config.ForkPoint{
+			Height:  90,
+			Version: 1,
+		},
+	})
+
+	hashnew := snapshotBlock.ComputeHash()
+
+	if hashold == hashnew {
+		t.Fatal(fmt.Sprintf("is not right, old: %+v,  new:  %+v", hashold, hashnew))
+	}
+
+	fmt.Println("old and new hash:", hashold, hashnew)
+
 }

@@ -3,6 +3,8 @@ package chain
 import (
 	"fmt"
 
+	"github.com/vitelabs/go-vite/common/fork"
+
 	"github.com/vitelabs/go-vite/chain/plugins"
 
 	"github.com/pkg/errors"
@@ -79,6 +81,10 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 		chainCfg = defaultConfig()
 	}
 
+	if !fork.IsInit() {
+		fork.SetForkPoints(genesisCfg.ForkPoints)
+	}
+
 	c := &chain{
 		genesisCfg: genesisCfg,
 		dataDir:    dir,
@@ -130,6 +136,11 @@ func (c *chain) Init() error {
 
 	// init cache
 	if err := c.initCache(); err != nil {
+		return err
+	}
+
+	// check fork points and rollback
+	if err := c.checkForkPointsAndRollback(); err != nil {
 		return err
 	}
 
@@ -236,7 +247,7 @@ func (c *chain) newDbAndRecover() error {
 	}
 
 	// new state db
-	if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
+	if c.stateDB, err = chain_state.NewStateDB(c, c.chainCfg, c.chainDir); err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
 
 		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
@@ -293,21 +304,53 @@ func (c *chain) checkAndInitData() (byte, error) {
 		return status, err
 	}
 
-	switch status {
-	case chain_genesis.LedgerInvalid:
-		break
-	case chain_genesis.LedgerEmpty:
-		// Init Ledger
+	if status == chain_genesis.LedgerInvalid {
+		return status, nil
+	}
+
+	if status == chain_genesis.LedgerEmpty {
 		if err = chain_genesis.InitLedger(c, c.genesisSnapshotBlock, c.genesisAccountBlocks); err != nil {
 			cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
 			c.log.Error(cErr.Error(), "method", "checkAndInitData")
-			return status, err
+			return chain_genesis.LedgerInvalid, err
 		}
-		status = chain_genesis.LedgerValid
 
+		status = chain_genesis.LedgerValid
 	}
 
 	return status, nil
+}
+
+func (c *chain) checkForkPointsAndRollback() error {
+	forkPointList := fork.GetForkPointList()
+
+	// check
+	var rollbackForkPoint *fork.ForkPointItem
+	for i := len(forkPointList) - 1; i >= 0; i-- {
+		forkPoint := forkPointList[i]
+		sb, err := c.GetSnapshotBlockByHeight(forkPoint.Height)
+		if err != nil {
+			return err
+		}
+
+		if sb == nil {
+			continue
+		}
+
+		if sb.ComputeHash() == sb.Hash {
+			break
+		}
+		rollbackForkPoint = forkPoint
+	}
+
+	// rollback
+	if rollbackForkPoint != nil {
+		if _, err := c.DeleteSnapshotBlocksToHeight(rollbackForkPoint.Height); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *chain) initCache() error {
