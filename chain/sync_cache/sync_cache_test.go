@@ -358,3 +358,49 @@ func TestSyncCache_Delete(t *testing.T) {
 		t.Error("different chunks")
 	}
 }
+
+func TestSyncCache_NewWriter(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		panic(err)
+	}
+
+	dir = path.Join(dir, "sync_cache")
+	err = os.RemoveAll(dir)
+	if err != nil {
+		panic(err)
+	}
+
+	cache, err := NewSyncCache(dir)
+	if err != nil {
+		panic(err)
+	}
+
+	seg := interfaces.Segment{
+		From:     1,
+		To:       100,
+		Hash:     types.Hash{1},
+		PrevHash: types.Hash{100},
+	}
+	w, err := cache.NewWriter(seg, 1000)
+	if err != nil {
+		panic(err)
+	}
+
+	err = w.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	var find bool
+	cs := cache.Chunks()
+	for _, c := range cs {
+		if c.Equal(seg) {
+			find = true
+		}
+	}
+
+	if !find {
+		t.Fail()
+	}
+}

@@ -171,7 +171,7 @@ func (cache *syncCache) readIndex() (err error) {
 	return
 }
 
-func (cache *syncCache) updateIndex(item *cacheItem) {
+func (cache *syncCache) updateIndex(item *cacheItem) (err error) {
 	data, err := item.Serialize()
 	if err != nil {
 		cache.log.Warn(fmt.Sprintf("failed to serialize item: %v", err))
@@ -182,6 +182,7 @@ func (cache *syncCache) updateIndex(item *cacheItem) {
 	if err != nil {
 		cache.log.Warn(fmt.Sprintf("failed to store item: %v", err))
 	}
+	return
 }
 
 func (cache *syncCache) NewReader(segment interfaces.Segment) (interfaces.ChunkReader, error) {

@@ -23,8 +23,9 @@ func (w *writer) Close() (err error) {
 	}
 
 	w.item.done = true
+
 	// add item to index db
-	w.cache.updateIndex(w.item)
+	err = w.cache.updateIndex(w.item)
 
 	return
 }

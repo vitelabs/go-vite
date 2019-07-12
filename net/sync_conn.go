@@ -484,7 +484,12 @@ func (f *syncConn) download(t *syncTask) (fatal bool, err error) {
 		}
 	}
 
-	_ = writer.Close()
+	err = writer.Close()
+	if err != nil {
+		fatal = false
+		_ = cache.Delete(segment)
+		return
+	}
 
 	if rerr != nil {
 		fatal = true

@@ -56,7 +56,7 @@ func (reader *Reader) Verify() {
 	}
 
 	reader.item.verified = true
-	reader.cache.updateIndex(reader.item)
+	_ = reader.cache.updateIndex(reader.item)
 }
 
 func (reader *Reader) Read() (ab *ledger.AccountBlock, sb *ledger.SnapshotBlock, err error) {
