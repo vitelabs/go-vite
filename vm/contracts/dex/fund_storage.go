@@ -28,7 +28,7 @@ var (
 	feeSumKeyPrefix     = []byte("fS:")     // feeSum:periodId
 	lastFeeSumPeriodKey = []byte("lFSPId:") //
 
-	brokerFeeSumKeyPrefix = []byte("bf:") // brokerFeeSum:periodId, must
+	brokerFeeSumKeyPrefix = []byte("bf:") // brokerFeeSum:periodId, 32 bytes prefix[3] + periodId[8]+ address[21]
 
 	pendingNewMarketActionsKey          = []byte("pmkas:")
 	pendingSetQuoteActionsKey           = []byte("psqas:")
@@ -816,6 +816,22 @@ func SaveUserFees(db vm_db.VmDb, address []byte, userFees *UserFees) {
 
 func DeleteUserFees(db vm_db.VmDb, address []byte) {
 	setValueToDb(db, GetUserFeesKey(address), nil)
+}
+
+func TruncateUserFeesToPeriod(userFees *UserFees, periodId uint64) (truncated bool) {
+	i := 0
+	for ; ; {
+		if userFees.Fees[i].Period < periodId {
+			i++
+		} else {
+			break
+		}
+	}
+	if i > 0 {
+		userFees.Fees = userFees.Fees[i:]
+		truncated = true
+	}
+	return
 }
 
 func IsValidFeeForMine(userFee *dexproto.UserFeeAccount, mineThreshold *big.Int) bool {

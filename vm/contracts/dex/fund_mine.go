@@ -9,7 +9,7 @@ import (
 )
 
 //Note: allow mine from specify periodId, former periods will be ignore
-func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int) error {
+func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int) (*big.Int, error) {
 	var (
 		feeSum                *FeeSumByPeriod
 		feeSumMap             = make(map[int32]*big.Int) // quoteTokenType -> amount
@@ -20,29 +20,28 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		ok                    bool
 	)
 	if len(amtForMarkets) == 0 {
-		return nil
+		return nil, nil
 	}
 	if feeSum, ok = GetFeeSumByPeriodId(db, periodId); !ok {
-		return nil
+		return AccumulateAmountFromMap(amtForMarkets), nil
 	}
 	for _, feeSum := range feeSum.FeesForMine {
 		feeSumMap[feeSum.QuoteTokenType] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.InviteBonusAmount))
-		toDivideVxLeaveAmtMap[feeSum.QuoteTokenType] = new(big.Int).Set(amtForMarkets[feeSum.QuoteTokenType])
 		dividedFeeMap[feeSum.QuoteTokenType] = big.NewInt(0)
 	}
 	for i := ViteTokenType; i <= UsdTokenType; i++ {
 		mineThresholdMap[int32(i)] = GetMineThreshold(db, int32(i))
+		toDivideVxLeaveAmtMap[int32(i)] = new(big.Int).Set(amtForMarkets[int32(i)])
 	}
 
 	MarkFeeSumAsMinedVxDivided(db, feeSum, periodId)
-
 	var (
 		userFeesKey, userFeesBytes []byte
 	)
 
 	iterator, err := db.NewStorageIterator(userFeeKeyPrefix)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer iterator.Release()
 	for {
@@ -59,13 +58,18 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		addressBytes := userFeesKey[len(userFeeKeyPrefix):]
 		address := types.Address{}
 		if err = address.SetBytes(addressBytes); err != nil {
-			return err
+			panic(err)
 		}
 		userFees := &UserFees{}
 		if err = userFees.DeSerialize(userFeesBytes); err != nil {
-			return err
+			panic(err)
 		}
+
+		truncated := TruncateUserFeesToPeriod(userFees, periodId)
 		if userFees.Fees[0].Period != periodId {
+			if truncated {
+				SaveUserFees(db, addressBytes, userFees)
+			}
 			continue
 		}
 		if len(userFees.Fees[0].UserFees) > 0 {
@@ -77,7 +81,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 				}
 				if feeSumAmt, ok := feeSumMap[userFee.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
 					// TODO change to continue after test
-					return fmt.Errorf("user with valid userFee, but no valid feeSum")
+					return nil, fmt.Errorf("user with valid userFee, but no valid feeSum")
 					//continue
 				} else {
 					var vxDividend, vxDividendForInvite *big.Int
@@ -112,10 +116,10 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 			SaveUserFees(db, addressBytes, userFees)
 		}
 	}
-	return nil
+	return AccumulateAmountFromMap(toDivideVxLeaveAmtMap), nil
 }
 
-func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForPledge *big.Int) error {
+func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForPledge *big.Int) (*big.Int, error) {
 	var (
 		pledgesForVxSum        *PledgesForVx
 		dividedPledgeAmountSum = big.NewInt(0)
@@ -123,21 +127,21 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 		ok                     bool
 	)
 	if amtForPledge == nil {
-		return nil
+		return nil, nil
 	}
 	if pledgesForVxSum, ok = GetPledgesForVxSum(db); !ok {
-		return nil
+		return amtForPledge, nil
 	}
 	foundPledgesForVxSum, pledgeForVxSumAmtBytes, needUpdatePledgesForVxSum, _ := MatchPledgeForVxByPeriod(pledgesForVxSum, periodId, false)
 	if !foundPledgesForVxSum { // not found vxSumFunds
-		return nil
+		return amtForPledge, nil
 	}
 	if needUpdatePledgesForVxSum {
 		SavePledgesForVxSum(db, pledgesForVxSum)
 	}
 	pledgeForVxSumAmt := new(big.Int).SetBytes(pledgeForVxSumAmtBytes)
 	if pledgeForVxSumAmt.Sign() <= 0 {
-		return nil
+		return amtForPledge, nil
 	}
 
 	var (
@@ -146,7 +150,7 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 
 	iterator, err := db.NewStorageIterator(pledgesForVxKeyPrefix)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	defer iterator.Release()
 	for {
@@ -162,11 +166,11 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 		addressBytes := pledgesForVxKey[len(pledgesForVxKeyPrefix):]
 		address := types.Address{}
 		if err = address.SetBytes(addressBytes); err != nil {
-			return err
+			panic(err)
 		}
 		pledgesForVx := &PledgesForVx{}
 		if err = pledgesForVx.DeSerialize(pledgeForVxValue); err != nil {
-			return err
+			panic(err)
 		}
 		foundPledgesForVx, pledgesForVxAmtBytes, needUpdatePledgesForVx, needDeletePledgesForVx := MatchPledgeForVxByPeriod(pledgesForVx, periodId, true)
 		if !foundPledgesForVx {
@@ -190,7 +194,7 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 			break
 		}
 	}
-	return nil
+	return amtLeavedToMine, nil
 }
 
 func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader util.ConsensusReader, amtForMakerAndMaintainer map[int32]*big.Int) error {
@@ -277,4 +281,14 @@ func GetVxToMineByPeriodId(db vm_db.VmDb, periodId uint64) *big.Int {
 		}
 	}
 	return amount
+}
+
+func AccumulateAmountFromMap(amountMap map[int32]*big.Int) *big.Int {
+	sum := big.NewInt(0)
+	for _, amt := range amountMap {
+		if amt != nil && amt.Sign() > 0 {
+			sum.Add(sum, amt)
+		}
+	}
+	return sum
 }

@@ -369,7 +369,7 @@ func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 	if err != nil {
 		return nil, err
 	}
-	return dex.VerifyDexFundBalance(db), nil
+	return dex.VerifyDexFundBalance(db, getConsensusReader(f.vite)), nil
 }
 
 func getConsensusReader(vite *vite.Vite) *util.VMConsensusReader {
