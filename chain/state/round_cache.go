@@ -14,6 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"sync"
+	"sync/atomic"
 )
 
 type RoundCacheLogItem struct {
@@ -34,12 +35,10 @@ func newRoundCacheSnapshotLog(capacity int, snapshotHeight uint64) *RoundCacheSn
 	}
 }
 
-// TODO
 type RoundCacheRedoLogs struct {
 	Logs []*RoundCacheSnapshotLog
 }
 
-// TODO
 func NewRoundCacheRedoLogs() *RoundCacheRedoLogs {
 	return &RoundCacheRedoLogs{}
 }
@@ -98,15 +97,21 @@ func NewRedoCacheData(roundIndex uint64, lastSnapshotBlock *ledger.SnapshotBlock
 	}
 }
 
+const (
+	STOP   = 0
+	INITED = 1
+)
+
 type RoundCache struct {
 	chain            Chain
 	stateDB          *StateDB
 	roundCount       uint64
-	timeIndex        core.TimeIndex // TODO new timeIndex: GetPeriodTimeIndex() TimeIndex
+	timeIndex        core.TimeIndex
 	latestRoundIndex uint64
 
-	data []*RedoCacheData
-	mu   sync.RWMutex
+	data   []*RedoCacheData
+	mu     sync.RWMutex
+	status uint32
 }
 
 func NewRoundCache(chain Chain, stateDB *StateDB, roundCount uint8) *RoundCache {
@@ -115,11 +120,33 @@ func NewRoundCache(chain Chain, stateDB *StateDB, roundCount uint8) *RoundCache 
 		stateDB:    stateDB,
 		roundCount: uint64(roundCount),
 		data:       make([]*RedoCacheData, 0, roundCount),
+		status:     STOP,
 	}
 }
 
 // build data
-func (cache *RoundCache) Init(latestSb *ledger.SnapshotBlock) error {
+func (cache *RoundCache) Init(timeIndex core.TimeIndex) (returnErr error) {
+	if cache.status >= INITED {
+		return nil
+	}
+
+	// set time index
+	cache.timeIndex = timeIndex
+
+	// stop chain write
+	cache.chain.StopWrite()
+	defer func() {
+		// recover chain write
+		cache.chain.RecoverWrite()
+
+		if returnErr != nil {
+			return
+		}
+		atomic.CompareAndSwapUint32(&cache.status, STOP, INITED)
+	}()
+	// get latest sb
+	latestSb := cache.chain.GetLatestSnapshotBlock()
+
 	// clean data
 	cache.mu.Lock()
 	cache.data = make([]*RedoCacheData, 0, cache.roundCount)
@@ -148,7 +175,6 @@ func (cache *RoundCache) Init(latestSb *ledger.SnapshotBlock) error {
 		cache.mu.Lock()
 		cache.data = roundsData
 		cache.mu.Unlock()
-
 	}
 
 	return nil
@@ -159,8 +185,9 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 	roundIndex := cache.timeIndex.Time2Index(*snapshotBlock.Timestamp)
 	defer func() {
 		if returnErr != nil {
-			cache.latestRoundIndex = roundIndex
+			return
 		}
+		cache.latestRoundIndex = roundIndex
 	}()
 
 	// roundIndex can't be smaller than cache.latestRoundIndex
@@ -230,6 +257,7 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 
 		// set prevRoundData.lastSnapshotBlock
 		prevRoundData.lastSnapshotBlock = lastSnapshotBlock
+
 		prevRoundData.mu.Unlock()
 
 	}
@@ -320,6 +348,10 @@ func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 
 // tokenId is viteTokenID
 func (cache *RoundCache) GetSnapshotViteBalanceList(snapshotHash types.Hash, addrList []types.Address) (map[types.Address]*big.Int, []types.Address, error) {
+	if cache.status < INITED {
+		return nil, nil, nil
+	}
+
 	currentData := cache.getCurrentData(snapshotHash)
 
 	if currentData == nil {
@@ -337,13 +369,16 @@ func (cache *RoundCache) GetSnapshotViteBalanceList(snapshotHash types.Hash, add
 		} else {
 			balanceMap[addr] = big.NewInt(0).SetBytes(value)
 		}
-
 	}
 
 	return balanceMap, notFoundAddressList, nil
 }
 
 func (cache *RoundCache) StorageIterator(snapshotHash types.Hash) interfaces.StorageIterator {
+	if cache.status < INITED {
+		return nil
+	}
+
 	currentData := cache.getCurrentData(snapshotHash)
 
 	if currentData == nil {
@@ -448,12 +483,10 @@ func (cache *RoundCache) initRounds(startRoundIndex, endRoundIndex uint64) ([]*R
 				return nil, errors.New(fmt.Sprintf("lastSnapshotBlock is nil, index is %d", index))
 			}
 
-			curCurrentData := cache.buildCurrentData(prevCurrentData, redoLogs)
+			curCurrentData = cache.buildCurrentData(prevCurrentData, redoLogs)
 
 			prevCurrentData = curCurrentData
 		}
-
-		// TODO
 
 		roundsData = append(roundsData, NewRedoCacheData(index, lastSnapshotBlock, curCurrentData, redoLogs))
 	}
@@ -462,7 +495,7 @@ func (cache *RoundCache) initRounds(startRoundIndex, endRoundIndex uint64) ([]*R
 }
 
 func (cache *RoundCache) queryCurrentData(roundIndex uint64) (*memdb.DB, *ledger.SnapshotBlock, error) {
-	roundData := memdb.New(leveldb.NewIComparer(comparer.DefaultComparer), 0)
+	roundData := memdb.New(comparer.DefaultComparer, 0)
 
 	// get the last snapshot block of round
 	snapshotBlock, err := cache.roundToLastSnapshotBlock(roundIndex)

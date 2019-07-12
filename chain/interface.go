@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"github.com/vitelabs/go-vite/consensus/core"
 	"math/big"
 	"time"
 
@@ -32,6 +33,7 @@ type EventListener interface {
 
 type Consensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
+	SBPReader() core.SBPStatReader
 }
 
 type Chain interface {
@@ -285,6 +287,10 @@ type Chain interface {
 	DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB)
 
 	Flusher() *chain_flusher.Flusher
+
+	StopWrite()
+
+	RecoverWrite()
 
 	// ====== Check ======
 	CheckRedo() error

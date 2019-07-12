@@ -39,9 +39,9 @@ func (rcIter *RoundCacheIterator) Value() []byte {
 }
 
 func (rcIter *RoundCacheIterator) Error() error {
-	return rcIter.Error()
+	return rcIter.iter.Error()
 }
 
 func (rcIter *RoundCacheIterator) Release() {
-	rcIter.Release()
+	rcIter.iter.Release()
 }

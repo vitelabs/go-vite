@@ -44,7 +44,7 @@ type StateDB struct {
 	useCache bool
 
 	consensusCacheLevel uint32
-	roundCache          *RoundCache // TODO new and init
+	roundCache          *RoundCache
 }
 
 func NewStateDB(chain Chain, chainCfg *config.Chain, chainDir string) (*StateDB, error) {
@@ -70,25 +70,35 @@ func NewStateDBWithStore(chain Chain, chainCfg *config.Chain, store *chain_db.St
 	}
 
 	stateDb := &StateDB{
-		chain:             chain,
-		chainCfg:          chainCfg,
-		vmLogWhiteListSet: parseVmLogWhiteList(chainCfg.VmLogWhiteList),
-		vmLogAll:          chainCfg.VmLogAll,
-		log:               log15.New("module", "stateDB"),
-		store:             store,
-		useCache:          false,
-		redo:              storageRedo,
+		chain:               chain,
+		chainCfg:            chainCfg,
+		vmLogWhiteListSet:   parseVmLogWhiteList(chainCfg.VmLogWhiteList),
+		vmLogAll:            chainCfg.VmLogAll,
+		log:                 log15.New("module", "stateDB"),
+		store:               store,
+		useCache:            false,
+		consensusCacheLevel: ConsensusNoCache,
+		redo:                storageRedo,
 	}
+
 	if err := stateDb.newCache(); err != nil {
 		return nil, err
 	}
+
+	stateDb.roundCache = NewRoundCache(chain, stateDb, 3)
 	return stateDb, nil
 }
 
 func (sDB *StateDB) Init() error {
 	defer sDB.enableCache()
 
-	return sDB.initCache()
+	if err := sDB.initCache(); err != nil {
+		return err
+	}
+	//if err := sDB.roundCache.Init(); err != nil {
+	//	return err
+	//}
+	return nil
 }
 
 func (sDB *StateDB) Close() error {
@@ -106,6 +116,14 @@ func (sDB *StateDB) Close() error {
 		return err
 	}
 	sDB.redo = nil
+	sDB.roundCache = nil
+	return nil
+}
+
+func (sDB *StateDB) SetConsensus(cs Consensus) error {
+	if err := sDB.roundCache.Init(cs.SBPReader().GetPeriodTimeIndex()); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -314,7 +332,7 @@ func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Addr
 }
 
 func (sDB *StateDB) SetCacheLevelForConsensus(level uint32) {
-	atomic.SwapUint32(&sDB.consensusCacheLevel, level)
+	atomic.StoreUint32(&sDB.consensusCacheLevel, level)
 }
 
 func (sDB *StateDB) Store() *chain_db.Store {

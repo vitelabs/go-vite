@@ -17,6 +17,9 @@ import (
 func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk, newUnconfirmedBlocks []*ledger.AccountBlock) error {
 	sDB.disableCache()
 	defer sDB.enableCache()
+	if err := sDB.rollbackRoundCache(deletedSnapshotSegments); err != nil {
+		return err
+	}
 
 	batch := sDB.store.NewBatch()
 
@@ -594,4 +597,15 @@ func (sDB *StateDB) deleteHistoryKey(batch interfaces.Batch, key []byte) {
 	if types.IsBuiltinContractAddr(addr) {
 		sDB.cache.Delete(snapshotValuePrefix + string(addrBytes) + string(sDB.parseStorageKey(key)))
 	}
+}
+
+func (sDB *StateDB) rollbackRoundCache(deletedSnapshotSegments []*ledger.SnapshotChunk) error {
+	// delete round cache
+	deletedSnapshotBlocks := make([]*ledger.SnapshotBlock, 0, len(deletedSnapshotSegments))
+	for _, chunk := range deletedSnapshotSegments {
+		if chunk.SnapshotBlock != nil {
+			deletedSnapshotBlocks = append(deletedSnapshotBlocks, chunk.SnapshotBlock)
+		}
+	}
+	return sDB.roundCache.DeleteSnapshotBlocks(deletedSnapshotBlocks)
 }

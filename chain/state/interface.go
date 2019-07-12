@@ -2,6 +2,7 @@ package chain_state
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 	"time"
@@ -19,6 +20,11 @@ type EventListener interface {
 
 	PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
 	DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
+}
+
+type Consensus interface {
+	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
+	SBPReader() core.SBPStatReader
 }
 
 type Chain interface {
@@ -40,4 +46,8 @@ type Chain interface {
 
 	// header without snapshot content
 	GetSnapshotHeaderByHeight(height uint64) (*ledger.SnapshotBlock, error)
+
+	StopWrite()
+
+	RecoverWrite()
 }

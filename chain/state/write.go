@@ -238,6 +238,10 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 
 	// write snapshot
 	sDB.store.WriteSnapshot(batch, confirmedBlocks)
+
+	// set round cache
+	sDB.roundCache.InsertSnapshotBlock(snapshotBlock, snapshotRedoLog)
+
 	return nil
 
 }
