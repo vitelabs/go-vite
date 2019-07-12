@@ -230,7 +230,7 @@ func newPeer(c Codec, their *HandshakeMsg, publicAddress, fileAddress string, su
 		writing:       0,
 		readQueue:     make(chan Msg, 10),
 		writeQueue:    make(chan Msg, 1000),
-		errChan:       make(chan error, 1),
+		errChan:       make(chan error, 4), // read write handle catch
 		wg:            sync.WaitGroup{},
 		manager:       manager,
 		handler:       handler,
