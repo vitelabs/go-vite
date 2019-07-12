@@ -164,9 +164,8 @@ func (n *net) onConnection(conn _net.Conn, id peerId, inbound bool) {
 
 	peer := newPeer(c, their, publicAddress, fileAddress, superior, flag, n.peers, n.handlers)
 
-	if err = n.onPeerAdded(peer); err != nil {
-		_ = Disconnect(c, err)
-	}
+	// run peer
+	_ = n.onPeerAdded(peer)
 
 	n.onPeerRemoved(peer)
 }
@@ -292,6 +291,7 @@ func (n *net) checkPeer(peer *Peer) {
 func (n *net) onPeerAdded(peer *Peer) (err error) {
 	err = n.peers.add(peer)
 	if err != nil {
+		_ = Disconnect(peer.codec, err)
 		return
 	}
 
@@ -303,6 +303,8 @@ func (n *net) onPeerAdded(peer *Peer) (err error) {
 	} else {
 		n.log.Info(fmt.Sprintf("peer %s run done", peer))
 	}
+
+	_ = peer.Close(err)
 
 	return
 }
