@@ -201,6 +201,10 @@ func (db *memoryDatabase) GetQuotaUsedList(addr types.Address) []types.QuotaInfo
 	return list
 }
 
+func (db *memoryDatabase) GetGlobalQuota() types.QuotaInfo {
+	return types.QuotaInfo{}
+}
+
 func (db *memoryDatabase) SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta) {
 }
 func (db *memoryDatabase) GetContractMeta() (*ledger.ContractMeta, error) {

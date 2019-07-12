@@ -188,7 +188,11 @@ type CalcPoWDifficultyParam struct {
 	Data      []byte         `json:"data"`
 
 	UsePledgeQuota bool `json:"usePledgeQuota"`
+
+	Multiple uint16 `json:"multipleOnCongestion"`
 }
+
+var multipleDivision = big.NewInt(10)
 
 type CalcPoWDifficultyResult struct {
 	QuotaRequired uint64 `json:"quota"`
@@ -227,7 +231,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		return nil, err
 	}
 
-	qc, _ := quota.CalcQc(db, sb.Height)
+	qc, _, isCongestion := quota.CalcQc(db, sb.Height)
 	qcStr := strconv.FormatFloat(qc, 'g', 18, 64)
 
 	// get current quota
@@ -257,6 +261,10 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	d, err := quota.CalcPoWDifficulty(db, quotaRequired, q, sb.Height)
 	if err != nil {
 		return nil, err
+	}
+	if isCongestion && param.Multiple > uint16(multipleDivision.Uint64()) {
+		d.Mul(d, multipleDivision)
+		d.Div(d, big.NewInt(int64(param.Multiple)))
 	}
 	return &CalcPoWDifficultyResult{quotaRequired, d.String(), qcStr}, nil
 }

@@ -300,7 +300,7 @@ func CalcPoWDifficulty(db quotaDb, quotaRequired uint64, q types.Quota, sbHeight
 	if err != nil {
 		return nil, err
 	}
-	difficulty := nodeConfig.difficultyList[index]
+	difficulty := new(big.Int).Set(nodeConfig.difficultyList[index])
 	difficultyByQc, _, err := calcPledgeTargetParam(db, difficulty, sbHeight)
 	return difficultyByQc, err
 }
@@ -369,7 +369,7 @@ func calcQc(db quotaDb, sbHeight uint64) (*big.Int, uint64, bool) {
 	return nodeConfig.qcMap[qmIndex], globalQuota, true
 }
 
-func CalcQc(db quotaDb, sbHeight uint64) (float64, uint64) {
-	qm, qlobalQuota, _ := calcQc(db, sbHeight)
-	return float64(qm.Uint64()) / float64(qcDivision.Uint64()), qlobalQuota
+func CalcQc(db quotaDb, sbHeight uint64) (float64, uint64, bool) {
+	qm, qlobalQuota, isCongestion := calcQc(db, sbHeight)
+	return float64(qm.Uint64()) / float64(qcDivision.Uint64()), qlobalQuota, isCongestion
 }

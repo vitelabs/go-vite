@@ -267,6 +267,10 @@ func (db *testDatabase) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 	return list
 }
 
+func (db *testDatabase) GetGlobalQuota() types.QuotaInfo {
+	return types.QuotaInfo{}
+}
+
 func (db *testDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	data := db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(*addr))]
 	if len(data) > 0 {

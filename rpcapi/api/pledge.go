@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"sort"
-	"strconv"
 )
 
 type PledgeApi struct {
@@ -157,7 +156,7 @@ func (p *PledgeApi) GetQuotaUsedList(addr types.Address) ([]types.QuotaInfo, err
 }
 
 func (p *PledgeApi) GetPledgeAmountByUtps(utps string) (*string, error) {
-	utpfF, err := strconv.ParseFloat(utps, 64)
+	utpfF, err := StringToFloat64(utps)
 	if err != nil {
 		return nil, err
 	}
@@ -195,11 +194,12 @@ func (p *PledgeApi) GetAgentPledgeInfo(params PledgeQueryParams) (*PledgeInfo, e
 }
 
 type QuotaCoefficientInfo struct {
-	Qc          string `json:"qc"`
-	GlobalQuota string `json:"globalQuota"`
+	Qc           string `json:"qc"`
+	GlobalQuota  string `json:"globalQuota"`
+	IsCongestion bool   `json:"isCongestion"`
 }
 
 func (p *PledgeApi) GetQuotaCoefficient() (*QuotaCoefficientInfo, error) {
-	qc, globalQuota := quota.CalcQc(p.chain, p.chain.GetLatestSnapshotBlock().Height)
-	return &QuotaCoefficientInfo{strconv.FormatFloat(qc, 'g', 18, 64), Uint64ToString(globalQuota)}, nil
+	qc, globalQuota, isCongestion := quota.CalcQc(p.chain, p.chain.GetLatestSnapshotBlock().Height)
+	return &QuotaCoefficientInfo{Float64ToString(qc, 18), Uint64ToString(globalQuota), isCongestion}, nil
 }
