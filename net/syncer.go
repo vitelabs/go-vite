@@ -325,7 +325,6 @@ Prepare:
 				if now.Sub(lastCheckTime) > s.timeout {
 					s.log.Error("sync error: stuck")
 					s.stopSync()
-					s.syncWG.Wait()
 
 					if retrySync > 3 {
 						s.state.error(syncErrorStuck)
@@ -458,9 +457,6 @@ func (s *syncer) verifyHashHeightList(start []*ledger.HashHeight, points []*Hash
 
 // start [start0 = currentHeight / syncTaskSize * syncTaskSize, start1 = start0 - 100, start2 = irrevHeight ]
 func (s *syncer) sync() error {
-	s.syncWG.Add(1)
-	defer s.syncWG.Done()
-
 	// get hash height list first
 	start := s.getInitStart()
 	end := s.getEnd(start)
@@ -484,6 +480,11 @@ func (s *syncer) sync() error {
 
 // init points will be construct before download
 func (s *syncer) downloadLoop(point *ledger.HashHeight, end uint64, points []*HashHeightPoint) {
+	s.log.Info("begin download loop")
+
+	s.syncWG.Add(1)
+	defer s.syncWG.Done()
+
 	atomic.StoreInt32(&s.taskCanceled, 0)
 
 	var err error
@@ -495,7 +496,9 @@ Loop:
 		if tasks := s.reader.compareCache(point, points); len(tasks) > 0 {
 			for _, t := range tasks {
 				// could be blocked when downloader tasks queue is full
-				if false == s.downloader.download(t, false) && atomic.LoadInt32(&s.taskCanceled) == 1 {
+				if false == s.downloader.download(t, false) || atomic.LoadInt32(&s.taskCanceled) == 1 {
+					s.log.Warn("break download loop")
+					s.downloader.cancelAllTasks()
 					break Loop
 				}
 			}
@@ -528,9 +531,11 @@ Loop:
 }
 
 func (s *syncer) stopSync() {
-	s.downloader.cancelAllTasks() // cancel first, because downloadLoop is blocked when download task queue is full
+	s.log.Warn("stop sync")
 	atomic.StoreInt32(&s.taskCanceled, 1)
+	s.downloader.cancelAllTasks() // cancel first, because downloadLoop is blocked when download task queue is full
 	s.reader.reset()
+	s.syncWG.Wait()
 }
 
 type SyncStatus struct {
