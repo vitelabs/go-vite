@@ -398,6 +398,11 @@ func (f *fetcher) FetchSnapshotBlocks(hash types.Hash, count uint64) {
 
 	ps := f.filter.pickTargets(r, 0, f.peers)
 
+	if len(ps) == 0 {
+		f.log.Warn(fmt.Sprintf("no suit peers for %s", hash))
+		return
+	}
+
 	for _, p := range ps {
 		if p != nil {
 			m := &GetSnapshotBlocks{
@@ -440,6 +445,11 @@ func (f *fetcher) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, 
 
 	ps := f.filter.pickTargets(r, height, f.peers)
 
+	if len(ps) == 0 {
+		f.log.Warn(fmt.Sprintf("no suit peers for %s", hash))
+		return
+	}
+
 	for _, p := range ps {
 		if p != nil {
 			m := &GetSnapshotBlocks{
@@ -479,6 +489,11 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 	}
 
 	ps := f.filter.pickTargets(r, 0, f.peers)
+
+	if len(ps) == 0 {
+		f.log.Warn(fmt.Sprintf("no suit peers for %s", start))
+		return
+	}
 
 	for _, p := range ps {
 		if p != nil {
@@ -526,6 +541,11 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 	}
 
 	ps := f.filter.pickTargets(r, sHeight, f.peers)
+
+	if len(ps) == 0 {
+		f.log.Warn(fmt.Sprintf("no suit peers for %s", start))
+		return
+	}
 
 	for _, p := range ps {
 		if p != nil {
