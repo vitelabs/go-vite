@@ -880,16 +880,16 @@ func (md MethodDexFundMarketOwnerConfig) DoReceive(db vm_db.VmDb, block *ledger.
 			marketInfo.Owner = param.Owner.Bytes()
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigTakerRate) {
-			if !dex.ValidBrokerFeeRate(param.TakerRate) {
+			if !dex.ValidBrokerFeeRate(param.TakerFeeRate) {
 				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundMarketOwnerConfig, dex.InvalidBrokerFeeRateErr, sendBlock)
 			}
-			marketInfo.TakerBrokerFeeRate = param.TakerRate
+			marketInfo.TakerBrokerFeeRate = param.TakerFeeRate
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigMakerRate) {
-			if !dex.ValidBrokerFeeRate(param.MakerRate) {
+			if !dex.ValidBrokerFeeRate(param.MakerFeeRate) {
 				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundMarketOwnerConfig, dex.InvalidBrokerFeeRateErr, sendBlock)
 			}
-			marketInfo.MakerBrokerFeeRate = param.MakerRate
+			marketInfo.MakerBrokerFeeRate = param.MakerFeeRate
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerStopMarket) {
 			marketInfo.Stopped = param.StopMarket
@@ -1017,9 +1017,6 @@ func (md *MethodDexFundNewInviter) GetReceiveQuota() uint64 {
 }
 
 func (md *MethodDexFundNewInviter) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Cmp(dex.NewInviterFeeAmount) < 0 {
-		return dex.InvalidInviterFeeAmountErr
-	}
 	return nil
 }
 
@@ -1060,7 +1057,8 @@ func (md *MethodDexFundBindInviteCode) GetReceiveQuota() uint64 {
 }
 
 func (md *MethodDexFundBindInviteCode) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if err := cabi.ABIDexFund.UnpackMethod(new(string), cabi.MethodNameDexFundBindInviteCode, block.Data); err != nil {
+	var code uint32
+	if err := cabi.ABIDexFund.UnpackMethod(&code, cabi.MethodNameDexFundBindInviteCode, block.Data); err != nil {
 		return err
 	}
 	return nil

@@ -110,9 +110,10 @@ var simpleContracts = map[types.Address]*builtinContract{
 	},
 	types.AddressDexTrade: {
 		map[string]BuiltinContractMethod{
-			cabi.MethodNameDexTradeNewOrder:        &MethodDexTradeNewOrder{},
-			cabi.MethodNameDexTradeCancelOrder:     &MethodDexTradeCancelOrder{},
-			cabi.MethodNameDexTradeNotifyNewMarket: &MethodDexTradeNotifyNewMarket{},
+			cabi.MethodNameDexTradeNewOrder:          &MethodDexTradeNewOrder{},
+			cabi.MethodNameDexTradeCancelOrder:       &MethodDexTradeCancelOrder{},
+			cabi.MethodNameDexTradeNotifyNewMarket:   &MethodDexTradeNotifyNewMarket{},
+			cabi.MethodNameDexTradeCleanExpireOrders: &MethodDexTradeCleanExpireOrders{},
 		},
 		cabi.ABIDexTrade,
 	},

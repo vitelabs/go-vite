@@ -272,8 +272,8 @@ type ParamDexFundMarketOwnerConfig struct {
 	TradeToken    types.TokenTypeId
 	QuoteToken    types.TokenTypeId
 	Owner         types.Address
-	TakerRate     int32
-	MakerRate     int32
+	TakerFeeRate     int32
+	MakerFeeRate     int32
 	StopMarket    bool
 }
 
@@ -820,8 +820,9 @@ func DeleteUserFees(db vm_db.VmDb, address []byte) {
 
 func TruncateUserFeesToPeriod(userFees *UserFees, periodId uint64) (truncated bool) {
 	i := 0
+	size := len(userFees.Fees)
 	for ; ; {
-		if userFees.Fees[i].Period < periodId {
+		if i < size && userFees.Fees[i].Period < periodId {
 			i++
 		} else {
 			break
@@ -1468,10 +1469,13 @@ func SaveCodeByInviter(db vm_db.VmDb, address types.Address, inviteCode uint32) 
 	setValueToDb(db, append(codeByInviterKeyPrefix, address.Bytes()...), Uint32ToBytes(inviteCode))
 }
 
-func GetInviterByCode(db vm_db.VmDb, inviteCode uint32) (inviter *types.Address, err error) {
+func GetInviterByCode(db vm_db.VmDb, inviteCode uint32) (*types.Address, error) {
 	if bs := getValueFromDb(db, append(inviterByCodeKeyPrefix, Uint32ToBytes(inviteCode)...)); len(bs) == types.AddressSize {
-		*inviter, err = types.BytesToAddress(bs)
-		return
+		if inviter, err := types.BytesToAddress(bs); err != nil {
+			return nil, err
+		} else {
+			return &inviter, nil
+		}
 	} else {
 		return nil, InvalidInviteCodeErr
 	}
@@ -1485,10 +1489,13 @@ func SaveInviterByInvitee(db vm_db.VmDb, invitee, inviter types.Address) {
 	setValueToDb(db, append(inviterByInviteeKeyPrefix, invitee.Bytes()...), inviter.Bytes())
 }
 
-func GetInviterByInvitee(db vm_db.VmDb, address types.Address) (inviter *types.Address, err error) {
+func GetInviterByInvitee(db vm_db.VmDb, address types.Address) (*types.Address, error) {
 	if bs := getValueFromDb(db, append(inviterByInviteeKeyPrefix, address.Bytes()...)); len(bs) == types.AddressSize {
-		*inviter, err = types.BytesToAddress(bs)
-		return
+		if inviter, err := types.BytesToAddress(bs); err != nil {
+			return nil, err
+		} else {
+			return &inviter, nil
+		}
 	} else {
 		return nil, NotBindInviterErr
 	}

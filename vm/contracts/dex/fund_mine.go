@@ -66,10 +66,16 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		}
 
 		truncated := TruncateUserFeesToPeriod(userFees, periodId)
-		if userFees.Fees[0].Period != periodId {
-			if truncated {
+		if truncated {
+			if len(userFees.Fees) == 0 {
+				DeleteUserFees(db, addressBytes)
+				continue
+			} else if userFees.Fees[0].Period != periodId {
 				SaveUserFees(db, addressBytes, userFees)
+				continue
 			}
+		}
+		if userFees.Fees[0].Period != periodId {
 			continue
 		}
 		if len(userFees.Fees[0].UserFees) > 0 {
@@ -81,7 +87,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 				}
 				if feeSumAmt, ok := feeSumMap[userFee.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
 					// TODO change to continue after test
-					return nil, fmt.Errorf("user with valid userFee, but no valid feeSum")
+					panic(fmt.Errorf("user with valid userFee, but no valid feeSum"))
 					//continue
 				} else {
 					var vxDividend, vxDividendForInvite *big.Int

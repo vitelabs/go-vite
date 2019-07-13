@@ -20,8 +20,8 @@ type RpcMarketInfo struct {
 	QuoteTokenType     int32  `json:"quoteTokenType"`
 	TradeTokenDecimals int32  `json:"tradeTokenDecimals,omitempty"`
 	QuoteTokenDecimals int32  `json:"quoteTokenDecimals"`
-	TakerBrokerFeeRate int32  `json:"takerBrokerFeeRate,omitempty"`
-	MakerBrokerFeeRate int32  `json:"makerBrokerFeeRate,omitempty"`
+	TakerBrokerFeeRate int32  `json:"takerBrokerFeeRate"`
+	MakerBrokerFeeRate int32  `json:"makerBrokerFeeRate"`
 	AllowMine          bool   `json:"allowMine"`
 	Valid              bool   `json:"valid"`
 	Owner              string `json:"owner"`
@@ -224,6 +224,26 @@ func VxFundsToRpc(funds *dex.VxFunds) *RpcVxFunds {
 type RpcThresholdForTradeAndMine struct {
 	TradeThreshold string `json:"tradeThreshold"`
 	MineThreshold  string `json:"mineThreshold"`
+}
+
+type RpcPledgeForVxByPeriod struct {
+	Period uint64 `json:"period"`
+	Amount string `json:"amount"`
+}
+
+type RpcPledgesForVx struct {
+	Pledges []*RpcPledgeForVxByPeriod `json:"Pledges"`
+}
+
+func PledgesForVxToRpc(pledges *dex.PledgesForVx) *RpcPledgesForVx {
+	rpcPledges := &RpcPledgesForVx{}
+	for _, pledge := range pledges.Pledges {
+		rpcPledge := &RpcPledgeForVxByPeriod{}
+		rpcPledge.Period = pledge.Period
+		rpcPledge.Amount = AmountBytesToString(pledge.Amount)
+		rpcPledges.Pledges = append(rpcPledges.Pledges, rpcPledge)
+	}
+	return rpcPledges
 }
 
 func AmountBytesToString(amt []byte) string {

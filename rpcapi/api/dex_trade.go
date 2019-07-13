@@ -27,8 +27,7 @@ func (f DexTradeApi) String() string {
 	return "DexTradeApi"
 }
 
-func (f DexTradeApi) GetOrderById(orderIdStr string, tradeToken, quoteToken types.TokenTypeId, side bool) (*RpcOrder, error) {
-
+func (f DexTradeApi) GetOrderById(orderIdStr string) (*RpcOrder, error) {
 	orderId, err := base64.StdEncoding.DecodeString(orderIdStr)
 	if err != nil {
 		return nil, err
@@ -66,6 +65,18 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 					return &OrdersRes{OrdersToRpc(ods), size}, err
 				}
 			}
+		}
+	}
+}
+
+func (f DexTradeApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMarketInfo, err error) {
+	if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+		return nil, err
+	} else {
+		if marketInfo, ok := dex.GetMarketInfoById(tradeDb, marketId); ok {
+			return apidex.MarketInfoToRpc(marketInfo), nil
+		} else {
+			return nil, nil
 		}
 	}
 }
@@ -118,7 +129,7 @@ func OrderToRpc(order *dex.Order) *RpcOrder {
 	}
 	address, _ := types.BytesToAddress(order.Address)
 	rpcOrder := &RpcOrder{}
-	rpcOrder.Id = base64.RawStdEncoding.EncodeToString(order.Id)
+	rpcOrder.Id = base64.StdEncoding.EncodeToString(order.Id)
 	rpcOrder.Address = address.String()
 	rpcOrder.MarketId = order.MarketId
 	rpcOrder.Side = order.Side

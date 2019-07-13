@@ -62,7 +62,6 @@ func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteTo
 }
 
 func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeTokenInfo *TokenInfo) {
-	marketInfo.MarketId = NewAndSaveMarketId(db)
 	marketInfo.MarketSymbol = fmt.Sprintf("%s_%s", getDexTokenSymbol(tradeTokenInfo), marketInfo.MarketSymbol)
 	marketInfo.TradeTokenDecimals = tradeTokenInfo.Decimals
 	marketInfo.Valid = true
@@ -80,6 +79,7 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	userFee.Address = address.Bytes()
 	userFee.BaseFee = NewMarketFeeMineAmount.Bytes()
 	SettleFeesWithTokenId(db, reader, true, ledger.ViteTokenId, ViteTokenDecimals, ViteTokenType, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
+	marketInfo.MarketId = NewAndSaveMarketId(db)
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
 	AddMarketEvent(db, marketInfo)
 	var marketBytes, syncData, burnData []byte

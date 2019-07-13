@@ -307,6 +307,30 @@ func (f DexFundApi) GetPledgeForVX(address types.Address) (string, error) {
 	return dex.GetPledgeForVx(db, address).String(), nil
 }
 
+func (f DexFundApi) GetPledgesForVx(address types.Address) (*apidex.RpcPledgesForVx, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if pledgesForVx, ok := dex.GetPledgesForVx(db, address); ok {
+		return apidex.PledgesForVxToRpc(pledgesForVx), nil
+	} else {
+		return nil, nil
+	}
+}
+
+func (f DexFundApi) GetPledgesForVxSum() (*apidex.RpcPledgesForVx, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if pledgesForVxSum, ok := dex.GetPledgesForVxSum(db); ok {
+		return apidex.PledgesForVxToRpc(pledgesForVxSum), nil
+	} else {
+		return nil, nil
+	}
+}
+
 func (f DexFundApi) GetFundConfig() (map[string]string, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
@@ -328,6 +352,14 @@ func (f DexFundApi) GetFundConfig() (map[string]string, error) {
 		configs["maintainer"] = maintainer.String()
 	}
 	return configs, nil
+}
+
+func  (f DexFundApi) IsViteXStopped() (bool, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return false, err
+	}
+	return dex.IsViteXStopped(db), nil
 }
 
 func (f DexFundApi) GetThresholdForTradeAndMine() (map[int]*apidex.RpcThresholdForTradeAndMine, error) {
@@ -361,6 +393,18 @@ func (f DexFundApi) GetInviteeCode(address types.Address) (uint32, error) {
 		return 0, err
 	} else {
 		return dex.GetCodeByInviter(db, *inviter), nil
+	}
+}
+
+func (f DexFundApi) GetPeriodJobLastPeriodId(bizType uint8) (uint64, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return 0, err
+	}
+	if lastPeriodId := dex.GetLastJobPeriodIdByBizType(db, bizType); err != nil {
+		return 0, err
+	} else {
+		return lastPeriodId, nil
 	}
 }
 

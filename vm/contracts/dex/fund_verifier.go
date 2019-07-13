@@ -8,20 +8,19 @@ import (
 )
 
 type FundVerifyRes struct {
-	UserCount   int                                   `json:"userCount"`
-	Ok          bool                                  `json:"ok"`
-	VerifyItems map[types.TokenTypeId]*FundVerifyItem `json:"balances"`
+	UserCount      int                                   `json:"userCount"`
+	BalanceMatched bool                                  `json:"balanceMatched"`
+	VerifyItems    map[types.TokenTypeId]*FundVerifyItem `json:"balances"`
 }
 
 type FundVerifyItem struct {
-	TokenId    types.TokenTypeId `json:"tokenId"`
-	Balance    string            `json:"balance"`
-	Amount     string            `json:"amount"`
-	UserAmount string            `json:"userAmount"`
-	UserCount  int               `json:"userCount"`
-	FeeAmount  string            `json:"feeAmount"`
-	FeeOccupy  string            `json:"feeOccupy"`
-	Ok         bool              `json:"ok"`
+	TokenId        types.TokenTypeId `json:"tokenId"`
+	Balance        string            `json:"balance"`
+	Amount         string            `json:"amount"`
+	UserAmount     string            `json:"userAmount"`
+	FeeAmount      string            `json:"feeAmount"`
+	FeeOccupy      string            `json:"feeOccupy"`
+	BalanceMatched bool              `json:"balanceMatched"`
 }
 
 func VerifyDexFundBalance(db vm_db.VmDb, reader *util.VMConsensusReader) *FundVerifyRes {
@@ -30,13 +29,13 @@ func VerifyDexFundBalance(db vm_db.VmDb, reader *util.VMConsensusReader) *FundVe
 	vxAmount := big.NewInt(0)
 	verifyItems := make(map[types.TokenTypeId]*FundVerifyItem)
 	count, _ := accumulateUserAccount(db, userAmountMap)
-	balanceMatch := true
+	allBalanceMatched := true
 	accumulateFeeDividendPool(db, reader, feeAmountMap)
 	accumulateBrokerFeeAccount(db, feeAmountMap)
 	accumulateVx(db, vxAmount)
 	var (
-		foundVx, ok bool
-		balance     *big.Int
+		foundVx, ok, balanceMatched bool
+		balance                     *big.Int
 	)
 	for tokenId, userAmount := range userAmountMap {
 		var (
@@ -54,23 +53,22 @@ func VerifyDexFundBalance(db vm_db.VmDb, reader *util.VMConsensusReader) *FundVe
 			foundVx = true
 			amount = amount.Add(amount, vxAmount)
 		}
-		balance, _ = db.GetBalance(&VxTokenId)
-		verifyItems[tokenId] = &FundVerifyItem{TokenId: tokenId, Balance: balance.String(), Amount: amount.String(), UserAmount: userAmount.String(), FeeAmount: feeAmount.String(), FeeOccupy: feeOccupy, Ok: ok}
-		if !ok {
-			balanceMatch = false
+		balance, _ = db.GetBalance(&tokenId)
+		if balanceMatched = amount.Cmp(balance) == 0; !balanceMatched {
+			allBalanceMatched = false
 		}
+		verifyItems[tokenId] = &FundVerifyItem{TokenId: tokenId, Balance: balance.String(), Amount: amount.String(), UserAmount: userAmount.String(), FeeAmount: feeAmount.String(), FeeOccupy: feeOccupy, BalanceMatched: balanceMatched}
 	}
 	if !foundVx && vxAmount.Sign() > 0 {
 		balance, _ = db.GetBalance(&VxTokenId)
-		ok = vxAmount.Cmp(balance) == 0
-		verifyItems[VxTokenId] = &FundVerifyItem{TokenId: VxTokenId, Balance: balance.String(), Amount: vxAmount.String(), UserAmount: "0", FeeAmount: "0", FeeOccupy: "0", Ok: ok}
-		if !ok {
-			balanceMatch = false
+		if balanceMatched = vxAmount.Cmp(balance) == 0; !balanceMatched {
+			allBalanceMatched = false
 		}
+		verifyItems[VxTokenId] = &FundVerifyItem{TokenId: VxTokenId, Balance: balance.String(), Amount: vxAmount.String(), UserAmount: "0", FeeAmount: "0", FeeOccupy: "0", BalanceMatched: balanceMatched}
 	}
 	return &FundVerifyRes{
 		count,
-		balanceMatch,
+		allBalanceMatched,
 		verifyItems,
 	}
 }
