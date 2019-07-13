@@ -28,7 +28,7 @@ var (
 	feeSumKeyPrefix     = []byte("fS:")     // feeSum:periodId
 	lastFeeSumPeriodKey = []byte("lFSPId:") //
 
-	brokerFeeSumKeyPrefix = []byte("bf:") // brokerFeeSum:periodId, must
+	brokerFeeSumKeyPrefix = []byte("bf:") // brokerFeeSum:periodId, 32 bytes prefix[3] + periodId[8]+ address[21]
 
 	pendingNewMarketActionsKey          = []byte("pmkas:")
 	pendingSetQuoteActionsKey           = []byte("psqas:")
@@ -79,8 +79,6 @@ var (
 	PledgeForVipAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
 	PledgeForVxThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
 
-	ViteTokenTypeInfo = dexproto.TokenInfo{TokenId: ledger.ViteTokenId.Bytes(), Decimals: 18, Symbol: "VITE", Index: 0, QuoteTokenType: ViteTokenType}
-
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
 	bitcoinMinAmount = big.NewInt(50000)                                 // 0.0005 BTC
@@ -95,6 +93,8 @@ var (
 	RateForPledgeMine                = "0.2"                                             // 20%
 	RateSumForMakerAndMaintainerMine = "0.2"                                             // 10% + 10%
 	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
+
+	ViteTokenDecimals int32 = 18
 
 	QuoteTokenTypeInfos = map[int32]*QuoteTokenTypeInfo{
 		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, DefaultTradeThreshold: viteMinAmount, DefaultMineThreshold: viteMineThreshold},
@@ -272,8 +272,8 @@ type ParamDexFundMarketOwnerConfig struct {
 	TradeToken    types.TokenTypeId
 	QuoteToken    types.TokenTypeId
 	Owner         types.Address
-	TakerRate     int32
-	MakerRate     int32
+	TakerFeeRate     int32
+	MakerFeeRate     int32
 	StopMarket    bool
 }
 
@@ -818,6 +818,23 @@ func DeleteUserFees(db vm_db.VmDb, address []byte) {
 	setValueToDb(db, GetUserFeesKey(address), nil)
 }
 
+func TruncateUserFeesToPeriod(userFees *UserFees, periodId uint64) (truncated bool) {
+	i := 0
+	size := len(userFees.Fees)
+	for ; ; {
+		if i < size && userFees.Fees[i].Period < periodId {
+			i++
+		} else {
+			break
+		}
+	}
+	if i > 0 {
+		userFees.Fees = userFees.Fees[i:]
+		truncated = true
+	}
+	return
+}
+
 func IsValidFeeForMine(userFee *dexproto.UserFeeAccount, mineThreshold *big.Int) bool {
 	return new(big.Int).Add(new(big.Int).SetBytes(userFee.BaseAmount), new(big.Int).SetBytes(userFee.InviteBonusAmount)).Cmp(mineThreshold) >= 0
 }
@@ -1076,10 +1093,6 @@ func SavePendingTransferTokenOwners(db vm_db.VmDb, pendings *PendingTransferToke
 
 func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (tokenInfo *TokenInfo, ok bool) {
 	tokenInfo = &TokenInfo{}
-	if token == ledger.ViteTokenId {
-		tokenInfo.TokenInfo = ViteTokenTypeInfo
-		return tokenInfo, true
-	}
 	ok = deserializeFromDb(db, GetTokenInfoKey(token), tokenInfo)
 	return
 }
@@ -1456,10 +1469,13 @@ func SaveCodeByInviter(db vm_db.VmDb, address types.Address, inviteCode uint32) 
 	setValueToDb(db, append(codeByInviterKeyPrefix, address.Bytes()...), Uint32ToBytes(inviteCode))
 }
 
-func GetInviterByCode(db vm_db.VmDb, inviteCode uint32) (inviter *types.Address, err error) {
+func GetInviterByCode(db vm_db.VmDb, inviteCode uint32) (*types.Address, error) {
 	if bs := getValueFromDb(db, append(inviterByCodeKeyPrefix, Uint32ToBytes(inviteCode)...)); len(bs) == types.AddressSize {
-		*inviter, err = types.BytesToAddress(bs)
-		return
+		if inviter, err := types.BytesToAddress(bs); err != nil {
+			return nil, err
+		} else {
+			return &inviter, nil
+		}
 	} else {
 		return nil, InvalidInviteCodeErr
 	}
@@ -1473,10 +1489,13 @@ func SaveInviterByInvitee(db vm_db.VmDb, invitee, inviter types.Address) {
 	setValueToDb(db, append(inviterByInviteeKeyPrefix, invitee.Bytes()...), inviter.Bytes())
 }
 
-func GetInviterByInvitee(db vm_db.VmDb, address types.Address) (inviter *types.Address, err error) {
+func GetInviterByInvitee(db vm_db.VmDb, address types.Address) (*types.Address, error) {
 	if bs := getValueFromDb(db, append(inviterByInviteeKeyPrefix, address.Bytes()...)); len(bs) == types.AddressSize {
-		*inviter, err = types.BytesToAddress(bs)
-		return
+		if inviter, err := types.BytesToAddress(bs); err != nil {
+			return nil, err
+		} else {
+			return &inviter, nil
+		}
 	} else {
 		return nil, NotBindInviterErr
 	}

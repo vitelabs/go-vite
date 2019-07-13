@@ -58,12 +58,14 @@ var (
 	AlreadyIsInviterErr        = errors.New("already is inviter")
 
 	InvalidInviteCodeErr     = errors.New("invalid invite code")
-	NotBindInviterErr        = errors.New("not bind inviter")
+	NotBindInviterErr        = errors.New("not bind invite code")
 	AlreadyBindInviterErr    = errors.New("already bind inviter")
 	NewInviteCodeFailErr     = errors.New("new invite code fail")
 	AlreadyQuoteType         = errors.New("already quote type")
 	InvalidQuoteTokenTypeErr = errors.New("invalid quote token type")
 	FundOwnerNotConfigErr    = errors.New("fund owner not config")
+
+	MultiMarketsInOneActionErr = errors.New("multi markets one action")
 
 	InternalErr = errors.New("internal error")
 )

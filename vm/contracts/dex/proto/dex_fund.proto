@@ -33,6 +33,7 @@ message UserFeeSettle {
     bytes BrokerFee = 3; // BrokerFeeAccount.Amount
 }
 
+//must be same markets
 message SettleActions {
     bytes TradeToken = 1;
     bytes QuoteToken = 2;

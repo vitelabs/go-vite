@@ -59,7 +59,7 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vm_db.VmDb, block *ledger.Account
 	if matcher, err = dex.NewMatcher(db, order.MarketId); err != nil {
 		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeNewOrder, err, sendBlock)
 	}
-	if err = matcher.MatchOrder(order); err != nil {
+	if err = matcher.MatchOrder(order, block.PrevHash); err != nil {
 		return OnNewOrderFailed(order, matcher.MarketInfo)
 	}
 	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees(), matcher.MarketInfo); err != nil {
@@ -160,6 +160,49 @@ func (md MethodDexTradeNotifyNewMarket) DoReceive(db vm_db.VmDb, block *ledger.A
 		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeNotifyNewMarket, err, sendBlock)
 	} else {
 		dex.SaveMarketInfoById(db, marketInfo)
+		return nil, nil
+	}
+}
+
+type MethodDexTradeCleanExpireOrders struct {
+}
+
+func (md *MethodDexTradeCleanExpireOrders) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexTradeCleanExpireOrders) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexTradeCleanExpireOrders) GetSendQuota(data []byte) (uint64, error) {
+	return util.TotalGasCost(util.TxGas, data)
+}
+
+func (md *MethodDexTradeCleanExpireOrders) GetReceiveQuota() uint64 {
+	return 0
+}
+
+func (md *MethodDexTradeCleanExpireOrders) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexSerializedData), cabi.MethodNameDexTradeCleanExpireOrders, block.Data)
+	return
+}
+
+func (md MethodDexTradeCleanExpireOrders) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	param := new(dex.ParamDexSerializedData)
+	cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeCleanExpireOrders, sendBlock.Data)
+	if len(param.Data) == 0 || len(param.Data)%dex.OrderIdBytesLength != 0 || len(param.Data)/dex.OrderIdBytesLength > dex.CleanExpireOrdersMaxCount {
+		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCleanExpireOrders, dex.InvalidInputParamErr, sendBlock)
+	}
+	if fundSettles, markerInfo, err := dex.CleanExpireOrders(db, param.Data); err != nil {
+		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCleanExpireOrders, err, sendBlock)
+	} else if len(fundSettles) > 0 {
+		if appendBlocks, err := handleSettleActions(block, fundSettles, nil, markerInfo); err != nil {
+			return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCleanExpireOrders, err, sendBlock)
+		} else {
+			return appendBlocks, nil
+		}
+	} else {
 		return nil, nil
 	}
 }

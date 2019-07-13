@@ -325,7 +325,7 @@ func (ir InviteRelationEvent) FromBytes(data []byte) interface{} {
 }
 
 func (smmv SettleMakerMinedVxEvent) GetTopicId() types.Hash {
-	return fromNameToHash(inviteRelationEventName)
+	return fromNameToHash(settleMakerMinedVxEventName)
 }
 
 func (smmv SettleMakerMinedVxEvent) toDataBytes() []byte {

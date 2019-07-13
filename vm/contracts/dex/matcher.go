@@ -10,8 +10,8 @@ import (
 	"math/big"
 )
 
-const maxTxsCountPerTaker = 1000
-const timeoutSecond = 7 * 24 * 3600
+const maxTxsCountPerTaker = 100
+const timeoutSecond = 30 * 24 * 3600
 const txIdLength = 20
 const bigFloatPrec = 120
 
@@ -65,14 +65,14 @@ func NewRawMatcher(db vm_db.VmDb) (mc *Matcher) {
 	return
 }
 
-func (mc *Matcher) MatchOrder(taker *Order) (err error) {
+func (mc *Matcher) MatchOrder(taker *Order, preHash types.Hash) (err error) {
 	var bookToTake *levelDbBook
 	if bookToTake, err = mc.getMakerBookToTaker(taker.Side); err != nil {
 		return err
 	} else {
 		defer bookToTake.release()
 	}
-	if err := mc.doMatchTaker(taker, bookToTake); err != nil {
+	if err := mc.doMatchTaker(taker, bookToTake, preHash); err != nil {
 		return err
 	}
 	return nil
@@ -138,7 +138,9 @@ func (mc *Matcher) CancelOrderById(order *Order) {
 	mc.deleteOrder(order.Id)
 }
 
-func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook) (err error) {
+
+
+func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook, preHash types.Hash) (err error) {
 	modifiedMakers := make([]*Order, 0, 20)
 	txs := make([]*OrderTx, 0, 20)
 	if maker, ok := makerBook.nextOrder(); !ok {
@@ -149,9 +151,11 @@ func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook) (err error
 		if err = mc.recursiveTakeOrder(taker, maker, makerBook, &modifiedMakers, &txs); err != nil {
 			return
 		} else {
+
 			mc.handleTakerRes(taker)
 			mc.handleModifiedMakers(modifiedMakers)
 			mc.handleTxs(txs)
+			TryUpdateTimestamp(mc.db, taker.Timestamp, preHash)
 		}
 	}
 	return
@@ -159,7 +163,7 @@ func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook) (err error
 
 //TODO add assertion for order calculation correctness
 func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBook, modifiedMakers *[]*Order, txs *[]*OrderTx) error {
-	if filterTimeout(taker.Timestamp, maker) {
+	if filterTimeout(mc.db, maker) {
 		*modifiedMakers = append(*modifiedMakers, maker)
 	} else {
 		matched, _ := matchPrice(taker, maker)
@@ -275,15 +279,15 @@ func (mc *Matcher) handleTxFundSettle(tx OrderTx) {
 		makerOutSettle.ReduceLocked = tx.Quantity
 
 		takerOutSettle.IsTradeToken = false
-		takerOutSettle.ReduceLocked = AddBigInt(tx.Amount, tx.TakerFee)
+		takerOutSettle.ReduceLocked = AddBigInt(tx.Amount, AddBigInt(tx.TakerFee, tx.TakerBrokerFee))
 		makerInSettle.IsTradeToken = false
-		makerInSettle.IncAvailable = SubBigIntAbs(tx.Amount, tx.MakerFee)
+		makerInSettle.IncAvailable = SubBigIntAbs(tx.Amount, AddBigInt(tx.MakerFee, tx.MakerBrokerFee))
 
 	case true: //sell
 		takerInSettle.IsTradeToken = false
-		takerInSettle.IncAvailable = SubBigIntAbs(tx.Amount, tx.TakerFee)
+		takerInSettle.IncAvailable = SubBigIntAbs(tx.Amount, AddBigInt(tx.TakerFee, tx.TakerBrokerFee))
 		makerOutSettle.IsTradeToken = false
-		makerOutSettle.ReduceLocked = AddBigInt(tx.Amount, tx.MakerFee)
+		makerOutSettle.ReduceLocked = AddBigInt(tx.Amount, AddBigInt(tx.MakerFee, tx.MakerBrokerFee))
 
 		takerOutSettle.IsTradeToken = true
 		takerOutSettle.ReduceLocked = tx.Quantity
@@ -493,10 +497,10 @@ func matchPrice(taker, maker *Order) (matched bool, executedPrice []byte) {
 	}
 }
 
-//TODO support timeout when timer trigger available for set raw timestamp in one hour for order timestamp
-func filterTimeout(takerTimestamp int64, maker *Order) bool {
-	return false
-	if takerTimestamp > maker.Timestamp+timeoutSecond {
+func filterTimeout(db vm_db.VmDb, maker *Order) bool {
+	if currentTime := GetTradeTimestamp(db); currentTime == 0 {
+		return false
+	} else  if currentTime > maker.Timestamp+timeoutSecond {
 		switch maker.Status {
 		case Pending:
 			maker.CancelReason = cancelledOnTimeout

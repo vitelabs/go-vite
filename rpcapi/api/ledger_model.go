@@ -165,7 +165,7 @@ func (block *AccountBlock) addExtraInfo(chain chain.Chain) error {
 	}
 
 	// ReceiveBlockHeight & ReceiveBlockHash
-	if block.IsSendBlock() {
+	if ledger.IsSendBlock(block.BlockType) {
 		receiveBlock, err := chain.GetReceiveAbBySendAb(block.Hash)
 		if err != nil {
 			return err
@@ -344,15 +344,72 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 	return rt
 }
 
-func (ab *AccountBlock) IsSendBlock() bool {
-	return ab.BlockType == ledger.BlockTypeSendCreate ||
-		ab.BlockType == ledger.BlockTypeSendCall ||
-		ab.BlockType == ledger.BlockTypeSendReward ||
-		ab.BlockType == ledger.BlockTypeSendRefund
+type TxParam interface {
+	LedgerAccountBlock() (*ledger.AccountBlock, error)
 }
 
-func (ab *AccountBlock) IsReceiveBlock() bool {
-	return ab.BlockType == ledger.BlockTypeReceive ||
-		ab.BlockType == ledger.BlockTypeReceiveError ||
-		ab.BlockType == ledger.BlockTypeGenesisReceive
+type NormalRequestRawTxParam struct {
+	BlockType byte       `json:"blockType"` // 1
+	Height    string     `json:"height"`
+	Hash      types.Hash `json:"hash"`
+	PrevHash  types.Hash `json:"prevHash"`
+
+	AccountAddress types.Address `json:"accountAddress"`
+	PublicKey      []byte        `json:"publicKey"`
+
+	ToAddress types.Address     `json:"toAddress"`
+	TokenId   types.TokenTypeId `json:"tokenId"`
+	Amount    string            `json:"amount"`
+
+	Data []byte `json:"data"`
+
+	Difficulty *string `json:"difficulty"`
+	Nonce      []byte  `json:"nonce"`
+
+	Signature []byte `json:"signature"`
+}
+
+func (param NormalRequestRawTxParam) LedgerAccountBlock() (*ledger.AccountBlock, error) {
+	if types.IsContractAddr(param.AccountAddress) {
+		return nil, errors.New("can't send tx for the contract")
+	}
+
+	lAb := &ledger.AccountBlock{
+		BlockType:      param.BlockType,
+		Hash:           param.Hash,
+		PrevHash:       param.PrevHash,
+		AccountAddress: param.AccountAddress,
+		PublicKey:      param.PublicKey,
+		ToAddress:      param.ToAddress,
+		TokenId:        param.TokenId,
+		Data:           param.Data,
+
+		Signature: param.Signature,
+	}
+
+	var err error
+
+	lAb.Height, err = strconv.ParseUint(param.Height, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	lAb.Amount = big.NewInt(0)
+	if _, ok := lAb.Amount.SetString(param.Amount, 10); !ok {
+		return nil, ErrStrToBigInt
+	}
+
+	if param.Nonce != nil {
+		if param.Difficulty == nil {
+			return nil, errors.New("lack of difficulty field")
+		} else {
+			difficultyStr, ok := new(big.Int).SetString(*param.Difficulty, 10)
+			if !ok {
+				return nil, ErrStrToBigInt
+			}
+			lAb.Difficulty = difficultyStr
+			lAb.Nonce = param.Nonce
+		}
+	}
+	return lAb, nil
 }

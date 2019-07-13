@@ -65,7 +65,7 @@ func SettleFees(db vm_db.VmDb, reader util.ConsensusReader, allowMine bool, feeT
 }
 
 func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine bool, tokenId types.TokenTypeId, feeTokenDecimals, quoteTokenType int32, feeActions []*dexproto.UserFeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) {
-	if len(feeActions) == 0 {
+	if len(feeActions) == 0 && feeForDividend == nil {
 		return
 	}
 	periodId := GetCurrentPeriodId(db, reader)
