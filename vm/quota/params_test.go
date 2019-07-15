@@ -246,11 +246,11 @@ func TestPrintQcParams(t *testing.T) {
 	qcT2 := float64(0.01)
 	qcT3 := float64(0.000000536)*/
 
-	t1 := uint64(50)
-	t2 := uint64(100)
-	t3 := uint64(500)
+	t1 := uint64(50 * 74 * 21000)
+	t2 := uint64(100 * 74 * 21000)
+	t3 := uint64(500 * 74 * 21000)
 	qcT1 := float64(1)
-	qcT2 := float64(0.01)
+	qcT2 := float64(0.1)
 	qcT3 := float64(0.00001)
 	a := 1 + qcT1
 	b := math.Log(a-qcT2) / float64(t2-t1)
@@ -268,6 +268,7 @@ func TestPrintQcParams(t *testing.T) {
 
 	fmt.Println("qcIndexMinMainnet uint64 = " + strconv.Itoa(int(t2/gap)))
 	fmt.Println("qcIndexMaxMainnet uint64 = " + strconv.Itoa(int(t3/gap)))
+	fmt.Println("qcMapMainnet = map[uint64]*big.Int{")
 	for x := t1 + gap; x <= t3; x = x + gap {
 		newNum := uint64(testCalcQc(a, b, c, d, t1, t2, x) * 1e18)
 		fmt.Printf("%v: big.NewInt(%v),\n", x/gap, newNum)

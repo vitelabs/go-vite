@@ -87,10 +87,10 @@ func newSimpleContracts() map[types.Address]*builtinContract {
 	}
 }
 func newDexContracts() map[types.Address]*builtinContract {
-	dexContracts = newSimpleContracts()
-	dexContracts[types.AddressPledge].m[cabi.MethodNameAgentPledge] = &MethodAgentPledge{}
-	dexContracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledge] = &MethodAgentCancelPledge{}
-	dexContracts[types.AddressDexFund] = &builtinContract{
+	contracts := newSimpleContracts()
+	contracts[types.AddressPledge].m[cabi.MethodNameAgentPledge] = &MethodAgentPledge{}
+	contracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledge] = &MethodAgentCancelPledge{}
+	contracts[types.AddressDexFund] = &builtinContract{
 		map[string]BuiltinContractMethod{
 			cabi.MethodNameDexFundUserDeposit:          &MethodDexFundUserDeposit{},
 			cabi.MethodNameDexFundUserWithdraw:         &MethodDexFundUserWithdraw{},
@@ -115,7 +115,7 @@ func newDexContracts() map[types.Address]*builtinContract {
 		},
 		cabi.ABIDexFund,
 	}
-	dexContracts[types.AddressDexTrade] = &builtinContract{
+	contracts[types.AddressDexTrade] = &builtinContract{
 		map[string]BuiltinContractMethod{
 			cabi.MethodNameDexTradeNewOrder:          &MethodDexTradeNewOrder{},
 			cabi.MethodNameDexTradeCancelOrder:       &MethodDexTradeCancelOrder{},
@@ -124,7 +124,7 @@ func newDexContracts() map[types.Address]*builtinContract {
 		},
 		cabi.ABIDexTrade,
 	}
-	return dexContracts
+	return contracts
 }
 
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
