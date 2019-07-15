@@ -3,6 +3,7 @@ package quota
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
@@ -1321,8 +1322,7 @@ func TestCalcPledgeAmountByUtps(t *testing.T) {
 		},
 	}
 	for _, utps := range testCases {
-		db := &testQuotaDb{types.Address{}, nil, nil, types.QuotaInfo{}}
-		result, error := CalcPledgeAmountByUtps(db, utps.utps)
+		result, error := CalcPledgeAmountByUtps(utps.utps)
 		if (error == nil && utps.err != nil) || (error != nil && utps.err == nil) ||
 			(error != nil && utps.err != nil && error.Error() != utps.err.Error()) {
 			t.Fatalf("param: %v, error expected %v, but got %v", utps.utps, utps.err, error)
@@ -1362,6 +1362,7 @@ func makeNumeratorList() []uint64 {
 
 func TestCalcDexQuota(t *testing.T) {
 	InitQuotaConfig(false, false)
+	gasTable := util.GasTableByHeight(1)
 	dataLenMap := make(map[string]int)
 	methodNameDexFundUserDepositData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundUserDeposit)
 	dataLenMap[abi.MethodNameDexFundUserDeposit] = len(methodNameDexFundUserDepositData)
@@ -1395,14 +1396,14 @@ func TestCalcDexQuota(t *testing.T) {
 	dataLenMap[abi.MethodNameDexTradeCancelOrder] = len(methodNameDexTradeCancelOrderData)
 	fmt.Println("quota for dex tx")
 	for name, length := range dataLenMap {
-		f := float64(util.TxGas+uint64(length)*util.TxDataGas) / float64(util.TxGas) / float64(75)
+		f := float64(gasTable.TxGas+uint64(length)*gasTable.TxDataGas) / float64(gasTable.TxGas) / float64(75)
 		minPledgeAmount, _ := CalcPledgeAmountByUtps(f)
-		fmt.Printf("%v\t%v\t%v\n", name, util.TxGas+uint64(length)*util.TxDataGas, minPledgeAmount.Div(minPledgeAmount, big.NewInt(1e18)))
+		fmt.Printf("%v\t%v\t%v\n", name, gasTable.TxGas+uint64(length)*gasTable.TxDataGas, minPledgeAmount.Div(minPledgeAmount, big.NewInt(1e18)))
 	}
 	fmt.Println("pledge amount for dex tx")
 	for name, length := range dataLenMap {
 		for _, numerator := range numeratorList {
-			f := float64(numerator*(util.TxGas+uint64(length)*util.TxDataGas)) / float64(util.TxGas) / float64(75)
+			f := float64(numerator*(gasTable.TxGas+uint64(length)*gasTable.TxDataGas)) / float64(gasTable.TxGas) / float64(75)
 			pledgeAmount, _ := CalcPledgeAmountByUtps(f)
 			if numerator < 75 {
 				fmt.Printf("%v\t%v\t%v\n", name, strconv.Itoa(int(numerator))+"("+strconv.Itoa(int(numerator))+"/75 tps)", pledgeAmount.Div(pledgeAmount, big.NewInt(1e18)))

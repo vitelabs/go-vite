@@ -69,12 +69,12 @@ func DataGasCost(data []byte, gasTable *GasTable) (uint64, error) {
 	return gas, nil
 }
 
-func TotalGasCost(baseCost uint64, data []byte) (uint64, error) {
-	dataCost, err := DataGasCost(data)
+func TxGasCost(data []byte, gasTable *GasTable) (uint64, error) {
+	dataCost, err := DataGasCost(data, gasTable)
 	if err != nil {
 		return 0, err
 	}
-	totalCost, overflow := helper.SafeAdd(baseCost, dataCost)
+	totalCost, overflow := helper.SafeAdd(gasTable.TxGas, dataCost)
 	if overflow {
 		return 0, err
 	}

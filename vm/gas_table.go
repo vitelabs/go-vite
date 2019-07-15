@@ -525,7 +525,7 @@ func gasUserSendCall(block *ledger.AccountBlock, gasTable *util.GasTable) (uint6
 		if !ok || err != nil {
 			return 0, util.ErrAbiMethodNotFound
 		}
-		return method.GetSendQuota(block.Data)
+		return method.GetSendQuota(block.Data, gasTable)
 	}
 	return gasSendCall(block, gasTable)
 }

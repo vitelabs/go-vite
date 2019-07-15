@@ -27,7 +27,7 @@ func (p *MethodPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bo
 	return []byte{}, false
 }
 
-func (p *MethodPledge) GetSendQuota(data []byte) (uint64, error) {
+func (p *MethodPledge) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return PledgeGas, nil
 }
 func (p *MethodPledge) GetReceiveQuota() uint64 {
@@ -124,7 +124,7 @@ func (p *MethodCancelPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]by
 	return []byte{}, false
 }
 
-func (p *MethodCancelPledge) GetSendQuota(data []byte) (uint64, error) {
+func (p *MethodCancelPledge) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return CancelPledgeGas, nil
 }
 func (p *MethodCancelPledge) GetReceiveQuota() uint64 {
@@ -205,7 +205,7 @@ func (p *MethodAgentPledge) GetRefundData(sendBlock *ledger.AccountBlock) ([]byt
 	return callbackData, true
 }
 
-func (p *MethodAgentPledge) GetSendQuota(data []byte) (uint64, error) {
+func (p *MethodAgentPledge) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return AgentPledgeGas, nil
 }
 func (p *MethodAgentPledge) GetReceiveQuota() uint64 {
@@ -283,7 +283,7 @@ func (p *MethodAgentCancelPledge) GetRefundData(sendBlock *ledger.AccountBlock) 
 	return callbackData, true
 }
 
-func (p *MethodAgentCancelPledge) GetSendQuota(data []byte) (uint64, error) {
+func (p *MethodAgentCancelPledge) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return AgentCancelPledgeGas, nil
 }
 

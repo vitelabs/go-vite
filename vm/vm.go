@@ -475,7 +475,7 @@ func (vm *VM) sendCall(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool,
 			return nil, util.ErrInsufficientBalance
 		}
 		if useQuota {
-			cost, err := p.GetSendQuota(block.Data)
+			cost, err := p.GetSendQuota(block.Data, vm.gasTable)
 			if err != nil {
 				return nil, err
 			}
@@ -541,7 +541,8 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 				db,
 				block.AccountAddress,
 				getPledgeAmount(db),
-				block.Difficulty)
+				block.Difficulty,
+				vm.latestSnapshotHeight)
 			if err != nil {
 				return nil, noRetry, err
 			}

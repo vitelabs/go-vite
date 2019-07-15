@@ -28,8 +28,8 @@ func (md *MethodDexFundUserDeposit) GetRefundData(sendBlock *ledger.AccountBlock
 	return []byte{}, false
 }
 
-func (md *MethodDexFundUserDeposit) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundUserDeposit) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundUserDeposit) GetReceiveQuota() uint64 {
@@ -63,8 +63,8 @@ func (md *MethodDexFundUserWithdraw) GetRefundData(sendBlock *ledger.AccountBloc
 	return []byte{}, false
 }
 
-func (md *MethodDexFundUserWithdraw) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundUserWithdraw) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundUserWithdraw) GetReceiveQuota() uint64 {
@@ -122,8 +122,8 @@ func (md *MethodDexFundNewMarket) GetRefundData(sendBlock *ledger.AccountBlock) 
 	return []byte{}, false
 }
 
-func (md *MethodDexFundNewMarket) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundNewMarket) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundNewMarket) GetReceiveQuota() uint64 {
@@ -187,8 +187,8 @@ func (md *MethodDexFundNewOrder) GetRefundData(sendBlock *ledger.AccountBlock) (
 	return []byte{}, false
 }
 
-func (md *MethodDexFundNewOrder) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundNewOrder) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundNewOrder) GetReceiveQuota() uint64 {
@@ -255,8 +255,8 @@ func (md *MethodDexFundSettleOrders) GetRefundData(sendBlock *ledger.AccountBloc
 	return []byte{}, false
 }
 
-func (md *MethodDexFundSettleOrders) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundSettleOrders) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundSettleOrders) GetReceiveQuota() uint64 {
@@ -319,8 +319,8 @@ func (md *MethodDexFundPeriodJob) GetRefundData(sendBlock *ledger.AccountBlock) 
 	return []byte{}, false
 }
 
-func (md *MethodDexFundPeriodJob) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundPeriodJob) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundPeriodJob) GetReceiveQuota() uint64 {
@@ -412,8 +412,8 @@ func (md *MethodDexFundPledgeForVx) GetRefundData(sendBlock *ledger.AccountBlock
 	return []byte{}, false
 }
 
-func (md *MethodDexFundPledgeForVx) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundPledgeForVx) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundPledgeForVx) GetReceiveQuota() uint64 {
@@ -461,8 +461,8 @@ func (md *MethodDexFundPledgeForVip) GetRefundData(sendBlock *ledger.AccountBloc
 	return []byte{}, false
 }
 
-func (md *MethodDexFundPledgeForVip) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundPledgeForVip) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundPledgeForVip) GetReceiveQuota() uint64 {
@@ -506,8 +506,8 @@ func (md *MethodDexFundPledgeCallback) GetRefundData(sendBlock *ledger.AccountBl
 	return []byte{}, false
 }
 
-func (md *MethodDexFundPledgeCallback) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundPledgeCallback) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundPledgeCallback) GetReceiveQuota() uint64 {
@@ -573,8 +573,8 @@ func (md *MethodDexFundCancelPledgeCallback) GetRefundData(sendBlock *ledger.Acc
 	return []byte{}, false
 }
 
-func (md *MethodDexFundCancelPledgeCallback) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundCancelPledgeCallback) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundCancelPledgeCallback) GetReceiveQuota() uint64 {
@@ -642,8 +642,8 @@ func (md *MethodDexFundGetTokenInfoCallback) GetRefundData(sendBlock *ledger.Acc
 	return []byte{}, false
 }
 
-func (md *MethodDexFundGetTokenInfoCallback) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundGetTokenInfoCallback) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundGetTokenInfoCallback) GetReceiveQuota() uint64 {
@@ -708,8 +708,8 @@ func (md *MethodDexFundOwnerConfig) GetRefundData(sendBlock *ledger.AccountBlock
 	return []byte{}, false
 }
 
-func (md *MethodDexFundOwnerConfig) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundOwnerConfig) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundOwnerConfig) GetReceiveQuota() uint64 {
@@ -762,8 +762,8 @@ func (md *MethodDexFundOwnerConfigTrade) GetRefundData(sendBlock *ledger.Account
 	return []byte{}, false
 }
 
-func (md *MethodDexFundOwnerConfigTrade) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundOwnerConfigTrade) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundOwnerConfigTrade) GetReceiveQuota() uint64 {
@@ -847,8 +847,8 @@ func (md *MethodDexFundMarketOwnerConfig) GetRefundData(sendBlock *ledger.Accoun
 	return []byte{}, false
 }
 
-func (md *MethodDexFundMarketOwnerConfig) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundMarketOwnerConfig) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundMarketOwnerConfig) GetReceiveQuota() uint64 {
@@ -913,8 +913,8 @@ func (md *MethodDexFundTransferTokenOwner) GetRefundData(sendBlock *ledger.Accou
 	return []byte{}, false
 }
 
-func (md *MethodDexFundTransferTokenOwner) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundTransferTokenOwner) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundTransferTokenOwner) GetReceiveQuota() uint64 {
@@ -968,8 +968,8 @@ func (md *MethodDexFundNotifyTime) GetRefundData(sendBlock *ledger.AccountBlock)
 	return []byte{}, false
 }
 
-func (md *MethodDexFundNotifyTime) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundNotifyTime) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundNotifyTime) GetReceiveQuota() uint64 {
@@ -1008,8 +1008,8 @@ func (md *MethodDexFundNewInviter) GetRefundData(sendBlock *ledger.AccountBlock)
 	return []byte{}, false
 }
 
-func (md *MethodDexFundNewInviter) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundNewInviter) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundNewInviter) GetReceiveQuota() uint64 {
@@ -1048,8 +1048,8 @@ func (md *MethodDexFundBindInviteCode) GetRefundData(sendBlock *ledger.AccountBl
 	return []byte{}, false
 }
 
-func (md *MethodDexFundBindInviteCode) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundBindInviteCode) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundBindInviteCode) GetReceiveQuota() uint64 {
@@ -1099,8 +1099,8 @@ func (md *MethodDexFundEndorseVxMinePool) GetRefundData(sendBlock *ledger.Accoun
 	return []byte{}, false
 }
 
-func (md *MethodDexFundEndorseVxMinePool) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundEndorseVxMinePool) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundEndorseVxMinePool) GetReceiveQuota() uint64 {
@@ -1132,8 +1132,8 @@ func (md *MethodDexFundSettleMakerMinedVx) GetRefundData(sendBlock *ledger.Accou
 	return []byte{}, false
 }
 
-func (md *MethodDexFundSettleMakerMinedVx) GetSendQuota(data []byte) (uint64, error) {
-	return util.TotalGasCost(util.TxGas, data)
+func (md *MethodDexFundSettleMakerMinedVx) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
 }
 
 func (md *MethodDexFundSettleMakerMinedVx) GetReceiveQuota() uint64 {

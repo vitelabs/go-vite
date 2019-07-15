@@ -165,7 +165,7 @@ func (p *PledgeApi) GetPledgeAmountByUtps(utps string) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	amount, err := quota.CalcPledgeAmountByUtps(p.chain, utpfF)
+	amount, err := quota.CalcPledgeAmountByUtps(utpfF)
 	if err != nil {
 		return nil, err
 	}

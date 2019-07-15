@@ -34,7 +34,7 @@ type BuiltinContractMethod interface {
 	// calc and use quota, check tx data
 	DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error
 	// quota for doSend block
-	GetSendQuota(data []byte) (uint64, error)
+	GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error)
 	// check status, update state
 	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error)
 	// receive block quota
@@ -130,22 +130,4 @@ func GetBuiltinContractMethod(addr types.Address, methodSelector []byte) (Builti
 		}
 	}
 	return nil, ok, nil
-}
-
-func GetOriginSendBlock(db vm_db.VmDb, sendBlockHash types.Hash) (*ledger.AccountBlock, error) {
-	receiveBlock, err := db.GetCompleteBlockByHash(sendBlockHash)
-	if err != nil {
-		return nil, err
-	}
-	if receiveBlock == nil {
-		return nil, util.ErrChainForked
-	}
-	sendBlock, err := db.GetAccountBlockByHash(receiveBlock.FromBlockHash)
-	if err != nil {
-		return nil, err
-	}
-	if sendBlock == nil {
-		return nil, util.ErrChainForked
-	}
-	return sendBlock, nil
 }

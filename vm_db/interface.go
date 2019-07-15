@@ -113,8 +113,6 @@ type VmDb interface {
 
 	// ====== AccountBlock ======
 	GetUnconfirmedBlocks(address types.Address) []*ledger.AccountBlock
-	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
-	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
 	// ====== SnapshotBlock ======
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock

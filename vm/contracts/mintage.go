@@ -22,7 +22,7 @@ func (p *MethodMint) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 func (p *MethodMint) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
-func (p *MethodMint) GetSendQuota(data []byte) (uint64, error) {
+func (p *MethodMint) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return MintGas, nil
 }
 func (p *MethodMint) GetReceiveQuota() uint64 {
@@ -137,7 +137,7 @@ func (p *MethodIssue) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 func (p *MethodIssue) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
-func (p *MethodIssue) GetSendQuota(data []byte) (uint64, error) {
+func (p *MethodIssue) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return IssueGas, nil
 }
 func (p *MethodIssue) GetReceiveQuota() uint64 {
@@ -198,7 +198,7 @@ func (p *MethodBurn) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 func (p *MethodBurn) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
-func (p *MethodBurn) GetSendQuota(data []byte) (uint64, error) {
+func (p *MethodBurn) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return BurnGas, nil
 }
 func (p *MethodBurn) GetReceiveQuota() uint64 {
@@ -244,7 +244,7 @@ func (p *MethodTransferOwner) GetFee(block *ledger.AccountBlock) (*big.Int, erro
 func (p *MethodTransferOwner) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
-func (p *MethodTransferOwner) GetSendQuota(data []byte) (uint64, error) {
+func (p *MethodTransferOwner) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return TransferOwnerGas, nil
 }
 func (p *MethodTransferOwner) GetReceiveQuota() uint64 {
@@ -305,7 +305,7 @@ func (p *MethodChangeTokenType) GetFee(block *ledger.AccountBlock) (*big.Int, er
 func (p *MethodChangeTokenType) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
-func (p *MethodChangeTokenType) GetSendQuota(data []byte) (uint64, error) {
+func (p *MethodChangeTokenType) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return ChangeTokenTypeGas, nil
 }
 func (p *MethodChangeTokenType) GetReceiveQuota() uint64 {
@@ -356,10 +356,10 @@ func (p *MethodGetTokenInfo) GetFee(block *ledger.AccountBlock) (*big.Int, error
 func (p *MethodGetTokenInfo) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	param := new(abi.ParamGetTokenInfo)
 	abi.ABIMintage.UnpackMethod(param, abi.MethodNameGetTokenInfo, sendBlock.Data)
-	callbackData, _ := abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, param.TokenId, param.Bid, false, uint8(0), "", uint16(0),types.AddressMintage)
+	callbackData, _ := abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, param.TokenId, param.Bid, false, uint8(0), "", uint16(0), types.AddressMintage)
 	return callbackData, true
 }
-func (p *MethodGetTokenInfo) GetSendQuota(data []byte) (uint64, error) {
+func (p *MethodGetTokenInfo) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return GetTokenInfoGas, nil
 }
 func (p *MethodGetTokenInfo) GetReceiveQuota() uint64 {
@@ -387,7 +387,7 @@ func (p *MethodGetTokenInfo) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	if tokenInfo != nil {
 		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, param.TokenId, param.Bid, true, tokenInfo.Decimals, tokenInfo.TokenSymbol, tokenInfo.Index, tokenInfo.Owner)
 	} else {
-		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, param.TokenId, param.Bid, false, uint8(0), "", uint16(0),types.AddressMintage)
+		callbackData, _ = abi.ABIMintage.PackCallback(abi.MethodNameGetTokenInfo, param.TokenId, param.Bid, false, uint8(0), "", uint16(0), types.AddressMintage)
 	}
 	return []*ledger.AccountBlock{
 		{

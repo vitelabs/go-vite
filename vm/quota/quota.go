@@ -305,7 +305,7 @@ func CalcPoWDifficulty(db quotaDb, quotaRequired uint64, q types.Quota, sbHeight
 	return difficultyByQc, err
 }
 
-func CalcPledgeAmountByUtps(db quotaDb, utps float64) (*big.Int, error) {
+func CalcPledgeAmountByUtps(utps float64) (*big.Int, error) {
 	if utps < 0 || utps > getMaxUtps() {
 		return nil, util.ErrInvalidMethodParam
 	} else if utps == 0 {
