@@ -15,6 +15,8 @@ const (
 	precForFloat        uint   = 64
 	maxWaitHeight       uint64 = 75
 	outOfQuotaBlockTime uint64 = 75
+
+	qcGap uint64 = 21000 * 74
 )
 
 var (
@@ -3610,7 +3612,6 @@ var (
 	QuotaParamMainnet = NewQuotaParams("4.201037667e-24", "6.259408129e-10")
 	QuotaParamTestnet = NewQuotaParams("4.200617563e-21", "6.409829346e-07")
 
-	qcGapMainnet      uint64 = 21000 * 74
 	qcIndexMinMainnet uint64 = 51
 	qcIndexMaxMainnet uint64 = 500
 

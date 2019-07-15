@@ -52,7 +52,7 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 		nodeConfig.pledgeAmountList = pledgeAmountList
 	}
 
-	nodeConfig.qcGap = qcGapMainnet
+	nodeConfig.qcGap = qcGap
 	nodeConfig.qcIndexMin = qcIndexMinMainnet
 	nodeConfig.qcIndexMax = qcIndexMaxMainnet
 	nodeConfig.qcMap = qcMapMainnet
@@ -301,7 +301,7 @@ func CalcPoWDifficulty(db quotaDb, quotaRequired uint64, q types.Quota, sbHeight
 		return nil, err
 	}
 	difficulty := new(big.Int).Set(nodeConfig.difficultyList[index])
-	difficultyByQc, _, err := calcPledgeTargetParam(db, difficulty, sbHeight)
+	difficultyByQc, _, err := calcPledgeTargetParamByQc(db, difficulty, sbHeight)
 	return difficultyByQc, err
 }
 
@@ -316,11 +316,15 @@ func CalcPledgeAmountByUtps(db quotaDb, utps float64) (*big.Int, error) {
 	return new(big.Int).Set(nodeConfig.pledgeAmountList[index]), nil
 }
 
-func calcPledgeTargetParam(db quotaDb, target *big.Int, sbHeight uint64) (*big.Int, *big.Int, error) {
+func calcPledgeTargetParamByQc(db quotaDb, target *big.Int, sbHeight uint64) (*big.Int, *big.Int, error) {
 	qc, _, isCongestion := calcQc(db, sbHeight)
 	if !isCongestion {
 		return target, qc, nil
 	}
+	newTarget, err := calcPledgeTargetParam(qc, isCongestion, target)
+	return newTarget, qc, err
+}
+func calcPledgeTargetParam(qc *big.Int, isCongestion bool, target *big.Int) (*big.Int, error) {
 	newTarget := new(big.Int).Mul(target, qcDivision)
 	newTarget.Div(newTarget, qc)
 	for true {
@@ -331,9 +335,9 @@ func calcPledgeTargetParam(db quotaDb, target *big.Int, sbHeight uint64) (*big.I
 		newTarget.Add(newTarget, helper.Big1)
 	}
 	if newTarget.BitLen() <= 256 {
-		return newTarget, qc, nil
+		return newTarget, nil
 	} else {
-		return nil, qc, util.ErrBlockQuotaLimitReached
+		return nil, util.ErrBlockQuotaLimitReached
 	}
 }
 
