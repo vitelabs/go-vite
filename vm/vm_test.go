@@ -27,8 +27,8 @@ func init() {
 
 func initFork() {
 	fork.SetForkPoints(&config.ForkPoints{
-		SeedFork:  &config.ForkPoint{Height: 100, Version: 1},
-		QuotaFork: &config.ForkPoint{Height: 200, Version: 1}})
+		SeedFork: &config.ForkPoint{Height: 100, Version: 1},
+		DexFork:  &config.ForkPoint{Height: 200, Version: 1}})
 }
 
 func TestVmRun(t *testing.T) {

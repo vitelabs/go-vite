@@ -443,7 +443,8 @@ func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) 
 			amount,
 			tokenID,
 			mem.get(inOffset.Int64(), inSize.Int64())),
-		vm.gasTable)
+		vm.gasTable,
+		vm.latestSnapshotHeight)
 	if err != nil {
 		return 0, true, err
 	}
@@ -475,11 +476,11 @@ func gasRevert(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 }
 
 // GasRequiredForBlock calculates gas required for a user account block.
-func GasRequiredForBlock(db vm_db.VmDb, block *ledger.AccountBlock, gasTable *util.GasTable) (uint64, error) {
+func GasRequiredForBlock(db vm_db.VmDb, block *ledger.AccountBlock, gasTable *util.GasTable, sbHeight uint64) (uint64, error) {
 	if block.BlockType == ledger.BlockTypeReceive {
 		return gasReceive(block, nil, gasTable)
 	}
-	cost, err := gasRequiredForSendBlock(block, gasTable)
+	cost, err := gasRequiredForSendBlock(block, gasTable, sbHeight)
 	if err != nil {
 		return 0, err
 	}
@@ -497,11 +498,11 @@ func GasRequiredForBlock(db vm_db.VmDb, block *ledger.AccountBlock, gasTable *ut
 	return cost, nil
 }
 
-func gasRequiredForSendBlock(block *ledger.AccountBlock, gasTable *util.GasTable) (uint64, error) {
+func gasRequiredForSendBlock(block *ledger.AccountBlock, gasTable *util.GasTable, sbHeight uint64) (uint64, error) {
 	if block.BlockType == ledger.BlockTypeSendCreate {
 		return gasSendCreate(block, gasTable)
 	} else if block.BlockType == ledger.BlockTypeSendCall {
-		return gasUserSendCall(block, gasTable)
+		return gasUserSendCall(block, gasTable, sbHeight)
 	} else {
 		return 0, util.ErrBlockTypeNotSupported
 	}
@@ -519,9 +520,9 @@ func gasReceiveCreate(block *ledger.AccountBlock, meta *ledger.ContractMeta, gas
 	return util.IntrinsicGasCost(nil, gasTable.CreateTxResponseGas, confirmTime, gasTable)
 }
 
-func gasUserSendCall(block *ledger.AccountBlock, gasTable *util.GasTable) (uint64, error) {
+func gasUserSendCall(block *ledger.AccountBlock, gasTable *util.GasTable, sbHeight uint64) (uint64, error) {
 	if types.IsBuiltinContractAddrInUse(block.ToAddress) {
-		method, ok, err := contracts.GetBuiltinContractMethod(block.ToAddress, block.Data)
+		method, ok, err := contracts.GetBuiltinContractMethod(block.ToAddress, block.Data, sbHeight)
 		if !ok || err != nil {
 			return 0, util.ErrAbiMethodNotFound
 		}

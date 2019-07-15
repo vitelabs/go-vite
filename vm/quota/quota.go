@@ -360,7 +360,7 @@ func calcPledgeParam(qc *big.Int, isCongestion bool, param *big.Int) *big.Int {
 }
 
 func calcQc(db quotaDb, sbHeight uint64) (*big.Int, uint64, bool) {
-	if !fork.IsQuotaFork(sbHeight) {
+	if !fork.IsDexFork(sbHeight) {
 		return big.NewInt(0), 0, false
 	}
 	globalQuota := db.GetGlobalQuota().QuotaUsedTotal

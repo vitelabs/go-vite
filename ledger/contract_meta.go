@@ -57,9 +57,13 @@ func (cm *ContractMeta) Deserialize(buf []byte) error {
 
 func GetBuiltinContractMeta(addr types.Address) *ContractMeta {
 	if types.IsBuiltinContractAddrInUseWithSendConfirm(addr) {
-		return &ContractMeta{types.DELEGATE_GID, 1, types.Hash{}, 10, 0}
+		return &ContractMeta{types.DELEGATE_GID, 1, types.Hash{}, getBuiltinContractQuotaRatio(addr), 0}
 	} else if types.IsBuiltinContractAddrInUse(addr) {
-		return &ContractMeta{types.DELEGATE_GID, 0, types.Hash{}, 10, 0}
+		return &ContractMeta{types.DELEGATE_GID, 0, types.Hash{}, getBuiltinContractQuotaRatio(addr), 0}
 	}
 	return nil
+}
+func getBuiltinContractQuotaRatio(addr types.Address) uint8 {
+	// TODO use special quota ratio for dex contracts
+	return 10
 }

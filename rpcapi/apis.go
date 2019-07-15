@@ -36,7 +36,7 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 		return rpc.API{
 			Namespace: "pow",
 			Version:   "1.0",
-			Service:   api.Pow{},
+			Service:   api.NewPow(vite),
 			Public:    true,
 		}
 

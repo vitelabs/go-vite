@@ -347,7 +347,7 @@ var (
 )
 
 func GasTableByHeight(sbHeight uint64) *GasTable {
-	if !fork.IsQuotaFork(sbHeight) {
+	if !fork.IsDexFork(sbHeight) {
 		return &initGasTable
 	}
 	return &viteGasTable

@@ -56,7 +56,6 @@ type Chain interface {
 	GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error)
 
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
-	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 }
 
 type VmDb interface {

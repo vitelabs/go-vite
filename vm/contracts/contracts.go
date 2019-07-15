@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -48,42 +49,48 @@ type builtinContract struct {
 	abi abi.ABIContract
 }
 
-var simpleContracts = map[types.Address]*builtinContract{
-	types.AddressPledge: {
-		map[string]BuiltinContractMethod{
-			cabi.MethodNamePledge:            &MethodPledge{},
-			cabi.MethodNameCancelPledge:      &MethodCancelPledge{},
-			cabi.MethodNameAgentPledge:       &MethodAgentPledge{},
-			cabi.MethodNameAgentCancelPledge: &MethodAgentCancelPledge{},
+var (
+	simpleContracts = newSimpleContracts()
+	dexContracts    = newDexContracts()
+)
+
+func newSimpleContracts() map[types.Address]*builtinContract {
+	return map[types.Address]*builtinContract{
+		types.AddressPledge: {
+			map[string]BuiltinContractMethod{
+				cabi.MethodNamePledge:       &MethodPledge{},
+				cabi.MethodNameCancelPledge: &MethodCancelPledge{},
+			},
+			cabi.ABIPledge,
 		},
-		cabi.ABIPledge,
-	},
-	types.AddressConsensusGroup: {
-		map[string]BuiltinContractMethod{
-			/*MethodNameCreateConsensusGroup:   &MethodCreateConsensusGroup{},
-			MethodNameCancelConsensusGroup:   &MethodCancelConsensusGroup{},
-			MethodNameReCreateConsensusGroup: &MethodReCreateConsensusGroup{},*/
-			cabi.MethodNameRegister:           &MethodRegister{},
-			cabi.MethodNameCancelRegister:     &MethodCancelRegister{},
-			cabi.MethodNameReward:             &MethodReward{},
-			cabi.MethodNameUpdateRegistration: &MethodUpdateRegistration{},
-			cabi.MethodNameVote:               &MethodVote{},
-			cabi.MethodNameCancelVote:         &MethodCancelVote{},
+		types.AddressConsensusGroup: {
+			map[string]BuiltinContractMethod{
+				cabi.MethodNameRegister:           &MethodRegister{},
+				cabi.MethodNameCancelRegister:     &MethodCancelRegister{},
+				cabi.MethodNameReward:             &MethodReward{},
+				cabi.MethodNameUpdateRegistration: &MethodUpdateRegistration{},
+				cabi.MethodNameVote:               &MethodVote{},
+				cabi.MethodNameCancelVote:         &MethodCancelVote{},
+			},
+			cabi.ABIConsensusGroup,
 		},
-		cabi.ABIConsensusGroup,
-	},
-	types.AddressMintage: {
-		map[string]BuiltinContractMethod{
-			cabi.MethodNameMint:            &MethodMint{},
-			cabi.MethodNameIssue:           &MethodIssue{},
-			cabi.MethodNameBurn:            &MethodBurn{},
-			cabi.MethodNameTransferOwner:   &MethodTransferOwner{},
-			cabi.MethodNameChangeTokenType: &MethodChangeTokenType{},
-			cabi.MethodNameGetTokenInfo:    &MethodGetTokenInfo{},
+		types.AddressMintage: {
+			map[string]BuiltinContractMethod{
+				cabi.MethodNameMint:            &MethodMint{},
+				cabi.MethodNameIssue:           &MethodIssue{},
+				cabi.MethodNameBurn:            &MethodBurn{},
+				cabi.MethodNameTransferOwner:   &MethodTransferOwner{},
+				cabi.MethodNameChangeTokenType: &MethodChangeTokenType{},
+			},
+			cabi.ABIMintage,
 		},
-		cabi.ABIMintage,
-	},
-	types.AddressDexFund: {
+	}
+}
+func newDexContracts() map[types.Address]*builtinContract {
+	dexContracts = newSimpleContracts()
+	dexContracts[types.AddressPledge].m[cabi.MethodNameAgentPledge] = &MethodAgentPledge{}
+	dexContracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledge] = &MethodAgentCancelPledge{}
+	dexContracts[types.AddressDexFund] = &builtinContract{
 		map[string]BuiltinContractMethod{
 			cabi.MethodNameDexFundUserDeposit:          &MethodDexFundUserDeposit{},
 			cabi.MethodNameDexFundUserWithdraw:         &MethodDexFundUserWithdraw{},
@@ -107,8 +114,8 @@ var simpleContracts = map[types.Address]*builtinContract{
 			cabi.MethodNameDexFunSettleMakerMinedVx:    &MethodDexFundSettleMakerMinedVx{},
 		},
 		cabi.ABIDexFund,
-	},
-	types.AddressDexTrade: {
+	}
+	dexContracts[types.AddressDexTrade] = &builtinContract{
 		map[string]BuiltinContractMethod{
 			cabi.MethodNameDexTradeNewOrder:          &MethodDexTradeNewOrder{},
 			cabi.MethodNameDexTradeCancelOrder:       &MethodDexTradeCancelOrder{},
@@ -116,11 +123,18 @@ var simpleContracts = map[types.Address]*builtinContract{
 			cabi.MethodNameDexTradeCleanExpireOrders: &MethodDexTradeCleanExpireOrders{},
 		},
 		cabi.ABIDexTrade,
-	},
+	}
+	return dexContracts
 }
 
-func GetBuiltinContractMethod(addr types.Address, methodSelector []byte) (BuiltinContractMethod, bool, error) {
-	p, ok := simpleContracts[addr]
+func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
+	var contractsMap map[types.Address]*builtinContract
+	if !fork.IsDexFork(sbHeight) {
+		contractsMap = simpleContracts
+	} else {
+		contractsMap = dexContracts
+	}
+	p, ok := contractsMap[addr]
 	if ok {
 		if method, err := p.abi.MethodById(methodSelector); err == nil {
 			c, ok := p.m[method.Name]

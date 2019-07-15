@@ -198,6 +198,7 @@ type CalcPoWDifficultyResult struct {
 	QuotaRequired uint64 `json:"quota"`
 	Difficulty    string `json:"difficulty"`
 	Qc            string `json:"qc"`
+	IsCongestion  bool   `json:"isCongestion"`
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
@@ -226,7 +227,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if err != nil {
 		return nil, err
 	}
-	quotaRequired, err := vm.GasRequiredForBlock(db, block, util.GasTableByHeight(sb.Height))
+	quotaRequired, err := vm.GasRequiredForBlock(db, block, util.GasTableByHeight(sb.Height), sb.Height)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +248,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 			return nil, err
 		}
 		if q.Current() >= quotaRequired {
-			return &CalcPoWDifficultyResult{quotaRequired, "", qcStr}, nil
+			return &CalcPoWDifficultyResult{quotaRequired, "", qcStr, isCongestion}, nil
 		}
 	} else {
 		pledgeAmount = big.NewInt(0)
@@ -266,7 +267,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		d.Mul(d, multipleDivision)
 		d.Div(d, big.NewInt(int64(param.Multiple)))
 	}
-	return &CalcPoWDifficultyResult{quotaRequired, d.String(), qcStr}, nil
+	return &CalcPoWDifficultyResult{quotaRequired, d.String(), qcStr, isCongestion}, nil
 }
 
 func (tx Tx) autoSend() {
