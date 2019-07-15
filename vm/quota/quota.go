@@ -15,7 +15,6 @@ type NodeConfig struct {
 	sectionList      []*big.Float
 	difficultyList   []*big.Int
 	pledgeAmountList []*big.Int
-	qcGap            uint64
 	qcIndexMin       uint64
 	qcIndexMax       uint64
 	qcMap            map[uint64]*big.Int
@@ -52,7 +51,6 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 		nodeConfig.pledgeAmountList = pledgeAmountList
 	}
 
-	nodeConfig.qcGap = qcGap
 	nodeConfig.qcIndexMin = qcIndexMinMainnet
 	nodeConfig.qcIndexMax = qcIndexMaxMainnet
 	nodeConfig.qcMap = qcMapMainnet
@@ -364,7 +362,7 @@ func calcQc(db quotaDb, sbHeight uint64) (*big.Int, uint64, bool) {
 		return big.NewInt(0), 0, false
 	}
 	globalQuota := db.GetGlobalQuota().QuotaUsedTotal
-	qmIndex := (globalQuota + nodeConfig.qcGap - 1) / nodeConfig.qcGap
+	qmIndex := (globalQuota + qcGap - 1) / qcGap
 	if qmIndex < nodeConfig.qcIndexMin {
 		return qcDivision, globalQuota, false
 	} else if qmIndex >= nodeConfig.qcIndexMax {
