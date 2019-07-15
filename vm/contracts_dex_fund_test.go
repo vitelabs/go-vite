@@ -265,7 +265,7 @@ func initDexFundDatabase() *testDatabase {
 		uint8(50),
 		ledger.ViteTokenId,
 		uint8(1),
-		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), util.AttovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600 * 24 * 90).Bytes(), helper.WordSize)),
+		helper.JoinBytes(helper.LeftPadBytes(new(big.Int).Mul(big.NewInt(1e6), util.AttovPerVite).Bytes(), helper.WordSize), helper.LeftPadBytes(ledger.ViteTokenId.Bytes(), helper.WordSize), helper.LeftPadBytes(big.NewInt(3600*24*90).Bytes(), helper.WordSize)),
 		uint8(1),
 		[]byte{},
 		db.addr,

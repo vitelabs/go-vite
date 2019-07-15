@@ -34,14 +34,14 @@ func innerTestTradeNewOrder(t *testing.T) {
 
 	senderAccBlock := &ledger.AccountBlock{}
 	senderAccBlock.AccountAddress = buyAddress0
-	buyOrder0, _ = getNewOrderData(buyAddress0, ETH, VITE, false, "30", 10)//101
+	buyOrder0, _ = getNewOrderData(buyAddress0, ETH, VITE, false, "30", 10) //101
 	senderAccBlock.Data, _ = abi.ABIDexTrade.PackMethod(abi.MethodNameDexTradeNewOrder, buyOrder0)
 	err := method.DoSend(db, senderAccBlock)
 	assert.Equal(t, dex.InvalidSourceAddressErr, err)
 
 	senderAccBlock.AccountAddress = types.AddressDexFund
 	err = method.DoSend(db, senderAccBlock)
-	assert.True(t,  err == nil)
+	assert.True(t, err == nil)
 
 	receiveBlock := &ledger.AccountBlock{}
 	receiveBlock.AccountAddress = types.AddressDexTrade
@@ -101,7 +101,7 @@ func innerTestOnNewOrderFailed(t *testing.T) {
 	buyAddress0, _ := types.BytesToAddress([]byte("123456789012345678901"))
 	order, _ := newOrderInfo(ETH.tokenId, VITE.tokenId, false, dex.Limited, "100", 10)
 	order.Address = buyAddress0.Bytes()
-	marketInfo, _ := dex.GetMarketInfoById(db,1)
+	marketInfo, _ := dex.GetMarketInfoById(db, 1)
 	appendedBlocks, err := contracts.OnNewOrderFailed(order, marketInfo)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 1, len(appendedBlocks))

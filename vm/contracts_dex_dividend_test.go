@@ -15,7 +15,7 @@ import (
 )
 
 var (
- 	vxTokenId = types.TokenTypeId{'V', 'X', ' ', ' ', ' ', 'T', 'O', 'K', 'E', 'N'}
+	vxTokenId   = types.TokenTypeId{'V', 'X', ' ', ' ', ' ', 'T', 'O', 'K', 'E', 'N'}
 	vxTokenInfo = tokenInfo{vxTokenId, "VX", 5, 0}
 
 	userAddress0, _ = types.BytesToAddress([]byte("123456789012345678901"))
@@ -103,7 +103,7 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	// userAddress2 userFees 2 -> [ETH : 30]
 
 	rollPeriod(db)
-	withdraw(db, userAddress0, vxTokenId, 12)	//20
+	withdraw(db, userAddress0, vxTokenId, 12) //20
 
 	vxSumFunds = checkVxSumLen(t, db, 3)
 	assert.True(t, checkBigEqualToInt(43, vxSumFunds.Funds[2].Amount))
@@ -146,10 +146,10 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 
 	rollPeriod(db)
 	settleFund(db, userAddress0, vxTokenId, 1) //19
-	settleFund(db, userAddress1, vxTokenId, 2)       //19
+	settleFund(db, userAddress1, vxTokenId, 2) //19
 	checkVxSumLen(t, db, 4)
-	checkAccount(t, db, userAddress0, vxTokenId,19)
-	checkAccount(t, db, userAddress1, vxTokenId,19)
+	checkAccount(t, db, userAddress0, vxTokenId, 19)
+	checkAccount(t, db, userAddress1, vxTokenId, 19)
 
 	user0VxFunds, _ = dex.GetVxFunds(db, userAddress0.Bytes())
 	assert.Equal(t, 4, len(user0VxFunds.Funds))
@@ -161,7 +161,7 @@ func innerTestVxAccUpdate(t *testing.T, db *testDatabase) {
 	rollPeriod(db)
 	settleFund(db, userAddress1, vxTokenId, 2) //21
 	vxSumFunds = checkVxSumLen(t, db, 5)
-	checkAccount(t, db, userAddress1, vxTokenId,21)
+	checkAccount(t, db, userAddress1, vxTokenId, 21)
 	assert.True(t, checkBigEqualToInt(21, vxSumFunds.Funds[4].Amount))
 
 	user1VxFunds, _ = dex.GetVxFunds(db, userAddress1.Bytes())
@@ -231,7 +231,7 @@ func innerTestFeeDividend(t *testing.T, db *testDatabase) {
 	assert.True(t, vxFunds == nil || len(vxFunds.Funds) == 2)
 
 	checkUserVxLen(t, db, userAddress1.Bytes(), 1)
-	checkAccount(t, db, userAddress1, ETH.tokenId, 69) // 50 + 19
+	checkAccount(t, db, userAddress1, ETH.tokenId, 69)  // 50 + 19
 	checkAccount(t, db, userAddress1, VITE.tokenId, 68) // 38 + 13 + 17
 }
 
@@ -325,7 +325,7 @@ func settleFundAndFee(db *testDatabase, address types.Address, tokenId types.Tok
 		settleActions.FeeActions = append(settleActions.FeeActions, feeAction)
 	}
 
-	if data, err := proto.Marshal(settleActions); err !=nil {
+	if data, err := proto.Marshal(settleActions); err != nil {
 		return err
 	} else {
 		settleSendBlock := &ledger.AccountBlock{}
@@ -345,7 +345,7 @@ func feeDividend(db *testDatabase, periodId uint64) error {
 	var err error
 	feeDividendSendBlock := &ledger.AccountBlock{}
 	if feeDividendSendBlock.Data, err = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundFeeDividend, periodId); err != nil {
-		return  err
+		return err
 	} else {
 		feeDividendReceiveBlock := &ledger.AccountBlock{}
 		feeDividendMethod := contracts.MethodDexFundPeriodJob{}
@@ -358,7 +358,7 @@ func vxMinedVxDividend(db *testDatabase, periodId uint64) error {
 	var err error
 	vxMinedVxDividendSendBlock := &ledger.AccountBlock{}
 	if vxMinedVxDividendSendBlock.Data, err = abi.ABIDexFund.PackMethod(abi.MethodNameDexFundMineVx, periodId); err != nil {
-		return  err
+		return err
 	} else {
 		vxMinedVxDividendReceiveBlock := &ledger.AccountBlock{}
 		minedVxDividendMethod := contracts.MethodDexFundMineVx{}
