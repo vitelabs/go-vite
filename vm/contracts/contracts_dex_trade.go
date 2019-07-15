@@ -32,7 +32,7 @@ func (md *MethodDexTradeNewOrder) GetSendQuota(data []byte, gasTable *util.GasTa
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexTradeNewOrder) GetReceiveQuota() uint64 {
+func (md *MethodDexTradeNewOrder) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
@@ -83,7 +83,7 @@ func (md *MethodDexTradeCancelOrder) GetSendQuota(data []byte, gasTable *util.Ga
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexTradeCancelOrder) GetReceiveQuota() uint64 {
+func (md *MethodDexTradeCancelOrder) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
@@ -140,7 +140,7 @@ func (md *MethodDexTradeNotifyNewMarket) GetSendQuota(data []byte, gasTable *uti
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexTradeNotifyNewMarket) GetReceiveQuota() uint64 {
+func (md *MethodDexTradeNotifyNewMarket) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
@@ -179,7 +179,7 @@ func (md *MethodDexTradeCleanExpireOrders) GetSendQuota(data []byte, gasTable *u
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexTradeCleanExpireOrders) GetReceiveQuota() uint64 {
+func (md *MethodDexTradeCleanExpireOrders) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 

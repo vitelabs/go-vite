@@ -24,9 +24,9 @@ func (p *MethodRegister) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, 
 	return []byte{}, false
 }
 func (p *MethodRegister) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
-	return RegisterGas, nil
+	return gasTable.RegisterGas, nil
 }
-func (p *MethodRegister) GetReceiveQuota() uint64 {
+func (p *MethodRegister) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
@@ -132,9 +132,9 @@ func (p *MethodCancelRegister) GetRefundData(sendBlock *ledger.AccountBlock) ([]
 	return []byte{}, false
 }
 func (p *MethodCancelRegister) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
-	return CancelRegisterGas, nil
+	return gasTable.CancelRegisterGas, nil
 }
-func (p *MethodCancelRegister) GetReceiveQuota() uint64 {
+func (p *MethodCancelRegister) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
@@ -207,9 +207,9 @@ func (p *MethodReward) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bo
 	return []byte{}, false
 }
 func (p *MethodReward) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
-	return RewardGas, nil
+	return gasTable.RewardGas, nil
 }
-func (p *MethodReward) GetReceiveQuota() uint64 {
+func (p *MethodReward) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
@@ -487,9 +487,9 @@ func (p *MethodUpdateRegistration) GetRefundData(sendBlock *ledger.AccountBlock)
 	return []byte{}, false
 }
 func (p *MethodUpdateRegistration) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
-	return UpdateRegistrationGas, nil
+	return gasTable.UpdateRegistrationGas, nil
 }
-func (p *MethodUpdateRegistration) GetReceiveQuota() uint64 {
+func (p *MethodUpdateRegistration) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 

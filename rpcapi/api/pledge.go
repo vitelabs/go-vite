@@ -199,12 +199,12 @@ func (p *PledgeApi) GetAgentPledgeInfo(params PledgeQueryParams) (*PledgeInfo, e
 }
 
 type QuotaCoefficientInfo struct {
-	Qc           string `json:"qc"`
-	GlobalQuota  string `json:"globalQuota"`
-	IsCongestion bool   `json:"isCongestion"`
+	Qc           *string `json:"qc"`
+	GlobalQuota  string  `json:"globalQuota"`
+	IsCongestion bool    `json:"isCongestion"`
 }
 
 func (p *PledgeApi) GetQuotaCoefficient() (*QuotaCoefficientInfo, error) {
 	qc, globalQuota, isCongestion := quota.CalcQc(p.chain, p.chain.GetLatestSnapshotBlock().Height)
-	return &QuotaCoefficientInfo{Float64ToString(qc, 18), Uint64ToString(globalQuota), isCongestion}, nil
+	return &QuotaCoefficientInfo{bigIntToString(qc), Uint64ToString(globalQuota), isCongestion}, nil
 }

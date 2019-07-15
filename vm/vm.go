@@ -535,7 +535,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 	}
 	if p, ok, _ := contracts.GetBuiltinContractMethod(block.AccountAddress, sendBlock.Data, vm.latestSnapshotHeight); ok {
 		// check quota
-		quotaUsed := p.GetReceiveQuota()
+		quotaUsed := p.GetReceiveQuota(vm.gasTable)
 		if quotaUsed > 0 {
 			quotaTotal, _, err := quota.CalcQuotaForBlock(
 				db,

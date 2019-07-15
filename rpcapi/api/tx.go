@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -195,10 +194,10 @@ type CalcPoWDifficultyParam struct {
 var multipleDivision = big.NewInt(10)
 
 type CalcPoWDifficultyResult struct {
-	QuotaRequired uint64 `json:"quota"`
-	Difficulty    string `json:"difficulty"`
-	Qc            string `json:"qc"`
-	IsCongestion  bool   `json:"isCongestion"`
+	QuotaRequired uint64  `json:"quota"`
+	Difficulty    string  `json:"difficulty"`
+	Qc            *string `json:"qc"`
+	IsCongestion  bool    `json:"isCongestion"`
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
@@ -233,7 +232,6 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	}
 
 	qc, _, isCongestion := quota.CalcQc(db, sb.Height)
-	qcStr := strconv.FormatFloat(qc, 'g', 18, 64)
 
 	// get current quota
 	var pledgeAmount *big.Int
@@ -248,7 +246,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 			return nil, err
 		}
 		if q.Current() >= quotaRequired {
-			return &CalcPoWDifficultyResult{quotaRequired, "", qcStr, isCongestion}, nil
+			return &CalcPoWDifficultyResult{quotaRequired, "", bigIntToString(qc), isCongestion}, nil
 		}
 	} else {
 		pledgeAmount = big.NewInt(0)
@@ -267,7 +265,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		d.Mul(d, multipleDivision)
 		d.Div(d, big.NewInt(int64(param.Multiple)))
 	}
-	return &CalcPoWDifficultyResult{quotaRequired, d.String(), qcStr, isCongestion}, nil
+	return &CalcPoWDifficultyResult{quotaRequired, d.String(), bigIntToString(qc), isCongestion}, nil
 }
 
 func (tx Tx) autoSend() {

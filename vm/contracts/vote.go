@@ -20,9 +20,9 @@ func (p *MethodVote) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool
 	return []byte{}, false
 }
 func (p *MethodVote) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
-	return VoteGas, nil
+	return gasTable.VoteGas, nil
 }
-func (p *MethodVote) GetReceiveQuota() uint64 {
+func (p *MethodVote) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
@@ -72,9 +72,9 @@ func (p *MethodCancelVote) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte
 	return []byte{}, false
 }
 func (p *MethodCancelVote) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
-	return CancelVoteGas, nil
+	return gasTable.CancelVoteGas, nil
 }
-func (p *MethodCancelVote) GetReceiveQuota() uint64 {
+func (p *MethodCancelVote) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 

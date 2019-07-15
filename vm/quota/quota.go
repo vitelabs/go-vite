@@ -168,7 +168,7 @@ func calcQuotaTotal(db quotaDb, addr types.Address, pledgeAmount *big.Int, diffi
 	if err != nil {
 		return 0, 0, 0, 0, 0, false, err
 	}
-	qc, _, isCongestion := calcQc(db, sbHeight)
+	qc, _, isCongestion := CalcQc(db, sbHeight)
 	quotaPledge = calcPledgeQuota(qc, isCongestion, pledgeAmount)
 	quotaAddition = calcPoWQuota(qc, isCongestion, difficulty)
 	quotaList := db.GetQuotaUsedList(addr)
@@ -315,7 +315,7 @@ func CalcPledgeAmountByUtps(utps float64) (*big.Int, error) {
 }
 
 func calcPledgeTargetParamByQc(db quotaDb, target *big.Int, sbHeight uint64) (*big.Int, *big.Int, error) {
-	qc, _, isCongestion := calcQc(db, sbHeight)
+	qc, _, isCongestion := CalcQc(db, sbHeight)
 	if !isCongestion {
 		return target, qc, nil
 	}
@@ -325,6 +325,7 @@ func calcPledgeTargetParamByQc(db quotaDb, target *big.Int, sbHeight uint64) (*b
 func calcPledgeTargetParam(qc *big.Int, isCongestion bool, target *big.Int) (*big.Int, error) {
 	newTarget := new(big.Int).Mul(target, qcDivision)
 	newTarget.Div(newTarget, qc)
+	// following for loop will only execute once
 	for true {
 		calcTarget := calcPledgeParam(qc, isCongestion, newTarget)
 		if calcTarget.Cmp(target) >= 0 {
@@ -344,7 +345,7 @@ func getMaxUtps() float64 {
 }
 
 func calcPledgeParamByQc(db quotaDb, param *big.Int, sbHeight uint64) *big.Int {
-	qc, _, isCongestion := calcQc(db, sbHeight)
+	qc, _, isCongestion := CalcQc(db, sbHeight)
 	return calcPledgeParam(qc, isCongestion, param)
 }
 
@@ -357,21 +358,16 @@ func calcPledgeParam(qc *big.Int, isCongestion bool, param *big.Int) *big.Int {
 	return newParam
 }
 
-func calcQc(db quotaDb, sbHeight uint64) (*big.Int, uint64, bool) {
+func CalcQc(db quotaDb, sbHeight uint64) (*big.Int, uint64, bool) {
 	if !fork.IsDexFork(sbHeight) {
 		return big.NewInt(0), 0, false
 	}
 	globalQuota := db.GetGlobalQuota().QuotaUsedTotal
-	qmIndex := (globalQuota + qcGap - 1) / qcGap
-	if qmIndex < nodeConfig.qcIndexMin {
+	qcIndex := (globalQuota + qcGap - 1) / qcGap
+	if qcIndex < nodeConfig.qcIndexMin {
 		return qcDivision, globalQuota, false
-	} else if qmIndex >= nodeConfig.qcIndexMax {
-		return nodeConfig.qcMap[nodeConfig.qcIndexMax], globalQuota, true
+	} else if qcIndex >= nodeConfig.qcIndexMax {
+		qcIndex = nodeConfig.qcIndexMax
 	}
-	return nodeConfig.qcMap[qmIndex], globalQuota, true
-}
-
-func CalcQc(db quotaDb, sbHeight uint64) (float64, uint64, bool) {
-	qm, qlobalQuota, isCongestion := calcQc(db, sbHeight)
-	return float64(qm.Uint64()) / float64(qcDivision.Uint64()), qlobalQuota, isCongestion
+	return nodeConfig.qcMap[qcIndex], globalQuota, true
 }

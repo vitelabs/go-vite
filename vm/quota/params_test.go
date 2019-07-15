@@ -246,9 +246,9 @@ func TestPrintQcParams(t *testing.T) {
 	qcT2 := float64(0.01)
 	qcT3 := float64(0.000000536)*/
 
-	t1 := uint64(50 * 74 * 21000)
-	t2 := uint64(100 * 74 * 21000)
-	t3 := uint64(500 * 74 * 21000)
+	t1 := uint64(40 * 74 * 21000)
+	t2 := uint64(80 * 74 * 21000)
+	t3 := uint64(100 * 74 * 21000)
 	qcT1 := float64(1)
 	qcT2 := float64(0.1)
 	qcT3 := float64(0.00001)
@@ -266,7 +266,7 @@ func TestPrintQcParams(t *testing.T) {
 	}*/
 	gap := uint64(21000 * 74)
 
-	fmt.Println("qcIndexMinMainnet uint64 = " + strconv.Itoa(int(t2/gap)))
+	fmt.Println("qcIndexMinMainnet uint64 = " + strconv.Itoa(int(t1/gap)+1))
 	fmt.Println("qcIndexMaxMainnet uint64 = " + strconv.Itoa(int(t3/gap)))
 	fmt.Println("qcMapMainnet = map[uint64]*big.Int{")
 	for x := t1 + gap; x <= t3; x = x + gap {
@@ -349,6 +349,8 @@ func getPledgeDifficultyByAttov(qc *big.Int, param *big.Int) *big.Int {
 func getViteByAttov(i *big.Int) *big.Int {
 	return new(big.Int).Div(i, big.NewInt(1e18))
 }
-func getUtpsStr(q uint64) string {
-	return strconv.FormatFloat(float64(q)/float64(21000), 'g', 4, 64)
+
+func TestCalcQuotaByPledgeAmount(t *testing.T) {
+	InitQuotaConfig(false, true)
+	fmt.Println(calcPledgeQuota(big.NewInt(9999999999954), true, new(big.Int).Mul(big.NewInt(1100000), big.NewInt(1e18))))
 }

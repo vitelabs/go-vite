@@ -39,7 +39,7 @@ type BuiltinContractMethod interface {
 	// check status, update state
 	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error)
 	// receive block quota
-	GetReceiveQuota() uint64
+	GetReceiveQuota(gasTable *util.GasTable) uint64
 	// refund data at receive error
 	GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool)
 }

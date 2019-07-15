@@ -17,10 +17,9 @@ const (
 	outOfQuotaBlockTime uint64 = 75
 
 	qcGap uint64 = 21000 * 74
-)
 
-var (
-	qcDivision = big.NewInt(1e18)
+	qcIndexMinMainnet uint64 = 51
+	qcIndexMaxMainnet uint64 = 500
 )
 
 type QuotaParams struct {
@@ -35,6 +34,7 @@ func NewQuotaParams(strA, strB string) QuotaParams {
 }
 
 var (
+	qcDivision     = big.NewInt(1e18)
 	sectionStrList = []string{
 		"0",
 		"0.0005600000146345639",
@@ -3611,9 +3611,6 @@ var (
 	}
 	QuotaParamMainnet = NewQuotaParams("4.201037667e-24", "6.259408129e-10")
 	QuotaParamTestnet = NewQuotaParams("4.200617563e-21", "6.409829346e-07")
-
-	qcIndexMinMainnet uint64 = 51
-	qcIndexMaxMainnet uint64 = 500
 
 	qcMapMainnet = map[uint64]*big.Int{
 		51:  big.NewInt(987080173288357376),
