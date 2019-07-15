@@ -28,6 +28,7 @@ func TestRun(t *testing.T) {
 	for _, test := range tests {
 		vm := NewVM(nil)
 		vm.i = newInterpreter(1, false)
+		vm.gasTable = util.GasTableByHeight(1)
 		//vm.Debug = true
 		sendCallBlock := ledger.AccountBlock{
 			AccountAddress: types.Address{},

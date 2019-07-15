@@ -8,9 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
-	"github.com/vitelabs/go-vite/vm/util"
 	"sort"
-	"strconv"
 )
 
 type PledgeApi struct {
@@ -78,7 +76,7 @@ func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &QuotaAndTxNum{Uint64ToString(q.PledgeQuotaPerSnapshotBlock()), Uint64ToString(q.Current()), Uint64ToString(q.Current() / util.TxGas)}, nil
+	return &QuotaAndTxNum{Uint64ToString(q.PledgeQuotaPerSnapshotBlock()), Uint64ToString(q.Current()), Uint64ToString(q.Current() / quota.QuotaForUtps)}, nil
 }
 
 type PledgeInfoList struct {
@@ -163,11 +161,11 @@ func (p *PledgeApi) GetQuotaUsedList(addr types.Address) ([]types.QuotaInfo, err
 }
 
 func (p *PledgeApi) GetPledgeAmountByUtps(utps string) (*string, error) {
-	utpfF, err := strconv.ParseFloat(utps, 64)
+	utpfF, err := StringToFloat64(utps)
 	if err != nil {
 		return nil, err
 	}
-	amount, err := quota.CalcPledgeAmountByUtps(utpfF)
+	amount, err := quota.CalcPledgeAmountByUtps(p.chain, utpfF)
 	if err != nil {
 		return nil, err
 	}
@@ -198,4 +196,15 @@ func (p *PledgeApi) GetAgentPledgeInfo(params PledgeQueryParams) (*PledgeInfo, e
 		return nil, nil
 	}
 	return NewPledgeInfo(info, snapshotBlock), nil
+}
+
+type QuotaCoefficientInfo struct {
+	Qc           string `json:"qc"`
+	GlobalQuota  string `json:"globalQuota"`
+	IsCongestion bool   `json:"isCongestion"`
+}
+
+func (p *PledgeApi) GetQuotaCoefficient() (*QuotaCoefficientInfo, error) {
+	qc, globalQuota, isCongestion := quota.CalcQc(p.chain, p.chain.GetLatestSnapshotBlock().Height)
+	return &QuotaCoefficientInfo{Float64ToString(qc, 18), Uint64ToString(globalQuota), isCongestion}, nil
 }
