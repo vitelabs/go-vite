@@ -93,7 +93,7 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)
 	}
 	if acc, err = dex.SubUserFund(db, sendBlock.AccountAddress, param.Token.Bytes(), param.Amount); err != nil {
-		handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)
 	} else {
 		if param.Token == dex.VxTokenId {
 			dex.OnWithdrawVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount, acc)
