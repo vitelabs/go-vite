@@ -343,7 +343,7 @@ func (sDB *StateDB) RedoStore() *chain_db.Store {
 	return sDB.redo.store
 }
 
-func (sDB *StateDB) StorageRedo() *Redo {
+func (sDB *StateDB) Redo() *Redo {
 	return sDB.redo
 }
 

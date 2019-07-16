@@ -14,7 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"sync"
-	"sync/atomic"
 )
 
 type RoundCacheLogItem struct {
@@ -104,17 +103,17 @@ const (
 
 type RoundCache struct {
 	chain            Chain
-	stateDB          *StateDB
+	stateDB          StateDBInterface
 	roundCount       uint64
 	timeIndex        core.TimeIndex
 	latestRoundIndex uint64
 
 	data   []*RedoCacheData
 	mu     sync.RWMutex
-	status uint32
+	status int
 }
 
-func NewRoundCache(chain Chain, stateDB *StateDB, roundCount uint8) *RoundCache {
+func NewRoundCache(chain Chain, stateDB StateDBInterface, roundCount uint8) *RoundCache {
 	return &RoundCache{
 		chain:      chain,
 		stateDB:    stateDB,
@@ -142,7 +141,7 @@ func (cache *RoundCache) Init(timeIndex core.TimeIndex) (returnErr error) {
 		if returnErr != nil {
 			return
 		}
-		atomic.CompareAndSwapUint32(&cache.status, STOP, INITED)
+		cache.status = INITED
 	}()
 	// get latest sb
 	latestSb := cache.chain.GetLatestSnapshotBlock()
@@ -182,6 +181,9 @@ func (cache *RoundCache) Init(timeIndex core.TimeIndex) (returnErr error) {
 
 // panic when return error
 func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, snapshotLog SnapshotLog) (returnErr error) {
+	if cache.status < INITED {
+		return nil
+	}
 	roundIndex := cache.timeIndex.Time2Index(*snapshotBlock.Timestamp)
 	defer func() {
 		if returnErr != nil {
@@ -279,6 +281,10 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 
 // panic when return error
 func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error {
+	if cache.status < INITED {
+		return nil
+	}
+
 	firstSnapshotBlock := snapshotBlocks[0]
 	firstRoundIndex := cache.timeIndex.Time2Index(*firstSnapshotBlock.Timestamp)
 
@@ -535,7 +541,7 @@ func (cache *RoundCache) queryRedoLogs(roundIndex uint64) (returnRedoLogs *Round
 
 	// assume snapshot blocks is sorted by height asc, query redoLog by snapshot block height
 	for _, snapshotBlock := range snapshotBlocks {
-		redoLog, hasRedoLog, err := cache.stateDB.redo.QueryLog(snapshotBlock.Height)
+		redoLog, hasRedoLog, err := cache.stateDB.Redo().QueryLog(snapshotBlock.Height)
 		if err != nil {
 			return nil, false, err
 		}
