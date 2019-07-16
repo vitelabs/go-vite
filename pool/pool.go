@@ -538,6 +538,8 @@ func (pl *pool) broadcastUnConfirmedBlocks() {
 
 func (pl *pool) delUseLessChains() {
 	if pl.sync.SyncState() != net.Syncing {
+		pl.RLockInsert()
+		defer pl.RUnLockInsert()
 		info := pl.pendingSc.irreversible
 		pl.delChainsForIrreversible(info)
 		pl.pendingSc.checkPool()

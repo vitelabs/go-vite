@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/wallet/walleterrors"
 )
@@ -77,6 +78,10 @@ var (
 		Message: util.ErrInvalidQuotaRatio.Error(),
 		Code:    -35010,
 	}
+	ErrVmPoWNotSupported = JsonRpc2Error{
+		Message: ErrPoWNotSupportedUnderCongestion.Error(),
+		Code:    -35011,
+	}
 
 	// -36001 ~ -36999 verifier_account
 	ErrVerifyAccountAddr = JsonRpc2Error{
@@ -104,6 +109,56 @@ var (
 		Code:    -36006,
 	}
 
+	// -37001 ~ -37999 contracts_dex
+	ErrComposeOrderIdFail = JsonRpc2Error{
+		Message: dex.ComposeOrderIdFailErr.Error(),
+		Code:    -37001,
+	}
+	ErrDexInvalidOrderType = JsonRpc2Error{
+		Message: dex.InvalidOrderTypeErr.Error(),
+		Code:    -37002,
+	}
+	ErrDexInvalidOrderPrice = JsonRpc2Error{
+		Message: dex.InvalidOrderPriceErr.Error(),
+		Code:    -37003,
+	}
+	ErrDexInvalidOrderQuantity = JsonRpc2Error{
+		Message: dex.InvalidOrderQuantityErr.Error(),
+		Code:    -37004,
+	}
+	ErrDexOrderAmountTooSmall = JsonRpc2Error{
+		Message: dex.OrderAmountTooSmallErr.Error(),
+		Code:    -37005,
+	}
+	ErrDexTradeMarketExists = JsonRpc2Error{
+		Message: dex.TradeMarketExistsErr.Error(),
+		Code:    -37006,
+	}
+	ErrDexTradeMarketNotExists = JsonRpc2Error{
+		Message: dex.TradeMarketNotExistsErr.Error(),
+		Code:    -37007,
+	}
+	ErrDexTradeOrderNotExistsErr = JsonRpc2Error{
+		Message: dex.OrderNotExistsErr.Error(),
+		Code:    -37008,
+	}
+	ErrDexCancelOrderOwnerInvalid = JsonRpc2Error{
+		Message: dex.CancelOrderOwnerInvalidErr.Error(),
+		Code:    -37009,
+	}
+	ErrDexCancelOrderInvalidStatus = JsonRpc2Error{
+		Message: dex.CancelOrderInvalidStatusErr.Error(),
+		Code:    -37010,
+	}
+	ErrDexTradeMarketInvalidQuoteToken = JsonRpc2Error{
+		Message: dex.TradeMarketInvalidQuoteTokenErr.Error(),
+		Code:    -37011,
+	}
+	ErrDexTradeMarketInvalidTokenPair = JsonRpc2Error{
+		Message: dex.TradeMarketInvalidTokenPairErr.Error(),
+		Code:    -37012,
+	}
+
 	concernedErrorMap map[string]JsonRpc2Error
 )
 
@@ -122,6 +177,7 @@ func init() {
 	concernedErrorMap[ErrVmContractNotExists.Error()] = ErrVmContractNotExists
 	concernedErrorMap[ErrVmNoReliableStatus.Error()] = ErrVmNoReliableStatus
 	concernedErrorMap[ErrVmInvalidQuotaRatio.Error()] = ErrVmInvalidQuotaRatio
+	concernedErrorMap[ErrVmPoWNotSupported.Error()] = ErrVmPoWNotSupported
 
 	concernedErrorMap[ErrVerifyAccountAddr.Error()] = ErrVerifyAccountAddr
 	concernedErrorMap[ErrVerifyHash.Error()] = ErrVerifyHash
@@ -129,6 +185,19 @@ func init() {
 	concernedErrorMap[ErrVerifyNonce.Error()] = ErrVerifyNonce
 	concernedErrorMap[ErrVerifyPrevBlock.Error()] = ErrVerifyPrevBlock
 	concernedErrorMap[ErrVerifyRPCBlockIsPending.Error()] = ErrVerifyRPCBlockIsPending
+
+	concernedErrorMap[ErrComposeOrderIdFail.Error()] = ErrComposeOrderIdFail
+	concernedErrorMap[ErrDexInvalidOrderType.Error()] = ErrDexInvalidOrderType
+	concernedErrorMap[ErrDexInvalidOrderPrice.Error()] = ErrDexInvalidOrderPrice
+	concernedErrorMap[ErrDexInvalidOrderQuantity.Error()] = ErrDexInvalidOrderQuantity
+	concernedErrorMap[ErrDexOrderAmountTooSmall.Error()] = ErrDexOrderAmountTooSmall
+	concernedErrorMap[ErrDexTradeMarketExists.Error()] = ErrDexTradeMarketExists
+	concernedErrorMap[ErrDexTradeMarketNotExists.Error()] = ErrDexTradeMarketNotExists
+	concernedErrorMap[ErrDexTradeOrderNotExistsErr.Error()] = ErrDexTradeOrderNotExistsErr
+	concernedErrorMap[ErrDexCancelOrderOwnerInvalid.Error()] = ErrDexCancelOrderOwnerInvalid
+	concernedErrorMap[ErrDexCancelOrderInvalidStatus.Error()] = ErrDexCancelOrderInvalidStatus
+	concernedErrorMap[ErrDexTradeMarketInvalidQuoteToken.Error()] = ErrDexTradeMarketInvalidQuoteToken
+	concernedErrorMap[ErrDexTradeMarketInvalidTokenPair.Error()] = ErrDexTradeMarketInvalidTokenPair
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {

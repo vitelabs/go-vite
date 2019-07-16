@@ -6,10 +6,19 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/pow/remote"
+	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/quota"
 	"math/big"
 )
 
 type Pow struct {
+	vite *vite.Vite
+}
+
+func NewPow(vite *vite.Vite) *Pow {
+	return &Pow{
+		vite: vite,
+	}
 }
 
 func (p Pow) GetPowNonce(difficulty string, data types.Hash) ([]byte, error) {
@@ -23,6 +32,10 @@ func (p Pow) GetPowNonce(difficulty string, data types.Hash) ([]byte, error) {
 	realDifficulty, ok := new(big.Int).SetString(difficulty, 10)
 	if !ok {
 		return nil, ErrStrToBigInt
+	}
+
+	if _, _, isCongestion := quota.CalcQc(p.vite.Chain(), p.vite.Chain().GetLatestSnapshotBlock().Height); isCongestion {
+		return nil, ErrPoWNotSupportedUnderCongestion
 	}
 
 	work, e := remote.GenerateWork(data.Bytes(), realDifficulty)

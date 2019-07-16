@@ -8,7 +8,6 @@ import (
 func (vdb *vmDb) GetUnconfirmedBlocks(address types.Address) []*ledger.AccountBlock {
 	return vdb.chain.GetUnconfirmedBlocks(address)
 }
-
 func (vdb *vmDb) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
 	return vdb.chain.GetLatestAccountBlock(addr)
 }
