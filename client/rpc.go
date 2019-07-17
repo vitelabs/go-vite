@@ -10,6 +10,7 @@ type RpcClient interface {
 	rpc2.OnroadApi
 	rpc2.TxApi
 	rpc2.ContractApi
+	rpc2.DexTradeApi
 
 	GetClient() *rpc.Client
 }
@@ -25,6 +26,7 @@ func NewRpcClient(rawurl string) (RpcClient, error) {
 		OnroadApi:   rpc2.NewOnroadApi(c),
 		TxApi:       rpc2.NewTxApi(c),
 		ContractApi: rpc2.NewContractApi(c),
+		DexTradeApi: rpc2.NewDexTradeApi(c),
 		cc:          c,
 	}
 	return r, nil
@@ -35,6 +37,7 @@ type rpcClient struct {
 	rpc2.OnroadApi
 	rpc2.TxApi
 	rpc2.ContractApi
+	rpc2.DexTradeApi
 
 	cc *rpc.Client
 }
