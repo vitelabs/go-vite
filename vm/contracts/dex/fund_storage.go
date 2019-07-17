@@ -67,7 +67,7 @@ var (
 
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 
-	VxTokenId, _          = types.HexToTokenTypeId("tti_340b335ce06aa2a0a6db3c0a")
+	VxTokenId, _          = types.HexToTokenTypeId("tti_564954455820434f494e69b5")
 	VxMinedAmtFirstPeriod = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(13)), nil), big.NewInt(47703236213)) // 477032.36213
 
 	VxDividendThreshold      = new(big.Int).Mul(commonTokenPow, big.NewInt(10))
@@ -84,12 +84,12 @@ var (
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
 	bitcoinMinAmount = big.NewInt(50000)                                 // 0.0005 BTC
-	usdMinAmount     = big.NewInt(100000000)                             //1 USD
+	usdMinAmount     = big.NewInt(100000000)                             // 1 USD
 
 	viteMineThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(2))    // 2 VITE
 	ethMineThreshold     = new(big.Int).Div(commonTokenPow, big.NewInt(5000)) // 0.0002 ETH
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
-	usdMineThreshold     = big.NewInt(2000000)                                // 0.1USD
+	usdMineThreshold     = big.NewInt(2000000)                                // 0.02USD
 
 	RateSumForFeeMine                = "0.6"                                             // 15% * 4
 	RateForPledgeMine                = "0.2"                                             // 20%
@@ -104,6 +104,7 @@ var (
 		BtcTokenType:  &QuoteTokenTypeInfo{Decimals: 8, DefaultTradeThreshold: bitcoinMinAmount, DefaultMineThreshold: bitcoinMineThreshold},
 		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 8, DefaultTradeThreshold: usdMinAmount, DefaultMineThreshold: usdMineThreshold},
 	}
+	initOwner, _ = types.HexToAddress("vite_a8a00b3a2f60f5defb221c68f79b65f3620ee874f951a825db")
 )
 
 const (
@@ -1170,7 +1171,7 @@ func IsOwner(db vm_db.VmDb, address types.Address) bool {
 	if storeOwner := getValueFromDb(db, ownerKey); len(storeOwner) == types.AddressSize {
 		return bytes.Equal(storeOwner, address.Bytes())
 	} else {
-		return len(storeOwner) == 0
+		return address == initOwner
 	}
 }
 
