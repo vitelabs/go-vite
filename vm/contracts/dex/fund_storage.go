@@ -59,9 +59,11 @@ var (
 	inviterByCodeKeyPrefix    = []byte("cd2itr:")
 	inviterByInviteeKeyPrefix = []byte("ite2itr:")
 
-	maintainerKey                   = []byte("mtA:")
-	makerMineProxyKey               = []byte("mmpA:")
-	makerMineProxyAmountByPeriodKey = []byte("mmpaP:")
+	maintainerKey                    = []byte("mtA:")
+	makerMineProxyKey                = []byte("mmpA:")
+	makerMineProxyAmountByPeriodKey  = []byte("mmpaP:")
+	lastSettledMakerMinedVxPeriodKey = []byte("lsmmvp:")
+	lastSettledMakerMinedVxPageKey   = []byte("lsmmvpp:")
 
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 
@@ -272,8 +274,8 @@ type ParamDexFundMarketOwnerConfig struct {
 	TradeToken    types.TokenTypeId
 	QuoteToken    types.TokenTypeId
 	Owner         types.Address
-	TakerFeeRate     int32
-	MakerFeeRate     int32
+	TakerFeeRate  int32
+	MakerFeeRate  int32
 	StopMarket    bool
 }
 
@@ -1244,6 +1246,31 @@ func IsMakerMineProxy(db vm_db.VmDb, addr types.Address) bool {
 	}
 }
 
+func GetLastSettledMakerMinedVxPeriod(db vm_db.VmDb) uint64 {
+	if pIdBytes := getValueFromDb(db, lastSettledMakerMinedVxPeriodKey); len(pIdBytes) == 8 {
+		return BytesToUint64(pIdBytes)
+	} else {
+		return 0
+	}
+}
+func SaveLastSettledMakerMinedVxPeriod(db vm_db.VmDb, periodId uint64) {
+	setValueToDb(db, lastSettledMakerMinedVxPeriodKey, Uint64ToBytes(periodId))
+}
+
+func GetLastSettledMakerMinedVxPage(db vm_db.VmDb) int32 {
+	if pageBytes := getValueFromDb(db, lastSettledMakerMinedVxPageKey); len(pageBytes) == 4 {
+		return int32(BytesToUint32(pageBytes))
+	} else {
+		return 0
+	}
+}
+func SaveLastSettledMakerMinedVxPage(db vm_db.VmDb, pageId int32) {
+	setValueToDb(db, lastSettledMakerMinedVxPageKey, Uint32ToBytes(uint32(pageId)))
+}
+func DeleteLastSettledMakerMinedVxPage(db vm_db.VmDb) {
+	setValueToDb(db, lastSettledMakerMinedVxPageKey, nil)
+}
+
 func GetMaintainer(db vm_db.VmDb) *types.Address {
 	if mtBytes := getValueFromDb(db, maintainerKey); len(mtBytes) == types.AddressSize {
 		if maintainer, err := types.BytesToAddress(mtBytes); err == nil {
@@ -1281,7 +1308,7 @@ func ValidTimerAddress(db vm_db.VmDb, address types.Address) bool {
 }
 
 func GetTimer(db vm_db.VmDb) *types.Address {
-	if timerAddressBytes := getValueFromDb(db, timerAddressKey); len(timerAddressKey) == types.AddressSize {
+	if timerAddressBytes := getValueFromDb(db, timerAddressKey); len(timerAddressBytes) == types.AddressSize {
 		address := &types.Address{}
 		address.SetBytes(timerAddressBytes)
 		return address
