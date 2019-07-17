@@ -9,7 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 )
 
-func (sDB *StateDB) NewStorageDatabase(snapshotHash types.Hash, addr types.Address) (*StorageDatabase, error) {
+func (sDB *StateDB) NewStorageDatabase(snapshotHash types.Hash, addr types.Address) (StorageDatabaseInterface, error) {
 	snapshotHeight, err := sDB.chain.GetSnapshotHeightByHash(snapshotHash)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ type StorageDatabase struct {
 	addr           types.Address
 }
 
-func NewStorageDatabase(stateDb *StateDB, hashHeight ledger.HashHeight, addr types.Address) *StorageDatabase {
+func NewStorageDatabase(stateDb *StateDB, hashHeight ledger.HashHeight, addr types.Address) StorageDatabaseInterface {
 	return &StorageDatabase{
 		stateDb:        stateDb,
 		snapshotHeight: hashHeight.Height,

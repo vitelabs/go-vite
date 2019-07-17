@@ -676,10 +676,12 @@ func (cache *RoundCache) setBalanceToCache(roundData *memdb.DB, snapshotHash typ
 	}
 
 	for addr, balance := range balanceMap {
+
 		// balance is zero
 		if balance == nil || len(balance.Bytes()) <= 0 {
 			continue
 		}
+
 		roundData.Put(makeBalanceKey(addr.Bytes()), balance.Bytes())
 	}
 
@@ -691,6 +693,7 @@ func (cache *RoundCache) setStorageToCache(roundData *memdb.DB, contractAddress 
 	if err != nil {
 		return err
 	}
+
 	iter, err := storageDatabase.NewStorageIterator(nil)
 	if err != nil {
 		return err

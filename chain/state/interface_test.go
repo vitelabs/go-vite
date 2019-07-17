@@ -1243,10 +1243,10 @@ func (mr *MockStateDBInterfaceMockRecorder) getSnapshotBalanceList(balanceMap, s
 }
 
 // NewStorageDatabase mocks base method
-func (m *MockStateDBInterface) NewStorageDatabase(snapshotHash types.Hash, addr types.Address) (*StorageDatabase, error) {
+func (m *MockStateDBInterface) NewStorageDatabase(snapshotHash types.Hash, addr types.Address) (StorageDatabaseInterface, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewStorageDatabase", snapshotHash, addr)
-	ret0, _ := ret[0].(*StorageDatabase)
+	ret0, _ := ret[0].(StorageDatabaseInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1483,4 +1483,71 @@ func (m *MockStateDBInterface) canWriteVmLog(addr types.Address) bool {
 func (mr *MockStateDBInterfaceMockRecorder) canWriteVmLog(addr interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "canWriteVmLog", reflect.TypeOf((*MockStateDBInterface)(nil).canWriteVmLog), addr)
+}
+
+// MockStorageDatabaseInterface is a mock of StorageDatabaseInterface interface
+type MockStorageDatabaseInterface struct {
+	ctrl     *gomock.Controller
+	recorder *MockStorageDatabaseInterfaceMockRecorder
+}
+
+// MockStorageDatabaseInterfaceMockRecorder is the mock recorder for MockStorageDatabaseInterface
+type MockStorageDatabaseInterfaceMockRecorder struct {
+	mock *MockStorageDatabaseInterface
+}
+
+// NewMockStorageDatabaseInterface creates a new mock instance
+func NewMockStorageDatabaseInterface(ctrl *gomock.Controller) *MockStorageDatabaseInterface {
+	mock := &MockStorageDatabaseInterface{ctrl: ctrl}
+	mock.recorder = &MockStorageDatabaseInterfaceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockStorageDatabaseInterface) EXPECT() *MockStorageDatabaseInterfaceMockRecorder {
+	return m.recorder
+}
+
+// GetValue mocks base method
+func (m *MockStorageDatabaseInterface) GetValue(key []byte) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetValue", key)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetValue indicates an expected call of GetValue
+func (mr *MockStorageDatabaseInterfaceMockRecorder) GetValue(key interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetValue", reflect.TypeOf((*MockStorageDatabaseInterface)(nil).GetValue), key)
+}
+
+// NewStorageIterator mocks base method
+func (m *MockStorageDatabaseInterface) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewStorageIterator", prefix)
+	ret0, _ := ret[0].(interfaces.StorageIterator)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewStorageIterator indicates an expected call of NewStorageIterator
+func (mr *MockStorageDatabaseInterfaceMockRecorder) NewStorageIterator(prefix interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStorageIterator", reflect.TypeOf((*MockStorageDatabaseInterface)(nil).NewStorageIterator), prefix)
+}
+
+// Address mocks base method
+func (m *MockStorageDatabaseInterface) Address() *types.Address {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Address")
+	ret0, _ := ret[0].(*types.Address)
+	return ret0
+}
+
+// Address indicates an expected call of Address
+func (mr *MockStorageDatabaseInterfaceMockRecorder) Address() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockStorageDatabaseInterface)(nil).Address))
 }

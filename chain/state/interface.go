@@ -121,7 +121,7 @@ type StateDBInterface interface {
 	Redo() *Redo
 	GetStatus() []interfaces.DBStatus
 	getSnapshotBalanceList(balanceMap map[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error
-	NewStorageDatabase(snapshotHash types.Hash, addr types.Address) (*StorageDatabase, error)
+	NewStorageDatabase(snapshotHash types.Hash, addr types.Address) (StorageDatabaseInterface, error)
 	newCache() error
 	initCache() error
 	disableCache()
@@ -139,4 +139,10 @@ type StateDBInterface interface {
 	writeBalance(batch interfaces.Batch, key, value []byte)
 	writeHistoryKey(batch interfaces.Batch, key, value []byte)
 	canWriteVmLog(addr types.Address) bool
+}
+
+type StorageDatabaseInterface interface {
+	GetValue(key []byte) ([]byte, error)
+	NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
+	Address() *types.Address
 }
