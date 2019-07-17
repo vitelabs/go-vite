@@ -19,8 +19,8 @@ func NewDexTradeApi(cc *rpc.Client) DexTradeApi {
 	return &dexTradeApi{cc: cc}
 }
 
-func (ci dexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *api.OrdersRes, err error) {
-	result := &api.OrdersRes{}
+func (ci dexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (result *api.OrdersRes, err error) {
+	result = &api.OrdersRes{}
 	err = ci.cc.Call(&result, "dextrade_getOrdersFromMarket", tradeToken, quoteToken, side, begin, end)
 	return
 }
