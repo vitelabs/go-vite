@@ -84,12 +84,12 @@ var (
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
 	bitcoinMinAmount = big.NewInt(50000)                                 // 0.0005 BTC
-	usdMinAmount     = big.NewInt(100000000)                             // 1 USD
+	usdMinAmount     = big.NewInt(1000000)                             // 1 USD
 
 	viteMineThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(2))    // 2 VITE
 	ethMineThreshold     = new(big.Int).Div(commonTokenPow, big.NewInt(5000)) // 0.0002 ETH
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
-	usdMineThreshold     = big.NewInt(2000000)                                // 0.02USD
+	usdMineThreshold     = big.NewInt(20000)                                // 0.02USD
 
 	RateSumForFeeMine                = "0.6"                                             // 15% * 4
 	RateForPledgeMine                = "0.2"                                             // 20%
