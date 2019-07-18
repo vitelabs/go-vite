@@ -38,7 +38,7 @@ func (md *MethodDexFundUserDeposit) GetReceiveQuota() uint64 {
 
 func (md *MethodDexFundUserDeposit) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() <= 0 {
-		return fmt.Errorf("deposit amount is zero")
+		return dex.InvalidInputParamErr
 	}
 	return nil
 }
@@ -78,7 +78,7 @@ func (md *MethodDexFundUserWithdraw) DoSend(db vm_db.VmDb, block *ledger.Account
 		return err
 	}
 	if param.Amount.Sign() <= 0 {
-		return fmt.Errorf("withdraw amount is zero")
+		return dex.InvalidInputParamErr
 	}
 	return nil
 }
@@ -93,7 +93,7 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)
 	}
 	if acc, err = dex.SubUserFund(db, sendBlock.AccountAddress, param.Token.Bytes(), param.Amount); err != nil {
-		handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)
 	} else {
 		if param.Token == dex.VxTokenId {
 			dex.OnWithdrawVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount, acc)
@@ -101,7 +101,7 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 	}
 	return []*ledger.AccountBlock{
 		{
-			AccountAddress: block.AccountAddress,
+			AccountAddress: types.AddressDexFund,
 			ToAddress:      sendBlock.AccountAddress,
 			BlockType:      ledger.BlockTypeSendCall,
 			Amount:         param.Amount,
@@ -136,7 +136,7 @@ func (md *MethodDexFundNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewMarket, block.Data); err != nil {
 		return err
 	}
-	if err = dex.CheckMarketParam(param, block.TokenId); err != nil {
+	if err = dex.CheckMarketParam(param); err != nil {
 		return err
 	}
 	return nil
@@ -206,7 +206,7 @@ func (md *MethodDexFundNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBloc
 
 func (md *MethodDexFundNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
-		dexFund        = &dex.UserFund{}
+		dexFund        *dex.UserFund
 		tradeBlockData []byte
 		err            error
 		orderInfoBytes []byte
@@ -234,7 +234,7 @@ func (md *MethodDexFundNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 	}
 	return []*ledger.AccountBlock{
 		{
-			AccountAddress: block.AccountAddress,
+			AccountAddress: types.AddressDexFund,
 			ToAddress:      types.AddressDexTrade,
 			BlockType:      ledger.BlockTypeSendCall,
 			TokenId:        ledger.ViteTokenId,
@@ -265,7 +265,7 @@ func (md *MethodDexFundSettleOrders) GetReceiveQuota() uint64 {
 
 func (md *MethodDexFundSettleOrders) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var err error
-	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexTrade.Bytes()) {
+	if block.AccountAddress != types.AddressDexTrade {
 		return dex.InvalidSourceAddressErr
 	}
 	param := new(dex.ParamDexSerializedData)
@@ -1155,9 +1155,9 @@ func (md *MethodDexFundSettleMakerMinedVx) DoSend(db vm_db.VmDb, block *ledger.A
 
 func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
-		err     error
-		poolAmt *big.Int
-		finish  bool
+		err        error
+		poolAmt    *big.Int
+		finish     bool
 	)
 	if !dex.IsMakerMineProxy(db, sendBlock.AccountAddress) {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, dex.InvalidSourceAddressErr, sendBlock)
@@ -1171,6 +1171,13 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, err, sendBlock)
 	} else if len(actions.Actions) == 0 {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, dex.InvalidInputParamErr, sendBlock)
+	} else {
+		if lastPeriod := dex.GetLastSettledMakerMinedVxPeriod(db); lastPeriod > 0 && actions.Period != lastPeriod+1 {
+			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, dex.InvalidInputParamErr, sendBlock)
+		}
+		if lastPageId := dex.GetLastSettledMakerMinedVxPage(db); lastPageId > 0 && actions.Page != lastPageId+1 {
+			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, dex.InvalidInputParamErr, sendBlock)
+		}
 	}
 	if poolAmt = dex.GetMakerProxyAmountByPeriodId(db, actions.Period); poolAmt.Sign() == 0 {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, dex.ExceedFundAvailableErr, sendBlock)
@@ -1193,9 +1200,12 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 	}
 	if poolAmt.Sign() > 0 {
 		dex.SaveMakerProxyAmountByPeriodId(db, actions.Period, poolAmt)
+		dex.SaveLastSettledMakerMinedVxPage(db, actions.Page)
 	} else {
-		dex.DeleteMakerProxyAmountByPeriodId(db, actions.Period)
 		finish = true
+		dex.DeleteMakerProxyAmountByPeriodId(db, actions.Period)
+		dex.SaveLastSettledMakerMinedVxPeriod(db, actions.Period)
+		dex.DeleteLastSettledMakerMinedVxPage(db)
 	}
 	dex.AddSettleMakerMinedVxEvent(db, actions.Period, actions.Page, finish)
 	return nil, nil

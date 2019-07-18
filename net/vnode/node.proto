@@ -1,0 +1,18 @@
+syntax="proto3";
+
+package vnode;
+
+message pNode {
+    bytes id = 1;
+    bytes hostname = 2;
+    uint32 hostType = 3;
+    uint32 port = 4;
+    uint32 net = 5;
+    bytes ext = 6;
+}
+
+message pEndPoint {
+    bytes host = 1;
+	int32 port = 2;
+	int32 hostType = 3;
+}
