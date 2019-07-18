@@ -32,6 +32,7 @@ type EventListener interface {
 
 type Consensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
+	VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error)
 }
 
 type Chain interface {
