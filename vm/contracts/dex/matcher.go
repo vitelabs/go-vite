@@ -377,7 +377,6 @@ func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo) (tx *Order
 	tx.makerAddress = maker.Address
 	tx.tradeToken = marketInfo.TradeToken
 	tx.quoteToken = marketInfo.QuoteToken
-	tx.makerAddress = maker.Address
 	tx.TakerFee = takerFee
 	tx.TakerBrokerFee = takerBrokerFee
 	tx.MakerFee = makerFee
