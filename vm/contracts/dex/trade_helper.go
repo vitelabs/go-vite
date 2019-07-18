@@ -95,7 +95,7 @@ func GetTradeTimestamp(db vm_db.VmDb) int64 {
 
 func TryUpdateTimestamp(db vm_db.VmDb, timestamp int64, preHash types.Hash) {
 	header := uint8(preHash[0])
-	if header < 16 {
+	if header < 32 {
 		SetTradeTimestamp(db, timestamp)
 	}
 }

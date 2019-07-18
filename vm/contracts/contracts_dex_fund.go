@@ -38,7 +38,7 @@ func (md *MethodDexFundUserDeposit) GetReceiveQuota() uint64 {
 
 func (md *MethodDexFundUserDeposit) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() <= 0 {
-		return fmt.Errorf("deposit amount is zero")
+		return dex.InvalidInputParamErr
 	}
 	return nil
 }
@@ -78,7 +78,7 @@ func (md *MethodDexFundUserWithdraw) DoSend(db vm_db.VmDb, block *ledger.Account
 		return err
 	}
 	if param.Amount.Sign() <= 0 {
-		return fmt.Errorf("withdraw amount is zero")
+		return dex.InvalidInputParamErr
 	}
 	return nil
 }
@@ -101,7 +101,7 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 	}
 	return []*ledger.AccountBlock{
 		{
-			AccountAddress: block.AccountAddress,
+			AccountAddress: types.AddressDexFund,
 			ToAddress:      sendBlock.AccountAddress,
 			BlockType:      ledger.BlockTypeSendCall,
 			Amount:         param.Amount,
@@ -136,7 +136,7 @@ func (md *MethodDexFundNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewMarket, block.Data); err != nil {
 		return err
 	}
-	if err = dex.CheckMarketParam(param, block.TokenId); err != nil {
+	if err = dex.CheckMarketParam(param); err != nil {
 		return err
 	}
 	return nil
@@ -206,7 +206,7 @@ func (md *MethodDexFundNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBloc
 
 func (md *MethodDexFundNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
-		dexFund        = &dex.UserFund{}
+		dexFund        *dex.UserFund
 		tradeBlockData []byte
 		err            error
 		orderInfoBytes []byte
@@ -234,7 +234,7 @@ func (md *MethodDexFundNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 	}
 	return []*ledger.AccountBlock{
 		{
-			AccountAddress: block.AccountAddress,
+			AccountAddress: types.AddressDexFund,
 			ToAddress:      types.AddressDexTrade,
 			BlockType:      ledger.BlockTypeSendCall,
 			TokenId:        ledger.ViteTokenId,
@@ -265,7 +265,7 @@ func (md *MethodDexFundSettleOrders) GetReceiveQuota() uint64 {
 
 func (md *MethodDexFundSettleOrders) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var err error
-	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexTrade.Bytes()) {
+	if block.AccountAddress != types.AddressDexTrade {
 		return dex.InvalidSourceAddressErr
 	}
 	param := new(dex.ParamDexSerializedData)

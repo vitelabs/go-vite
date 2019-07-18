@@ -15,10 +15,7 @@ import (
 	"strings"
 )
 
-func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.TokenTypeId) (err error) {
-	if feeTokenId != ledger.ViteTokenId {
-		return fmt.Errorf("token type of fee for create market not valid")
-	}
+func CheckMarketParam(marketParam *ParamDexFundNewMarket) (err error) {
 	if marketParam.TradeToken == marketParam.QuoteToken {
 		return TradeMarketInvalidTokenPairErr
 	}
@@ -368,10 +365,8 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *Ma
 		lockToken = marketInfo.TradeToken
 		lockAmount = order.Quantity
 	}
-	if tkId, err := types.BytesToTokenTypeId(lockToken); err != nil {
+	if lockTokenId, err = types.BytesToTokenTypeId(lockToken); err != nil {
 		panic(err)
-	} else {
-		lockTokenId = tkId
 	}
 	if account, exists = GetAccountByTokeIdFromFund(dexFund, lockTokenId); !exists {
 		return ExceedFundAvailableErr
