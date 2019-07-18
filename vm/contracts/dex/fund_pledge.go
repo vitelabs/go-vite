@@ -11,7 +11,7 @@ import (
 	"math/big"
 )
 
-func HandlePledgeAction(db vm_db.VmDb, block *ledger.AccountBlock, pledgeType uint8, actionType uint8, address types.Address, amount *big.Int, stakeHeight uint64) ([]*ledger.AccountBlock, error) {
+func HandlePledgeAction(db vm_db.VmDb, pledgeType uint8, actionType uint8, address types.Address, amount *big.Int, stakeHeight uint64) ([]*ledger.AccountBlock, error) {
 	var (
 		methodData []byte
 		err        error
@@ -22,7 +22,7 @@ func HandlePledgeAction(db vm_db.VmDb, block *ledger.AccountBlock, pledgeType ui
 		} else {
 			return []*ledger.AccountBlock{
 				{
-					AccountAddress: block.AccountAddress,
+					AccountAddress: types.AddressDexFund,
 					ToAddress:      types.AddressPledge,
 					BlockType:      ledger.BlockTypeSendCall,
 					Amount:         amount,
@@ -32,11 +32,11 @@ func HandlePledgeAction(db vm_db.VmDb, block *ledger.AccountBlock, pledgeType ui
 			}, nil
 		}
 	} else {
-		return DoCancelPledge(db, block, address, pledgeType, amount)
+		return DoCancelPledge(db, address, pledgeType, amount)
 	}
 }
 
-func DoCancelPledge(db vm_db.VmDb, block *ledger.AccountBlock, address types.Address, pledgeType uint8, amount *big.Int) ([]*ledger.AccountBlock, error) {
+func DoCancelPledge(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]*ledger.AccountBlock, error) {
 	var (
 		methodData []byte
 		err        error
@@ -46,7 +46,7 @@ func DoCancelPledge(db vm_db.VmDb, block *ledger.AccountBlock, address types.Add
 	} else {
 		return []*ledger.AccountBlock{
 			{
-				AccountAddress: block.AccountAddress,
+				AccountAddress: types.AddressDexFund,
 				ToAddress:      types.AddressPledge,
 				BlockType:      ledger.BlockTypeSendCall,
 				TokenId:        ledger.ViteTokenId,

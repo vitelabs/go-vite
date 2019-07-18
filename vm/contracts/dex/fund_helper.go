@@ -203,8 +203,8 @@ func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetT
 	}
 }
 
-func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (err error) {
-	_, err = FilterPendingSetQuotes(db, tradeTokenId)
+func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tokenId types.TokenTypeId) (err error) {
+	_, err = FilterPendingSetQuotes(db, tokenId)
 	return
 }
 
