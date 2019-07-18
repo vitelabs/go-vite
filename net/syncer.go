@@ -201,12 +201,12 @@ func (s *syncer) checkLoop(run *int32) {
 			continue
 		}
 
-		if shouldSync(current, syncPeer.Height) {
-			if atomic.LoadInt32(&s.running) == 1 {
-				continue
-			} else {
-				go s.start()
-			}
+		if atomic.LoadInt32(&s.running) == 1 {
+			continue
+		}
+
+		if shouldSync(current, syncPeer.Height) || s.state.state() != SyncDone {
+			go s.start()
 		}
 	}
 }
