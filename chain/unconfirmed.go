@@ -80,12 +80,12 @@ func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, che
 		if valid {
 			var err error
 			// reset quota
-			block.Quota, err = quota.CalcBlockQuota(c, block)
+			block.Quota, err = quota.CalcBlockQuota(c, block, snapshotBlock.Height)
 
 			if err != nil {
 				c.log.Error(fmt.Sprintf("quota.CalcBlockQuota failed when filterUnconfirmedBlocks. Error: %s", err), "method", "filterInvalidUnconfirmedBlocks")
 				valid = false
-			} else if enough, err := c.checkQuota(quotaUnusedCache, quotaUsedCache, block); err != nil {
+			} else if enough, err := c.checkQuota(quotaUnusedCache, quotaUsedCache, block, snapshotBlock.Height); err != nil {
 				cErr := errors.New(fmt.Sprintf("c.checkQuota failed, block is %+v. Error: %s", block, err))
 				c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
 				valid = false
@@ -128,7 +128,7 @@ func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, che
 	return invalidBlocks
 }
 
-func (c *chain) checkQuota(quotaUnusedCache map[types.Address]uint64, quotaUsedCache map[types.Address]uint64, block *ledger.AccountBlock) (bool, error) {
+func (c *chain) checkQuota(quotaUnusedCache map[types.Address]uint64, quotaUsedCache map[types.Address]uint64, block *ledger.AccountBlock, sbHeight uint64) (bool, error) {
 	// get quota total
 	quotaUnused, ok := quotaUnusedCache[block.AccountAddress]
 	if !ok {
@@ -138,7 +138,7 @@ func (c *chain) checkQuota(quotaUnusedCache map[types.Address]uint64, quotaUsedC
 			return false, err
 		}
 
-		quotaUnused, err = quota.CalcSnapshotCurrentQuota(c, block.AccountAddress, amount)
+		quotaUnused, err = quota.CalcSnapshotCurrentQuota(c, block.AccountAddress, amount, sbHeight)
 		if err != nil {
 			return false, err
 		}

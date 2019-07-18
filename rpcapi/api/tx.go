@@ -187,11 +187,17 @@ type CalcPoWDifficultyParam struct {
 	Data      []byte         `json:"data"`
 
 	UsePledgeQuota bool `json:"usePledgeQuota"`
+
+	Multiple uint16 `json:"multipleOnCongestion"`
 }
 
+var multipleDivision = big.NewInt(10)
+
 type CalcPoWDifficultyResult struct {
-	QuotaRequired uint64 `json:"quota"`
-	Difficulty    string `json:"difficulty"`
+	QuotaRequired uint64  `json:"quota"`
+	Difficulty    string  `json:"difficulty"`
+	Qc            *string `json:"qc"`
+	IsCongestion  bool    `json:"isCongestion"`
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
@@ -220,10 +226,12 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if err != nil {
 		return nil, err
 	}
-	quotaRequired, err := vm.GasRequiredForBlock(db, block)
+	quotaRequired, err := vm.GasRequiredForBlock(db, block, util.GasTableByHeight(sb.Height), sb.Height)
 	if err != nil {
 		return nil, err
 	}
+
+	qc, _, isCongestion := quota.CalcQc(db, sb.Height)
 
 	// get current quota
 	var pledgeAmount *big.Int
@@ -233,30 +241,31 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		if err != nil {
 			return nil, err
 		}
-		q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount)
+		q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount, sb.Height)
 		if err != nil {
 			return nil, err
 		}
 		if q.Current() >= quotaRequired {
-			return &CalcPoWDifficultyResult{quotaRequired, ""}, nil
+			return &CalcPoWDifficultyResult{quotaRequired, "", bigIntToString(qc), isCongestion}, nil
 		}
 	} else {
 		pledgeAmount = big.NewInt(0)
 		q = types.NewQuota(0, 0, 0, 0, false)
 	}
 	// calc difficulty if current quota is not enough
-	canPoW, err := quota.CanPoW(db, block.AccountAddress)
-	if err != nil {
-		return nil, err
-	}
+	canPoW := quota.CanPoW(db, block.AccountAddress)
 	if !canPoW {
 		return nil, util.ErrCalcPoWTwice
 	}
-	d, err := quota.CalcPoWDifficulty(quotaRequired, q)
+	d, err := quota.CalcPoWDifficulty(db, quotaRequired, q, sb.Height)
 	if err != nil {
 		return nil, err
 	}
-	return &CalcPoWDifficultyResult{quotaRequired, d.String()}, nil
+	if isCongestion && param.Multiple > uint16(multipleDivision.Uint64()) {
+		d.Mul(d, multipleDivision)
+		d.Div(d, big.NewInt(int64(param.Multiple)))
+	}
+	return &CalcPoWDifficultyResult{quotaRequired, d.String(), bigIntToString(qc), isCongestion}, nil
 }
 
 func (tx Tx) autoSend() {

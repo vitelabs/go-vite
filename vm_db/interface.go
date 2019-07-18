@@ -17,6 +17,8 @@ type Chain interface {
 
 	GetQuotaUsedList(address types.Address) []types.QuotaInfo
 
+	GetGlobalQuota() types.QuotaInfo
+
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
 
 	GetContractCode(contractAddr types.Address) ([]byte, error)
@@ -73,6 +75,8 @@ type VmDb interface {
 	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
 
 	GetQuotaUsedList(addr types.Address) []types.QuotaInfo
+
+	GetGlobalQuota() types.QuotaInfo
 
 	// ====== State ======
 	GetReceiptHash() *types.Hash
