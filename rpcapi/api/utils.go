@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -27,10 +28,14 @@ var (
 	testtokenlruLimitSize            = 20
 	dataDir                          = ""
 	netId                            = uint(0)
+	dexTxAvailable                   = false
 )
 
-func InitConfig(id uint) {
+func InitConfig(id uint, dexAvailable *bool) {
 	netId = id
+	if dexAvailable != nil && *dexAvailable {
+		dexTxAvailable = *dexAvailable
+	}
 }
 
 func InitLog(dir, lvl string) {
@@ -165,4 +170,19 @@ func getVmDb(c chain.Chain, addr types.Address) (vm_db.VmDb, error) {
 	}
 	db, err := vm_db.NewVmDb(c, &addr, &c.GetLatestSnapshotBlock().Hash, prevHash)
 	return db, err
+}
+
+func checkTxToAddressAvailable(address types.Address) bool {
+	if !dexTxAvailable {
+		return address != types.AddressDexTrade && address != types.AddressDexFund
+	}
+	return true
+}
+
+func checkSnapshotValid(latestSb *ledger.SnapshotBlock) error {
+	nowTime := time.Now()
+	if nowTime.Before(latestSb.Timestamp.Add(-10*time.Minute)) || nowTime.After(latestSb.Timestamp.Add(10*time.Minute)) {
+		return IllegalNodeTime
+	}
+	return nil
 }

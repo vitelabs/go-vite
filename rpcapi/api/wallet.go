@@ -295,6 +295,9 @@ func (m WalletApi) SignData(addr types.Address, hexMsg string) (*HexSignedTuple,
 }
 
 func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.Hash, error) {
+	if !checkTxToAddressAvailable(params.ToAddr) {
+		return nil, errors.New("ToAddress is invalid")
+	}
 	amount, ok := new(big.Int).SetString(params.Amount, 10)
 	if !ok {
 		return nil, ErrStrToBigInt
