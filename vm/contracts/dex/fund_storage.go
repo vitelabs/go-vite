@@ -59,13 +59,15 @@ var (
 	inviterByCodeKeyPrefix    = []byte("cd2itr:")
 	inviterByInviteeKeyPrefix = []byte("ite2itr:")
 
-	maintainerKey                   = []byte("mtA:")
-	makerMineProxyKey               = []byte("mmpA:")
-	makerMineProxyAmountByPeriodKey = []byte("mmpaP:")
+	maintainerKey                    = []byte("mtA:")
+	makerMineProxyKey                = []byte("mmpA:")
+	makerMineProxyAmountByPeriodKey  = []byte("mmpaP:")
+	lastSettledMakerMinedVxPeriodKey = []byte("lsmmvp:")
+	lastSettledMakerMinedVxPageKey   = []byte("lsmmvpp:")
 
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 
-	VxTokenId, _          = types.HexToTokenTypeId("tti_340b335ce06aa2a0a6db3c0a")
+	VxTokenId, _          = types.HexToTokenTypeId("tti_564954455820434f494e69b5")
 	VxMinedAmtFirstPeriod = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(13)), nil), big.NewInt(47703236213)) // 477032.36213
 
 	VxDividendThreshold      = new(big.Int).Mul(commonTokenPow, big.NewInt(10))
@@ -82,12 +84,12 @@ var (
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
 	bitcoinMinAmount = big.NewInt(50000)                                 // 0.0005 BTC
-	usdMinAmount     = big.NewInt(100000000)                             //1 USD
+	usdMinAmount     = big.NewInt(100000000)                             // 1 USD
 
 	viteMineThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(2))    // 2 VITE
 	ethMineThreshold     = new(big.Int).Div(commonTokenPow, big.NewInt(5000)) // 0.0002 ETH
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
-	usdMineThreshold     = big.NewInt(2000000)                                // 0.1USD
+	usdMineThreshold     = big.NewInt(2000000)                                // 0.02USD
 
 	RateSumForFeeMine                = "0.6"                                             // 15% * 4
 	RateForPledgeMine                = "0.2"                                             // 20%
@@ -102,6 +104,7 @@ var (
 		BtcTokenType:  &QuoteTokenTypeInfo{Decimals: 8, DefaultTradeThreshold: bitcoinMinAmount, DefaultMineThreshold: bitcoinMineThreshold},
 		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 8, DefaultTradeThreshold: usdMinAmount, DefaultMineThreshold: usdMineThreshold},
 	}
+	initOwner, _ = types.HexToAddress("vite_a8a00b3a2f60f5defb221c68f79b65f3620ee874f951a825db")
 )
 
 const (
@@ -272,8 +275,8 @@ type ParamDexFundMarketOwnerConfig struct {
 	TradeToken    types.TokenTypeId
 	QuoteToken    types.TokenTypeId
 	Owner         types.Address
-	TakerFeeRate     int32
-	MakerFeeRate     int32
+	TakerFeeRate  int32
+	MakerFeeRate  int32
 	StopMarket    bool
 }
 
@@ -969,32 +972,33 @@ func GetPeriodIdByTimestamp(reader util.ConsensusReader, timestamp int64) uint64
 
 //handle case on duplicate callback for getTokenInfo
 func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quoteTokens [][]byte, err error) {
-	pendingNewMarkets := &PendingNewMarkets{}
-	deserializeFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets)
-	for index, action := range pendingNewMarkets.PendingActions {
-		if bytes.Equal(action.TradeToken, tradeToken.Bytes()) {
-			quoteTokens = action.QuoteTokens
-			if len(quoteTokens) == 0 {
-				return nil, GetTokenInfoCallbackInnerConflictErr
-			}
-			actionsLen := len(pendingNewMarkets.PendingActions)
-			if actionsLen > 1 {
-				pendingNewMarkets.PendingActions[index] = pendingNewMarkets.PendingActions[actionsLen-1]
-				pendingNewMarkets.PendingActions = pendingNewMarkets.PendingActions[:actionsLen-1]
-				SavePendingNewMarkets(db, pendingNewMarkets)
-				return quoteTokens, nil
-			} else {
-				setValueToDb(db, pendingNewMarketActionsKey, nil)
-				return quoteTokens, nil
+	if pendingNewMarkets, ok := GetPendingNewMarkets(db); !ok {
+		return nil, GetTokenInfoCallbackInnerConflictErr
+	} else {
+		for index, action := range pendingNewMarkets.PendingActions {
+			if bytes.Equal(action.TradeToken, tradeToken.Bytes()) {
+				quoteTokens = action.QuoteTokens
+				if len(quoteTokens) == 0 {
+					return nil, GetTokenInfoCallbackInnerConflictErr
+				}
+				actionsLen := len(pendingNewMarkets.PendingActions)
+				if actionsLen > 1 {
+					pendingNewMarkets.PendingActions[index] = pendingNewMarkets.PendingActions[actionsLen-1]
+					pendingNewMarkets.PendingActions = pendingNewMarkets.PendingActions[:actionsLen-1]
+					SavePendingNewMarkets(db, pendingNewMarkets)
+					return quoteTokens, nil
+				} else {
+					DeletePendingNewMarkets(db)
+					return quoteTokens, nil
+				}
 			}
 		}
+		return nil, GetTokenInfoCallbackInnerConflictErr
 	}
-	return nil, GetTokenInfoCallbackInnerConflictErr
 }
 
 func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) {
-	pendingNewMarkets := &PendingNewMarkets{}
-	deserializeFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets)
+	pendingNewMarkets, _ := GetPendingNewMarkets(db)
 	var foundTradeToken bool
 	for _, action := range pendingNewMarkets.PendingActions {
 		if bytes.Equal(action.TradeToken, tradeToken.Bytes()) {
@@ -1016,25 +1020,37 @@ func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTyp
 	SavePendingNewMarkets(db, pendingNewMarkets)
 }
 
+func GetPendingNewMarkets(db vm_db.VmDb) (pendingNewMarkets *PendingNewMarkets, ok bool) {
+	pendingNewMarkets = &PendingNewMarkets{}
+	ok = deserializeFromDb(db, pendingNewMarketActionsKey, pendingNewMarkets)
+	return
+}
+
 func SavePendingNewMarkets(db vm_db.VmDb, pendingNewMarkets *PendingNewMarkets) {
 	serializeToDb(db, pendingNewMarketActionsKey, pendingNewMarkets)
 }
 
+func DeletePendingNewMarkets(db vm_db.VmDb) {
+	setValueToDb(db, pendingNewMarketActionsKey, nil)
+}
+
 //handle case on duplicate callback for getTokenInfo
 func FilterPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId) (action *dexproto.SetQuoteAction, err error) {
-	pendingSetQuotes := &PendingSetQuotes{}
-	deserializeFromDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
-	for index, action := range pendingSetQuotes.PendingActions {
-		if bytes.Equal(action.Token, token.Bytes()) {
-			actionsLen := len(pendingSetQuotes.PendingActions)
-			if actionsLen > 1 {
-				pendingSetQuotes.PendingActions[index] = pendingSetQuotes.PendingActions[actionsLen-1]
-				pendingSetQuotes.PendingActions = pendingSetQuotes.PendingActions[:actionsLen-1]
-				SavePendingSetQuotes(db, pendingSetQuotes)
-				return action, nil
-			} else {
-				setValueToDb(db, pendingSetQuoteActionsKey, nil)
-				return action, nil
+	if pendingSetQuotes, ok := GetPendingSetQuotes(db); !ok {
+		return nil, GetTokenInfoCallbackInnerConflictErr
+	} else {
+		for index, action := range pendingSetQuotes.PendingActions {
+			if bytes.Equal(action.Token, token.Bytes()) {
+				actionsLen := len(pendingSetQuotes.PendingActions)
+				if actionsLen > 1 {
+					pendingSetQuotes.PendingActions[index] = pendingSetQuotes.PendingActions[actionsLen-1]
+					pendingSetQuotes.PendingActions = pendingSetQuotes.PendingActions[:actionsLen-1]
+					SavePendingSetQuotes(db, pendingSetQuotes)
+					return action, nil
+				} else {
+					DeletePendingSetQuotes(db)
+					return action, nil
+				}
 			}
 		}
 	}
@@ -1042,8 +1058,7 @@ func FilterPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId) (action *dex
 }
 
 func AddToPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId, quoteType uint8) {
-	pendingSetQuotes := &PendingSetQuotes{}
-	deserializeFromDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
+	pendingSetQuotes, _ := GetPendingSetQuotes(db)
 	action := &dexproto.SetQuoteAction{}
 	action.Token = token.Bytes()
 	action.QuoteTokenType = int32(quoteType)
@@ -1055,30 +1070,41 @@ func SavePendingSetQuotes(db vm_db.VmDb, pendingSetQuotes *PendingSetQuotes) {
 	serializeToDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
 }
 
+func GetPendingSetQuotes(db vm_db.VmDb) (pendingSetQuotes *PendingSetQuotes, ok bool) {
+	pendingSetQuotes = &PendingSetQuotes{}
+	ok = deserializeFromDb(db, pendingSetQuoteActionsKey, pendingSetQuotes)
+	return
+}
+
+func DeletePendingSetQuotes(db vm_db.VmDb) {
+	setValueToDb(db, pendingSetQuoteActionsKey, nil)
+}
+
 //handle case on duplicate callback for getTokenInfo
 func FilterPendingTransferTokenOwners(db vm_db.VmDb, token types.TokenTypeId) (action *dexproto.TransferTokenOwnerAction, err error) {
-	pendings := &PendingTransferTokenOwners{}
-	deserializeFromDb(db, pendingTransferTokenOwnerActionsKey, pendings)
-	for index, action := range pendings.PendingActions {
-		if bytes.Equal(action.Token, token.Bytes()) {
-			actionsLen := len(pendings.PendingActions)
-			if actionsLen > 1 {
-				pendings.PendingActions[index] = pendings.PendingActions[actionsLen-1]
-				pendings.PendingActions = pendings.PendingActions[:actionsLen-1]
-				SavePendingTransferTokenOwners(db, pendings)
-				return action, nil
-			} else {
-				setValueToDb(db, pendingTransferTokenOwnerActionsKey, nil)
-				return action, nil
+	if pendings, ok := GetPendingTransferTokenOwners(db); !ok {
+		return nil, GetTokenInfoCallbackInnerConflictErr
+	} else {
+		for index, action := range pendings.PendingActions {
+			if bytes.Equal(action.Token, token.Bytes()) {
+				actionsLen := len(pendings.PendingActions)
+				if actionsLen > 1 {
+					pendings.PendingActions[index] = pendings.PendingActions[actionsLen-1]
+					pendings.PendingActions = pendings.PendingActions[:actionsLen-1]
+					SavePendingTransferTokenOwners(db, pendings)
+					return action, nil
+				} else {
+					DeletePendingTransferTokenOwners(db)
+					return action, nil
+				}
 			}
 		}
+		return nil, GetTokenInfoCallbackInnerConflictErr
 	}
-	return nil, GetTokenInfoCallbackInnerConflictErr
 }
 
 func AddToPendingTransferTokenOwners(db vm_db.VmDb, token types.TokenTypeId, origin, new types.Address) {
-	pendings := &PendingTransferTokenOwners{}
-	deserializeFromDb(db, pendingTransferTokenOwnerActionsKey, pendings)
+	pendings, _ := GetPendingTransferTokenOwners(db)
 	action := &dexproto.TransferTokenOwnerAction{}
 	action.Token = token.Bytes()
 	action.Origin = origin.Bytes()
@@ -1089,6 +1115,16 @@ func AddToPendingTransferTokenOwners(db vm_db.VmDb, token types.TokenTypeId, ori
 
 func SavePendingTransferTokenOwners(db vm_db.VmDb, pendings *PendingTransferTokenOwners) {
 	serializeToDb(db, pendingTransferTokenOwnerActionsKey, pendings)
+}
+
+func GetPendingTransferTokenOwners(db vm_db.VmDb) (pendings *PendingTransferTokenOwners, ok bool) {
+	pendings = &PendingTransferTokenOwners{}
+	ok = deserializeFromDb(db, pendingTransferTokenOwnerActionsKey, pendings)
+	return
+}
+
+func DeletePendingTransferTokenOwners(db vm_db.VmDb) {
+	setValueToDb(db, pendingTransferTokenOwnerActionsKey, nil)
 }
 
 func GetTokenInfo(db vm_db.VmDb, token types.TokenTypeId) (tokenInfo *TokenInfo, ok bool) {
@@ -1168,7 +1204,7 @@ func IsOwner(db vm_db.VmDb, address types.Address) bool {
 	if storeOwner := getValueFromDb(db, ownerKey); len(storeOwner) == types.AddressSize {
 		return bytes.Equal(storeOwner, address.Bytes())
 	} else {
-		return len(storeOwner) == 0
+		return address == initOwner
 	}
 }
 
@@ -1244,6 +1280,31 @@ func IsMakerMineProxy(db vm_db.VmDb, addr types.Address) bool {
 	}
 }
 
+func GetLastSettledMakerMinedVxPeriod(db vm_db.VmDb) uint64 {
+	if pIdBytes := getValueFromDb(db, lastSettledMakerMinedVxPeriodKey); len(pIdBytes) == 8 {
+		return BytesToUint64(pIdBytes)
+	} else {
+		return 0
+	}
+}
+func SaveLastSettledMakerMinedVxPeriod(db vm_db.VmDb, periodId uint64) {
+	setValueToDb(db, lastSettledMakerMinedVxPeriodKey, Uint64ToBytes(periodId))
+}
+
+func GetLastSettledMakerMinedVxPage(db vm_db.VmDb) int32 {
+	if pageBytes := getValueFromDb(db, lastSettledMakerMinedVxPageKey); len(pageBytes) == 4 {
+		return int32(BytesToUint32(pageBytes))
+	} else {
+		return 0
+	}
+}
+func SaveLastSettledMakerMinedVxPage(db vm_db.VmDb, pageId int32) {
+	setValueToDb(db, lastSettledMakerMinedVxPageKey, Uint32ToBytes(uint32(pageId)))
+}
+func DeleteLastSettledMakerMinedVxPage(db vm_db.VmDb) {
+	setValueToDb(db, lastSettledMakerMinedVxPageKey, nil)
+}
+
 func GetMaintainer(db vm_db.VmDb) *types.Address {
 	if mtBytes := getValueFromDb(db, maintainerKey); len(mtBytes) == types.AddressSize {
 		if maintainer, err := types.BytesToAddress(mtBytes); err == nil {
@@ -1274,17 +1335,16 @@ func SaveViteXStopped(db vm_db.VmDb, isStopViteX bool) {
 }
 
 func ValidTimerAddress(db vm_db.VmDb, address types.Address) bool {
-	if timerAddressBytes := getValueFromDb(db, timerAddressKey); bytes.Equal(timerAddressBytes, address.Bytes()) {
-		return true
+	if timerAddressBytes := getValueFromDb(db, timerAddressKey); len(timerAddressBytes) == types.AddressSize {
+		return bytes.Equal(timerAddressBytes, address.Bytes())
 	}
 	return false
 }
 
 func GetTimer(db vm_db.VmDb) *types.Address {
-	if timerAddressBytes := getValueFromDb(db, timerAddressKey); len(timerAddressKey) == types.AddressSize {
-		address := &types.Address{}
-		address.SetBytes(timerAddressBytes)
-		return address
+	if timerAddressBytes := getValueFromDb(db, timerAddressKey); len(timerAddressBytes) == types.AddressSize {
+		address, _ := types.BytesToAddress(timerAddressBytes)
+		return &address
 	} else {
 		return nil
 	}
@@ -1295,8 +1355,8 @@ func SetTimerAddress(db vm_db.VmDb, address types.Address) {
 }
 
 func ValidTriggerAddress(db vm_db.VmDb, address types.Address) bool {
-	if triggerAddressBytes := getValueFromDb(db, triggerAddressKey); bytes.Equal(triggerAddressBytes, address.Bytes()) {
-		return true
+	if triggerAddressBytes := getValueFromDb(db, triggerAddressKey); len(triggerAddressBytes) == types.AddressSize {
+		return bytes.Equal(triggerAddressBytes, address.Bytes())
 	}
 	return false
 }
@@ -1489,8 +1549,8 @@ func SaveInviterByInvitee(db vm_db.VmDb, invitee, inviter types.Address) {
 	setValueToDb(db, append(inviterByInviteeKeyPrefix, invitee.Bytes()...), inviter.Bytes())
 }
 
-func GetInviterByInvitee(db vm_db.VmDb, address types.Address) (*types.Address, error) {
-	if bs := getValueFromDb(db, append(inviterByInviteeKeyPrefix, address.Bytes()...)); len(bs) == types.AddressSize {
+func GetInviterByInvitee(db vm_db.VmDb, invitee types.Address) (*types.Address, error) {
+	if bs := getValueFromDb(db, append(inviterByInviteeKeyPrefix, invitee.Bytes()...)); len(bs) == types.AddressSize {
 		if inviter, err := types.BytesToAddress(bs); err != nil {
 			return nil, err
 		} else {
