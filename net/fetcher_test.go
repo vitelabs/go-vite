@@ -1,5 +1,56 @@
 package net
 
+import (
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
+
+	"github.com/vitelabs/go-vite/net/vnode"
+)
+
+func TestFetch_failed(t *testing.T) {
+	set := newPeerSet()
+	peer := &Peer{
+		codec:      &MockCodec{},
+		Height:     100,
+		Id:         vnode.RandomNodeID(),
+		reliable:   1,
+		writable:   1,
+		writeQueue: make(chan Msg, 10),
+	}
+	_ = set.add(peer)
+
+	fet := newFetcher(set, &mockReceiver{}, nil)
+	fet.st = SyncDone
+
+	fet.start()
+
+	hash := types.Hash{1}
+	fet.FetchSnapshotBlocks(hash, 1)
+	msg := Msg{
+		Code:   CodeException,
+		Id:     fet.filter.idGen.MsgID() - 1,
+		Sender: peer,
+	}
+	err := fet.handle(msg)
+	if err != nil {
+		panic(err)
+	}
+
+	fet.filter.mu.Lock()
+	record := fet.filter.records[hash]
+	fmt.Println(record)
+	fet.filter.mu.Unlock()
+
+	fet.FetchSnapshotBlocks(hash, 1)
+
+	time.Sleep(30 * time.Second)
+
+	fet.FetchSnapshotBlocks(hash, 1)
+}
+
 /*
 func TestRecord_Fail(t *testing.T) {
 	var r = &record{

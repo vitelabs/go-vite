@@ -491,6 +491,8 @@ func compareCache(segments interfaces.SegmentList, hashHeightList []*HashHeightP
 //}
 
 func (s *cacheReader) compareCache(start *ledger.HashHeight, hhs []*HashHeightPoint) syncTasks {
+	s.pause()
+	defer s.resume() // will signal reader
 	atomic.CompareAndSwapUint64(&s.readHeight, 0, start.Height)
 
 	hhs[0].Height = start.Height
@@ -509,9 +511,6 @@ func (s *cacheReader) compareCache(start *ledger.HashHeight, hhs []*HashHeightPo
 	if last.To <= start.Height {
 		return constructTasks(hhs)
 	}
-
-	s.pause()
-	defer s.resume() // will signal reader
 
 	// chunk and tasks are overlapped
 	return compareCache(cs, hhs, s.deleteChunk)
@@ -577,8 +576,6 @@ func (s *cacheReader) chunkReadFailed(segment interfaces.Segment, fatal bool) {
 }
 
 func (s *cacheReader) reset() {
-	s.pause()
-
 	s.mu.Lock()
 	atomic.StoreUint64(&s.readHeight, 0)
 	s.buffer = s.buffer[:0]

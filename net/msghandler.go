@@ -138,10 +138,10 @@ func (q *queryHandler) handle(msg Msg) error {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
-	if q.queue.Size() > 1000 {
-		q.log.Warn(fmt.Sprintf("query queue is more than 1000, discard message from %s", msg.Sender.String()))
-		return nil
-	}
+	//if q.queue.Size() > 2000 {
+	//	q.log.Warn(fmt.Sprintf("query queue is more than 1000, discard message from %s", msg.Sender.String()))
+	//	return nil
+	//}
 	q.queue.Append(msg)
 
 	return nil
@@ -174,7 +174,7 @@ func (q *queryHandler) loop() {
 		q.lock.Unlock()
 
 		if index == 0 {
-			time.Sleep(20 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 		} else {
 			now := time.Now().Unix()
 			for _, msg := range tasks[:index] {

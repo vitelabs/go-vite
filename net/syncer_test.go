@@ -117,18 +117,19 @@ func TestConstructTasks(t *testing.T) {
 		Height: start - 1,
 		Hash:   randomHash(),
 	}
-	ts := constructTasks(point, hhs)
+	ts := constructTasks(hhs)
 
 	fmt.Printf("%d tasks\n", len(ts))
 
 	prevTask := &syncTask{
 		Segment: interfaces.Segment{
-			Bound: [2]uint64{2, point.Height},
-			Hash:  point.Hash,
+			From: 2,
+			To:   point.Height,
+			Hash: point.Hash,
 		},
 	}
 	for _, tt := range ts {
-		if tt.Bound[0] != prevTask.Bound[1]+1 || tt.PrevHash != prevTask.Hash {
+		if tt.From != prevTask.To+1 || tt.PrevHash != prevTask.Hash {
 			t.Errorf("not continuous")
 		}
 		prevTask = tt
