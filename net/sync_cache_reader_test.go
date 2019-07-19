@@ -27,7 +27,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vite/net/message"
 )
 
 type mockBlocks []uint64
@@ -431,8 +430,8 @@ func TestChunkRead2(t *testing.T) {
 	fmt.Println(err)
 }
 
-func TestConstructTasks(t *testing.T) {
-	var hhs []*message.HashHeightPoint
+func TestConstructTasks1(t *testing.T) {
+	var hhs []*HashHeightPoint
 
 	const start uint64 = 100
 	const end uint64 = 10000
@@ -440,7 +439,7 @@ func TestConstructTasks(t *testing.T) {
 	var hash = randomHash()
 	var startHash = hash
 	for i := start; i <= end; i += step {
-		hhs = append(hhs, &message.HashHeightPoint{
+		hhs = append(hhs, &HashHeightPoint{
 			HashHeight: ledger.HashHeight{
 				Height: i,
 				Hash:   hash,
@@ -494,7 +493,7 @@ func TestConstructTasks(t *testing.T) {
 func TestCompareCache(t *testing.T) {
 	type useCase struct {
 		segments        interfaces.SegmentList
-		hashHeightList  []*message.HashHeightPoint
+		hashHeightList  []*HashHeightPoint
 		result          interfaces.SegmentList
 		deletedSegments []int
 	}
@@ -515,7 +514,7 @@ func TestCompareCache(t *testing.T) {
 					Hash:     types.Hash{5},
 				},
 			},
-			hashHeightList: []*message.HashHeightPoint{
+			hashHeightList: []*HashHeightPoint{
 				{
 					HashHeight: ledger.HashHeight{
 						Height: 100,
@@ -591,7 +590,7 @@ func TestCompareCache(t *testing.T) {
 					Hash:     types.Hash{6},
 				},
 			},
-			hashHeightList: []*message.HashHeightPoint{
+			hashHeightList: []*HashHeightPoint{
 				{
 					HashHeight: ledger.HashHeight{
 						Height: 100,
@@ -668,7 +667,7 @@ func TestCompareCache(t *testing.T) {
 					Hash:     types.Hash{7},
 				},
 			},
-			hashHeightList: []*message.HashHeightPoint{
+			hashHeightList: []*HashHeightPoint{
 				{
 					HashHeight: ledger.HashHeight{
 						Height: 200,
@@ -721,7 +720,7 @@ func TestCompareCache(t *testing.T) {
 					Hash:     types.Hash{8},
 				},
 			},
-			hashHeightList: []*message.HashHeightPoint{
+			hashHeightList: []*HashHeightPoint{
 				{
 					HashHeight: ledger.HashHeight{
 						Height: 200,
@@ -785,7 +784,7 @@ func TestCompareCache(t *testing.T) {
 					Hash:     types.Hash{7},
 				},
 			},
-			hashHeightList: []*message.HashHeightPoint{
+			hashHeightList: []*HashHeightPoint{
 				{
 					HashHeight: ledger.HashHeight{
 						Height: 100,

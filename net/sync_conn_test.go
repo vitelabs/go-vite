@@ -7,11 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/interfaces"
-
-	"github.com/vitelabs/go-vite/p2p/vnode"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 func TestSpeedToString(t *testing.T) {
