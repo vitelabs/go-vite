@@ -137,10 +137,6 @@ func (node *Node) Attach() (*rpc.Client, error) {
 	node.lock.RLock()
 	defer node.lock.RUnlock()
 
-	if node.p2pServer == nil {
-		return nil, ErrNodeStopped
-	}
-
 	return rpc.DialInProc(node.inProcessHandler), nil
 }
 

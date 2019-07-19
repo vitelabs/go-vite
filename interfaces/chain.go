@@ -3,6 +3,7 @@ package interfaces
 import (
 	"io"
 	"math/big"
+	"strconv"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -50,10 +51,20 @@ type LedgerReader interface {
 }
 
 type Segment struct {
-	Bound    [2]uint64
+	From, To uint64
 	Hash     types.Hash
 	PrevHash types.Hash
+	Points   []*ledger.HashHeight
 }
+
+func (seg Segment) String() string {
+	return strconv.FormatUint(seg.From, 10) + "-" + strconv.FormatUint(seg.To, 10) + " " + seg.PrevHash.String() + "-" + seg.Hash.String()
+}
+
+func (seg Segment) Equal(seg2 Segment) bool {
+	return seg.From == seg2.From && seg.To == seg2.To && seg.PrevHash == seg2.PrevHash && seg.Hash == seg2.Hash
+}
+
 type SegmentList []Segment
 
 func (list SegmentList) Len() int { return len(list) }
@@ -61,7 +72,7 @@ func (list SegmentList) Swap(i, j int) {
 	list[i], list[j] = list[j], list[i]
 }
 func (list SegmentList) Less(i, j int) bool {
-	return list[i].Bound[0] < list[j].Bound[1]
+	return list[i].From < list[j].To
 }
 
 type ChunkReader interface {
@@ -75,7 +86,7 @@ type ChunkReader interface {
 }
 
 type SyncCache interface {
-	NewWriter(segment Segment) (io.WriteCloser, error)
+	NewWriter(segment Segment, size int64) (io.WriteCloser, error)
 	Chunks() SegmentList
 	NewReader(segment Segment) (ChunkReader, error)
 	Delete(seg Segment) error

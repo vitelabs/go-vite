@@ -23,6 +23,8 @@ message Handshake {
 
     bytes Key = 10;
     bytes Token = 11;
+    
+    bytes PublicAddress = 12;
 }
 
 message SyncConnHandshake {
@@ -50,7 +52,12 @@ message ChunkResponse {
 message State {
     message Peer {
         bytes ID = 1;
-        bool Add = 2;
+        PeerStatus Status = 3;
+    }
+
+    enum PeerStatus {
+        Connected = 0;
+        Disconnected = 1;
     }
 
     repeated Peer Peers = 1;
