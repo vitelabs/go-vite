@@ -285,6 +285,10 @@ func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 		return nil
 	}
 
+	if len(snapshotBlocks) <= 0 {
+		return errors.New("Length of snapshotBlocks to deleting is 0")
+	}
+
 	firstSnapshotBlock := snapshotBlocks[0]
 	firstRoundIndex := cache.timeIndex.Time2Index(*firstSnapshotBlock.Timestamp)
 
@@ -330,6 +334,7 @@ func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 		}
 	}
 
+	// set cache.data
 	cache.mu.Lock()
 	if end <= 1 {
 		cache.data = cache.data[:0]
@@ -337,6 +342,17 @@ func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 		cache.data = cache.data[:end]
 	}
 	cache.mu.Unlock()
+
+	// delete currentData and lastSnapshotBlock of last round data
+	if len(cache.data) > 0 {
+		lastRoundCache := cache.data[len(cache.data)-1]
+
+		lastRoundCache.mu.Lock()
+		lastRoundCache.lastSnapshotBlock = nil
+		lastRoundCache.currentData = nil
+		lastRoundCache.mu.Unlock()
+
+	}
 
 	// update last round index
 	beforeFirstSnapshotBlock, err := cache.chain.GetSnapshotHeaderByHeight(firstSnapshotBlock.Height - 1)
@@ -584,10 +600,6 @@ func (cache *RoundCache) buildCurrentData(prevCurrentData *memdb.DB, redoLogs *R
 }
 
 func (cache *RoundCache) roundToLastSnapshotBlock(roundIndex uint64) (*ledger.SnapshotBlock, error) {
-	if roundIndex <= 0 {
-		return nil, nil
-	}
-
 	nextRoundIndex := roundIndex + 1
 
 	startTime, _ := cache.timeIndex.Index2Time(nextRoundIndex)

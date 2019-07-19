@@ -34,14 +34,14 @@ type MockData struct {
 	Snapshots []MockSnapshot
 }
 
-func NewMockData(addrList []types.Address, snapshotCount uint64) *MockData {
+func NewMockData(addrList []types.Address, snapshotCount int) *MockData {
 	data := &MockData{}
 	data.Add(addrList, snapshotCount)
 
 	return data
 }
 
-func (mockData *MockData) Add(appendAddrList []types.Address, snapshotCount uint64) *MockData {
+func (mockData *MockData) Add(appendAddrList []types.Address, snapshotCount int) *MockData {
 	newMockData := &MockData{
 		AddrList: appendAddrList,
 	}
@@ -59,7 +59,7 @@ func (mockData *MockData) Add(appendAddrList []types.Address, snapshotCount uint
 
 	}
 
-	for h := startH; h < snapshotCount+startH; h++ {
+	for h := startH; h < uint64(snapshotCount)+startH; h++ {
 		currentTime := genesisTime.Add(time.Duration(h-1) * time.Second)
 
 		// snapshot log
@@ -85,6 +85,21 @@ func (mockData *MockData) Add(appendAddrList []types.Address, snapshotCount uint
 		snapshotData = newSnapshotData
 	}
 	return newMockData
+}
+
+func (mockData *MockData) Delete(snapshotCount int) *MockData {
+
+	lowIndex := 1
+	if len(mockData.Snapshots) > snapshotCount {
+		lowIndex = len(mockData.Snapshots) - snapshotCount
+	}
+
+	deletedMockData := &MockData{
+		AddrList:  mockData.AddrList,
+		Snapshots: mockData.Snapshots[lowIndex:],
+	}
+	mockData.Snapshots = mockData.Snapshots[:lowIndex]
+	return deletedMockData
 }
 
 func mockSnapshotState(data *memdb.DB, addrList []types.Address, accountCount, keyLength int) SnapshotLog {
@@ -183,6 +198,7 @@ func getMockChain(ctrl *gomock.Controller, mockData *MockData) *MockChain {
 				return sbHeader, nil
 			}
 		}
+
 		return nil, nil
 	}).AnyTimes()
 
@@ -217,16 +233,16 @@ func getMockChain(ctrl *gomock.Controller, mockData *MockData) *MockChain {
 		}).AnyTimes()
 
 	// GetSnapshotHeaderByHeight
-	mockChain.EXPECT().GetSnapshotHeaderByHeight(gomock.Any()).DoAndReturn(func(height uint64) *ledger.SnapshotBlock {
+	mockChain.EXPECT().GetSnapshotHeaderByHeight(gomock.Any()).DoAndReturn(func(height uint64) (*ledger.SnapshotBlock, error) {
 
 		for _, snapshot := range mockData.Snapshots {
 			snapshotHeader := snapshot.SnapshotHeader
 			if snapshotHeader.Height == height {
-				return snapshotHeader
+				return snapshotHeader, nil
 			}
 		}
 
-		return nil
+		return nil, nil
 	}).AnyTimes()
 
 	// iterate accounts
@@ -238,7 +254,7 @@ func getMockChain(ctrl *gomock.Controller, mockData *MockData) *MockChain {
 			}
 
 		}
-	})
+	}).AnyTimes()
 
 	return mockChain
 }
@@ -290,11 +306,12 @@ func getMockStateDB(ctrl *gomock.Controller, mockData *MockData) *MockStateDBInt
 			storageDatabase.EXPECT().NewStorageIterator(gomock.Any()).DoAndReturn(func(prefix []byte) (interfaces.StorageIterator, error) {
 				return NewTransformIterator(snapshotData.Data.NewIterator(util.BytesPrefix(mockStorageKey(addr, prefix))), 1+types.AddressSize), nil
 			})
+
 			// *StorageDatabase, error
 			//NewStorageDatabase(snapshotHash, addr)(*StorageDatabase, error)
 
 			return storageDatabase, nil
-		})
+		}).AnyTimes()
 
 	// mock GetSnapshotBalanceList
 	mockStateDb.EXPECT().GetSnapshotBalanceList(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Eq(ledger.ViteTokenId)).
@@ -304,6 +321,7 @@ func getMockStateDB(ctrl *gomock.Controller, mockData *MockData) *MockStateDBInt
 			if snapshotData == nil {
 				return errors.New("snapshotData is nil")
 			}
+
 			for _, addr := range addrList {
 				value, err := snapshotData.Data.Get(mockBalanceKey(addr, tokenId))
 				if err == leveldb.ErrNotFound {
@@ -469,7 +487,8 @@ func checkRoundCache(t *testing.T, mockData *MockData,
 
 	// check data
 	var prevRoundIndex *uint64
-	for _, dataItem := range roundCache.data {
+	fmt.Printf("Check roundCache, length: %d\n", len(roundCache.data))
+	for index, dataItem := range roundCache.data {
 		roundSnapshotData := getRoundSnapshotData(mockData.Snapshots, dataItem.roundIndex, timeIndex)
 		if roundSnapshotData == nil {
 			t.Fatal(fmt.Sprintf("roundSnapshotData is nil, roundIndex is %d", dataItem.roundIndex))
@@ -487,13 +506,18 @@ func checkRoundCache(t *testing.T, mockData *MockData,
 		prevRoundIndex = &snapshotRoundIndex
 
 		// check redo logs
-		fmt.Printf("Check %d round redo logs\n", snapshotRoundIndex)
-		checkRedoLogs(t, dataItem.redoLogs, roundSnapshotData.Snapshots)
+		if dataItem.redoLogs != nil {
+			fmt.Printf("Check %d round redo logs\n", snapshotRoundIndex)
+			checkRedoLogs(t, dataItem.redoLogs, roundSnapshotData.Snapshots)
 
-		if dataItem.lastSnapshotBlock == nil {
-			assert.Check(t, dataItem.currentData == nil)
-			assert.Check(t, roundSnapshotData.LastSnapshot == nil)
-			continue
+			if dataItem.lastSnapshotBlock == nil {
+				assert.Check(t, dataItem.currentData == nil)
+				assert.Check(t, roundSnapshotData.LastSnapshot == nil)
+				continue
+			}
+		} else if index != 0 {
+			t.Fatal(fmt.Sprintf("dataItem.redoLogs is nil, index is %d", index))
+			t.FailNow()
 		}
 
 		// check roundSnapshotData.LastSnapshot
@@ -510,6 +534,83 @@ func checkRoundCache(t *testing.T, mockData *MockData,
 		checkStorage(t, dataItem.currentData, roundSnapshotData.LastSnapshot.Data)
 
 	}
+}
+
+func checkRoundCacheQuery(t *testing.T, roundCache *RoundCache, mockData *MockData, timeIndex TimeIndex) {
+	fmt.Printf("Check roundCache query, length: %d\n", len(roundCache.data))
+
+	for index, snapshot := range mockData.Snapshots {
+
+		// compute hasCache
+		hasCache := false
+
+		nextIndex := index + 1
+		if nextIndex < len(mockData.Snapshots) {
+
+			currentRoundIndex := timeIndex.Time2Index(*snapshot.SnapshotHeader.Timestamp)
+
+			minRoundIndex := uint64(0)
+			if roundCache.latestRoundIndex > uint64(len(roundCache.data)) {
+				minRoundIndex = roundCache.latestRoundIndex - uint64(len(roundCache.data)) + 1
+			}
+			maxRoundIndex := uint64(0)
+			if roundCache.latestRoundIndex > 0 {
+				maxRoundIndex = roundCache.latestRoundIndex - 1
+			}
+			if currentRoundIndex >= minRoundIndex && currentRoundIndex <= maxRoundIndex {
+				nextSnapshot := mockData.Snapshots[nextIndex]
+				nextRoundIndex := timeIndex.Time2Index(*nextSnapshot.SnapshotHeader.Timestamp)
+				if nextRoundIndex > currentRoundIndex {
+					hasCache = true
+				}
+			}
+
+		}
+
+		// check GetSnapshotViteBalanceList
+		balanceMap, notFoundAddrList, err := roundCache.GetSnapshotViteBalanceList(snapshot.SnapshotHeader.Hash, mockData.AddrList)
+		if err != nil {
+			t.Fatal(err)
+			t.FailNow()
+		}
+
+		if hasCache {
+			mockBalanceMap := make(map[types.Address]*big.Int)
+			var mockNotFoundAddrList []types.Address
+			for _, addr := range mockData.AddrList {
+				value, err := snapshot.Data.Get(mockBalanceKey(addr, ledger.ViteTokenId))
+				if err == leveldb.ErrNotFound {
+					mockNotFoundAddrList = append(mockNotFoundAddrList, addr)
+				} else {
+					mockBalanceMap[addr] = big.NewInt(0).SetBytes(value)
+				}
+
+			}
+			fmt.Println("haha", len(mockBalanceMap), len(mockNotFoundAddrList))
+
+			// check balance map
+			assert.Equal(t, len(mockBalanceMap), len(balanceMap),
+				fmt.Sprintf("mockNotFoundAddrList.length is %d, notFoundAddrList.length is %d",
+					len(mockNotFoundAddrList), len(notFoundAddrList)))
+			for addr, balance := range balanceMap {
+				mockBalance, ok := mockBalanceMap[addr]
+				assert.Equal(t, ok, true)
+				assert.Check(t, balance.Cmp(mockBalance) == 0)
+			}
+
+			// check not found addr list
+			assert.Equal(t, len(mockNotFoundAddrList), len(notFoundAddrList))
+			for index, addr := range notFoundAddrList {
+				assert.Equal(t, addr, mockNotFoundAddrList[index])
+			}
+
+		} else {
+			assert.Check(t, balanceMap == nil)
+			assert.Check(t, notFoundAddrList == nil)
+			assert.NilError(t, err)
+		}
+	}
+
 }
 
 func TestRoundCache(t *testing.T) {
@@ -535,22 +636,19 @@ func TestRoundCache(t *testing.T) {
 	roundCache := NewRoundCache(mockChain, mockStateDb, roundCount)
 	fmt.Printf("New round cache, roundCount: %d\n", roundCount)
 
-	// after new round cache
-	t.Run("after NewRoundCache", func(t *testing.T) {
-		// check status
-		assert.Equal(t, roundCache.status, STOP)
+	// check status
+	assert.Equal(t, roundCache.status, STOP)
 
-		//  TODO real address check GetSnapshotViteBalanceList
-		balanceMap, notFoundAddressList, err := roundCache.GetSnapshotViteBalanceList(types.Hash{}, []types.Address{})
+	//  TODO real address check GetSnapshotViteBalanceList
+	balanceMap, notFoundAddressList, err := roundCache.GetSnapshotViteBalanceList(types.Hash{}, []types.Address{})
 
-		assert.Assert(t, is.Nil(balanceMap))
-		assert.Assert(t, is.Nil(notFoundAddressList))
-		assert.NilError(t, err)
+	assert.Assert(t, is.Nil(balanceMap))
+	assert.Assert(t, is.Nil(notFoundAddressList))
+	assert.NilError(t, err)
 
-		// check StorageIterator
-		iter := roundCache.StorageIterator(types.Hash{})
-		assert.Equal(t, iter, nil)
-	})
+	// check StorageIterator
+	iter := roundCache.StorageIterator(types.Hash{})
+	assert.Equal(t, iter, nil)
 
 	// test init
 	if err := roundCache.Init(mockTimeIndex); err != nil {
@@ -560,26 +658,119 @@ func TestRoundCache(t *testing.T) {
 	fmt.Printf("Init round cache\n")
 
 	// after init
-	t.Run("after init", func(t *testing.T) {
-		// check status
-		assert.Equal(t, roundCache.status, INITED)
 
-		// check cache length
-		checkRoundCache(t, mockData, roundCache, mockChain, mockTimeIndex)
-	})
+	// check status
+	assert.Equal(t, roundCache.status, INITED)
 
-	for i := 0; i < 10; i++ {
-		count := uint64(1)
-		newMockData := mockData.Add(createAddrList(1), count)
-		for _, snapshot := range newMockData.Snapshots {
-			if err := roundCache.InsertSnapshotBlock(snapshot.SnapshotHeader, snapshot.Log); err != nil {
-				t.Fatal(err)
-				t.FailNow()
+	// check cache length
+	checkRoundCache(t, mockData, roundCache, mockChain, mockTimeIndex)
+
+	checkTime := 0
+	testInsertSnapshots := func(times int, maxCount int) {
+		for i := 0; i < times; i++ {
+			count := rand.Intn(maxCount) + 1
+
+			newMockData := mockData.Add(createAddrList(1), count)
+			for _, snapshot := range newMockData.Snapshots {
+
+				if err := roundCache.InsertSnapshotBlock(snapshot.SnapshotHeader, snapshot.Log); err != nil {
+					t.Fatal(err)
+					t.FailNow()
+				}
+			}
+			checkTime++
+			fmt.Printf("%d.Insert %d snapshot blocks. Latest: %d\n", checkTime, count, mockChain.GetLatestSnapshotBlock().Height)
+
+			checkRoundCache(t, mockData, roundCache, mockChain, mockTimeIndex)
+
+			checkRoundCacheQuery(t, roundCache, mockData, mockTimeIndex)
+
+		}
+
+	}
+	testInsertSnapshots(20, 3)
+
+	testDeleteSnapshots := func(times int, maxCount int) {
+		for i := 0; i < times; i++ {
+			count := rand.Intn(maxCount) + 1
+
+			deletedMockData := mockData.Delete(count)
+
+			deletedSnapshots := make([]*ledger.SnapshotBlock, 0, len(deletedMockData.Snapshots))
+
+			for _, snapshot := range deletedMockData.Snapshots {
+				deletedSnapshots = append(deletedSnapshots, snapshot.SnapshotHeader)
+			}
+
+			if len(deletedSnapshots) > 0 {
+				if err := roundCache.DeleteSnapshotBlocks(deletedSnapshots); err != nil {
+					t.Fatal(err)
+					t.FailNow()
+				}
+			}
+
+			checkTime++
+
+			fmt.Printf("%d.Delete %d snapshot blocks. Latest: %d\n", checkTime, count, mockChain.GetLatestSnapshotBlock().Height)
+
+			checkRoundCache(t, mockData, roundCache, mockChain, mockTimeIndex)
+
+			checkRoundCacheQuery(t, roundCache, mockData, mockTimeIndex)
+		}
+	}
+
+	testDeleteSnapshots(20, 3)
+
+	for j := 0; j < 10; j++ {
+		fmt.Printf("Test %d.1\n", j)
+		for i := 0; i < 200; i++ {
+			randNum := rand.Intn(100)
+			if randNum < 70 {
+				testInsertSnapshots(3, 1)
+			} else {
+				testDeleteSnapshots(5, 1)
 			}
 		}
 
-		t.Run(fmt.Sprintf("insert %d snapshot block", i), func(t *testing.T) {
-			checkRoundCache(t, mockData, roundCache, mockChain, mockTimeIndex)
-		})
+		fmt.Printf("Test %d.2\n", j)
+		for i := 0; i < 200; i++ {
+			randNum := rand.Intn(100)
+			if randNum < 70 {
+				testInsertSnapshots(1, 1)
+			} else {
+				testDeleteSnapshots(1, 1)
+			}
+		}
+
+		fmt.Printf("Test %d.3\n", j)
+		for i := 0; i < 200; i++ {
+			randNum := rand.Intn(100)
+			if randNum < 95 {
+				testInsertSnapshots(1, 1)
+			} else {
+				testDeleteSnapshots(1, 30)
+			}
+		}
+
+		fmt.Printf("Test %d.4\n", j)
+		for i := 0; i < 1000; i++ {
+			randNum := rand.Intn(100)
+			if randNum < 95 {
+				testInsertSnapshots(1, 1)
+			} else {
+				testDeleteSnapshots(1, 80)
+			}
+		}
+
+		fmt.Printf("Test %d.5\n", j)
+		for i := 0; i < 1000; i++ {
+			randNum := rand.Intn(100)
+			if randNum < 20 {
+				testInsertSnapshots(1, 3)
+			} else {
+				testDeleteSnapshots(1, 3)
+			}
+		}
 	}
+
 }
