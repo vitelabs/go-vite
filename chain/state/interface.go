@@ -118,7 +118,7 @@ type StateDBInterface interface {
 	SetCacheLevelForConsensus(level uint32)
 	Store() *chain_db.Store
 	RedoStore() *chain_db.Store
-	Redo() *Redo
+	Redo() RedoInterface
 	GetStatus() []interfaces.DBStatus
 	getSnapshotBalanceList(balanceMap map[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error
 	NewStorageDatabase(snapshotHash types.Hash, addr types.Address) (StorageDatabaseInterface, error)
@@ -145,4 +145,14 @@ type StorageDatabaseInterface interface {
 	GetValue(key []byte) ([]byte, error)
 	NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
 	Address() *types.Address
+}
+type RedoInterface interface {
+	initCache() error
+	Close() error
+	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock)
+	HasRedo(snapshotHeight uint64) (bool, error)
+	QueryLog(snapshotHeight uint64) (SnapshotLog, bool, error)
+	SetCurrentSnapshot(snapshotHeight uint64, logMap SnapshotLog)
+	AddLog(addr types.Address, log LogItem)
+	Rollback(chunks []*ledger.SnapshotChunk)
 }

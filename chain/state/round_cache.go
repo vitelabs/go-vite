@@ -391,7 +391,7 @@ func (cache *RoundCache) StorageIterator(snapshotHash types.Hash) interfaces.Sto
 		return nil
 	}
 
-	return NewRoundCacheIterator(currentData.NewIterator(util.BytesPrefix(makeStorageKey(nil))))
+	return NewTransformIterator(currentData.NewIterator(util.BytesPrefix(makeStorageKey(nil))), 1)
 }
 
 func (cache *RoundCache) getCurrentData(snapshotHash types.Hash) *memdb.DB {
@@ -579,6 +579,7 @@ func (cache *RoundCache) buildCurrentData(prevCurrentData *memdb.DB, redoLogs *R
 		}
 
 	}
+
 	return curCurrentData
 }
 

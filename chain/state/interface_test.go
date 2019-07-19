@@ -1201,10 +1201,10 @@ func (mr *MockStateDBInterfaceMockRecorder) RedoStore() *gomock.Call {
 }
 
 // Redo mocks base method
-func (m *MockStateDBInterface) Redo() *Redo {
+func (m *MockStateDBInterface) Redo() RedoInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Redo")
-	ret0, _ := ret[0].(*Redo)
+	ret0, _ := ret[0].(RedoInterface)
 	return ret0
 }
 
@@ -1550,4 +1550,134 @@ func (m *MockStorageDatabaseInterface) Address() *types.Address {
 func (mr *MockStorageDatabaseInterfaceMockRecorder) Address() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockStorageDatabaseInterface)(nil).Address))
+}
+
+// MockRedoInterface is a mock of RedoInterface interface
+type MockRedoInterface struct {
+	ctrl     *gomock.Controller
+	recorder *MockRedoInterfaceMockRecorder
+}
+
+// MockRedoInterfaceMockRecorder is the mock recorder for MockRedoInterface
+type MockRedoInterfaceMockRecorder struct {
+	mock *MockRedoInterface
+}
+
+// NewMockRedoInterface creates a new mock instance
+func NewMockRedoInterface(ctrl *gomock.Controller) *MockRedoInterface {
+	mock := &MockRedoInterface{ctrl: ctrl}
+	mock.recorder = &MockRedoInterfaceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockRedoInterface) EXPECT() *MockRedoInterfaceMockRecorder {
+	return m.recorder
+}
+
+// initCache mocks base method
+func (m *MockRedoInterface) initCache() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "initCache")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// initCache indicates an expected call of initCache
+func (mr *MockRedoInterfaceMockRecorder) initCache() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "initCache", reflect.TypeOf((*MockRedoInterface)(nil).initCache))
+}
+
+// Close mocks base method
+func (m *MockRedoInterface) Close() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close
+func (mr *MockRedoInterfaceMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockRedoInterface)(nil).Close))
+}
+
+// InsertSnapshotBlock mocks base method
+func (m *MockRedoInterface) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "InsertSnapshotBlock", snapshotBlock, confirmedBlocks)
+}
+
+// InsertSnapshotBlock indicates an expected call of InsertSnapshotBlock
+func (mr *MockRedoInterfaceMockRecorder) InsertSnapshotBlock(snapshotBlock, confirmedBlocks interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertSnapshotBlock", reflect.TypeOf((*MockRedoInterface)(nil).InsertSnapshotBlock), snapshotBlock, confirmedBlocks)
+}
+
+// HasRedo mocks base method
+func (m *MockRedoInterface) HasRedo(snapshotHeight uint64) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasRedo", snapshotHeight)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasRedo indicates an expected call of HasRedo
+func (mr *MockRedoInterfaceMockRecorder) HasRedo(snapshotHeight interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasRedo", reflect.TypeOf((*MockRedoInterface)(nil).HasRedo), snapshotHeight)
+}
+
+// QueryLog mocks base method
+func (m *MockRedoInterface) QueryLog(snapshotHeight uint64) (SnapshotLog, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QueryLog", snapshotHeight)
+	ret0, _ := ret[0].(SnapshotLog)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// QueryLog indicates an expected call of QueryLog
+func (mr *MockRedoInterfaceMockRecorder) QueryLog(snapshotHeight interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryLog", reflect.TypeOf((*MockRedoInterface)(nil).QueryLog), snapshotHeight)
+}
+
+// SetCurrentSnapshot mocks base method
+func (m *MockRedoInterface) SetCurrentSnapshot(snapshotHeight uint64, logMap SnapshotLog) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetCurrentSnapshot", snapshotHeight, logMap)
+}
+
+// SetCurrentSnapshot indicates an expected call of SetCurrentSnapshot
+func (mr *MockRedoInterfaceMockRecorder) SetCurrentSnapshot(snapshotHeight, logMap interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCurrentSnapshot", reflect.TypeOf((*MockRedoInterface)(nil).SetCurrentSnapshot), snapshotHeight, logMap)
+}
+
+// AddLog mocks base method
+func (m *MockRedoInterface) AddLog(addr types.Address, log LogItem) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddLog", addr, log)
+}
+
+// AddLog indicates an expected call of AddLog
+func (mr *MockRedoInterfaceMockRecorder) AddLog(addr, log interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddLog", reflect.TypeOf((*MockRedoInterface)(nil).AddLog), addr, log)
+}
+
+// Rollback mocks base method
+func (m *MockRedoInterface) Rollback(chunks []*ledger.SnapshotChunk) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Rollback", chunks)
+}
+
+// Rollback indicates an expected call of Rollback
+func (mr *MockRedoInterfaceMockRecorder) Rollback(chunks interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rollback", reflect.TypeOf((*MockRedoInterface)(nil).Rollback), chunks)
 }
