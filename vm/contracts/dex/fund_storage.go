@@ -2,7 +2,6 @@ package dex
 
 import (
 	"bytes"
-	"encoding/binary"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
@@ -84,12 +83,12 @@ var (
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
 	bitcoinMinAmount = big.NewInt(50000)                                 // 0.0005 BTC
-	usdMinAmount     = big.NewInt(1000000)                             // 1 USD
+	usdMinAmount     = big.NewInt(1000000)                               // 1 USD
 
 	viteMineThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(2))    // 2 VITE
 	ethMineThreshold     = new(big.Int).Div(commonTokenPow, big.NewInt(5000)) // 0.0002 ETH
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
-	usdMineThreshold     = big.NewInt(20000)                                // 0.02USD
+	usdMineThreshold     = big.NewInt(20000)                                  // 0.02USD
 
 	RateSumForFeeMine                = "0.6"                                             // 15% * 4
 	RateForPledgeMine                = "0.2"                                             // 20%
@@ -168,9 +167,9 @@ const (
 )
 
 const (
-	GetTokenForNewMarket     = 1
-	GetTokenForSetQuote      = 2
-	GetTokenForTransferOwner = 3
+	GetTokenForNewMarket = iota + 1
+	GetTokenForSetQuote
+	GetTokenForTransferOwner
 )
 
 type QuoteTokenTypeInfo struct {
@@ -584,6 +583,7 @@ func SubUserFund(db vm_db.VmDb, address types.Address, tokenId []byte, amount *b
 				available := new(big.Int).SetBytes(acc.Available)
 				if available.Cmp(amount) < 0 {
 					err = ExceedFundAvailableErr
+					return
 				} else {
 					acc.Available = available.Sub(available, amount).Bytes()
 				}
@@ -766,7 +766,7 @@ func GetFeeSumCurrentKey(db vm_db.VmDb, reader util.ConsensusReader) []byte {
 
 func GetFeeSumLastPeriodIdForRoll(db vm_db.VmDb) uint64 {
 	if lastPeriodIdBytes := getValueFromDb(db, lastFeeSumPeriodKey); len(lastPeriodIdBytes) == 8 {
-		return binary.BigEndian.Uint64(lastPeriodIdBytes)
+		return BytesToUint64(lastPeriodIdBytes)
 	} else {
 		return 0
 	}
@@ -781,8 +781,7 @@ func SaveCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, broker 
 }
 
 func GetCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, broker []byte) (*BrokerFeeSumByPeriod, bool) {
-	currentBrokerFeeSumKey := GetCurrentBrokerFeeSumKey(db, reader, broker)
-	return getBrokerFeeSumByKey(db, currentBrokerFeeSumKey)
+	return getBrokerFeeSumByKey(db, GetCurrentBrokerFeeSumKey(db, reader, broker))
 }
 
 func GetBrokerFeeSumByPeriodId(db vm_db.VmDb, broker []byte, periodId uint64) (*BrokerFeeSumByPeriod, bool) {
@@ -928,7 +927,7 @@ func GetMarkerProxyAmountByPeriodIdKey(periodId uint64) []byte {
 
 func GetLastJobPeriodIdByBizType(db vm_db.VmDb, bizType uint8) uint64 {
 	if lastPeriodIdBytes := getValueFromDb(db, GetLastJobPeriodIdKey(bizType)); len(lastPeriodIdBytes) == 8 {
-		return binary.BigEndian.Uint64(lastPeriodIdBytes)
+		return BytesToUint64(lastPeriodIdBytes)
 	} else {
 		return 0
 	}
@@ -944,7 +943,7 @@ func GetLastJobPeriodIdKey(bizType uint8) []byte {
 
 func GetFirstMinedVxPeriodId(db vm_db.VmDb) uint64 {
 	if firstMinedVxPeriodIdBytes := getValueFromDb(db, firstMinedVxPeriodIdKey); len(firstMinedVxPeriodIdBytes) == 8 {
-		return binary.BigEndian.Uint64(firstMinedVxPeriodIdBytes)
+		return BytesToUint64(firstMinedVxPeriodIdBytes)
 	} else {
 		return 0
 	}

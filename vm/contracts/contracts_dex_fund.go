@@ -44,7 +44,7 @@ func (md *MethodDexFundUserDeposit) DoSend(db vm_db.VmDb, block *ledger.AccountB
 }
 
 func (md *MethodDexFundUserDeposit) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	account := dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, sendBlock.Amount)
+	account := dex.DepositUserAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, sendBlock.Amount)
 	// must do after account updated by deposit
 	if sendBlock.TokenId == dex.VxTokenId {
 		dex.OnDepositVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, sendBlock.Amount, account)
@@ -549,7 +549,7 @@ func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.Acc
 				panic(dex.InvalidAmountForPledgeCallbackErr)
 			}
 		}
-		dex.DepositAccount(db, callbackParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
+		dex.DepositUserAccount(db, callbackParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}
 	return nil, nil
 }
@@ -613,7 +613,7 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 			}
 			dex.OnCancelPledgeForVxSuccess(db, vm.ConsensusReader(), cancelPledgeParam.PledgeAddress, sendBlock.Amount, leaved)
 		}
-		dex.DepositAccount(db, cancelPledgeParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
+		dex.DepositUserAccount(db, cancelPledgeParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}
 	return nil, nil
 }

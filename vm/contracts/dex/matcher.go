@@ -174,6 +174,8 @@ func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBoo
 				taker.CancelReason = partialExecutedCancelledByMarket
 			}
 			*modifiedMakers = append(*modifiedMakers, maker)
+		} else {
+			return nil
 		}
 	}
 	if taker.Status == FullyExecuted || taker.Status == Cancelled {
