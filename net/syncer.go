@@ -472,6 +472,7 @@ func (s *syncer) sync() error {
 		return err
 	}
 
+	s.reader.reset()
 	s.from = startPoint.Height + 1
 	go s.downloadLoop(startPoint, end, points)
 

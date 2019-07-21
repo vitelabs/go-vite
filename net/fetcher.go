@@ -27,8 +27,8 @@ type MsgIder interface {
 }
 
 // fetch filter
-const maxMark = 2       // times
-const timeThreshold = 3 // second
+const maxMark = 3       // times
+const timeThreshold = 4 // second
 const expiration = 20   // 20s
 
 type record struct {
