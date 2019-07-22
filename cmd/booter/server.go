@@ -3,7 +3,7 @@ package main
 import (
 	"net"
 
-	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/net/discovery"
 )
 
 type server struct {

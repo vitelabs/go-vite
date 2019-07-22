@@ -71,7 +71,7 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 	periodId := GetCurrentPeriodId(db, reader)
 	feeSumByPeriod, ok := GetFeeSumByPeriodId(db, periodId)
 	if !ok { // need roll period when current period feeSum not saved yet
-		feeSumByPeriod = RollAndGentNewFeeSumByPeriod(db, GetCurrentPeriodId(db, reader))
+		feeSumByPeriod = RollAndGentNewFeeSumByPeriod(db, periodId)
 	}
 	if inviteRelations == nil {
 		inviteRelations = make(map[types.Address]*types.Address)
@@ -153,7 +153,6 @@ func settleUserFees(db vm_db.VmDb, periodId uint64, tokenDecimals, quoteTokenTyp
 }
 
 func innerSettleUserFee(db vm_db.VmDb, periodId uint64, mineThreshold *big.Int, address []byte, tokenDecimals, quoteTokenType int32, baseTokenFee, inviteBonusTokenFee []byte) (needAddSum bool, addBaseSumNormalAmt, addInviteeSumNormalAmt []byte) {
-
 	userFees, _ := GetUserFees(db, address)
 	feeLen := len(userFees.Fees)
 	addBaseSumNormalAmt = NormalizeToQuoteTokenTypeAmount(baseTokenFee, tokenDecimals, quoteTokenType)

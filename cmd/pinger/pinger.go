@@ -25,11 +25,11 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/vitelabs/go-vite/p2p/vnode"
+	"github.com/vitelabs/go-vite/net/vnode"
 
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/p2p/discovery/protos"
+	"github.com/vitelabs/go-vite/net/discovery/protos"
 )
 
 /*

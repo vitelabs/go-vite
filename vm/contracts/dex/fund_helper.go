@@ -15,10 +15,7 @@ import (
 	"strings"
 )
 
-func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.TokenTypeId) (err error) {
-	if feeTokenId != ledger.ViteTokenId {
-		return fmt.Errorf("token type of fee for create market not valid")
-	}
+func CheckMarketParam(marketParam *ParamDexFundNewMarket) (err error) {
 	if marketParam.TradeToken == marketParam.QuoteToken {
 		return TradeMarketInvalidTokenPairErr
 	}
@@ -206,8 +203,8 @@ func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetT
 	}
 }
 
-func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (err error) {
-	_, err = FilterPendingSetQuotes(db, tradeTokenId)
+func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tokenId types.TokenTypeId) (err error) {
+	_, err = FilterPendingSetQuotes(db, tokenId)
 	return
 }
 
@@ -339,18 +336,6 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 	return nil
 }
 
-func DepositAccount(db vm_db.VmDb, address types.Address, tokenId types.TokenTypeId, amount *big.Int) (*dexproto.Account) {
-	dexFund, _ := GetUserFund(db, address)
-	account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
-	available := new(big.Int).SetBytes(account.Available)
-	account.Available = available.Add(available, amount).Bytes()
-	if !exists {
-		dexFund.Accounts = append(dexFund.Accounts, account)
-	}
-	SaveUserFund(db, address, dexFund)
-	return account
-}
-
 func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *MarketInfo) (err error) {
 	var (
 		lockToken, lockAmount []byte
@@ -368,10 +353,8 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *Ma
 		lockToken = marketInfo.TradeToken
 		lockAmount = order.Quantity
 	}
-	if tkId, err := types.BytesToTokenTypeId(lockToken); err != nil {
+	if lockTokenId, err = types.BytesToTokenTypeId(lockToken); err != nil {
 		panic(err)
-	} else {
-		lockTokenId = tkId
 	}
 	if account, exists = GetAccountByTokeIdFromFund(dexFund, lockTokenId); !exists {
 		return ExceedFundAvailableErr
