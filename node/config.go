@@ -3,15 +3,13 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/vitelabs/go-vite/p2p/discovery"
+	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/config"
@@ -20,7 +18,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/metrics"
-	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -44,27 +41,30 @@ type Config struct {
 	// genesis
 	GenesisFile string `json:"GenesisFile"`
 
-	// p2p
-	Identity           string   `json:"Identity"`
-	PeerKey            string   `json:"PeerKey"`
-	PrivateKey         string   `json:"PrivateKey"`
-	MaxPeers           int      `json:"MaxPeers"`
-	MinPeers           int      `json:"MinPeers"`
-	MaxInboundRatio    int      `json:"MaxInboundRatio"`
-	MaxPendingPeers    int      `json:"MaxPendingPeers"`
-	BootNodes          []string `json:"BootNodes"`
-	BootSeeds          []string `json:"BootSeeds"`
-	StaticNodes        []string `json:"StaticNodes"`
-	ListenInterface    string   `json:"ListenInterface"`
-	Port               int      `json:"Port"`
-	ListenAddress      string   `json:"ListenAddress"`
-	PublicAddress      string   `json:"PublicAddress"`
-	NetID              int      `json:"NetID"`
-	Discover           bool     `json:"Discover"`
-	AccessControl      string   `json:"AccessControl"` // producer special any
-	AccessAllowKeys    []string `json:"AccessAllowKeys"`
-	AccessDenyKeys     []string `json:"AccessDenyKeys"`
-	BlackBlockHashList []string `json:"BlackBlockHashList"`
+	// net
+	Single             bool
+	ListenInterface    string
+	Port               int
+	FilePort           int
+	PublicAddress      string
+	FilePublicAddress  string
+	Identity           string
+	NetID              int
+	PeerKey            string `json:"PrivateKey"`
+	Discover           bool
+	MaxPeers           int
+	MinPeers           int
+	MaxInboundRatio    int
+	MaxPendingPeers    int
+	BootNodes          []string
+	BootSeeds          []string
+	StaticNodes        []string
+	AccessControl      string
+	AccessAllowKeys    []string
+	AccessDenyKeys     []string
+	BlackBlockHashList []string // from high to low, like: "xxxxxx-11111"
+	WhiteBlockList     []string // from high to low, like: "xxxxxx-10001"
+	ForwardStrategy    string
 
 	//producer
 	EntropyStorePath     string `json:"EntropyStorePath"`
@@ -107,14 +107,6 @@ type Config struct {
 	// subscribe
 	SubscribeEnabled bool `json:"SubscribeEnabled"`
 
-	// net
-	Single            bool   `json:"Single"`
-	FilePort          int    `json:"FilePort"`
-	FileListenAddress string `json:"FileListenAddress"`
-	FilePublicAddress string `json:"FileAddress"`
-	ForwardStrategy   string `json:"ForwardStrategy"`
-	TraceEnabled      bool   `json:"TraceEnabled"`
-
 	// dashboard
 	DashboardTargetURL string
 
@@ -150,20 +142,34 @@ func (c *Config) makeViteConfig() *config.Config {
 }
 
 func (c *Config) makeNetConfig() *config.Net {
-	var fileListenAddress = c.FileListenAddress
-	if fileListenAddress == "" {
-		fileListenAddress = c.ListenInterface + ":" + strconv.Itoa(c.FilePort)
-	}
+	datadir := filepath.Join(c.DataDir, config.DefaultNetDirName)
 
 	return &config.Net{
 		Single:             c.Single,
-		FileListenAddress:  fileListenAddress,
+		Name:               c.Identity,
+		NetID:              c.NetID,
+		ListenInterface:    c.ListenInterface,
+		Port:               c.Port,
+		FilePort:           c.FilePort,
+		PublicAddress:      c.PublicAddress,
+		FilePublicAddress:  c.FilePublicAddress,
+		DataDir:            datadir,
+		PeerKey:            c.PeerKey,
+		Discover:           c.Discover,
+		BootNodes:          c.BootNodes,
+		BootSeeds:          c.BootSeeds,
+		StaticNodes:        c.StaticNodes,
+		MaxPeers:           c.MaxPeers,
+		MaxInboundRatio:    c.MaxInboundRatio,
+		MinPeers:           c.MinPeers,
+		MaxPendingPeers:    c.MaxPendingPeers,
 		ForwardStrategy:    c.ForwardStrategy,
-		TraceEnabled:       c.TraceEnabled,
 		AccessControl:      c.AccessControl,
 		AccessAllowKeys:    c.AccessAllowKeys,
 		AccessDenyKeys:     c.AccessDenyKeys,
 		BlackBlockHashList: c.BlackBlockHashList,
+		WhiteBlockList:     c.WhiteBlockList,
+		MineKey:            nil,
 	}
 }
 
@@ -219,54 +225,6 @@ func (c *Config) makeMinerConfig() *config.Producer {
 		Coinbase:         c.CoinBase,
 		EntropyStorePath: c.EntropyStorePath,
 	}
-}
-
-func (c *Config) makeP2PConfig() (cfg *p2p.Config, err error) {
-	var listenAddress = c.ListenAddress
-	if listenAddress == "" {
-		listenAddress = c.ListenInterface + ":" + strconv.Itoa(c.Port)
-	}
-
-	p2pDataDir := filepath.Join(c.DataDir, p2p.DirName)
-
-	// create data dir
-	if err = os.MkdirAll(p2pDataDir, 0700); err != nil {
-		return nil, err
-	}
-
-	peerKey := c.PeerKey
-	if peerKey == "" {
-		peerKey = c.PrivateKey
-	}
-
-	cfg = &p2p.Config{
-		Config: &discovery.Config{
-			ListenAddress: listenAddress,
-			PublicAddress: c.PublicAddress,
-			DataDir:       p2pDataDir,
-			PeerKey:       peerKey,
-			BootNodes:     c.BootNodes,
-			BootSeeds:     c.BootSeeds,
-			NetID:         c.NetID,
-		},
-		Discover:          c.Discover,
-		Name:              c.Identity,
-		MaxPeers:          c.MaxPeers,
-		MaxInboundRatio:   c.MaxInboundRatio,
-		MinPeers:          c.MinPeers,
-		MaxPendingPeers:   c.MaxPendingPeers,
-		StaticNodes:       c.StaticNodes,
-		FilePublicAddress: c.FilePublicAddress,
-		FilePort:          c.FilePort,
-	}
-
-	err = cfg.Ensure()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return cfg, nil
 }
 
 func (c *Config) makeChainConfig() *config.Chain {
