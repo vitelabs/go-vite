@@ -422,12 +422,7 @@ func checkRedoLogs(t *testing.T, redoLogs *RoundCacheRedoLogs,
 
 }
 
-func checkStorage(t *testing.T, redoCacheData *memdb.DB,
-	mockData *memdb.DB) {
-
-	iter1 := redoCacheData.NewIterator(util.BytesPrefix(makeStorageKey(nil)))
-	defer iter1.Release()
-
+func compareIter(t *testing.T, iter1 interfaces.StorageIterator, iter2 interfaces.StorageIterator, fastCheck bool) {
 	var list1 [][2][]byte
 	for iter1.Next() {
 		key := make([]byte, len(iter1.Key()))
@@ -436,11 +431,8 @@ func checkStorage(t *testing.T, redoCacheData *memdb.DB,
 		value := make([]byte, len(iter1.Value()))
 		copy(value[:], iter1.Value())
 
-		list1 = append(list1, [2][]byte{key[1:], value})
+		list1 = append(list1, [2][]byte{key, value})
 	}
-
-	iter2 := mockData.NewIterator(util.BytesPrefix(mockStorageKey(types.AddressConsensusGroup, nil)))
-	defer iter2.Release()
 
 	var list2 [][2][]byte
 	for iter2.Next() {
@@ -450,15 +442,44 @@ func checkStorage(t *testing.T, redoCacheData *memdb.DB,
 		value := make([]byte, len(iter2.Value()))
 		copy(value[:], iter2.Value())
 
-		list2 = append(list2, [2][]byte{key[1+types.AddressSize:], value})
+		list2 = append(list2, [2][]byte{key, value})
 	}
 
 	assert.Equal(t, len(list1), len(list2))
-	for index, kv1 := range list1 {
-		kv2 := list2[index]
-		assert.Check(t, bytes.Equal(kv1[0], kv2[0]), fmt.Sprintf("%d. %d != %d", index, kv1[0], kv2[0]))
-		assert.Check(t, bytes.Equal(kv1[1], kv2[1]), fmt.Sprintf("%d. %d != %d", index, kv1[1], kv2[1]))
+
+	end := len(list1)
+	if fastCheck {
+		end = 10
 	}
+	for i := 0; i < end; i++ {
+		index := i
+
+		if fastCheck {
+			index = rand.Intn(len(list1))
+		}
+
+		kv1 := list1[index]
+		kv2 := list2[index]
+		if !assert.Check(t, bytes.Equal(kv1[0], kv2[0]), fmt.Sprintf("%d. %d != %d. %v", index, kv1[0], kv2[0], fastCheck)) {
+			t.FailNow()
+		}
+		if !assert.Check(t, bytes.Equal(kv1[1], kv2[1]), fmt.Sprintf("%d. %d != %d. %v", index, kv1[1], kv2[1], fastCheck)) {
+			t.FailNow()
+		}
+	}
+
+}
+
+func checkStorage(t *testing.T, redoCacheData *memdb.DB,
+	mockData *memdb.DB) {
+
+	iter1 := NewTransformIterator(redoCacheData.NewIterator(util.BytesPrefix(makeStorageKey(nil))), 1)
+	defer iter1.Release()
+
+	iter2 := NewTransformIterator(mockData.NewIterator(util.BytesPrefix(mockStorageKey(types.AddressConsensusGroup, nil))), 1+types.AddressSize)
+	defer iter2.Release()
+
+	compareIter(t, iter1, iter2, false)
 }
 
 func checkPrevRoundIndex(t *testing.T, mockData []MockSnapshot, prevRoundIndex uint64, roundIndex uint64, timeIndex TimeIndex) {
@@ -550,18 +571,30 @@ func checkRoundCacheQuery(t *testing.T, roundCache *RoundCache, mockData *MockDa
 			currentRoundIndex := timeIndex.Time2Index(*snapshot.SnapshotHeader.Timestamp)
 
 			minRoundIndex := uint64(0)
-			if roundCache.latestRoundIndex > uint64(len(roundCache.data)) {
-				minRoundIndex = roundCache.latestRoundIndex - uint64(len(roundCache.data)) + 1
+			if roundCache.latestRoundIndex >= uint64(len(roundCache.data)) {
+				minRoundIndex = roundCache.latestRoundIndex + 1 - uint64(len(roundCache.data))
 			}
 			maxRoundIndex := uint64(0)
 			if roundCache.latestRoundIndex > 0 {
 				maxRoundIndex = roundCache.latestRoundIndex - 1
 			}
-			if currentRoundIndex >= minRoundIndex && currentRoundIndex <= maxRoundIndex {
+			if currentRoundIndex >= minRoundIndex &&
+				currentRoundIndex <= maxRoundIndex {
 				nextSnapshot := mockData.Snapshots[nextIndex]
 				nextRoundIndex := timeIndex.Time2Index(*nextSnapshot.SnapshotHeader.Timestamp)
 				if nextRoundIndex > currentRoundIndex {
 					hasCache = true
+					fmt.Printf("%d %d %d~%d prev-current: %d %s %d - %d %s %d\n",
+						roundCache.latestRoundIndex,
+						len(roundCache.data),
+						minRoundIndex,
+						maxRoundIndex,
+						currentRoundIndex,
+						snapshot.SnapshotHeader.Hash,
+						snapshot.SnapshotHeader.Height,
+						nextRoundIndex,
+						nextSnapshot.SnapshotHeader.Hash,
+						nextSnapshot.SnapshotHeader.Height)
 				}
 			}
 
@@ -574,7 +607,11 @@ func checkRoundCacheQuery(t *testing.T, roundCache *RoundCache, mockData *MockDa
 			t.FailNow()
 		}
 
+		storIter := roundCache.StorageIterator(snapshot.SnapshotHeader.Hash)
+
 		if hasCache {
+			defer storIter.Release()
+
 			mockBalanceMap := make(map[types.Address]*big.Int)
 			var mockNotFoundAddrList []types.Address
 			for _, addr := range mockData.AddrList {
@@ -586,12 +623,18 @@ func checkRoundCacheQuery(t *testing.T, roundCache *RoundCache, mockData *MockDa
 				}
 
 			}
-			fmt.Println("haha", len(mockBalanceMap), len(mockNotFoundAddrList))
 
 			// check balance map
+			var parseData = func(data []*RedoCacheData) string {
+				str := ""
+				for _, item := range data {
+					str += fmt.Sprintf("\n%+v | ", item.lastSnapshotBlock)
+				}
+				return str
+			}
 			assert.Equal(t, len(mockBalanceMap), len(balanceMap),
-				fmt.Sprintf("mockNotFoundAddrList.length is %d, notFoundAddrList.length is %d",
-					len(mockNotFoundAddrList), len(notFoundAddrList)))
+				fmt.Sprintf("mockNotFoundAddrList.length is %d, notFoundAddrList.length is %d, snapshot hash: %s, data: %+v",
+					len(mockNotFoundAddrList), len(notFoundAddrList), snapshot.SnapshotHeader.Hash, parseData(roundCache.data)))
 			for addr, balance := range balanceMap {
 				mockBalance, ok := mockBalanceMap[addr]
 				assert.Equal(t, ok, true)
@@ -604,10 +647,20 @@ func checkRoundCacheQuery(t *testing.T, roundCache *RoundCache, mockData *MockDa
 				assert.Equal(t, addr, mockNotFoundAddrList[index])
 			}
 
+			// check iter
+			mockIter := NewTransformIterator(snapshot.Data.NewIterator(util.BytesPrefix(mockStorageKey(types.AddressConsensusGroup, nil))), 1+types.AddressSize)
+			defer mockIter.Release()
+			compareIter(t, storIter, mockIter, true)
+
 		} else {
+			// check query balance
 			assert.Check(t, balanceMap == nil)
 			assert.Check(t, notFoundAddrList == nil)
 			assert.NilError(t, err)
+
+			// check storage iterator
+			assert.Check(t, storIter == nil)
+
 		}
 	}
 
@@ -723,7 +776,7 @@ func TestRoundCache(t *testing.T) {
 
 	for j := 0; j < 10; j++ {
 		fmt.Printf("Test %d.1\n", j)
-		for i := 0; i < 200; i++ {
+		for i := 0; i < 60; i++ {
 			randNum := rand.Intn(100)
 			if randNum < 70 {
 				testInsertSnapshots(3, 1)
@@ -733,7 +786,7 @@ func TestRoundCache(t *testing.T) {
 		}
 
 		fmt.Printf("Test %d.2\n", j)
-		for i := 0; i < 200; i++ {
+		for i := 0; i < 60; i++ {
 			randNum := rand.Intn(100)
 			if randNum < 70 {
 				testInsertSnapshots(1, 1)
@@ -743,7 +796,7 @@ func TestRoundCache(t *testing.T) {
 		}
 
 		fmt.Printf("Test %d.3\n", j)
-		for i := 0; i < 200; i++ {
+		for i := 0; i < 60; i++ {
 			randNum := rand.Intn(100)
 			if randNum < 95 {
 				testInsertSnapshots(1, 1)
@@ -753,7 +806,7 @@ func TestRoundCache(t *testing.T) {
 		}
 
 		fmt.Printf("Test %d.4\n", j)
-		for i := 0; i < 1000; i++ {
+		for i := 0; i < 500; i++ {
 			randNum := rand.Intn(100)
 			if randNum < 95 {
 				testInsertSnapshots(1, 1)
@@ -763,7 +816,7 @@ func TestRoundCache(t *testing.T) {
 		}
 
 		fmt.Printf("Test %d.5\n", j)
-		for i := 0; i < 1000; i++ {
+		for i := 0; i < 500; i++ {
 			randNum := rand.Intn(100)
 			if randNum < 20 {
 				testInsertSnapshots(1, 3)

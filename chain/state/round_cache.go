@@ -16,6 +16,82 @@ import (
 	"sync"
 )
 
+type MemPool struct {
+	byteSliceList  [][]byte
+	byteSliceLimit int
+
+	intSliceList  [][]int
+	intSliceLimit int
+
+	mu sync.RWMutex
+}
+
+func NewMemPool(byteSliceLimit int, intSliceLimit int) *MemPool {
+	if byteSliceLimit <= 0 {
+		byteSliceLimit = 3
+	}
+	if intSliceLimit <= 0 {
+		intSliceLimit = 3
+	}
+
+	return &MemPool{}
+}
+
+func (mp *MemPool) GetByteSlice(n int) []byte {
+	if len(mp.byteSliceList) > 0 {
+		mp.mu.RLock()
+		byteSlice := mp.byteSliceList[0]
+		mp.byteSliceList = mp.byteSliceList[1:]
+		mp.mu.RUnlock()
+
+		if len(byteSlice) >= n {
+			return byteSlice[:n]
+		} else {
+			byteSlice = append(byteSlice, make([]byte, n-len(byteSlice))...)
+		}
+
+	}
+
+	return make([]byte, n)
+}
+
+func (mp *MemPool) GetIntSlice(n int) []int {
+	if len(mp.intSliceList) > 0 {
+		mp.mu.RLock()
+		intSlice := mp.intSliceList[0]
+		mp.intSliceList = mp.intSliceList[1:]
+		mp.mu.RUnlock()
+
+		if len(intSlice) >= n {
+			return intSlice[:n]
+		} else {
+			intSlice = append(intSlice, make([]int, n-len(intSlice))...)
+		}
+
+	}
+
+	return make([]int, n)
+}
+
+func (mp *MemPool) Put(x interface{}) {
+	switch x.(type) {
+	case []byte:
+		mp.mu.Lock()
+		if len(mp.byteSliceList) < mp.byteSliceLimit {
+			mp.byteSliceList = append(mp.byteSliceList, x.([]byte))
+		}
+		mp.mu.Unlock()
+	case []int:
+		mp.mu.Lock()
+		if len(mp.intSliceList) < mp.intSliceLimit {
+			mp.intSliceList = append(mp.intSliceList, x.([]int))
+		}
+		mp.mu.Unlock()
+	default:
+		panic(fmt.Sprintf("Unknown type: %t", x))
+	}
+}
+
 type RoundCacheLogItem struct {
 	Storage    [][2][]byte
 	BalanceMap map[types.TokenTypeId]*big.Int
@@ -110,6 +186,7 @@ type RoundCache struct {
 
 	data   []*RedoCacheData
 	mu     sync.RWMutex
+	mp     *MemPool
 	status int
 }
 
@@ -120,6 +197,7 @@ func NewRoundCache(chain Chain, stateDB StateDBInterface, roundCount uint8) *Rou
 		roundCount: uint64(roundCount),
 		data:       make([]*RedoCacheData, 0, roundCount),
 		status:     STOP,
+		mp:         NewMemPool(int(roundCount), int(roundCount)),
 	}
 }
 
@@ -271,6 +349,9 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 	cache.data = append(cache.data, NewRedoCacheData(roundIndex, nil, nil, redoLogs))
 
 	if uint64(len(cache.data)) > cache.roundCount {
+		// destroy memdb
+		cache.destroyMemDb(cache.data[0].currentData)
+
 		// remove head
 		cache.data = cache.data[1:]
 	}
@@ -336,11 +417,14 @@ func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 
 	// set cache.data
 	cache.mu.Lock()
+	deleteTo := end
 	if end <= 1 {
-		cache.data = cache.data[:0]
-	} else {
-		cache.data = cache.data[:end]
+		deleteTo = 0
 	}
+	for _, item := range cache.data[deleteTo:] {
+		cache.destroyMemDb(item.currentData)
+	}
+	cache.data = cache.data[:deleteTo]
 	cache.mu.Unlock()
 
 	// delete currentData and lastSnapshotBlock of last round data
@@ -348,6 +432,8 @@ func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 		lastRoundCache := cache.data[len(cache.data)-1]
 
 		lastRoundCache.mu.Lock()
+		cache.destroyMemDb(lastRoundCache.currentData)
+
 		lastRoundCache.lastSnapshotBlock = nil
 		lastRoundCache.currentData = nil
 		lastRoundCache.mu.Unlock()
@@ -574,7 +660,7 @@ func (cache *RoundCache) queryRedoLogs(roundIndex uint64) (returnRedoLogs *Round
 // TODO optimize: build in parallel
 func (cache *RoundCache) buildCurrentData(prevCurrentData *memdb.DB, redoLogs *RoundCacheRedoLogs) *memdb.DB {
 	// copy
-	curCurrentData := prevCurrentData.Copy()
+	curCurrentData := prevCurrentData.Copy2(cache.mp.GetByteSlice, cache.mp.GetIntSlice)
 
 	for _, snapshotLog := range redoLogs.Logs {
 		for addr, redoLogs := range snapshotLog.LogMap {
@@ -689,9 +775,8 @@ func (cache *RoundCache) setBalanceToCache(roundData *memdb.DB, snapshotHash typ
 	}
 
 	for addr, balance := range balanceMap {
-
-		// balance is zero
-		if balance == nil || len(balance.Bytes()) <= 0 {
+		// balance is nil
+		if balance == nil {
 			continue
 		}
 
@@ -723,6 +808,13 @@ func (cache *RoundCache) setStorageToCache(roundData *memdb.DB, contractAddress 
 	}
 
 	return nil
+}
+
+func (cache *RoundCache) destroyMemDb(db *memdb.DB) {
+	if db == nil {
+		return
+	}
+	db.Destroy2(cache.mp.Put)
 }
 
 func makeStorageKey(key []byte) []byte {

@@ -2,10 +2,9 @@ package pool
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
+	"time"
 )
 
 func (pl *pool) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {

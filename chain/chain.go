@@ -157,6 +157,9 @@ func (c *chain) Init() error {
 	return nil
 }
 
+var startLatestHeight = uint64(0)
+var startTime time.Time
+
 func (c *chain) Start() error {
 	if !atomic.CompareAndSwapUint32(&c.status, stop, start) {
 		return nil
@@ -164,6 +167,9 @@ func (c *chain) Start() error {
 
 	c.flusher.Start()
 	c.log.Info("Start flusher", "method", "Start")
+
+	startLatestHeight = c.GetLatestSnapshotBlock().Height
+	startTime = time.Now()
 
 	return nil
 }
@@ -176,6 +182,8 @@ func (c *chain) Stop() error {
 	c.flusher.Stop()
 
 	c.log.Info("Stop flusher", "method", "Stop")
+
+	fmt.Println(startTime, startLatestHeight, time.Now(), c.GetLatestSnapshotBlock().Height)
 	return nil
 }
 

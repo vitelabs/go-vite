@@ -284,6 +284,38 @@ func (p *DB) Copy() *DB {
 	newDB.nodeData = make([]int, len(p.nodeData))
 	copy(newDB.nodeData, p.nodeData)
 
+	return p.copy(newDB)
+}
+
+func (p *DB) Copy2(bytesGetter func(n int) []byte, intGetter func(n int) []int) *DB {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	newDB := New2(p.cmp, p.Capacity())
+
+	// copy kv data
+	newDB.kvData = bytesGetter(len(p.kvData))
+	copy(newDB.kvData, p.kvData)
+
+	// copy nodeData
+	newDB.nodeData = intGetter(len(p.nodeData))
+	copy(newDB.nodeData, p.nodeData)
+
+	return p.copy(newDB)
+}
+
+func (p *DB) Destroy2(putter func(x interface{})) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	// put kv data
+	putter(p.kvData)
+
+	// put node data
+	putter(p.nodeData)
+
+}
+
+func (p *DB) copy(newDB *DB) *DB {
 	// copy prevNode
 	newDB.prevNode = p.prevNode
 

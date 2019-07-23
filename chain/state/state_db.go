@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/patrickmn/go-cache"
-	"sync/atomic"
-
 	"github.com/vitelabs/go-vite/config"
+	"sync/atomic"
 
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/chain/utils"
