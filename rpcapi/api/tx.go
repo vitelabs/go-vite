@@ -47,16 +47,16 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	if err != nil {
 		return err
 	}
-
+	if err := checkTokenIdValid(t.vite.Chain(), &lb.TokenId); err != nil {
+		return err
+	}
 	latestSb := t.vite.Chain().GetLatestSnapshotBlock()
 	if latestSb == nil {
 		return errors.New("failed to get latest snapshotBlock")
 	}
-	nowTime := time.Now()
-	if nowTime.Before(latestSb.Timestamp.Add(-10*time.Minute)) || nowTime.After(latestSb.Timestamp.Add(10*time.Minute)) {
-		return IllegalNodeTime
+	if err := checkSnapshotValid(latestSb); err != nil {
+		return err
 	}
-
 	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
 	err = v.VerifyNetAb(lb)
 	if err != nil {
@@ -72,14 +72,6 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	} else {
 		return errors.New("generator gen an empty block")
 	}
-}
-
-func (t Tx) checkSnapshotValid(latestSb *ledger.SnapshotBlock) error {
-	nowTime := time.Now()
-	if nowTime.Before(latestSb.Timestamp.Add(-10*time.Minute)) || nowTime.After(latestSb.Timestamp.Add(10*time.Minute)) {
-		return IllegalNodeTime
-	}
-	return nil
 }
 
 func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock, error) {
@@ -112,6 +104,9 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	amount, ok := new(big.Int).SetString(*param.Amount, 10)
 	if !ok {
 		return nil, ErrStrToBigInt
+	}
+	if err := checkTokenIdValid(t.vite.Chain(), &param.TokenTypeId); err != nil {
+		return nil, err
 	}
 
 	var blockType byte

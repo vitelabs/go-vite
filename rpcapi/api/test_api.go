@@ -76,6 +76,9 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 	if !ok {
 		return ErrStrToBigInt
 	}
+	if err := checkTokenIdValid(t.walletApi.chain, &params.TokenTypeId); err != nil {
+		return err
+	}
 
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
