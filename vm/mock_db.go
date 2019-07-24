@@ -77,6 +77,9 @@ func (db *mockDB) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 		return db.quotaInfo
 	}
 }
+func (db *mockDB) GetGlobalQuota() types.QuotaInfo {
+	return types.QuotaInfo{}
+}
 func (db *mockDB) GetReceiptHash() *types.Hash {
 	return nil
 }

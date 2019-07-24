@@ -29,7 +29,11 @@ func (pl *pool) InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 		if block == nil {
 			continue
 		}
-		fmt.Printf("[Insert] Height:%d, Hash:%s, Timestamp:%s, Producer:%s, Time:%s\n", block.Height, block.Hash, block.Timestamp, block.Producer(), time.Now())
+		tps := 0
+		if v.AccountBlocks != nil {
+			tps = len(v.AccountBlocks)
+		}
+		fmt.Printf("[Insert] Height:%d, Hash:%s, Timestamp:%s, Producer:%s, Time:%s, Cnt:%d\n", block.Height, block.Hash, block.Timestamp, block.Producer(), time.Now(), tps)
 	}
 	return nil
 }

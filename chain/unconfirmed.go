@@ -23,7 +23,7 @@ func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 
 	sc := make(ledger.SnapshotContent)
-	// limit account blocks be snapshot less than 40000
+	// limit account blocks be snapshot less than maxSnapshotLength
 	if len(unconfirmedBlocks) > maxSnapshotLength {
 		unconfirmedBlocks = unconfirmedBlocks[:maxSnapshotLength]
 	}
@@ -52,9 +52,31 @@ func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, che
 		return blocks
 	}
 
+	// get invalidConsensusBlocks
+	invalidConsensusBlocks := make(map[types.Hash]*ledger.AccountBlock)
+
+	if checkConsensus {
+		invalidBlocks, err := c.filterConsensusFailed(blocks)
+		if err != nil {
+			c.log.Error(fmt.Sprintf("filterConsensusFailed. Error: %s", err.Error()), "method", "filterInvalidUnconfirmedBlocks")
+			// delete all
+			return blocks
+		}
+		// set cap
+		invalidConsensusBlocks = make(map[types.Hash]*ledger.AccountBlock, len(invalidBlocks))
+
+		for _, invalidBlock := range invalidBlocks {
+			invalidConsensusBlocks[invalidBlock.Hash] = invalidBlock
+		}
+	}
+
+	// init invalidBlocks
 	invalidBlocks := make([]*ledger.AccountBlock, 0)
 
+	// init invalidAddrSet
 	invalidAddrSet := make(map[types.Address]struct{})
+
+	// init invalidHashSet
 	invalidHashSet := make(map[types.Hash]struct{})
 
 	quotaUsedCache := make(map[types.Address]uint64)
@@ -76,39 +98,28 @@ func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, che
 				valid = false
 			}
 		}
+		// consensus
+		if valid && checkConsensus {
+			if _, ok := invalidConsensusBlocks[block.Hash]; ok {
+				valid = false
+			}
+		}
+
 		// quota
 		if valid {
 			var err error
 			// reset quota
-			block.Quota, err = quota.CalcBlockQuota(c, block)
+			block.Quota, err = quota.CalcBlockQuota(c, block, snapshotBlock.Height)
 
 			if err != nil {
 				c.log.Error(fmt.Sprintf("quota.CalcBlockQuota failed when filterUnconfirmedBlocks. Error: %s", err), "method", "filterInvalidUnconfirmedBlocks")
 				valid = false
-			} else if enough, err := c.checkQuota(quotaUnusedCache, quotaUsedCache, block); err != nil {
+			} else if enough, err := c.checkQuota(quotaUnusedCache, quotaUsedCache, block, snapshotBlock.Height); err != nil {
 				cErr := errors.New(fmt.Sprintf("c.checkQuota failed, block is %+v. Error: %s", block, err))
 				c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
 				valid = false
 			} else if !enough {
 				valid = false
-			}
-		}
-		// consensus
-		if valid && checkConsensus {
-			if isContract, err := c.IsContractAccount(addr); err != nil {
-				cErr := errors.New(fmt.Sprintf("c.IsContractAccount failed, block is %+v. Error: %s", block, err))
-				c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
-				valid = false
-			} else if isContract {
-				ok, err := c.consensus.VerifyAccountProducer(block)
-				if err != nil {
-					cErr := errors.New(fmt.Sprintf("c.consensus.VerifyAccountProducer failed, block is %+v. Error: %s", block, err))
-					c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
-					valid = false
-				}
-				if !ok {
-					valid = false
-				}
 			}
 		}
 
@@ -128,7 +139,7 @@ func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, che
 	return invalidBlocks
 }
 
-func (c *chain) checkQuota(quotaUnusedCache map[types.Address]uint64, quotaUsedCache map[types.Address]uint64, block *ledger.AccountBlock) (bool, error) {
+func (c *chain) checkQuota(quotaUnusedCache map[types.Address]uint64, quotaUsedCache map[types.Address]uint64, block *ledger.AccountBlock, sbHeight uint64) (bool, error) {
 	// get quota total
 	quotaUnused, ok := quotaUnusedCache[block.AccountAddress]
 	if !ok {
@@ -138,7 +149,7 @@ func (c *chain) checkQuota(quotaUnusedCache map[types.Address]uint64, quotaUsedC
 			return false, err
 		}
 
-		quotaUnused, err = quota.CalcSnapshotCurrentQuota(c, block.AccountAddress, amount)
+		quotaUnused, err = quota.CalcSnapshotCurrentQuota(c, block.AccountAddress, amount, sbHeight)
 		if err != nil {
 			return false, err
 		}
@@ -198,4 +209,37 @@ func (c *chain) computeDependencies(accountBlocks []*ledger.AccountBlock) []*led
 	}
 
 	return newAccountBlocks
+}
+
+func (c *chain) filterConsensusFailed(blocks []*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
+	contractMetaCache := make(map[types.Address]*ledger.ContractMeta)
+
+	needVerifyBlocks := make(map[types.Gid][]*ledger.AccountBlock)
+	for _, block := range blocks {
+		addr := block.AccountAddress
+
+		if !types.IsContractAddr(addr) {
+			continue
+		}
+
+		meta, ok := contractMetaCache[addr]
+		if !ok {
+			var err error
+			meta, err = c.GetContractMeta(addr)
+			if err != nil {
+				return nil, err
+			}
+			if meta == nil {
+				return nil, errors.New(fmt.Sprintf("%s, meta is nil", addr))
+			}
+
+			contractMetaCache[addr] = meta
+		}
+
+		gid := meta.Gid
+		// add need verify
+		needVerifyBlocks[gid] = append(needVerifyBlocks[gid], block)
+	}
+
+	return c.consensus.VerifyABsProducer(needVerifyBlocks)
 }
