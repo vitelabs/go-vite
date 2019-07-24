@@ -76,6 +76,9 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 	if !ok {
 		return ErrStrToBigInt
 	}
+	if !checkTxToAddressAvailable(params.ToAddr) {
+		return errors.New("ToAddress is invalid")
+	}
 
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
