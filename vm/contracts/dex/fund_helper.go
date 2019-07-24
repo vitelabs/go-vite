@@ -123,7 +123,7 @@ func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo 
 }
 
 func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamDexFundGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
-	tradeTokenInfo := newTokenInfoFromCallback(tokenInfoRes)
+	tradeTokenInfo := newTokenInfoFromCallback(db, tokenInfoRes)
 	SaveTokenInfo(db, tradeTokenId, tradeTokenInfo)
 	AddTokenEvent(db, tradeTokenInfo)
 	var quoteTokens [][]byte
@@ -195,7 +195,7 @@ func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetT
 	if action, err := FilterPendingSetQuotes(db, tokenInfoRes.TokenId); err != nil {
 		return err
 	} else {
-		tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
+		tokenInfo := newTokenInfoFromCallback(db, tokenInfoRes)
 		tokenInfo.QuoteTokenType = int32(action.QuoteTokenType)
 		SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
 		AddTokenEvent(db, tokenInfo)
@@ -222,8 +222,8 @@ func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, param *ParamDexFundGetTok
 		return err
 	} else {
 		if bytes.Equal(action.Origin, param.Owner.Bytes()) ||
-			param.TokenId == ledger.ViteTokenId && bytes.Equal(action.Origin, initViteTokenOwner.Bytes()) {
-			tokenInfo := newTokenInfoFromCallback(param)
+			param.TokenId == ledger.ViteTokenId && bytes.Equal(action.Origin, initViteTokenOwner.Bytes()) && len(getValueFromDb(db, viteOwnerInitiated)) == 0 {
+			tokenInfo := newTokenInfoFromCallback(db, param)
 			tokenInfo.Owner = action.New
 			SaveTokenInfo(db, param.TokenId, tokenInfo)
 			AddTokenEvent(db, tokenInfo)
@@ -371,7 +371,7 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *Ma
 	return
 }
 
-func newTokenInfoFromCallback(param *ParamDexFundGetTokenInfoCallback) *TokenInfo {
+func newTokenInfoFromCallback(db vm_db.VmDb, param *ParamDexFundGetTokenInfoCallback) *TokenInfo {
 	tokenInfo := &TokenInfo{}
 	tokenInfo.TokenId = param.TokenId.Bytes()
 	tokenInfo.Decimals = int32(param.Decimals)
@@ -379,6 +379,7 @@ func newTokenInfoFromCallback(param *ParamDexFundGetTokenInfoCallback) *TokenInf
 	tokenInfo.Index = int32(param.Index)
 	if param.TokenId == ledger.ViteTokenId {
 		tokenInfo.Owner = initViteTokenOwner.Bytes()
+		setValueToDb(db, viteOwnerInitiated, []byte{1})
 	} else {
 		tokenInfo.Owner = param.Owner.Bytes()
 	}
