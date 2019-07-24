@@ -19,13 +19,35 @@ const (
 	CreateConsensusGroupGas   uint64 = 62200
 	CancelConsensusGroupGas   uint64 = 83200
 	ReCreateConsensusGroupGas uint64 = 62200
-	MintageCancelPledgeGas    uint64 = 83200
-	MintGas                   uint64 = 104525
-	IssueGas                  uint64 = 69325
-	BurnGas                   uint64 = 48837
-	TransferOwnerGas          uint64 = 58981
-	ChangeTokenTypeGas        uint64 = 63125
-	GetTokenInfoGas           uint64 = 63200
+
+	dexFundDepositReceiveGas              uint64 = 1
+	dexFundWithdrawReceiveGas             uint64 = 1
+	dexFundNewMarketReceiveGas            uint64 = 1
+	dexFundNewOrderReceiveGas             uint64 = 1
+	dexFundSettleOrdersReceiveGas         uint64 = 1
+	dexFundPeriodJobReceiveGas            uint64 = 1
+	dexFundPledgeForVxReceiveGas          uint64 = 1
+	dexFundPledgeForVipReceiveGas         uint64 = 1
+	dexFundPledgeCallbackReceiveGas       uint64 = 1
+	dexFundCancelPledgeCallbackReceiveGas uint64 = 1
+	dexFundGetTokenInfoCallbackReceiveGas uint64 = 1
+	DexFundOwnerConfigReceiveGas          uint64 = 1
+	DexFundOwnerConfigTradeReceiveGas     uint64 = 1
+	DexFundMarketOwnerConfigReceiveGas    uint64 = 1
+	dexFundTransferTokenOwnerReceiveGas   uint64 = 1
+	dexFundNotifyTimeReceiveGas           uint64 = 1
+	dexFundNewInviterReceiveGas           uint64 = 1
+	dexFundBindInviteCodeReceiveGas       uint64 = 1
+	dexFundEndorseVxMinePoolReceiveGas    uint64 = 1
+	dexFundSettleMakerMinedVxReceiveGas   uint64 = 1
+
+	MintGas                uint64 = 104525
+	MintageCancelPledgeGas uint64 = 83200
+	IssueGas               uint64 = 69325
+	BurnGas                uint64 = 48837
+	TransferOwnerGas       uint64 = 58981
+	ChangeTokenTypeGas     uint64 = 63125
+	GetTokenInfoGas        uint64 = 63200
 
 	cgNodeCountMin   uint8 = 3       // Minimum node count of consensus group
 	cgNodeCountMax   uint8 = 101     // Maximum node count of consensus group
@@ -43,6 +65,8 @@ const (
 
 	tokenNameIndexMax  uint16 = 1000
 	GetRewardTimeLimit int64  = 3600 // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
+
+	PledgeHeightMax uint64 = 3600 * 24 * 365
 )
 
 var (
@@ -58,6 +82,7 @@ type ContractsParams struct {
 	PledgeHeight                     uint64 // pledge height for stake
 	CreateConsensusGroupPledgeHeight uint64 // Pledge height for registering to be a super node of snapshot group and common delegate group
 	MintPledgeHeight                 uint64 // Pledge height for mintage if choose to pledge instead of destroy vite token
+	ViteXVipPledgeHeight             uint64 // Pledge height for dex_fund contract, in order to upgrade to viteX vip
 }
 
 var (
@@ -66,11 +91,13 @@ var (
 		PledgeHeight:                     1,
 		CreateConsensusGroupPledgeHeight: 1,
 		MintPledgeHeight:                 1,
+		ViteXVipPledgeHeight:             1,
 	}
 	ContractsParamsMainNet = ContractsParams{
 		RegisterMinPledgeHeight:          3600 * 24 * 3,
 		PledgeHeight:                     3600 * 24 * 3,
 		CreateConsensusGroupPledgeHeight: 3600 * 24 * 3,
 		MintPledgeHeight:                 3600 * 24 * 30 * 3,
+		ViteXVipPledgeHeight:             3600 * 24 * 30,
 	}
 )

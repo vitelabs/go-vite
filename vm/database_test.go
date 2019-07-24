@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/interfaces"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -137,13 +138,14 @@ func (db *testDatabase) GetValue(key []byte) ([]byte, error) {
 	return []byte{}, nil
 }
 func (db *testDatabase) SetValue(key []byte, value []byte) error {
-	if len(value) == 0 {
-		delete(db.storageMap[db.addr], ToKey(key))
-	}
 	if _, ok := db.storageMap[db.addr]; !ok {
 		db.storageMap[db.addr] = make(map[string][]byte)
 	}
-	db.storageMap[db.addr][ToKey(key)] = value
+	if len(value) == 0 {
+		delete(db.storageMap[db.addr], ToKey(key))
+	} else {
+		db.storageMap[db.addr][ToKey(key)] = value
+	}
 	return nil
 }
 
@@ -237,15 +239,37 @@ func (db *testDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIte
 	storageMap := db.storageMap[db.addr]
 	items := make([]testIteratorItem, 0)
 	for key, value := range storageMap {
-		if len(prefix) > 0 {
-			if bytes.Equal(ToBytes(key)[:len(prefix)], prefix) {
-				items = append(items, testIteratorItem{ToBytes(key), value})
+		keyBytes := ToBytes(key)
+		prefixLen := len(prefix)
+		if prefixLen > 0 {
+			if len(keyBytes) >= prefixLen && bytes.Equal(keyBytes[:prefixLen], prefix) {
+				items = append(items, testIteratorItem{keyBytes, value})
 			}
 		} else {
-			items = append(items, testIteratorItem{ToBytes(key), value})
+			items = append(items, testIteratorItem{keyBytes, value})
 		}
 	}
+	sort.Sort(testIteratorSorter(items))
 	return &testIterator{-1, items}, nil
+}
+
+type testIteratorSorter []testIteratorItem
+
+func (st testIteratorSorter) Len() int {
+	return len(st)
+}
+
+func (st testIteratorSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st testIteratorSorter) Less(i, j int) bool {
+	tkCmp := bytes.Compare(st[i].key, st[j].key)
+	if tkCmp < 0 {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (db *testDatabase) GetUnsavedStorage() [][2][]byte {
@@ -265,6 +289,14 @@ func (db *testDatabase) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 		list[i] = types.QuotaInfo{BlockCount: 0, QuotaTotal: 0, QuotaUsedTotal: 0}
 	}
 	return list
+}
+
+func (db *testDatabase) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
+func (db *testDatabase) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	return nil, nil
 }
 
 func (db *testDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {

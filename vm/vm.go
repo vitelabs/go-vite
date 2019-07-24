@@ -530,10 +530,26 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		return &vm_db.VmAccountBlock{block, db}, noRetry, util.ErrDepth
 	}
 	if p, ok, _ := contracts.GetBuiltinContractMethod(block.AccountAddress, sendBlock.Data); ok {
+		// check quota
+		qutoaUsed := p.GetReceiveQuota()
+		if qutoaUsed > 0 {
+			quotaTotal, _, err := quota.CalcQuotaForBlock(
+				db,
+				block.AccountAddress,
+				getPledgeAmount(db),
+				block.Difficulty)
+			if err != nil {
+				return nil, noRetry, err
+			}
+			_, err = util.UseQuota(quotaTotal, qutoaUsed)
+			if err != nil {
+				return nil, retry, err
+			}
+		}
 		util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 		blockListToSend, err := p.DoReceive(db, block, sendBlock, vm)
 		if err == nil {
-			vm.updateBlock(db, block, err, 0, 0)
+			vm.updateBlock(db, block, err, qutoaUsed, qutoaUsed)
 			vm.vmContext.sendBlockList = blockListToSend
 			if db, err = vm.doSendBlockList(db); err == nil {
 				block.Data = getReceiveCallData(db, err)
@@ -542,9 +558,9 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		}
 		vm.revert(db)
 		refundFlag := false
-		refundData, needRefund := p.GetRefundData()
+		refundData, needRefund := p.GetRefundData(sendBlock)
 		refundFlag = doRefund(vm, db, block, sendBlock, refundData, needRefund, ledger.BlockTypeSendCall)
-		vm.updateBlock(db, block, err, 0, 0)
+		vm.updateBlock(db, block, err, qutoaUsed, qutoaUsed)
 		if refundFlag {
 			var refundErr error
 			if db, refundErr = vm.doSendBlockList(db); refundErr != nil {

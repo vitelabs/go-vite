@@ -20,11 +20,14 @@ type MethodRegister struct {
 func (p *MethodRegister) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodRegister) GetRefundData() ([]byte, bool) {
+func (p *MethodRegister) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodRegister) GetSendQuota(data []byte) (uint64, error) {
 	return RegisterGas, nil
+}
+func (p *MethodRegister) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
@@ -125,11 +128,14 @@ type MethodCancelRegister struct {
 func (p *MethodCancelRegister) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
-func (p *MethodCancelRegister) GetRefundData() ([]byte, bool) {
+func (p *MethodCancelRegister) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodCancelRegister) GetSendQuota(data []byte) (uint64, error) {
 	return CancelRegisterGas, nil
+}
+func (p *MethodCancelRegister) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // cancel register to become a super node of a consensus group after registered for 3 month, get 100w ViteToken back
@@ -197,11 +203,14 @@ func (p *MethodReward) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodReward) GetRefundData() ([]byte, bool) {
+func (p *MethodReward) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodReward) GetSendQuota(data []byte) (uint64, error) {
 	return RewardGas, nil
+}
+func (p *MethodReward) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // get reward of generating snapshot block
@@ -474,11 +483,14 @@ func (p *MethodUpdateRegistration) GetFee(block *ledger.AccountBlock) (*big.Int,
 	return big.NewInt(0), nil
 }
 
-func (p *MethodUpdateRegistration) GetRefundData() ([]byte, bool) {
+func (p *MethodUpdateRegistration) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodUpdateRegistration) GetSendQuota(data []byte) (uint64, error) {
 	return UpdateRegistrationGas, nil
+}
+func (p *MethodUpdateRegistration) GetReceiveQuota() uint64 {
+	return 0
 }
 
 // update registration info
