@@ -194,12 +194,24 @@ func (n *net) authorize(c Codec, flag PeerFlag, msg *HandshakeMsg) (superior boo
 		}
 	}
 
+	// whitelist
+	for _, key2 := range n.config.AccessAllowKeys {
+		if key2 == id || key2 == key {
+			return
+		}
+	}
+
 	// superior
 	if msg.Key != nil {
 		addr := types.PubkeyToAddress(msg.Key)
 		if n.finder.isSBP(addr) {
 			superior = true
 		}
+	}
+
+	// producer
+	if superior {
+		return
 	}
 
 	// no space
@@ -214,18 +226,6 @@ func (n *net) authorize(c Codec, flag PeerFlag, msg *HandshakeMsg) (superior boo
 	}
 
 	if n.config.AccessControl == "any" {
-		return
-	}
-
-	// whitelist
-	for _, key2 := range n.config.AccessAllowKeys {
-		if key2 == id || key2 == key {
-			return
-		}
-	}
-
-	// producer
-	if n.config.AccessControl == "producer" && superior {
 		return
 	}
 
