@@ -302,6 +302,9 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 	if !ok {
 		return nil, ErrStrToBigInt
 	}
+	if err := checkTokenIdValid(m.chain, &params.TokenTypeId); err != nil {
+		return nil, err
+	}
 	var difficulty *big.Int = nil
 	if params.Difficulty != nil {
 		difficulty, ok = new(big.Int).SetString(*params.Difficulty, 10)

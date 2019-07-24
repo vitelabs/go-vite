@@ -50,6 +50,9 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	if err != nil {
 		return err
 	}
+	if err := checkTokenIdValid(t.vite.Chain(), &lb.TokenId); err != nil {
+		return err
+	}
 	latestSb := t.vite.Chain().GetLatestSnapshotBlock()
 	if latestSb == nil {
 		return errors.New("failed to get latest snapshotBlock")
@@ -108,6 +111,9 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	amount, ok := new(big.Int).SetString(*param.Amount, 10)
 	if !ok {
 		return nil, ErrStrToBigInt
+	}
+	if err := checkTokenIdValid(t.vite.Chain(), &param.TokenTypeId); err != nil {
+		return nil, err
 	}
 
 	var blockType byte

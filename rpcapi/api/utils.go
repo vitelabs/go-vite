@@ -186,3 +186,16 @@ func checkSnapshotValid(latestSb *ledger.SnapshotBlock) error {
 	}
 	return nil
 }
+
+func checkTokenIdValid(chain chain.Chain, tokenId *types.TokenTypeId) error {
+	if tokenId != nil && (*tokenId) != types.ZERO_TOKENID {
+		tkInfo, err := chain.GetTokenInfoById(*tokenId)
+		if err != nil {
+			return err
+		}
+		if tkInfo == nil {
+			return errors.New("tokenId doesn’t exist")
+		}
+	}
+	return nil
+}

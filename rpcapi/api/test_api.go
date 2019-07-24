@@ -76,6 +76,9 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 	if !ok {
 		return ErrStrToBigInt
 	}
+	if err := checkTokenIdValid(t.walletApi.chain, &params.TokenTypeId); err != nil {
+		return err
+  }
 	if !checkTxToAddressAvailable(params.ToAddr) {
 		return errors.New("ToAddress is invalid")
 	}
