@@ -12,6 +12,7 @@ const (
 	ConfirmGas            uint64 = 200
 	CommonQuotaRatio      uint8  = 10
 	QuotaRatioDivision    uint64 = 10
+	OneRound              uint64 = 75
 )
 
 func MultipleCost(cost uint64, quotaRatio uint8) (uint64, error) {

@@ -192,6 +192,7 @@ type CalcPoWDifficultyParam struct {
 type CalcPoWDifficultyResult struct {
 	QuotaRequired uint64 `json:"quota"`
 	Difficulty    string `json:"difficulty"`
+	TxNumRequired uint64 `json:"utRequired"`
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
@@ -238,7 +239,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 			return nil, err
 		}
 		if q.Current() >= quotaRequired {
-			return &CalcPoWDifficultyResult{quotaRequired, ""}, nil
+			return &CalcPoWDifficultyResult{quotaRequired, "", quotaRequired / util.TxGas}, nil
 		}
 	} else {
 		pledgeAmount = big.NewInt(0)
@@ -256,7 +257,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if err != nil {
 		return nil, err
 	}
-	return &CalcPoWDifficultyResult{quotaRequired, d.String()}, nil
+	return &CalcPoWDifficultyResult{quotaRequired, d.String(), quotaRequired / util.TxGas}, nil
 }
 
 func (tx Tx) autoSend() {
