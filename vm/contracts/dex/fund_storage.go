@@ -104,6 +104,7 @@ var (
 		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 6, DefaultTradeThreshold: usdMinAmount, DefaultMineThreshold: usdMineThreshold},
 	}
 	initOwner, _ = types.HexToAddress("vite_a8a00b3a2f60f5defb221c68f79b65f3620ee874f951a825db")
+	initViteTokenOwner, _ = types.HexToAddress("vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119")
 )
 
 const (

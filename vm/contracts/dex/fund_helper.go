@@ -217,14 +217,15 @@ func OnTransferTokenOwnerPending(db vm_db.VmDb, token types.TokenTypeId, origin,
 	}
 }
 
-func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetTokenInfoCallback) error {
-	if action, err := FilterPendingTransferTokenOwners(db, tokenInfoRes.TokenId); err != nil {
+func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, param *ParamDexFundGetTokenInfoCallback) error {
+	if action, err := FilterPendingTransferTokenOwners(db, param.TokenId); err != nil {
 		return err
 	} else {
-		if bytes.Equal(action.Origin, tokenInfoRes.Owner.Bytes()) {
-			tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
+		if bytes.Equal(action.Origin, param.Owner.Bytes()) ||
+			param.TokenId == ledger.ViteTokenId && bytes.Equal(action.Origin, initViteTokenOwner.Bytes()) {
+			tokenInfo := newTokenInfoFromCallback(param)
 			tokenInfo.Owner = action.New
-			SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
+			SaveTokenInfo(db, param.TokenId, tokenInfo)
 			AddTokenEvent(db, tokenInfo)
 			return nil
 		} else {
@@ -376,7 +377,11 @@ func newTokenInfoFromCallback(param *ParamDexFundGetTokenInfoCallback) *TokenInf
 	tokenInfo.Decimals = int32(param.Decimals)
 	tokenInfo.Symbol = param.TokenSymbol
 	tokenInfo.Index = int32(param.Index)
-	tokenInfo.Owner = param.Owner.Bytes()
+	if param.TokenId == ledger.ViteTokenId {
+		tokenInfo.Owner = initViteTokenOwner.Bytes()
+	} else {
+		tokenInfo.Owner = param.Owner.Bytes()
+	}
 	return tokenInfo
 }
 
