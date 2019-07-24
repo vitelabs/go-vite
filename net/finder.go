@@ -290,14 +290,16 @@ func (f *finder) loop() {
 			}
 			f.rw.Unlock()
 
-			total := f.total()
-			if total < f.minPeers {
-				nodes = f.resolver.GetNodes((f.minPeers - total) * 2)
-				f.rw.Lock()
-				for _, node := range nodes {
-					f.dial(node)
+			if f.resolver != nil {
+				total := f.total()
+				if total < f.minPeers {
+					nodes = f.resolver.GetNodes((f.minPeers - total) * 2)
+					f.rw.Lock()
+					for _, node := range nodes {
+						f.dial(node)
+					}
+					f.rw.Unlock()
 				}
-				f.rw.Unlock()
 			}
 		case <-f.term:
 			return
