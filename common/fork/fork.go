@@ -85,10 +85,14 @@ func CheckForkPoints(points config.ForkPoints) error {
 	return nil
 }
 
-/**
-@TODO add feature affected by this fork
-use by a. xxx eg.
-       b. xxx eg.
+/*
+IsSeedFork checks whether current snapshot block height is over seed hard fork.
+Vite pre-mainnet hard forks at snapshot block height 3488471.
+Contents:
+  1. Vm log list hash add account address and prevHash since seed fork.
+  2. Create contract params add seed count since seed fork.
+  3. Verifier verifies seed count since seed fork.
+  4. Vm interpreters add SEED opcode since seed fork.
 */
 func IsSeedFork(snapshotHeight uint64) bool {
 	seedForkPoint, ok := forkPointMap["SeedFork"]
@@ -96,6 +100,14 @@ func IsSeedFork(snapshotHeight uint64) bool {
 		panic("check seed fork failed. SeedFork is not existed.")
 	}
 	return snapshotHeight >= seedForkPoint.Height
+}
+
+func IsDexFork(snapshotHeight uint64) bool {
+	dexForkPoint, ok := forkPointMap["DexFork"]
+	if !ok {
+		panic("check dex fork failed. DexFork is not existed.")
+	}
+	return snapshotHeight >= dexForkPoint.Height
 }
 
 func IsForkPoint(snapshotHeight uint64) bool {

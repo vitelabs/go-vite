@@ -1,0 +1,189 @@
+syntax="proto3";
+
+package proto;
+
+//storage
+message Account {
+    bytes Token = 1;
+    bytes Available = 2;
+    bytes Locked   = 3;
+}
+
+//storage
+message Fund {
+    bytes Address = 1;
+    repeated Account Accounts = 2;
+}
+
+message FundSettle {
+    bool isTradeToken = 1;
+    bytes IncAvailable = 2;
+    bytes ReduceLocked = 3;
+    bytes ReleaseLocked = 4;
+}
+
+message UserFundSettle {
+    bytes Address = 1;
+    repeated FundSettle fundSettles = 2;
+}
+
+message UserFeeSettle {
+    bytes Address = 1;
+    bytes BaseFee = 2; // FeeSumAccount.BaseAmount, FeeSumAccount.InviterBonusAmount, UserFeeAccount.InviterBonusAmount
+    bytes BrokerFee = 3; // BrokerFeeAccount.Amount
+}
+
+//must be same markets
+message SettleActions {
+    bytes TradeToken = 1;
+    bytes QuoteToken = 2;
+    repeated UserFundSettle fundActions = 3;
+    repeated UserFeeSettle feeActions = 4;
+}
+
+message FeeSumForDividend { // for dividend
+    bytes Token = 1;
+    // rolled amount : 99% part of last period BaseAmount rolled to this period +
+    // new market fee +
+    // new inviter fee +
+    // trade baseFee[include markets allow mine and not allow mine]
+    bytes DividendPoolAmount = 2;
+}
+
+message FeeSumForMine { // for mine, sum amounts with same quoteTokenType
+    int32 QuoteTokenType = 1;
+    bytes BaseAmount = 2; // normal trade fee
+    bytes InviteBonusAmount = 3; // invitee trade fee
+}
+
+message FeeSumByPeriod {
+    repeated FeeSumForDividend feesForDividend = 1;
+    repeated FeeSumForMine feesForMine = 2;
+    uint64 lastValidPeriod = 3;
+    bool FinishFeeDividend = 4;
+    bool FinishVxMine = 5;
+}
+
+message UserFeeAccount { // for vx mine
+    int32 QuoteTokenType = 1;
+    bytes BaseAmount = 2;
+    bytes InviteBonusAmount = 3;
+}
+
+message UserFeeByPeriod {
+    repeated UserFeeAccount userFees = 1;
+    uint64 Period = 2;
+}
+
+message UserFees {
+    repeated UserFeeByPeriod fees = 1;
+}
+
+message BrokerMarketFee {
+    int32 MarketId = 1;
+    int32 TakerBrokerFeeRate = 2;
+    int32 MakerBrokerFeeRate = 3;
+    bytes Amount = 4;
+}
+
+message BrokerFeeAccount {
+    bytes Token = 1;
+    repeated BrokerMarketFee MarketFees  = 2;
+}
+
+message BrokerFeeSumByPeriod {
+    repeated BrokerFeeAccount brokerFees = 1;
+}
+
+message VxFundByPeriod {
+    uint64 Period = 1; // last snapshot height in period
+    bytes Amount = 2;
+}
+
+message VxFunds {
+    repeated VxFundByPeriod funds = 1;
+}
+
+message PledgeVip {
+    int64 Timestamp = 1;
+    int32 PledgeTimes = 2; //sum pledge times in case duplicate pledge happen
+}
+
+message PledgeForVxByPeriod {
+    uint64 Period = 1; // last snapshot height in period
+    bytes Amount = 2;
+}
+
+message PledgesForVx {
+    repeated PledgeForVxByPeriod pledges = 1;
+}
+
+message VxSettleAction {
+    bytes Address = 1;
+    bytes Amount = 2;
+}
+
+message VxSettleActions {
+    uint64 Period = 1;
+    int32 Page = 2;
+    repeated VxSettleAction actions = 3;
+}
+
+//event
+message PeriodWithBiz {
+    uint64 Period = 1;
+    int32  BizType = 2;
+}
+
+//event
+message FeeDividendForVxHolder {
+    bytes Address = 1;
+    bytes VxAmount = 2;
+    bytes FeeToken = 3; // fee token to dividend
+    bytes FeeDividend = 4;
+}
+
+//event
+message MinedVxForFee { // reused by trade fee and invitee fee
+    bytes Address = 1;
+    int32 QuoteTokenType = 2; // 1 vite, 2 eth, 3 btc, 4 usd
+    bytes FeeAmount = 3; // decimals depends on QuoteTokenType
+    bytes MinedAmount = 4; // mined vx amount
+}
+
+//event
+message MinedVxForPledge {
+    bytes Address = 1;
+    bytes PledgeAmount = 2; // pledged vite amount
+    bytes MinedAmount = 3; // mined vx amount
+}
+
+//event
+message BrokerFeeDividend {
+    bytes Address = 1;
+    int32 MarketId = 2;
+    int32 TakerBrokerFeeRate = 3;
+    int32 MakerBrokerFeeRate = 4;
+    bytes Amount = 5; //depend on marketInfo.QuoteToken
+}
+
+//event
+message MinedVxForOperation {
+    int32 BizType = 1; // 1 MineForMaker, 2 MineForMaintainer
+    bytes Address = 2;
+    bytes Amount = 3;
+}
+
+//event
+message InviteRelation {
+    bytes Inviter = 1;
+    bytes Invitee = 2;
+    uint32 InviteCode = 3;
+}
+
+//event
+message SettleMakerMinedVx {
+    uint64 PeriodId = 1;
+    int32 Page = 2;
+    bool  finish = 3;
+}

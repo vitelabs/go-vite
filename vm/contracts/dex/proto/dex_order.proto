@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package proto;
+
+//storage
+message Order {
+    bytes Id = 1; //[unset on serialize] MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 21
+    bytes Address = 2;
+    int32 MarketId = 3; // [unset on serialize]
+    bool Side = 4; // //[unset on serialize] false buy, true sell
+    int32 Type = 5; // 0 limit order, 1 market order
+    bytes Price = 6; // //[unset on serialize] [0...4]intPart [5..9]decimalPart
+    int32 TakerFeeRate = 7; // rate/100,000
+    int32 MakerFeeRate = 8; // rate/100,000
+    int32 TakerBrokerFeeRate = 9; // rate/100,000
+    int32 MakerBrokerFeeRate = 10; // rate/100,000
+    bytes Quantity = 11;
+    bytes Amount = 12; // QuoteAmount
+    bytes LockedBuyFee = 13; // fee locked ahead for buy (Fee + BrokerFee)
+    int32 Status = 14;
+    int32 CancelReason = 15;
+    bytes ExecutedQuantity = 16;
+    bytes ExecutedAmount = 17;
+    bytes ExecutedBaseFee = 18; // fee actually executed
+    bytes ExecutedBrokerFee = 19;
+    bytes RefundToken = 20;
+    bytes RefundQuantity = 21; //refund trade/quote token
+    int64 Timestamp = 22; // [unset on serialize]
+}
+
+//storage
+message OrderIdSerialNo {
+    int32 SerialNo = 1;
+    int64 Timestamp = 2;
+}
+
+message Transaction {
+    bytes Id = 1;
+    bool TakerSide = 2;
+    bytes TakerId = 3;
+    bytes MakerId = 4;
+    bytes Price = 5;
+    bytes Quantity = 6;
+    bytes Amount = 7;
+    bytes TakerFee = 8;
+    bytes MakerFee = 9;
+    bytes TakerBrokerFee = 10;
+    bytes MakerBrokerFee = 11;
+    int64 Timestamp = 12;
+}
+
+//storage+event
+message TokenInfo {
+    bytes TokenId = 1;
+    int32 Decimals = 2;
+    string Symbol = 3;
+    int32 Index = 4;
+    bytes Owner = 5;
+    int32 QuoteTokenType = 6; // 1 vite 2 eth 3 btc 4 usdt
+}
+
+//storage+event
+message MarketInfo {
+    int32 MarketId = 1;
+    string MarketSymbol = 2;
+    bytes TradeToken = 3;
+    bytes QuoteToken = 4;
+    int32 QuoteTokenType = 5;
+    int32 TradeTokenDecimals = 6;
+    int32 QuoteTokenDecimals = 7;
+    int32 TakerBrokerFeeRate = 8; // rate/100,000
+    int32 MakerBrokerFeeRate = 9; // rate/100,000
+    bool AllowMine = 10;
+    bool Valid = 11; // false: pending for tradeToken validate
+    bytes Owner = 12;
+    bytes Creator = 13; //creator address
+    bool Stopped = 14;
+    int64 Timestamp = 15;
+}
+
+//event
+message NewOrderInfo { // for taker
+    Order Order = 1;
+    bytes TradeToken = 2;
+    bytes QuoteToken = 3;
+}
+
+//event
+message OrderUpdateInfo {
+    bytes Id = 1;
+    bytes TradeToken = 2;
+    bytes QuoteToken = 3;
+    int32 Status = 4;
+    int32 CancelReason = 5;
+    bytes ExecutedQuantity = 6;
+    bytes ExecutedAmount = 7;
+    bytes ExecutedBaseFee = 8;
+    bytes ExecutedBrokerFee = 9;
+    bytes RefundToken = 10;
+    bytes RefundQuantity = 11; //refund trade/quote token
+}
+
+//pending actions
+
+message NewMarketAction {
+    bytes TradeToken = 1;
+    repeated bytes QuoteTokens = 2;
+}
+
+message PendingNewMarkets {
+    repeated NewMarketAction pendingActions = 1;
+}
+
+message SetQuoteAction {
+    bytes token = 1;
+    int32 QuoteTokenType = 2;
+}
+
+message PendingSetQuotes {
+    repeated SetQuoteAction pendingActions = 1;
+}
+
+message TransferTokenOwnerAction {
+    bytes token = 1;
+    bytes Origin = 2;
+    bytes New = 3;
+}
+
+message PendingTransferTokenOwners {
+    repeated TransferTokenOwnerAction pendingActions = 1;
+}

@@ -7,11 +7,11 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 )
 
-func Init(dir, lvl string, testApi_prikey, testApi_tti string, netId uint) {
+func Init(dir, lvl string, testApi_prikey, testApi_tti string, netId uint, dexAvailable *bool) {
 	api.InitLog(dir, lvl)
 	api.InitTestAPIParams(testApi_prikey, testApi_tti)
 	api.InitGetTestTokenLimitPolicy()
-	api.InitConfig(netId)
+	api.InitConfig(netId, dexAvailable)
 }
 
 func GetApi(vite *vite.Vite, apiModule string) rpc.API {
@@ -36,7 +36,7 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 		return rpc.API{
 			Namespace: "pow",
 			Version:   "1.0",
-			Service:   api.Pow{},
+			Service:   api.NewPow(vite),
 			Public:    true,
 		}
 
@@ -94,6 +94,20 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Namespace: "pledge",
 			Version:   "1.0",
 			Service:   api.NewPledgeApi(vite),
+			Public:    true,
+		}
+	case "dexfund":
+		return rpc.API{
+			Namespace: "dexfund",
+			Version:   "1.0",
+			Service:   api.NewDexFundApi(vite),
+			Public:    true,
+		}
+	case "dextrade":
+		return rpc.API{
+			Namespace: "dextrade",
+			Version:   "1.0",
+			Service:   api.NewDexTradeApi(vite),
 			Public:    true,
 		}
 	case "consensusGroup":

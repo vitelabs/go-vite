@@ -26,7 +26,9 @@ func init() {
 }
 
 func initFork() {
-	fork.SetForkPoints(&config.ForkPoints{SeedFork: &config.ForkPoint{Height: 100, Version: 1}})
+	fork.SetForkPoints(&config.ForkPoints{
+		SeedFork: &config.ForkPoint{Height: 100, Version: 1},
+		DexFork:  &config.ForkPoint{Height: 200, Version: 1}})
 }
 
 func TestVmRun(t *testing.T) {
@@ -521,6 +523,7 @@ func TestVm(t *testing.T) {
 			}
 			vm := NewVM(nil)
 			vm.i = newInterpreter(1, false)
+			vm.gasTable = util.GasTableByHeight(1)
 			vm.globalStatus = NewTestGlobalStatus(testCase.Seed, &sb)
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
