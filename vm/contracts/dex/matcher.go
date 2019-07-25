@@ -174,6 +174,8 @@ func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBoo
 				taker.CancelReason = partialExecutedCancelledByMarket
 			}
 			*modifiedMakers = append(*modifiedMakers, maker)
+		} else {
+			return nil
 		}
 	}
 	if taker.Status == FullyExecuted || taker.Status == Cancelled {
@@ -377,7 +379,6 @@ func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo) (tx *Order
 	tx.makerAddress = maker.Address
 	tx.tradeToken = marketInfo.TradeToken
 	tx.quoteToken = marketInfo.QuoteToken
-	tx.makerAddress = maker.Address
 	tx.TakerFee = takerFee
 	tx.TakerBrokerFee = takerBrokerFee
 	tx.MakerFee = makerFee

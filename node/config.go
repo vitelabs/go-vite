@@ -74,9 +74,10 @@ type Config struct {
 	MinerInterval        int    `json:"MinerInterval"`
 
 	//rpc
-	RPCEnabled bool `json:"RPCEnabled"`
-	IPCEnabled bool `json:"IPCEnabled"`
-	WSEnabled  bool `json:"WSEnabled"`
+	RPCEnabled  bool  `json:"RPCEnabled"`
+	IPCEnabled  bool  `json:"IPCEnabled"`
+	WSEnabled   bool  `json:"WSEnabled"`
+	TxDexEnable *bool `json:"TxDexEnable"`
 
 	IPCPath          string   `json:"IPCPath"`
 	HttpHost         string   `json:"HttpHost"`

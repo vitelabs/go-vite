@@ -6,49 +6,6 @@ import (
 )
 
 const (
-	RegisterGas               uint64 = 62200
-	UpdateRegistrationGas     uint64 = 62200
-	CancelRegisterGas         uint64 = 83200
-	RewardGas                 uint64 = 68200
-	VoteGas                   uint64 = 62000
-	CancelVoteGas             uint64 = 62000
-	PledgeGas                 uint64 = 82000
-	CancelPledgeGas           uint64 = 73000
-	AgentPledgeGas            uint64 = 82000
-	AgentCancelPledgeGas      uint64 = 73000
-	CreateConsensusGroupGas   uint64 = 62200
-	CancelConsensusGroupGas   uint64 = 83200
-	ReCreateConsensusGroupGas uint64 = 62200
-
-	dexFundDepositReceiveGas              uint64 = 1
-	dexFundWithdrawReceiveGas             uint64 = 1
-	dexFundNewMarketReceiveGas            uint64 = 1
-	dexFundNewOrderReceiveGas             uint64 = 1
-	dexFundSettleOrdersReceiveGas         uint64 = 1
-	dexFundPeriodJobReceiveGas            uint64 = 1
-	dexFundPledgeForVxReceiveGas          uint64 = 1
-	dexFundPledgeForVipReceiveGas         uint64 = 1
-	dexFundPledgeCallbackReceiveGas       uint64 = 1
-	dexFundCancelPledgeCallbackReceiveGas uint64 = 1
-	dexFundGetTokenInfoCallbackReceiveGas uint64 = 1
-	DexFundOwnerConfigReceiveGas          uint64 = 1
-	DexFundOwnerConfigTradeReceiveGas     uint64 = 1
-	DexFundMarketOwnerConfigReceiveGas    uint64 = 1
-	dexFundTransferTokenOwnerReceiveGas   uint64 = 1
-	dexFundNotifyTimeReceiveGas           uint64 = 1
-	dexFundNewInviterReceiveGas           uint64 = 1
-	dexFundBindInviteCodeReceiveGas       uint64 = 1
-	dexFundEndorseVxMinePoolReceiveGas    uint64 = 1
-	dexFundSettleMakerMinedVxReceiveGas   uint64 = 1
-
-	MintGas                uint64 = 104525
-	MintageCancelPledgeGas uint64 = 83200
-	IssueGas               uint64 = 69325
-	BurnGas                uint64 = 48837
-	TransferOwnerGas       uint64 = 58981
-	ChangeTokenTypeGas     uint64 = 63125
-	GetTokenInfoGas        uint64 = 63200
-
 	cgNodeCountMin   uint8 = 3       // Minimum node count of consensus group
 	cgNodeCountMax   uint8 = 101     // Maximum node count of consensus group
 	cgIntervalMin    int64 = 1       // Minimum interval of consensus group in second

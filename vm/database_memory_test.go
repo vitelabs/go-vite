@@ -201,6 +201,10 @@ func (db *memoryDatabase) GetQuotaUsedList(addr types.Address) []types.QuotaInfo
 	return list
 }
 
+func (db *memoryDatabase) GetGlobalQuota() types.QuotaInfo {
+	return types.QuotaInfo{}
+}
+
 func (db *memoryDatabase) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
 	return nil, nil
 }

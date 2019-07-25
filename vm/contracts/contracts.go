@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -34,11 +35,11 @@ type BuiltinContractMethod interface {
 	// calc and use quota, check tx data
 	DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error
 	// quota for doSend block
-	GetSendQuota(data []byte) (uint64, error)
+	GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error)
 	// check status, update state
 	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error)
 	// receive block quota
-	GetReceiveQuota() uint64
+	GetReceiveQuota(gasTable *util.GasTable) uint64
 	// refund data at receive error
 	GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool)
 }
@@ -48,42 +49,49 @@ type builtinContract struct {
 	abi abi.ABIContract
 }
 
-var simpleContracts = map[types.Address]*builtinContract{
-	types.AddressPledge: {
-		map[string]BuiltinContractMethod{
-			cabi.MethodNamePledge:            &MethodPledge{},
-			cabi.MethodNameCancelPledge:      &MethodCancelPledge{},
-			cabi.MethodNameAgentPledge:       &MethodAgentPledge{},
-			cabi.MethodNameAgentCancelPledge: &MethodAgentCancelPledge{},
+var (
+	simpleContracts = newSimpleContracts()
+	dexContracts    = newDexContracts()
+)
+
+func newSimpleContracts() map[types.Address]*builtinContract {
+	return map[types.Address]*builtinContract{
+		types.AddressPledge: {
+			map[string]BuiltinContractMethod{
+				cabi.MethodNamePledge:       &MethodPledge{},
+				cabi.MethodNameCancelPledge: &MethodCancelPledge{},
+			},
+			cabi.ABIPledge,
 		},
-		cabi.ABIPledge,
-	},
-	types.AddressConsensusGroup: {
-		map[string]BuiltinContractMethod{
-			/*MethodNameCreateConsensusGroup:   &MethodCreateConsensusGroup{},
-			MethodNameCancelConsensusGroup:   &MethodCancelConsensusGroup{},
-			MethodNameReCreateConsensusGroup: &MethodReCreateConsensusGroup{},*/
-			cabi.MethodNameRegister:           &MethodRegister{},
-			cabi.MethodNameCancelRegister:     &MethodCancelRegister{},
-			cabi.MethodNameReward:             &MethodReward{},
-			cabi.MethodNameUpdateRegistration: &MethodUpdateRegistration{},
-			cabi.MethodNameVote:               &MethodVote{},
-			cabi.MethodNameCancelVote:         &MethodCancelVote{},
+		types.AddressConsensusGroup: {
+			map[string]BuiltinContractMethod{
+				cabi.MethodNameRegister:           &MethodRegister{},
+				cabi.MethodNameCancelRegister:     &MethodCancelRegister{},
+				cabi.MethodNameReward:             &MethodReward{},
+				cabi.MethodNameUpdateRegistration: &MethodUpdateRegistration{},
+				cabi.MethodNameVote:               &MethodVote{},
+				cabi.MethodNameCancelVote:         &MethodCancelVote{},
+			},
+			cabi.ABIConsensusGroup,
 		},
-		cabi.ABIConsensusGroup,
-	},
-	types.AddressMintage: {
-		map[string]BuiltinContractMethod{
-			cabi.MethodNameMint:            &MethodMint{},
-			cabi.MethodNameIssue:           &MethodIssue{},
-			cabi.MethodNameBurn:            &MethodBurn{},
-			cabi.MethodNameTransferOwner:   &MethodTransferOwner{},
-			cabi.MethodNameChangeTokenType: &MethodChangeTokenType{},
-			cabi.MethodNameGetTokenInfo:    &MethodGetTokenInfo{},
+		types.AddressMintage: {
+			map[string]BuiltinContractMethod{
+				cabi.MethodNameMint:            &MethodMint{},
+				cabi.MethodNameIssue:           &MethodIssue{},
+				cabi.MethodNameBurn:            &MethodBurn{},
+				cabi.MethodNameTransferOwner:   &MethodTransferOwner{},
+				cabi.MethodNameChangeTokenType: &MethodChangeTokenType{},
+			},
+			cabi.ABIMintage,
 		},
-		cabi.ABIMintage,
-	},
-	types.AddressDexFund: {
+	}
+}
+func newDexContracts() map[types.Address]*builtinContract {
+	contracts := newSimpleContracts()
+	contracts[types.AddressPledge].m[cabi.MethodNameAgentPledge] = &MethodAgentPledge{}
+	contracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledge] = &MethodAgentCancelPledge{}
+	contracts[types.AddressMintage].m[cabi.MethodNameGetTokenInfo] = &MethodGetTokenInfo{}
+	contracts[types.AddressDexFund] = &builtinContract{
 		map[string]BuiltinContractMethod{
 			cabi.MethodNameDexFundUserDeposit:          &MethodDexFundUserDeposit{},
 			cabi.MethodNameDexFundUserWithdraw:         &MethodDexFundUserWithdraw{},
@@ -107,8 +115,8 @@ var simpleContracts = map[types.Address]*builtinContract{
 			cabi.MethodNameDexFunSettleMakerMinedVx:    &MethodDexFundSettleMakerMinedVx{},
 		},
 		cabi.ABIDexFund,
-	},
-	types.AddressDexTrade: {
+	}
+	contracts[types.AddressDexTrade] = &builtinContract{
 		map[string]BuiltinContractMethod{
 			cabi.MethodNameDexTradeNewOrder:          &MethodDexTradeNewOrder{},
 			cabi.MethodNameDexTradeCancelOrder:       &MethodDexTradeCancelOrder{},
@@ -116,11 +124,18 @@ var simpleContracts = map[types.Address]*builtinContract{
 			cabi.MethodNameDexTradeCleanExpireOrders: &MethodDexTradeCleanExpireOrders{},
 		},
 		cabi.ABIDexTrade,
-	},
+	}
+	return contracts
 }
 
-func GetBuiltinContractMethod(addr types.Address, methodSelector []byte) (BuiltinContractMethod, bool, error) {
-	p, ok := simpleContracts[addr]
+func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
+	var contractsMap map[types.Address]*builtinContract
+	if !fork.IsDexFork(sbHeight) {
+		contractsMap = simpleContracts
+	} else {
+		contractsMap = dexContracts
+	}
+	p, ok := contractsMap[addr]
 	if ok {
 		if method, err := p.abi.MethodById(methodSelector); err == nil {
 			c, ok := p.m[method.Name]
@@ -130,22 +145,4 @@ func GetBuiltinContractMethod(addr types.Address, methodSelector []byte) (Builti
 		}
 	}
 	return nil, ok, nil
-}
-
-func GetOriginSendBlock(db vm_db.VmDb, sendBlockHash types.Hash) (*ledger.AccountBlock, error) {
-	receiveBlock, err := db.GetCompleteBlockByHash(sendBlockHash)
-	if err != nil {
-		return nil, err
-	}
-	if receiveBlock == nil {
-		return nil, util.ErrChainForked
-	}
-	sendBlock, err := db.GetAccountBlockByHash(receiveBlock.FromBlockHash)
-	if err != nil {
-		return nil, err
-	}
-	if sendBlock == nil {
-		return nil, util.ErrChainForked
-	}
-	return sendBlock, nil
 }

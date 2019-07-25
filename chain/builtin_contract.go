@@ -86,7 +86,7 @@ func (c *chain) GetPledgeQuota(addr types.Address) (*types.Quota, error) {
 
 	vmDb := vm_db.NewVmDbByAddr(c, &addr)
 
-	quota, err := quota.GetPledgeQuota(vmDb, addr, amount)
+	quota, err := quota.GetPledgeQuota(vmDb, addr, amount, c.GetLatestSnapshotBlock().Height)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +95,8 @@ func (c *chain) GetPledgeQuota(addr types.Address) (*types.Quota, error) {
 
 // total
 func (c *chain) GetPledgeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error) {
-
-	sd, err := c.stateDB.NewStorageDatabase(c.GetLatestSnapshotBlock().Hash, types.AddressPledge)
+	sb := c.GetLatestSnapshotBlock()
+	sd, err := c.stateDB.NewStorageDatabase(sb.Hash, types.AddressPledge)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
 		c.log.Error(cErr.Error(), "method", "GetPledgeBeneficialAmount")
@@ -114,7 +114,7 @@ func (c *chain) GetPledgeQuotas(addrList []types.Address) (map[types.Address]*ty
 		}
 
 		vmDb := vm_db.NewVmDbByAddr(c, &addr)
-		quota, err := quota.GetPledgeQuota(vmDb, addr, amount)
+		quota, err := quota.GetPledgeQuota(vmDb, addr, amount, sb.Height)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("quota.GetPledgeQuota failed. Error: %s", err))
 			c.log.Error(cErr.Error(), "method", "GetPledgeQuotas")

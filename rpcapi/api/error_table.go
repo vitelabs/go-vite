@@ -78,6 +78,10 @@ var (
 		Message: util.ErrInvalidQuotaRatio.Error(),
 		Code:    -35010,
 	}
+	ErrVmPoWNotSupported = JsonRpc2Error{
+		Message: ErrPoWNotSupportedUnderCongestion.Error(),
+		Code:    -35011,
+	}
 
 	// -36001 ~ -36999 verifier_account
 	ErrVerifyAccountAddr = JsonRpc2Error{
@@ -173,6 +177,7 @@ func init() {
 	concernedErrorMap[ErrVmContractNotExists.Error()] = ErrVmContractNotExists
 	concernedErrorMap[ErrVmNoReliableStatus.Error()] = ErrVmNoReliableStatus
 	concernedErrorMap[ErrVmInvalidQuotaRatio.Error()] = ErrVmInvalidQuotaRatio
+	concernedErrorMap[ErrVmPoWNotSupported.Error()] = ErrVmPoWNotSupported
 
 	concernedErrorMap[ErrVerifyAccountAddr.Error()] = ErrVerifyAccountAddr
 	concernedErrorMap[ErrVerifyHash.Error()] = ErrVerifyHash

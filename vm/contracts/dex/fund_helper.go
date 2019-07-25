@@ -203,8 +203,8 @@ func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetT
 	}
 }
 
-func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (err error) {
-	_, err = FilterPendingSetQuotes(db, tradeTokenId)
+func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tokenId types.TokenTypeId) (err error) {
+	_, err = FilterPendingSetQuotes(db, tokenId)
 	return
 }
 
@@ -334,18 +334,6 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 		}
 	}
 	return nil
-}
-
-func DepositAccount(db vm_db.VmDb, address types.Address, tokenId types.TokenTypeId, amount *big.Int) (*dexproto.Account) {
-	dexFund, _ := GetUserFund(db, address)
-	account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
-	available := new(big.Int).SetBytes(account.Available)
-	account.Available = available.Add(available, amount).Bytes()
-	if !exists {
-		dexFund.Accounts = append(dexFund.Accounts, account)
-	}
-	SaveUserFund(db, address, dexFund)
-	return account
 }
 
 func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *MarketInfo) (err error) {

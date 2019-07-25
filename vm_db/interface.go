@@ -17,6 +17,8 @@ type Chain interface {
 
 	GetQuotaUsedList(address types.Address) []types.QuotaInfo
 
+	GetGlobalQuota() types.QuotaInfo
+
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
 
 	GetContractCode(contractAddr types.Address) ([]byte, error)
@@ -54,7 +56,6 @@ type Chain interface {
 	GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error)
 
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
-	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 }
 
 type VmDb interface {
@@ -74,6 +75,8 @@ type VmDb interface {
 	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
 
 	GetQuotaUsedList(addr types.Address) []types.QuotaInfo
+
+	GetGlobalQuota() types.QuotaInfo
 
 	// ====== State ======
 	GetReceiptHash() *types.Hash
@@ -109,8 +112,6 @@ type VmDb interface {
 
 	// ====== AccountBlock ======
 	GetUnconfirmedBlocks(address types.Address) []*ledger.AccountBlock
-	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
-	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
 	// ====== SnapshotBlock ======
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
