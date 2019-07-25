@@ -8,8 +8,8 @@ func TestNewSegmentByFilename(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if seg.Bound != [2]uint64{100, 200} {
-		t.Errorf("different bound: %v", seg.Bound)
+	if seg.From != 100 || seg.To != 200 {
+		t.Errorf("different bound: %d %d", seg.From, seg.To)
 	}
 
 	name = "f_100_0000000000000000000000000000000000000000000000000000000000000001_200_0000000000000000000000000000000000000000000000000000000000000002.v"

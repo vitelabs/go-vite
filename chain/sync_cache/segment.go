@@ -13,7 +13,8 @@ import (
 
 func NewSegment(from uint64, to uint64, prevHash, hash types.Hash) interfaces.Segment {
 	return interfaces.Segment{
-		Bound:    [2]uint64{from, to},
+		From:     from,
+		To:       to,
 		Hash:     hash,
 		PrevHash: prevHash,
 	}

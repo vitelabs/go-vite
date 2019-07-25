@@ -3,24 +3,20 @@ package api
 import (
 	"strconv"
 
-	"github.com/vitelabs/go-vite/p2p/vnode"
-
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/p2p"
+	"github.com/vitelabs/go-vite/net"
+	"github.com/vitelabs/go-vite/net/vnode"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vite/net"
 )
 
 type NetApi struct {
 	net net.Net
-	p2p p2p.P2P
 	log log15.Logger
 }
 
 func NewNetApi(vite *vite.Vite) *NetApi {
 	return &NetApi{
 		net: vite.Net(),
-		p2p: vite.P2P(),
 		log: log15.New("module", "rpc_api/net_api"),
 	}
 }
@@ -55,16 +51,8 @@ func (n *NetApi) Peers() net.NodeInfo {
 	return n.net.Info()
 }
 
-func (n *NetApi) NodeInfo() p2p.NodeInfo {
-	return n.p2p.Info()
-}
-
 func (n *NetApi) NetInfo() net.NodeInfo {
 	return n.net.Info()
-}
-
-func (n *NetApi) Trace() {
-	n.net.Trace()
 }
 
 type Nodes struct {
@@ -73,14 +61,9 @@ type Nodes struct {
 }
 
 func (n *NetApi) Nodes() Nodes {
-	discv := n.p2p.Discovery()
-	if discv != nil {
-		nodes := discv.AllNodes()
-		return Nodes{
-			Nodes: nodes,
-			Count: len(nodes),
-		}
+	nodes := n.net.Nodes()
+	return Nodes{
+		Nodes: nodes,
+		Count: len(nodes),
 	}
-
-	return Nodes{}
 }
