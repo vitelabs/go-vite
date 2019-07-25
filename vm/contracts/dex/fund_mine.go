@@ -247,8 +247,6 @@ func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, 
 			amountForItems[int32(begin)].Add(amountForItems[int32(begin)], vxAmtLeaved)
 			vxAmtLeaved.SetInt64(0)
 		}
-	} else {
-		success = false
 	}
 	return
 }
@@ -264,8 +262,10 @@ func GetVxAmountToMine(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rate str
 			amount.Set(vxPool)
 		}
 		vxAmtLeaved = new(big.Int).Sub(vxPool, amount)
-	} else {
-		success = false
+		if vxAmtLeaved.Sign() > 0 && vxAmtLeaved.Cmp(vxMineDust) <= 0 {
+			amount.Add(amount, vxAmtLeaved)
+			vxAmtLeaved.SetInt64(0)
+		}
 	}
 	return
 }

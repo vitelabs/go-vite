@@ -145,19 +145,17 @@ func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook, preHash ty
 	txs := make([]*OrderTx, 0, 20)
 	if maker, ok := makerBook.nextOrder(); !ok {
 		mc.handleTakerRes(taker)
-		return
 	} else {
 		// must not set db in recursiveTakeOrder
 		if err = mc.recursiveTakeOrder(taker, maker, makerBook, &modifiedMakers, &txs); err != nil {
 			return
 		} else {
-
 			mc.handleTakerRes(taker)
 			mc.handleModifiedMakers(modifiedMakers)
 			mc.handleTxs(txs)
-			TryUpdateTimestamp(mc.db, taker.Timestamp, preHash)
 		}
 	}
+	TryUpdateTimestamp(mc.db, taker.Timestamp, preHash)
 	return
 }
 
@@ -176,6 +174,8 @@ func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBoo
 				taker.CancelReason = partialExecutedCancelledByMarket
 			}
 			*modifiedMakers = append(*modifiedMakers, maker)
+		} else {
+			return nil
 		}
 	}
 	if taker.Status == FullyExecuted || taker.Status == Cancelled {
@@ -379,7 +379,6 @@ func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo) (tx *Order
 	tx.makerAddress = maker.Address
 	tx.tradeToken = marketInfo.TradeToken
 	tx.quoteToken = marketInfo.QuoteToken
-	tx.makerAddress = maker.Address
 	tx.TakerFee = takerFee
 	tx.TakerBrokerFee = takerBrokerFee
 	tx.MakerFee = makerFee

@@ -43,20 +43,23 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	if block == nil {
 		return errors.New("empty block")
 	}
+	if !checkTxToAddressAvailable(block.ToAddress) {
+		return errors.New("ToAddress is invalid")
+	}
 	lb, err := block.RpcToLedgerBlock()
 	if err != nil {
 		return err
 	}
-
+	if err := checkTokenIdValid(t.vite.Chain(), &lb.TokenId); err != nil {
+		return err
+	}
 	latestSb := t.vite.Chain().GetLatestSnapshotBlock()
 	if latestSb == nil {
 		return errors.New("failed to get latest snapshotBlock")
 	}
-	nowTime := time.Now()
-	if nowTime.Before(latestSb.Timestamp.Add(-10*time.Minute)) || nowTime.After(latestSb.Timestamp.Add(10*time.Minute)) {
-		return IllegalNodeTime
+	if err := checkSnapshotValid(latestSb); err != nil {
+		return err
 	}
-
 	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
 	err = v.VerifyNetAb(lb)
 	if err != nil {
@@ -74,14 +77,6 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	}
 }
 
-func (t Tx) checkSnapshotValid(latestSb *ledger.SnapshotBlock) error {
-	nowTime := time.Now()
-	if nowTime.Before(latestSb.Timestamp.Add(-10*time.Minute)) || nowTime.After(latestSb.Timestamp.Add(10*time.Minute)) {
-		return IllegalNodeTime
-	}
-	return nil
-}
-
 func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock, error) {
 
 	if param.Amount == nil {
@@ -94,6 +89,10 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 
 	if param.ToAddr == nil && param.BlockType != ledger.BlockTypeSendCreate {
 		return nil, errors.New("toAddr is nil")
+	}
+
+	if param.ToAddr != nil && !checkTxToAddressAvailable(*param.ToAddr) {
+		return nil, errors.New("ToAddress is invalid")
 	}
 
 	if param.PrivateKey == nil {
@@ -112,6 +111,9 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	amount, ok := new(big.Int).SetString(*param.Amount, 10)
 	if !ok {
 		return nil, ErrStrToBigInt
+	}
+	if err := checkTokenIdValid(t.vite.Chain(), &param.TokenTypeId); err != nil {
+		return nil, err
 	}
 
 	var blockType byte

@@ -50,7 +50,7 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 				Version: 1,
 			},
 			DexFork: &config.ForkPoint{
-				Height:  10000000,
+				Height:  5442723,
 				Version: 2,
 			},
 		}

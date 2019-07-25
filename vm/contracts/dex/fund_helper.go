@@ -15,10 +15,7 @@ import (
 	"strings"
 )
 
-func CheckMarketParam(marketParam *ParamDexFundNewMarket, feeTokenId types.TokenTypeId) (err error) {
-	if feeTokenId != ledger.ViteTokenId {
-		return fmt.Errorf("token type of fee for create market not valid")
-	}
+func CheckMarketParam(marketParam *ParamDexFundNewMarket) (err error) {
 	if marketParam.TradeToken == marketParam.QuoteToken {
 		return TradeMarketInvalidTokenPairErr
 	}
@@ -126,7 +123,7 @@ func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo 
 }
 
 func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamDexFundGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
-	tradeTokenInfo := newTokenInfoFromCallback(tokenInfoRes)
+	tradeTokenInfo := newTokenInfoFromCallback(db, tokenInfoRes)
 	SaveTokenInfo(db, tradeTokenId, tradeTokenInfo)
 	AddTokenEvent(db, tradeTokenInfo)
 	var quoteTokens [][]byte
@@ -198,7 +195,7 @@ func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetT
 	if action, err := FilterPendingSetQuotes(db, tokenInfoRes.TokenId); err != nil {
 		return err
 	} else {
-		tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
+		tokenInfo := newTokenInfoFromCallback(db, tokenInfoRes)
 		tokenInfo.QuoteTokenType = int32(action.QuoteTokenType)
 		SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
 		AddTokenEvent(db, tokenInfo)
@@ -206,8 +203,8 @@ func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetT
 	}
 }
 
-func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (err error) {
-	_, err = FilterPendingSetQuotes(db, tradeTokenId)
+func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tokenId types.TokenTypeId) (err error) {
+	_, err = FilterPendingSetQuotes(db, tokenId)
 	return
 }
 
@@ -220,14 +217,15 @@ func OnTransferTokenOwnerPending(db vm_db.VmDb, token types.TokenTypeId, origin,
 	}
 }
 
-func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetTokenInfoCallback) error {
-	if action, err := FilterPendingTransferTokenOwners(db, tokenInfoRes.TokenId); err != nil {
+func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, param *ParamDexFundGetTokenInfoCallback) error {
+	if action, err := FilterPendingTransferTokenOwners(db, param.TokenId); err != nil {
 		return err
 	} else {
-		if bytes.Equal(action.Origin, tokenInfoRes.Owner.Bytes()) {
-			tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
+		if bytes.Equal(action.Origin, param.Owner.Bytes()) ||
+			param.TokenId == ledger.ViteTokenId && bytes.Equal(action.Origin, initViteTokenOwner.Bytes()) && len(getValueFromDb(db, viteOwnerInitiated)) == 0 {
+			tokenInfo := newTokenInfoFromCallback(db, param)
 			tokenInfo.Owner = action.New
-			SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
+			SaveTokenInfo(db, param.TokenId, tokenInfo)
 			AddTokenEvent(db, tokenInfo)
 			return nil
 		} else {
@@ -339,18 +337,6 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 	return nil
 }
 
-func DepositAccount(db vm_db.VmDb, address types.Address, tokenId types.TokenTypeId, amount *big.Int) (*dexproto.Account) {
-	dexFund, _ := GetUserFund(db, address)
-	account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
-	available := new(big.Int).SetBytes(account.Available)
-	account.Available = available.Add(available, amount).Bytes()
-	if !exists {
-		dexFund.Accounts = append(dexFund.Accounts, account)
-	}
-	SaveUserFund(db, address, dexFund)
-	return account
-}
-
 func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *MarketInfo) (err error) {
 	var (
 		lockToken, lockAmount []byte
@@ -368,10 +354,8 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *Ma
 		lockToken = marketInfo.TradeToken
 		lockAmount = order.Quantity
 	}
-	if tkId, err := types.BytesToTokenTypeId(lockToken); err != nil {
+	if lockTokenId, err = types.BytesToTokenTypeId(lockToken); err != nil {
 		panic(err)
-	} else {
-		lockTokenId = tkId
 	}
 	if account, exists = GetAccountByTokeIdFromFund(dexFund, lockTokenId); !exists {
 		return ExceedFundAvailableErr
@@ -387,13 +371,18 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *Ma
 	return
 }
 
-func newTokenInfoFromCallback(param *ParamDexFundGetTokenInfoCallback) *TokenInfo {
+func newTokenInfoFromCallback(db vm_db.VmDb, param *ParamDexFundGetTokenInfoCallback) *TokenInfo {
 	tokenInfo := &TokenInfo{}
 	tokenInfo.TokenId = param.TokenId.Bytes()
 	tokenInfo.Decimals = int32(param.Decimals)
 	tokenInfo.Symbol = param.TokenSymbol
 	tokenInfo.Index = int32(param.Index)
-	tokenInfo.Owner = param.Owner.Bytes()
+	if param.TokenId == ledger.ViteTokenId {
+		tokenInfo.Owner = initViteTokenOwner.Bytes()
+		setValueToDb(db, viteOwnerInitiated, []byte{1})
+	} else {
+		tokenInfo.Owner = param.Owner.Bytes()
+	}
 	return tokenInfo
 }
 
