@@ -579,7 +579,7 @@ func (d *Discovery) lookup(target vnode.NodeID, count int) (result []*Node) {
 		seen[n.ID] = struct{}{}
 	}
 
-	const alpha = 5
+	const alpha = 3
 	reply := make(chan []*Node, alpha)
 	queries := 0
 

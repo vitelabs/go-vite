@@ -44,6 +44,20 @@ func (n *Node) update(n2 *Node) {
 	n.EndPoint = n2.EndPoint
 }
 
+func (n *Node) needCheck() bool {
+	if n.checking {
+		return false
+	}
+
+	// 10 minutes
+	now := time.Now().Unix()
+	if now-n.checkAt > 60*10 {
+		return true
+	}
+
+	return false
+}
+
 func extractEndPoint(addr *net.UDPAddr, from *vnode.EndPoint) (e *vnode.EndPoint, addr2 *net.UDPAddr) {
 	var err error
 	var done bool
