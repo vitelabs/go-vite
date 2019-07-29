@@ -269,7 +269,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		d.Mul(d, multipleDivision)
 		d.Div(d, big.NewInt(int64(param.Multiple)))
 	}
-	return &CalcPoWDifficultyResult{quotaRequired, Uint64ToString(quotaRequired), d.String(), Uint64ToString(quotaRequired / quota.QuotaForUtps), bigIntToString(qc), isCongestion}, nil
+	return &CalcPoWDifficultyResult{quotaRequired, Uint64ToString(quotaRequired), d.String(), Float64ToString(float64(quotaRequired)/float64(quota.QuotaForUtps), 4), bigIntToString(qc), isCongestion}, nil
 }
 
 func (tx Tx) autoSend() {
