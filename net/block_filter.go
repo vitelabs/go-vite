@@ -52,6 +52,7 @@ func (d *defBlockFilter) recordLocked(b []byte) {
 	d.pool.Add(b)
 }
 
+// return true is has existed
 func (d *defBlockFilter) lookAndRecord(b []byte) bool {
 	d.rw.Lock()
 	defer d.rw.Unlock()

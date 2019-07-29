@@ -128,6 +128,8 @@ type Peer struct {
 	manager PeerManager
 	handler msgHandler
 
+	knownBlocks blockFilter
+
 	m  map[peerId]struct{}
 	m2 map[peerId]struct{} // MUST NOT write m2, only read, for cross peers
 
@@ -234,6 +236,7 @@ func newPeer(c Codec, their *HandshakeMsg, publicAddress, fileAddress string, su
 		wg:            sync.WaitGroup{},
 		manager:       manager,
 		handler:       handler,
+		knownBlocks:   newBlockFilter(filterCap),
 		m:             make(map[peerId]struct{}),
 		m2:            nil,
 		once:          sync.Once{},
@@ -453,6 +456,11 @@ func (p *Peer) sendAccountBlocks(bs []*ledger.AccountBlock, msgId MsgId) (err er
 	}
 
 	return p.send(CodeAccountBlocks, msgId, ms)
+}
+
+// markIfNotExist return true is not exist
+func (p *Peer) markIfNotExist(hash types.Hash) bool {
+	return !p.knownBlocks.lookAndRecord(hash.Bytes())
 }
 
 type peerEventCode byte

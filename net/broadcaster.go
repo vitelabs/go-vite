@@ -587,11 +587,13 @@ func (b *broadcaster) forwardSnapshotBlock(msg *NewSnapshotBlock, sender *Peer) 
 
 	pl := b.strategy.choosePeers(sender)
 	for _, p := range pl {
-		if err = p.WriteMsg(rawMsg); err != nil {
-			p.catch(err)
-			b.log.Error(fmt.Sprintf("failed to forward snapshotblock %s/%d to %s: %v", msg.Block.Hash, msg.Block.Height, p, err))
-		} else {
-			b.log.Info(fmt.Sprintf("forward snapshotblock %s/%d to %s", msg.Block.Hash, msg.Block.Height, p))
+		if p.markIfNotExist(msg.Block.Hash) {
+			if err = p.WriteMsg(rawMsg); err != nil {
+				p.catch(err)
+				b.log.Error(fmt.Sprintf("failed to forward snapshotblock %s/%d to %s: %v", msg.Block.Hash, msg.Block.Height, p, err))
+			} else {
+				b.log.Info(fmt.Sprintf("forward snapshotblock %s/%d to %s", msg.Block.Hash, msg.Block.Height, p))
+			}
 		}
 	}
 
@@ -622,11 +624,13 @@ func (b *broadcaster) forwardAccountBlock(msg *NewAccountBlock, sender *Peer) {
 
 	pl := b.strategy.choosePeers(sender)
 	for _, p := range pl {
-		if err = p.WriteMsg(rawMsg); err != nil {
-			p.catch(err)
-			b.log.Error(fmt.Sprintf("failed to forward accountblock %s to %s: %v", msg.Block.Hash, p, err))
-		} else {
-			b.log.Info(fmt.Sprintf("forward accountblock %s to %s", msg.Block.Hash, p))
+		if p.markIfNotExist(msg.Block.Hash) {
+			if err = p.WriteMsg(rawMsg); err != nil {
+				p.catch(err)
+				b.log.Error(fmt.Sprintf("failed to forward accountblock %s to %s: %v", msg.Block.Hash, p, err))
+			} else {
+				b.log.Info(fmt.Sprintf("forward accountblock %s to %s", msg.Block.Hash, p))
+			}
 		}
 	}
 }

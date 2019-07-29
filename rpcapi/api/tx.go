@@ -43,20 +43,23 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	if block == nil {
 		return errors.New("empty block")
 	}
+	if !checkTxToAddressAvailable(block.ToAddress) {
+		return errors.New("ToAddress is invalid")
+	}
 	lb, err := block.RpcToLedgerBlock()
 	if err != nil {
 		return err
 	}
-
+	if err := checkTokenIdValid(t.vite.Chain(), &lb.TokenId); err != nil {
+		return err
+	}
 	latestSb := t.vite.Chain().GetLatestSnapshotBlock()
 	if latestSb == nil {
 		return errors.New("failed to get latest snapshotBlock")
 	}
-	nowTime := time.Now()
-	if nowTime.Before(latestSb.Timestamp.Add(-10*time.Minute)) || nowTime.After(latestSb.Timestamp.Add(10*time.Minute)) {
-		return IllegalNodeTime
+	if err := checkSnapshotValid(latestSb); err != nil {
+		return err
 	}
-
 	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
 	err = v.VerifyNetAb(lb)
 	if err != nil {
@@ -74,14 +77,6 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	}
 }
 
-func (t Tx) checkSnapshotValid(latestSb *ledger.SnapshotBlock) error {
-	nowTime := time.Now()
-	if nowTime.Before(latestSb.Timestamp.Add(-10*time.Minute)) || nowTime.After(latestSb.Timestamp.Add(10*time.Minute)) {
-		return IllegalNodeTime
-	}
-	return nil
-}
-
 func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock, error) {
 
 	if param.Amount == nil {
@@ -94,6 +89,10 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 
 	if param.ToAddr == nil && param.BlockType != ledger.BlockTypeSendCreate {
 		return nil, errors.New("toAddr is nil")
+	}
+
+	if param.ToAddr != nil && !checkTxToAddressAvailable(*param.ToAddr) {
+		return nil, errors.New("ToAddress is invalid")
 	}
 
 	if param.PrivateKey == nil {
@@ -112,6 +111,9 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	amount, ok := new(big.Int).SetString(*param.Amount, 10)
 	if !ok {
 		return nil, ErrStrToBigInt
+	}
+	if err := checkTokenIdValid(t.vite.Chain(), &param.TokenTypeId); err != nil {
+		return nil, err
 	}
 
 	var blockType byte
@@ -187,11 +189,17 @@ type CalcPoWDifficultyParam struct {
 	Data      []byte         `json:"data"`
 
 	UsePledgeQuota bool `json:"usePledgeQuota"`
+
+	Multiple uint16 `json:"multipleOnCongestion"`
 }
 
+var multipleDivision = big.NewInt(10)
+
 type CalcPoWDifficultyResult struct {
-	QuotaRequired uint64 `json:"quota"`
-	Difficulty    string `json:"difficulty"`
+	QuotaRequired uint64  `json:"quota"`
+	Difficulty    string  `json:"difficulty"`
+	Qc            *string `json:"qc"`
+	IsCongestion  bool    `json:"isCongestion"`
 }
 
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
@@ -220,10 +228,12 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if err != nil {
 		return nil, err
 	}
-	quotaRequired, err := vm.GasRequiredForBlock(db, block)
+	quotaRequired, err := vm.GasRequiredForBlock(db, block, util.GasTableByHeight(sb.Height), sb.Height)
 	if err != nil {
 		return nil, err
 	}
+
+	qc, _, isCongestion := quota.CalcQc(db, sb.Height)
 
 	// get current quota
 	var pledgeAmount *big.Int
@@ -233,30 +243,31 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 		if err != nil {
 			return nil, err
 		}
-		q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount)
+		q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount, sb.Height)
 		if err != nil {
 			return nil, err
 		}
 		if q.Current() >= quotaRequired {
-			return &CalcPoWDifficultyResult{quotaRequired, ""}, nil
+			return &CalcPoWDifficultyResult{quotaRequired, "", bigIntToString(qc), isCongestion}, nil
 		}
 	} else {
 		pledgeAmount = big.NewInt(0)
 		q = types.NewQuota(0, 0, 0, 0, false)
 	}
 	// calc difficulty if current quota is not enough
-	canPoW, err := quota.CanPoW(db, block.AccountAddress)
-	if err != nil {
-		return nil, err
-	}
+	canPoW := quota.CanPoW(db, block.AccountAddress)
 	if !canPoW {
 		return nil, util.ErrCalcPoWTwice
 	}
-	d, err := quota.CalcPoWDifficulty(quotaRequired, q)
+	d, err := quota.CalcPoWDifficulty(db, quotaRequired, q, sb.Height)
 	if err != nil {
 		return nil, err
 	}
-	return &CalcPoWDifficultyResult{quotaRequired, d.String()}, nil
+	if isCongestion && param.Multiple > uint16(multipleDivision.Uint64()) {
+		d.Mul(d, multipleDivision)
+		d.Div(d, big.NewInt(int64(param.Multiple)))
+	}
+	return &CalcPoWDifficultyResult{quotaRequired, d.String(), bigIntToString(qc), isCongestion}, nil
 }
 
 func (tx Tx) autoSend() {
