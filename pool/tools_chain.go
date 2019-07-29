@@ -46,6 +46,7 @@ type chainDb interface {
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
 	SetConsensus(cs ch.Consensus)
 	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
+	SetCacheLevelForConsensus(level uint32)
 }
 
 type chainRw interface {

@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"github.com/vitelabs/go-vite/consensus/core"
 	"math/big"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/chain/state"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
