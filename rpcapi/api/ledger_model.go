@@ -2,7 +2,7 @@ package api
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/vm/quota"
 	"math/big"
 	"strconv"
 
@@ -228,11 +228,11 @@ func ledgerToRpcBlock(chain chain.Chain, lAb *ledger.AccountBlock) (*AccountBloc
 	rpcBlock.Height = strconv.FormatUint(lAb.Height, 10)
 
 	// Quota & QuotaUsed
-	quota := strconv.FormatUint(lAb.Quota, 10)
-	rpcBlock.Quota = &quota
+	totalQuota := strconv.FormatUint(lAb.Quota, 10)
+	rpcBlock.Quota = &totalQuota
 	quotaUsed := strconv.FormatUint(lAb.QuotaUsed, 10)
 	rpcBlock.QuotaUsed = &quotaUsed
-	utUsed := strconv.FormatUint(lAb.QuotaUsed/util.QuotaForUtps, 10)
+	utUsed := Float64ToString(float64(lAb.Quota)/float64(quota.QuotaForUtps), 4)
 	rpcBlock.UtUsed = &utUsed
 
 	// FromAddress & ToAddress
