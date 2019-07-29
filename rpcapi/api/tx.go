@@ -250,7 +250,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 			return nil, err
 		}
 		if q.Current() >= quotaRequired {
-			return &CalcPoWDifficultyResult{quotaRequired, Uint64ToString(quotaRequired), "", Uint64ToString(quotaRequired / quota.QuotaForUtps), bigIntToString(qc), isCongestion}, nil
+			return &CalcPoWDifficultyResult{quotaRequired, Uint64ToString(quotaRequired), "", Float64ToString(float64(quotaRequired)/float64(quota.QuotaForUtps), 4), bigIntToString(qc), isCongestion}, nil
 		}
 	} else {
 		pledgeAmount = big.NewInt(0)
