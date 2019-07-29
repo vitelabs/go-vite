@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -28,7 +29,9 @@ func (p *MethodVote) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 
 // vote for a super node of a consensus group
 func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() != 0 || !util.IsUserAccount(block.AccountAddress) {
+	latestSb, err := db.LatestSnapshotBlock()
+	util.DealWithErr(err)
+	if block.Amount.Sign() != 0 || (!util.IsUserAccount(block.AccountAddress) && !fork.IsNewFork(latestSb.Height)) {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamVote)
@@ -80,12 +83,14 @@ func (p *MethodCancelVote) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 
 // cancel vote for a super node of a consensus group
 func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	latestSb, err := db.LatestSnapshotBlock()
+	util.DealWithErr(err)
 	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(block.AccountAddress) {
+		(!util.IsUserAccount(block.AccountAddress) && !fork.IsNewFork(latestSb.Height)) {
 		return util.ErrInvalidMethodParam
 	}
 	gid := new(types.Gid)
-	err := abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelVote, block.Data)
+	err = abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelVote, block.Data)
 	if err != nil || util.IsDelegateGid(*gid) {
 		return util.ErrInvalidMethodParam
 	}
