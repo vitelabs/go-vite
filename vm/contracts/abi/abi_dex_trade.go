@@ -13,9 +13,9 @@ const (
 		{"type":"function","name":"DexTradeNotifyNewMarket", "inputs":[{"name":"data","type":"bytes"}]},
 		{"type":"function","name":"DexTradeCleanExpireOrders", "inputs":[{"name":"data","type":"bytes"}]}
 ]`
-	MethodNameDexTradeNewOrder    = "DexTradeNewOrder"
-	MethodNameDexTradeCancelOrder = "DexTradeCancelOrder"
-	MethodNameDexTradeNotifyNewMarket = "DexTradeNotifyNewMarket"
+	MethodNameDexTradeNewOrder          = "DexTradeNewOrder"
+	MethodNameDexTradeCancelOrder       = "DexTradeCancelOrder"
+	MethodNameDexTradeNotifyNewMarket   = "DexTradeNotifyNewMarket"
 	MethodNameDexTradeCleanExpireOrders = "DexTradeCleanExpireOrders"
 )
 

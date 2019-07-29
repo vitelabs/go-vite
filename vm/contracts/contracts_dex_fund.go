@@ -1142,9 +1142,9 @@ func (md *MethodDexFundSettleMakerMinedVx) DoSend(db vm_db.VmDb, block *ledger.A
 
 func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
-		err        error
-		poolAmt    *big.Int
-		finish     bool
+		err     error
+		poolAmt *big.Int
+		finish  bool
 	)
 	if !dex.IsMakerMineProxy(db, sendBlock.AccountAddress) {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFunSettleMakerMinedVx, dex.InvalidSourceAddressErr, sendBlock)

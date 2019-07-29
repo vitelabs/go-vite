@@ -354,7 +354,7 @@ func (f DexFundApi) GetFundConfig() (map[string]string, error) {
 	return configs, nil
 }
 
-func  (f DexFundApi) IsViteXStopped() (bool, error) {
+func (f DexFundApi) IsViteXStopped() (bool, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return false, err
