@@ -10,6 +10,7 @@ const (
 	CommonQuotaRatio   uint8  = 10
 	QuotaRatioDivision uint64 = 10
 	OneRound           uint64 = 75
+	QuotaForUtps       uint64 = 21000
 )
 
 func MultipleCost(cost uint64, quotaRatio uint8) (uint64, error) {
