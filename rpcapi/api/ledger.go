@@ -363,6 +363,11 @@ func (l *LedgerApi) GetLatestSnapshotChainHash() *types.Hash {
 	return &l.chain.GetLatestSnapshotBlock().Hash
 }
 
+func (l *LedgerApi) GetLatestSnapshotBlock() (*SnapshotBlock, error) {
+	block := l.chain.GetLatestSnapshotBlock()
+	return l.ledgerSnapshotBlockToRpcBlock(block)
+}
+
 func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 	l.log.Info("GetLatestBlock")
 	block, getError := l.chain.GetLatestAccountBlock(addr)
