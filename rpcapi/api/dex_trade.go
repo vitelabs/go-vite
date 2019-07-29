@@ -81,6 +81,14 @@ func (f DexTradeApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMar
 	}
 }
 
+func (f DexTradeApi) GetTimestamp(marketId int32) (timestamp int64, err error) {
+	if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+		return -1, err
+	} else {
+		return dex.GetTradeTimestamp(tradeDb), nil
+	}
+}
+
 func getDb(c chain.Chain, address types.Address) (db vm_db.VmDb, err error) {
 	prevHash, err := getPrevBlockHash(c, address)
 	if err != nil {

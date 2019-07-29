@@ -1,12 +1,15 @@
 package api
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
@@ -102,6 +105,52 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 		fundInfoMap[v.Token] = amount.String()
 	}
 	return fundInfoMap, nil
+}
+
+func (f DexFundApi) GetOrderByUserBlockHash(blockHash types.Hash) (*RpcOrder, error) {
+	if block, err := f.chain.GetCompleteBlockByHash(blockHash); err != nil {
+		return nil, err
+	} else {
+		if !ledger.IsSendBlock(block.BlockType) {
+			return nil, fmt.Errorf("invalid block type")
+		}
+		if block.ToAddress != types.AddressDexFund {
+			return nil, fmt.Errorf("target address not dex")
+		}
+		param := new(dex.ParamDexFundNewOrder)
+		if err = abi.ABIDexFund.UnpackMethod(param, abi.MethodNameDexFundNewOrder, block.Data); err != nil {
+			return nil, fmt.Errorf("not new order type block")
+		}
+		if receiveBlock, err := f.chain.GetReceiveAbBySendAb(block.Hash); err != nil {
+			return nil, err
+		} else {
+			if receiveBlock != nil {
+				if len(receiveBlock.Data) != 33 {
+					return nil, fmt.Errorf("invalid receive block data")
+				} else if uint8(receiveBlock.Data[32]) != 0 {
+					return nil, fmt.Errorf("new order failed")
+				}
+			}
+			if dexRSBlock, err := f.chain.GetCompleteBlockByHash(receiveBlock.Hash); err != nil {
+				return nil, err
+			} else {
+				if len(dexRSBlock.SendBlockList) != 1 {
+					return nil, fmt.Errorf("dex receive new order success with no send request")
+				} else {
+					paramRaw := new(dex.ParamDexSerializedData)
+					if err := abi.ABIDexTrade.UnpackMethod(paramRaw, abi.MethodNameDexTradeNewOrder, dexRSBlock.SendBlockList[0].Data); err != nil {
+						return nil, err
+					} else {
+						order := &dex.Order{}
+						if err = order.DeSerialize(paramRaw.Data); err != nil {
+							return nil, err
+						}
+						return OrderToRpc(order), nil
+					}
+				}
+			}
+		}
+	}
 }
 
 func (f DexFundApi) GetOwner() (*types.Address, error) {
@@ -354,7 +403,7 @@ func (f DexFundApi) GetFundConfig() (map[string]string, error) {
 	return configs, nil
 }
 
-func  (f DexFundApi) IsViteXStopped() (bool, error) {
+func (f DexFundApi) IsViteXStopped() (bool, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return false, err
