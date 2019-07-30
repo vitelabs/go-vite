@@ -272,6 +272,45 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	return &CalcPoWDifficultyResult{quotaRequired, Uint64ToString(quotaRequired), d.String(), Float64ToString(float64(quotaRequired)/float64(quota.QuotaForUtps), 4), bigIntToString(qc), isCongestion}, nil
 }
 
+type CalcQuotaRequired struct {
+	SelfAddr  types.Address  `json:"selfAddr"`
+	BlockType byte           `json:"blockType"`
+	ToAddr    *types.Address `json:"toAddr"`
+	Data      []byte         `json:"data"`
+}
+type CalcQuotaRequiredResult struct {
+	QuotaRequired string `json:"quotaRequired"`
+	TxNumRequired string `json:"utRequired"`
+}
+
+func (t Tx) CalcQuotaRequired(param CalcQuotaRequired) (*CalcQuotaRequiredResult, error) {
+	latestBlock, err := t.vite.Chain().GetLatestAccountBlock(param.SelfAddr)
+	if err != nil {
+		return nil, err
+	}
+	// get quota required
+	block := &ledger.AccountBlock{
+		BlockType:      param.BlockType,
+		AccountAddress: param.SelfAddr,
+		Data:           param.Data,
+	}
+	if param.ToAddr != nil {
+		block.ToAddress = *param.ToAddr
+	} else if param.BlockType == ledger.BlockTypeSendCall {
+		return nil, errors.New("toAddr is nil")
+	}
+	sb := t.vite.Chain().GetLatestSnapshotBlock()
+	db, err := vm_db.NewVmDb(t.vite.Chain(), &param.SelfAddr, &sb.Hash, &latestBlock.Hash)
+	if err != nil {
+		return nil, err
+	}
+	quotaRequired, err := vm.GasRequiredForBlock(db, block, util.GasTableByHeight(sb.Height), sb.Height)
+	if err != nil {
+		return nil, err
+	}
+	return &CalcQuotaRequiredResult{Uint64ToString(quotaRequired), Float64ToString(float64(quotaRequired)/float64(quota.QuotaForUtps), 4)}, nil
+}
+
 func (tx Tx) autoSend() {
 	if !tx.autoTx {
 		return
