@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -413,6 +414,39 @@ func (l *LedgerApi) GetAllUnconfirmedBlocks() []*ledger.AccountBlock {
 
 func (l *LedgerApi) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock {
 	return l.chain.GetUnconfirmedBlocks(addr)
+}
+
+type GetBalancesRes map[types.Address]map[types.TokenTypeId]*big.Int
+
+func (l *LedgerApi) GetConfirmedBalances(snapshotHash types.Hash, addrList []types.Address, tokenIds []types.TokenTypeId) (GetBalancesRes, error) {
+	if len(addrList) <= 0 || len(tokenIds) <= 0 {
+		return nil, nil
+	}
+
+	res := make(map[types.Address]map[types.TokenTypeId]*big.Int)
+
+	for _, tokenId := range tokenIds {
+		//addrBalances[tokenId] = big.NewInt(1)
+		balances, err := l.chain.GetConfirmedBalanceList(addrList, tokenId, snapshotHash)
+		if err != nil {
+			return nil, err
+		}
+
+		if balances == nil {
+			return nil, errors.New(fmt.Sprintf("snapshot block %s is not existed.", snapshotHash))
+		}
+
+		for addr, balance := range balances {
+			addrBalances, ok := res[addr]
+			if !ok {
+				addrBalances = make(map[types.TokenTypeId]*big.Int)
+				res[addr] = addrBalances
+			}
+			addrBalances[tokenId] = balance
+		}
+	}
+
+	return res, nil
 }
 
 func parseHeight(height interface{}) (uint64, error) {
