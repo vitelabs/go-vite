@@ -1,6 +1,7 @@
 package pool
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/vitelabs/go-vite/common"
@@ -95,7 +96,7 @@ func (w *worker) work() {
 			}
 		}
 
-		if sum > 0 {
+		if sum > 0 || rand.Intn(10) > 6 {
 			w.p.insert()
 			continue
 		}
