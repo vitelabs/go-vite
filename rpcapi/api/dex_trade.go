@@ -81,7 +81,7 @@ func (f DexTradeApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMar
 	}
 }
 
-func (f DexTradeApi) GetTimestamp(marketId int32) (timestamp int64, err error) {
+func (f DexTradeApi) GetTimestamp() (timestamp int64, err error) {
 	if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
 		return -1, err
 	} else {
