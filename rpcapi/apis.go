@@ -103,6 +103,13 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewDexFundApi(vite),
 			Public:    true,
 		}
+	case "private_dexfund":
+		return rpc.API{
+			Namespace: "dexfund",
+			Version:   "1.0",
+			Service:   api.NewDexFundPrivateApi(vite),
+			Public:    true,
+		}
 	case "dextrade":
 		return rpc.API{
 			Namespace: "dextrade",
