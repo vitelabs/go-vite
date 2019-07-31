@@ -61,10 +61,8 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	if err := checkSnapshotValid(latestSb); err != nil {
 		return err
 	}
-	if lb.IsSendBlock() {
-		if lb.ToAddress == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(lb.Data) {
-			return dex.InvalidOrderPriceErr
-		}
+	if lb.ToAddress == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(lb.Data) {
+		return dex.InvalidOrderPriceErr
 	}
 
 	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
@@ -100,6 +98,9 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 
 	if param.ToAddr != nil && !checkTxToAddressAvailable(*param.ToAddr) {
 		return nil, errors.New("ToAddress is invalid")
+	}
+	if *param.ToAddr == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(param.Data) {
+		return nil, dex.InvalidOrderPriceErr
 	}
 
 	if param.PrivateKey == nil {
