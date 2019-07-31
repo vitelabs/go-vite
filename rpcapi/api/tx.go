@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 	"math/rand"
 	"time"
@@ -59,6 +60,11 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	}
 	if err := checkSnapshotValid(latestSb); err != nil {
 		return err
+	}
+	if lb.IsSendBlock() {
+		if lb.ToAddress == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(lb.Data) {
+			return dex.InvalidOrderPriceErr
+		}
 	}
 
 	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))

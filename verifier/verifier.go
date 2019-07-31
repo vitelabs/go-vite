@@ -2,11 +2,9 @@ package verifier
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/onroad"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
@@ -104,12 +102,6 @@ func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshot *ledge
 	detail := fmt.Sprintf("sbHash:%v %v; addr:%v, height:%v, hash:%v", snapshot.Hash, snapshot.Height, block.AccountAddress, block.Height, block.Hash)
 	if block.IsReceiveBlock() {
 		detail += fmt.Sprintf(",fromH:%v", block.FromBlockHash)
-	} else if block.IsSendBlock() {
-		if block.ToAddress == types.AddressDexFund {
-			if !dex.VerifyNewOrderPriceForRpc(block.Data) {
-				return nil, dex.InvalidOrderPriceErr
-			}
-		}
 	}
 	snapshotHashHeight := &ledger.HashHeight{
 		Height: snapshot.Height,
