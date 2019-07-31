@@ -406,6 +406,26 @@ func ValidPrice(price string) bool {
 	return true
 }
 
+func VerifyNewOrderPriceForRpc(data []byte) (valid bool) {
+	valid = true
+	if len(data) < 4 {
+		return
+	}
+	if bytes.Equal(data[:4], newOrderMethodId) {
+		param := new(ParamDexFundNewOrder)
+		if err := abi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, data); err == nil {
+			if !ValidPrice(param.Price) {
+				valid = false
+			} else if idx := strings.Index(param.Price, "."); idx == -1 && len(param.Price) > priceIntMaxLen {
+				valid = false
+			}
+		} else {
+			valid = false
+		}
+	}
+	return
+}
+
 func MaxTotalFeeRate(order Order) int32 {
 	takerRate := order.TakerFeeRate + order.TakerBrokerFeeRate
 	makerRate := order.MakerFeeRate + order.MakerBrokerFeeRate
