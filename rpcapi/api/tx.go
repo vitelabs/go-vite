@@ -99,7 +99,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if param.ToAddr != nil && !checkTxToAddressAvailable(*param.ToAddr) {
 		return nil, errors.New("ToAddress is invalid")
 	}
-	if *param.ToAddr == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(param.Data) {
+	if param.ToAddr != nil && *param.ToAddr == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(param.Data) {
 		return nil, dex.InvalidOrderPriceErr
 	}
 
