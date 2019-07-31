@@ -60,6 +60,7 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 	if err := checkSnapshotValid(latestSb); err != nil {
 		return err
 	}
+
 	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
 	err = v.VerifyNetAb(lb)
 	if err != nil {
