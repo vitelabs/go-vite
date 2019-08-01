@@ -214,6 +214,9 @@ func (p *Peer) Info() PeerInfo {
 }
 
 func newPeer(c Codec, their *HandshakeMsg, publicAddress, fileAddress string, superior bool, flag PeerFlag, manager PeerManager, handler msgHandler) *Peer {
+	c.SetReadTimeout(readMsgTimeout)
+	c.SetWriteTimeout(writeMsgTimeout)
+
 	peer := &Peer{
 		codec:         c,
 		Id:            their.ID,

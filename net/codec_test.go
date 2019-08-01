@@ -29,6 +29,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/sha3"
 )
@@ -407,6 +408,75 @@ func BenchmarkMockCodec_WriteMsg(b *testing.B) {
 		}
 
 		_ = conn.Close()
+	}()
+
+	wg.Wait()
+}
+
+func TestCodec_timeout(t *testing.T) {
+	const addr = "127.0.0.1:10000"
+	ln, err := _net.Listen("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
+
+	const timeout = 10 * time.Second
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(err)
+		}
+
+		c1 := NewTransport(conn, 100, timeout, timeout)
+
+		_, err = c1.ReadMsg()
+		// should timeout
+		if err == nil {
+			panic("should read timeout")
+		}
+
+		fmt.Printf("read error: %v\n", err)
+
+		_ = conn.Close()
+		_ = ln.Close()
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		conn, err := _net.Dial("tcp", addr)
+		if err != nil {
+			panic(err)
+		}
+
+		c2 := NewTransport(conn, 100, timeout, timeout)
+
+		time.Sleep(timeout + time.Second)
+
+		err = c2.WriteMsg(Msg{
+			Code:    0,
+			Id:      0,
+			Payload: []byte("hello world"),
+		})
+
+		// write error is nil, even if connection has been closed by peer
+		fmt.Printf("write error: %v\n", err)
+
+		_ = conn.Close()
+	}()
+
+	go func() {
+		err = http.ListenAndServe("0.0.0.0:8080", nil)
+		if err != nil {
+			panic(err)
+		}
 	}()
 
 	wg.Wait()
