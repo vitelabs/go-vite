@@ -2,6 +2,7 @@ package dex
 
 import (
 	"bytes"
+	"encoding/hex"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
@@ -107,6 +108,8 @@ var (
 	}
 	initOwner, _          = types.HexToAddress("vite_a8a00b3a2f60f5defb221c68f79b65f3620ee874f951a825db")
 	initViteTokenOwner, _ = types.HexToAddress("vite_050697d3810c30816b005a03511c734c1159f50907662b046f")
+	newOrderMethodId, _ = hex.DecodeString("147927ec")
+
 )
 
 const (

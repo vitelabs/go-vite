@@ -187,6 +187,7 @@ func (c *chain) Destroy() error {
 		c.log.Error(cErr.Error(), "method", "Close")
 		return cErr
 	}
+
 	c.log.Info("Close stateDB", "method", "Close")
 
 	if err := c.indexDB.Close(); err != nil {
@@ -229,7 +230,13 @@ func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
 }
 
 func (c *chain) SetConsensus(cs Consensus) {
+	c.log.Info("Start set consensus", "method", "SetConsensus")
 	c.consensus = cs
+
+	if err := c.stateDB.SetConsensus(cs); err != nil {
+		c.log.Crit(fmt.Sprintf("c.stateDB.SetConsensus failed. Error: %s", err.Error()), "method", "SetConsensus")
+	}
+	c.log.Info("set consensus finished", "method", "SetConsensus")
 }
 
 func (c *chain) newDbAndRecover() error {
@@ -488,4 +495,16 @@ func (c *chain) GetStatus() []interfaces.DBStatus {
 	statusList = append(statusList, c.stateDB.GetStatus()...)
 
 	return statusList
+}
+
+func (c *chain) SetCacheLevelForConsensus(level uint32) {
+	c.stateDB.SetCacheLevelForConsensus(level)
+}
+
+func (c *chain) StopWrite() {
+	c.flushMu.Lock()
+}
+
+func (c *chain) RecoverWrite() {
+	c.flushMu.Unlock()
 }
