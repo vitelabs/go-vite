@@ -166,7 +166,7 @@ func TestInsertAccountBlocks(t *testing.T) {
 
 func testRedo(t *testing.T, chainInstance *chain) {
 	for i := uint64(1); i < chainInstance.GetLatestSnapshotBlock().Height+1; i++ {
-		redoLogList, hasRedo, err := chainInstance.stateDB.StorageRedo().QueryLog(i)
+		redoLogList, hasRedo, err := chainInstance.stateDB.Redo().QueryLog(i)
 		if err != nil {
 			t.Fatal(err)
 		}

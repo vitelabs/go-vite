@@ -22,7 +22,7 @@ func (c *chain) CheckRedo() error {
 	redoStore := c.stateDB.RedoStore()
 	iter := redoStore.NewIterator(nil)
 
-	redo := c.stateDB.StorageRedo()
+	redo := c.stateDB.Redo()
 
 	var prevHeight uint64
 
