@@ -123,7 +123,7 @@ func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo 
 }
 
 func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamDexFundGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
-	tradeTokenInfo := newTokenInfoFromCallback(tokenInfoRes)
+	tradeTokenInfo := newTokenInfoFromCallback(db, tokenInfoRes)
 	SaveTokenInfo(db, tradeTokenId, tradeTokenInfo)
 	AddTokenEvent(db, tradeTokenInfo)
 	var quoteTokens [][]byte
@@ -195,7 +195,7 @@ func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetT
 	if action, err := FilterPendingSetQuotes(db, tokenInfoRes.TokenId); err != nil {
 		return err
 	} else {
-		tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
+		tokenInfo := newTokenInfoFromCallback(db, tokenInfoRes)
 		tokenInfo.QuoteTokenType = int32(action.QuoteTokenType)
 		SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
 		AddTokenEvent(db, tokenInfo)
@@ -217,14 +217,15 @@ func OnTransferTokenOwnerPending(db vm_db.VmDb, token types.TokenTypeId, origin,
 	}
 }
 
-func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetTokenInfoCallback) error {
-	if action, err := FilterPendingTransferTokenOwners(db, tokenInfoRes.TokenId); err != nil {
+func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, param *ParamDexFundGetTokenInfoCallback) error {
+	if action, err := FilterPendingTransferTokenOwners(db, param.TokenId); err != nil {
 		return err
 	} else {
-		if bytes.Equal(action.Origin, tokenInfoRes.Owner.Bytes()) {
-			tokenInfo := newTokenInfoFromCallback(tokenInfoRes)
+		if bytes.Equal(action.Origin, param.Owner.Bytes()) ||
+			param.TokenId == ledger.ViteTokenId && bytes.Equal(action.Origin, initViteTokenOwner.Bytes()) && len(getValueFromDb(db, viteOwnerInitiated)) == 0 {
+			tokenInfo := newTokenInfoFromCallback(db, param)
 			tokenInfo.Owner = action.New
-			SaveTokenInfo(db, tokenInfoRes.TokenId, tokenInfo)
+			SaveTokenInfo(db, param.TokenId, tokenInfo)
 			AddTokenEvent(db, tokenInfo)
 			return nil
 		} else {
@@ -370,13 +371,18 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *Ma
 	return
 }
 
-func newTokenInfoFromCallback(param *ParamDexFundGetTokenInfoCallback) *TokenInfo {
+func newTokenInfoFromCallback(db vm_db.VmDb, param *ParamDexFundGetTokenInfoCallback) *TokenInfo {
 	tokenInfo := &TokenInfo{}
 	tokenInfo.TokenId = param.TokenId.Bytes()
 	tokenInfo.Decimals = int32(param.Decimals)
 	tokenInfo.Symbol = param.TokenSymbol
 	tokenInfo.Index = int32(param.Index)
-	tokenInfo.Owner = param.Owner.Bytes()
+	if param.TokenId == ledger.ViteTokenId {
+		tokenInfo.Owner = initViteTokenOwner.Bytes()
+		setValueToDb(db, viteOwnerInitiated, []byte{1})
+	} else {
+		tokenInfo.Owner = param.Owner.Bytes()
+	}
 	return tokenInfo
 }
 
@@ -398,6 +404,26 @@ func ValidPrice(price string) bool {
 		}
 	}
 	return true
+}
+
+func VerifyNewOrderPriceForRpc(data []byte) (valid bool) {
+	valid = true
+	if len(data) < 4 {
+		return
+	}
+	if bytes.Equal(data[:4], newOrderMethodId) {
+		param := new(ParamDexFundNewOrder)
+		if err := abi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, data); err == nil {
+			if !ValidPrice(param.Price) {
+				valid = false
+			} else if idx := strings.Index(param.Price, "."); idx == -1 && len(param.Price) > priceIntMaxLen {
+				valid = false
+			}
+		} else {
+			valid = false
+		}
+	}
+	return
 }
 
 func MaxTotalFeeRate(order Order) int32 {

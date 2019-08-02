@@ -3,16 +3,22 @@ package client
 import (
 	"math/big"
 	"strconv"
+	"strings"
 
-	"github.com/vitelabs/go-vite/ledger"
-
-	"github.com/vitelabs/go-vite/rpcapi/api"
-
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/rpcapi/api"
+	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
+	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 )
 
-type AccountBlock struct {
-}
+var errorEmptyHash = errors.New("empty hash")
+var errorNilWallet = errors.New("nil wallet")
+var errorNilKey = errors.New("nil key")
+var errorNilBlock = errors.New("nil block")
 
 type RequestTxParams struct {
 	ToAddr   types.Address
@@ -22,39 +28,28 @@ type RequestTxParams struct {
 	Data     []byte
 }
 
+type RequestCreateContractParams struct {
+	SelfAddr   types.Address
+	fee        *big.Int
+	arguments  []interface{}
+	abiStr     string
+	metaParams api.CreateContractDataParam
+}
+
 type ResponseTxParams struct {
-	SelfAddr     types.Address
-	RequestHash  types.Hash
-	SnapshotHash *types.Hash
-}
-
-type OnroadQuery struct {
-	Address types.Address
-	Index   int
-	Cnt     int
-}
-
-type BalanceQuery struct {
-	Addr    types.Address
-	TokenId types.TokenTypeId
-}
-
-type BalanceAllQuery struct {
-	Addr types.Address
-}
-
-type ledgerClient interface {
-	SubmitRequestTx(params RequestTxParams, prev *ledger.HashHeight, f SignFunc) (*ledger.HashHeight, error)
-	SubmitRequestTxWithPow(params RequestTxParams, f SignFunc) error
-	SubmitResponseTx(params ResponseTxParams, f SignFunc) error
-	SubmitResponseTxWithPow(params ResponseTxParams, f SignFunc) error
-	QueryOnroad(query OnroadQuery) ([]*AccBlockHeader, error)
-	Balance(query BalanceQuery) (*TokenBalance, error)
-	BalanceAll(query BalanceAllQuery) ([]*TokenBalance, error)
+	SelfAddr    types.Address
+	RequestHash types.Hash
 }
 
 type Client interface {
-	ledgerClient
+	DexClient
+	BuildNormalRequestBlock(params RequestTxParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
+	BuildRequestCreateContractBlock(params RequestCreateContractParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
+	BuildResponseBlock(params ResponseTxParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
+	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, *big.Int, error)
+	GetBalanceAll(addr types.Address) (*api.RpcAccountInfo, *api.RpcAccountInfo, error)
+	SignData(wallet *entropystore.Manager, block *api.AccountBlock) error
+	SignDataWithPriKey(key *derivation.Key, block *api.AccountBlock) error
 }
 
 func NewClient(rpc RpcClient) (Client, error) {
@@ -67,311 +62,229 @@ type client struct {
 
 type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
-func (c *client) SubmitRequestTx(params RequestTxParams, prev *ledger.HashHeight, f SignFunc) (*ledger.HashHeight, error) {
+func (c *client) BuildNormalRequestBlock(params RequestTxParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error) {
 	if prev == nil {
-		latest, err := c.rpc.GetLatest(params.SelfAddr)
-
+		prev, err = c.getPrev(params.SelfAddr)
 		if err != nil {
-			return nil, err
+			return
 		}
-		prevHeight := uint64(0)
-		if latest.Height != "" {
-			prevHeight, err = strconv.ParseUint(latest.Height, 10, 64)
-			if err != nil {
-				return nil, err
-			}
-		}
-		prev = &ledger.HashHeight{Height: prevHeight, Hash: latest.Hash}
 	}
 
 	amount := params.Amount.String()
-
-	b := api.NormalRequestRawTxParam{
-		BlockType:      ledger.BlockTypeSendCall,
-		Hash:           types.Hash{},
-		PrevHash:       prev.Hash,
-		AccountAddress: params.SelfAddr,
-		PublicKey:      nil,
-		ToAddress:      params.ToAddr,
-		TokenId:        params.TokenId,
-		Data:           params.Data,
-		Nonce:          nil,
-		Signature:      nil,
-		Height:         strconv.FormatUint(prev.Height+1, 10),
-		Amount:         amount,
-		Difficulty:     nil,
+	block = &api.AccountBlock{
+		BlockType:          ledger.BlockTypeSendCall,
+		Hash:               types.Hash{},
+		PrevHash:           prev.Hash,
+		AccountAddress:     params.SelfAddr,
+		PublicKey:          nil,
+		ToAddress:          params.ToAddr,
+		TokenId:            params.TokenId,
+		Data:               params.Data,
+		Nonce:              nil,
+		Signature:          nil,
+		Height:             strconv.FormatUint(prev.Height+1, 10),
+		Amount:             &amount,
+		Difficulty:         nil,
+		TokenInfo:          nil,
+		ConfirmedTimes:     nil,
+		ConfirmedHash:      nil,
+		ReceiveBlockHeight: nil,
+		ReceiveBlockHash:   nil,
+		Timestamp:          0,
 	}
 
-	accBlock, err := b.LedgerAccountBlock()
+	accBlock, err := block.RpcToLedgerBlock()
 	if err != nil {
 		return nil, err
 	}
-	b.Hash = accBlock.ComputeHash()
+	block.Hash = accBlock.ComputeHash()
+	return
+}
 
-	signedData, pubkey, err := f(params.SelfAddr, b.Hash.Bytes())
+func (c *client) BuildRequestCreateContractBlock(params RequestCreateContractParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error) {
+	if prev == nil {
+		prev, err = c.getPrev(params.SelfAddr)
+		if err != nil {
+			return
+		}
+	}
+	contractAddr := util.NewContractAddress(params.SelfAddr, prev.Height+1, prev.Hash)
+	abiContract, err := abi.JSONToABIContract(strings.NewReader(params.abiStr))
 	if err != nil {
 		return nil, err
 	}
-	b.Signature = signedData
-	b.PublicKey = pubkey
-	err = c.rpc.SubmitRaw(b)
+	constructorParams, err := abiContract.PackMethod("", params.arguments...)
 	if err != nil {
 		return nil, err
 	}
-	return &ledger.HashHeight{Hash: b.Hash, Height: prev.Height + 1}, nil
+	params.metaParams.Params = constructorParams
+	data, err := c.rpc.GetCreateContractData(params.metaParams)
+	if err != nil {
+		return nil, err
+	}
+
+	if params.fee == nil {
+		one := big.NewInt(1e18)
+		params.fee = one.Mul(one, big.NewInt(10))
+	}
+	fee := params.fee.String()
+	block = &api.AccountBlock{
+		BlockType:          ledger.BlockTypeSendCreate,
+		Hash:               types.Hash{},
+		PrevHash:           prev.Hash,
+		AccountAddress:     params.SelfAddr,
+		PublicKey:          nil,
+		ToAddress:          contractAddr,
+		Data:               data,
+		Nonce:              nil,
+		Signature:          nil,
+		Fee:                &fee,
+		Height:             strconv.FormatUint(prev.Height+1, 10),
+		Difficulty:         nil,
+		TokenInfo:          nil,
+		ConfirmedTimes:     nil,
+		ConfirmedHash:      nil,
+		ReceiveBlockHeight: nil,
+		ReceiveBlockHash:   nil,
+		Timestamp:          0,
+	}
+
+	accBlock, err := block.RpcToLedgerBlock()
+	if err != nil {
+		return nil, err
+	}
+	block.Hash = accBlock.ComputeHash()
+	return
 }
 
-func (c *client) SubmitRequestTxWithPow(params RequestTxParams, f SignFunc) error {
-	//latest, err := c.rpc.GetLatest(params.SelfAddr)
-	//
-	//if err != nil {
-	//	return err
-	//}
-	//if params.SnapshotHash == nil {
-	//	referSnapshot, err := c.rpc.GetFittestSnapshot()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	params.SnapshotHash = referSnapshot
-	//}
-	//
-	//amount := params.Amount.String()
-	//
-	//var prevHash types.Hash
-	//prevHeight := uint64(0)
-	//if latest.Height != "" {
-	//	prevHeight, err = strconv.ParseUint(latest.Height, 10, 64)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	prevHash = latest.Hash
-	//}
-	//b := RawBlock{
-	//	BlockType:      ledger.BlockTypeSendCall,
-	//	Hash:           types.Hash{},
-	//	PrevHash:       prevHash,
-	//	AccountAddress: params.SelfAddr,
-	//	PublicKey:      nil,
-	//	ToAddress:      params.ToAddr,
-	//	FromBlockHash:  types.Hash{},
-	//	TokenId:        params.TokenId,
-	//	SnapshotHash:   *params.SnapshotHash,
-	//	Data:           params.Data,
-	//	Nonce:          nil,
-	//	Signature:      nil,
-	//	FromAddress:    types.Address{},
-	//	Height:         strconv.FormatUint(prevHeight+1, 10),
-	//	Amount:         &amount,
-	//	Fee:            nil,
-	//	Difficulty:     nil,
-	//	Timestamp:      time.Now().Unix(),
-	//}
-	//
-	//difficulty, err := c.rpc.GetDifficulty(DifficultyQuery{
-	//	SelfAddr:       b.AccountAddress,
-	//	PrevHash:       b.PrevHash,
-	//	SnapshotHash:   b.SnapshotHash,
-	//	BlockType:      b.BlockType,
-	//	ToAddr:         &b.ToAddress,
-	//	Data:           b.Data,
-	//	UsePledgeQuota: false,
-	//})
-	//if err != nil {
-	//	return err
-	//}
-	//difficultyInt, _ := big.NewInt(0).SetString(difficulty, 10)
-	//nonce, err := pow.GetPowNonce(difficultyInt, types.DataHash(append(b.AccountAddress.Bytes(), b.PrevHash.Bytes()...)))
-	//if err != nil {
-	//	return err
-	//}
-	//b.Nonce = nonce
-	//b.Difficulty = &difficulty
-	//
-	//hashes, err := b.ComputeHash()
-	//if err != nil {
-	//	return err
-	//}
-	//b.Hash = *hashes
-	//
-	//signedData, pubkey, err := f(params.SelfAddr, b.Hash.Bytes())
-	//if err != nil {
-	//	return err
-	//}
-	//b.Signature = signedData
-	//b.PublicKey = pubkey
-	//
-	//return c.rpc.SubmitRaw(b)
-	panic("implement")
+func (c *client) BuildResponseBlock(params ResponseTxParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error) {
+	if prev == nil {
+		prev, err = c.getPrev(params.SelfAddr)
+		if err != nil {
+			return
+		}
+	}
+
+	block = &api.AccountBlock{
+		BlockType:          ledger.BlockTypeReceive,
+		Hash:               types.Hash{},
+		PrevHash:           prev.Hash,
+		AccountAddress:     params.SelfAddr,
+		PublicKey:          nil,
+		FromBlockHash:      params.RequestHash,
+		Data:               nil,
+		Nonce:              nil,
+		Signature:          nil,
+		Height:             strconv.FormatUint(prev.Height+1, 10),
+		Fee:                nil,
+		Difficulty:         nil,
+		TokenInfo:          nil,
+		ConfirmedTimes:     nil,
+		ConfirmedHash:      nil,
+		ReceiveBlockHeight: nil,
+		ReceiveBlockHash:   nil,
+	}
+
+	accountBlock, err := block.RpcToLedgerBlock()
+	if err != nil {
+		return nil, err
+	}
+	hash := accountBlock.ComputeHash()
+
+	block.Hash = hash
+	return
+}
+
+func (c *client) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, *big.Int, error) {
+	allBalance, allOnroad, err := c.GetBalanceAll(addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	balance := big.NewInt(0)
+	onroad := big.NewInt(0)
+
+	if allBalance.TokenBalanceInfoMap != nil {
+		if info, ok := allBalance.TokenBalanceInfoMap[tokenId]; ok {
+			balance.SetString(info.TotalAmount, 10)
+		}
+	}
+	if allOnroad.TokenBalanceInfoMap != nil {
+		if info, ok := allOnroad.TokenBalanceInfoMap[tokenId]; ok {
+			onroad.SetString(info.TotalAmount, 10)
+		}
+	}
+	return balance, onroad, err
+}
+
+func (c *client) GetBalanceAll(addr types.Address) (*api.RpcAccountInfo, *api.RpcAccountInfo, error) {
+	allBalance, err := c.rpc.GetAccountByAccAddr(addr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	allOnroad, err := c.rpc.GetOnroadInfoByAddress(addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	return allBalance, allOnroad, nil
+}
+
+func (c *client) getPrev(addr types.Address) (*ledger.HashHeight, error) {
+	latest, err := c.rpc.GetLatestBlock(addr)
+
+	if err != nil {
+		return nil, err
+	}
+	prevHeight := uint64(0)
+	prevHash := types.Hash{}
+	if latest != nil && latest.Height != "" {
+		prevHeight, err = strconv.ParseUint(latest.Height, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		prevHash = latest.Hash
+	}
+	return &ledger.HashHeight{Height: prevHeight, Hash: prevHash}, nil
+}
+
+func (c *client) SignData(wallet *entropystore.Manager, block *api.AccountBlock) error {
+	if wallet == nil {
+		return errorNilWallet
+	}
+	if block == nil {
+		return errorNilBlock
+	}
+	if (block.Hash == types.Hash{}) {
+		return errorEmptyHash
+	}
+
+	addr := block.AccountAddress
+	signedData, pubkey, err := wallet.SignData(addr, block.Hash.Bytes())
+	if err != nil {
+		return err
+	}
+	block.Signature = signedData
+	block.PublicKey = pubkey
 	return nil
 }
 
-func (c *client) SubmitResponseTx(params ResponseTxParams, f SignFunc) error {
-	panic("implement")
-	//latest, err := c.rpc.GetLatest(params.SelfAddr)
-	//
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//if params.SnapshotHash == nil {
-	//	referSnapshot, err := c.rpc.GetFittestSnapshot()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	params.SnapshotHash = referSnapshot
-	//}
-	//reqBlock, err := c.rpc.GetAccBlock(params.RequestHash)
-	//if err != nil {
-	//	return err
-	//}
-	//prevHeight := uint64(0)
-	//var prevHash types.Hash
-	//if latest.Height != "" {
-	//	prevHeight, err = strconv.ParseUint(latest.Height, 10, 64)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	prevHash = latest.Hash
-	//}
-	//
-	//b := RawBlock{
-	//	BlockType:      ledger.BlockTypeReceive,
-	//	Hash:           types.Hash{},
-	//	PrevHash:       prevHash,
-	//	AccountAddress: params.SelfAddr,
-	//	PublicKey:      nil,
-	//	ToAddress:      params.SelfAddr,
-	//	FromBlockHash:  reqBlock.Hash,
-	//	TokenId:        reqBlock.TokenId,
-	//	SnapshotHash:   *params.SnapshotHash,
-	//	Data:           nil,
-	//	Nonce:          nil,
-	//	Signature:      nil,
-	//	FromAddress:    reqBlock.AccountAddress,
-	//	Height:         strconv.FormatUint(prevHeight+1, 10),
-	//	Amount:         &reqBlock.Amount,
-	//	Fee:            nil,
-	//	Difficulty:     nil,
-	//	Timestamp:      time.Now().Unix(),
-	//}
-	//
-	//hashes, err := b.ComputeHash()
-	//if err != nil {
-	//	return err
-	//}
-	//b.Hash = *hashes
-	//
-	//signedData, pubkey, err := f(params.SelfAddr, b.Hash.Bytes())
-	//if err != nil {
-	//	return err
-	//}
-	//b.Signature = signedData
-	//b.PublicKey = pubkey
-	//
-	//return c.rpc.SubmitRaw(b)
+func (c *client) SignDataWithPriKey(key *derivation.Key, block *api.AccountBlock) error {
+	if key == nil {
+		return errorNilKey
+	}
+	if block == nil {
+		return errorNilBlock
+	}
+	if (block.Hash == types.Hash{}) {
+		return errorEmptyHash
+	}
+
+	signData, pub, err := key.SignData(block.Hash.Bytes())
+	if err != nil {
+		return err
+	}
+
+	block.Signature = signData
+	block.PublicKey = pub
 	return nil
-}
-
-func (c *client) SubmitResponseTxWithPow(params ResponseTxParams, f SignFunc) error {
-	panic("implement")
-	//latest, err := c.rpc.GetLatest(params.SelfAddr)
-	//
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//if params.SnapshotHash == nil {
-	//	referSnapshot, err := c.rpc.GetFittestSnapshot()
-	//	if err != nil {
-	//		return err
-	//	}
-	//	params.SnapshotHash = referSnapshot
-	//}
-	//reqBlock, err := c.rpc.GetAccBlock(params.RequestHash)
-	//if err != nil {
-	//	return err
-	//}
-	//prevHeight := uint64(0)
-	//var prevHash types.Hash
-	//if latest.Height != "" {
-	//	prevHeight, err = strconv.ParseUint(latest.Height, 10, 64)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	prevHash = latest.Hash
-	//}
-	//
-	//b := RawBlock{
-	//	BlockType:      ledger.BlockTypeReceive,
-	//	Hash:           types.Hash{},
-	//	PrevHash:       prevHash,
-	//	AccountAddress: params.SelfAddr,
-	//	PublicKey:      nil,
-	//	ToAddress:      params.SelfAddr,
-	//	FromBlockHash:  reqBlock.Hash,
-	//	TokenId:        reqBlock.TokenId,
-	//	SnapshotHash:   *params.SnapshotHash,
-	//	Data:           nil,
-	//	Nonce:          nil,
-	//	Signature:      nil,
-	//	FromAddress:    reqBlock.AccountAddress,
-	//	Height:         strconv.FormatUint(prevHeight+1, 10),
-	//	Amount:         &reqBlock.Amount,
-	//	Fee:            nil,
-	//	Difficulty:     nil,
-	//	Timestamp:      time.Now().Unix(),
-	//}
-	//
-	//difficulty, err := c.rpc.GetDifficulty(DifficultyQuery{
-	//	SelfAddr:       b.AccountAddress,
-	//	PrevHash:       b.PrevHash,
-	//	SnapshotHash:   b.SnapshotHash,
-	//	BlockType:      b.BlockType,
-	//	ToAddr:         &b.ToAddress,
-	//	Data:           b.Data,
-	//	UsePledgeQuota: false,
-	//})
-	//
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//difficultyInt, _ := big.NewInt(0).SetString(difficulty, 10)
-	//nonce, err := pow.GetPowNonce(difficultyInt, types.DataHash(append(b.AccountAddress.Bytes(), b.PrevHash.Bytes()...)))
-	//if err != nil {
-	//	return err
-	//}
-	//b.Nonce = nonce
-	//b.Difficulty = &difficulty
-	//
-	//hashes, err := b.ComputeHash()
-	//if err != nil {
-	//	return err
-	//}
-	//b.Hash = *hashes
-	//
-	//signedData, pubkey, err := f(params.SelfAddr, b.Hash.Bytes())
-	//if err != nil {
-	//	return err
-	//}
-	//b.Signature = signedData
-	//b.PublicKey = pubkey
-	//
-	//return c.rpc.SubmitRaw(b)
-	return nil
-}
-
-func (c *client) QueryOnroad(query OnroadQuery) ([]*AccBlockHeader, error) {
-	panic("implement")
-	return c.rpc.GetOnroad(query)
-}
-
-func (c *client) Balance(query BalanceQuery) (*TokenBalance, error) {
-	panic("implement")
-	return c.rpc.Balance(query)
-}
-
-func (c *client) BalanceAll(query BalanceAllQuery) ([]*TokenBalance, error) {
-	panic("implement")
-	return c.rpc.BalanceAll(query)
 }

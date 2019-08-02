@@ -2,10 +2,9 @@ package verifier
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/onroad"
-
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/onroad"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
@@ -104,7 +103,6 @@ func (v *verifier) VerifyRPCAccBlock(block *ledger.AccountBlock, snapshot *ledge
 	if block.IsReceiveBlock() {
 		detail += fmt.Sprintf(",fromH:%v", block.FromBlockHash)
 	}
-
 	snapshotHashHeight := &ledger.HashHeight{
 		Height: snapshot.Height,
 		Hash:   snapshot.Hash,

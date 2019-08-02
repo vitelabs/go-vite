@@ -2,6 +2,7 @@ package dex
 
 import (
 	"bytes"
+	"encoding/hex"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
@@ -64,6 +65,8 @@ var (
 	lastSettledMakerMinedVxPeriodKey = []byte("lsmmvp:")
 	lastSettledMakerMinedVxPageKey   = []byte("lsmmvpp:")
 
+	viteOwnerInitiated = []byte("voited:")
+
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 
 	VxTokenId, _          = types.HexToTokenTypeId("tti_564954455820434f494e69b5")
@@ -103,7 +106,10 @@ var (
 		BtcTokenType:  &QuoteTokenTypeInfo{Decimals: 8, DefaultTradeThreshold: bitcoinMinAmount, DefaultMineThreshold: bitcoinMineThreshold},
 		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 6, DefaultTradeThreshold: usdMinAmount, DefaultMineThreshold: usdMineThreshold},
 	}
-	initOwner, _ = types.HexToAddress("vite_a8a00b3a2f60f5defb221c68f79b65f3620ee874f951a825db")
+	initOwner, _          = types.HexToAddress("vite_a8a00b3a2f60f5defb221c68f79b65f3620ee874f951a825db")
+	initViteTokenOwner, _ = types.HexToAddress("vite_050697d3810c30816b005a03511c734c1159f50907662b046f")
+	newOrderMethodId, _ = hex.DecodeString("147927ec")
+
 )
 
 const (
