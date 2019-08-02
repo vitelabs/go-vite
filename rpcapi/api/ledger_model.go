@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/vm/quota"
 	"math/big"
 	"strconv"
 
@@ -42,6 +43,7 @@ type AccountBlock struct {
 
 	Quota         *string         `json:"quota"`
 	QuotaUsed     *string         `json:"quotaUsed"`
+	UtUsed        *string         `json:"utUsed"`
 	LogHash       *types.Hash     `json:"logHash"`
 	SendBlockList []*AccountBlock `json:"sendBlockList"`
 
@@ -226,10 +228,12 @@ func ledgerToRpcBlock(chain chain.Chain, lAb *ledger.AccountBlock) (*AccountBloc
 	rpcBlock.Height = strconv.FormatUint(lAb.Height, 10)
 
 	// Quota & QuotaUsed
-	quota := strconv.FormatUint(lAb.Quota, 10)
-	rpcBlock.Quota = &quota
+	totalQuota := strconv.FormatUint(lAb.Quota, 10)
+	rpcBlock.Quota = &totalQuota
 	quotaUsed := strconv.FormatUint(lAb.QuotaUsed, 10)
 	rpcBlock.QuotaUsed = &quotaUsed
+	utUsed := Float64ToString(float64(lAb.QuotaUsed)/float64(quota.QuotaForUtps), 4)
+	rpcBlock.UtUsed = &utUsed
 
 	// FromAddress & ToAddress
 	var amount, fee string

@@ -127,4 +127,11 @@ func TestPubkeyBytesToAddress(t *testing.T) {
 	byt := []byte{63, 197, 34, 78, 89, 67, 59, 255, 79, 72, 200, 60, 14, 180, 237, 234, 14, 76, 66, 234, 105, 126, 4, 205, 236, 113, 125, 3, 229, 13, 82, 0}
 	producer := PubkeyToAddress(byt)
 	t.Log(producer)
+	assert.False(t, IsContractAddr(producer))
+}
+
+func TestAddress_IsContractAddr(t *testing.T) {
+	addr := HexToAddressPanic("vite_42f9a5d93e1e392624b97dfa3d7cab057b79c2489d6bc13682")
+	t.Log(addr, IsContractAddr(addr), hex.EncodeToString(addr.Bytes()))
+	assert.False(t, IsContractAddr(addr))
 }
