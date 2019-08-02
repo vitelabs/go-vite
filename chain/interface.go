@@ -243,7 +243,7 @@ type Chain interface {
 	GetPledgeBeneficialAmount(addr types.Address) (*big.Int, error)
 
 	// total
-	GetPledgeQuota(addr types.Address) (*types.Quota, error)
+	GetPledgeQuota(addr types.Address) (*big.Int, *types.Quota, error)
 
 	// total
 	GetPledgeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error)

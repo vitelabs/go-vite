@@ -69,22 +69,24 @@ func (p *PledgeApi) GetAgentCancelPledgeData(param AgentPledgeParam) ([]byte, er
 type QuotaAndTxNum struct {
 	QuotaPerSnapshotBlock string `json:"quotaPerSnapshotBlock"`
 	CurrentQuota          string `json:"current"`
-	CurrentTxNumPerSec    string `json:"utps"`
-	CurrentTxNum          string `json:"currentUt"`
-	TxNum                 string `json:"utpe"`
+	CurrentTxNumPerSec    string `json:"utps"` // Deprecated: use currentUt instead
+	CurrentUt             string `json:"currentUt"`
+	Utpe                  string `json:"utpe"`
 	PledgeAmount          string `json:"pledgeAmount"`
 }
 
 func (p *PledgeApi) GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error) {
-	q, err := p.chain.GetPledgeQuota(addr)
+	amount, q, err := p.chain.GetPledgeQuota(addr)
 	if err != nil {
 		return nil, err
 	}
-	amount, err := p.chain.GetPledgeBeneficialAmount(addr)
-	if err != nil {
-		return nil, err
-	}
-	return &QuotaAndTxNum{Uint64ToString(q.PledgeQuotaPerSnapshotBlock()), Uint64ToString(q.Current()), Uint64ToString(q.Current() / quota.QuotaForUtps), Float64ToString(float64(q.Current())/float64(quota.QuotaForUtps), 4), Float64ToString(float64(q.PledgeQuotaPerSnapshotBlock()*util.OneRound)/float64(quota.QuotaForUtps), 4), *bigIntToString(amount)}, nil
+	return &QuotaAndTxNum{
+		Uint64ToString(q.PledgeQuotaPerSnapshotBlock()),
+		Uint64ToString(q.Current()),
+		Uint64ToString(q.Current() / quota.QuotaForUtps),
+		Float64ToString(float64(q.Current())/float64(quota.QuotaForUtps), 4),
+		Float64ToString(float64(q.PledgeQuotaPerSnapshotBlock()*util.OneRound)/float64(quota.QuotaForUtps), 4),
+		*bigIntToString(amount)}, nil
 }
 
 type PledgeInfoList struct {

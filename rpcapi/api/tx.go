@@ -199,7 +199,7 @@ type CalcPoWDifficultyResult struct {
 	Quota         uint64  `json:"quota"`
 	QuotaRequired string  `json:"quotaRequired"`
 	Difficulty    string  `json:"difficulty"`
-	TxNumRequired string  `json:"utRequired"`
+	UtRequired    string  `json:"utRequired"`
 	Qc            *string `json:"qc"`
 	IsCongestion  bool    `json:"isCongestion"`
 }
@@ -288,6 +288,10 @@ func (t Tx) CalcQuotaRequired(param CalcQuotaRequired) (*CalcQuotaRequiredResult
 	if err != nil {
 		return nil, err
 	}
+	prevHash := types.Hash{}
+	if latestBlock != nil {
+		prevHash = latestBlock.Hash
+	}
 	// get quota required
 	block := &ledger.AccountBlock{
 		BlockType:      param.BlockType,
@@ -300,7 +304,7 @@ func (t Tx) CalcQuotaRequired(param CalcQuotaRequired) (*CalcQuotaRequiredResult
 		return nil, errors.New("toAddr is nil")
 	}
 	sb := t.vite.Chain().GetLatestSnapshotBlock()
-	db, err := vm_db.NewVmDb(t.vite.Chain(), &param.SelfAddr, &sb.Hash, &latestBlock.Hash)
+	db, err := vm_db.NewVmDb(t.vite.Chain(), &param.SelfAddr, &sb.Hash, &prevHash)
 	if err != nil {
 		return nil, err
 	}

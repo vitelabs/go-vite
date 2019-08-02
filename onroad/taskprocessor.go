@@ -145,7 +145,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			// vmRetry it in next turn
 			blog.Info("genResult.IsRetry true")
 			if !types.IsBuiltinContractAddrInUseWithoutQuota(task.Addr) {
-				q, err := tp.worker.manager.Chain().GetPledgeQuota(task.Addr)
+				_, q, err := tp.worker.manager.Chain().GetPledgeQuota(task.Addr)
 				if err != nil {
 					blog.Error(fmt.Sprintf("failed to get pledge quota, err:%v", err))
 					return true

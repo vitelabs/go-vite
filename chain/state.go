@@ -121,7 +121,7 @@ func (c *chain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error) 
 }
 
 func (c *chain) GetQuotaUnused(address types.Address) (uint64, error) {
-	quotaInfo, err := c.GetPledgeQuota(address)
+	_, quotaInfo, err := c.GetPledgeQuota(address)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.GetPledgeQuota failed, address is %s. Error: %s", address, err))
 		c.log.Error(cErr.Error(), "method", "GetQuotaUnused")
