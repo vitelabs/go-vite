@@ -372,7 +372,7 @@ func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
 	if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
 		return math.MaxUint64
 	}
-	quota, err := w.manager.Chain().GetPledgeQuota(addr)
+	_, quota, err := w.manager.Chain().GetPledgeQuota(addr)
 	if err != nil {
 		w.log.Error("GetPledgeQuota err", "error", err)
 	}
