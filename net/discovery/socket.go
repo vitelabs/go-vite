@@ -43,12 +43,12 @@ const socketQueueLength = 1000
 // 1. failed to resolve net.UDPAddr of n
 // 2. send message error
 type sender interface {
-	// ping n, extract node from the pong response and put the node, nil if has error, into ch, ch MUST not be nil.
-	ping(n *Node, ch chan<- *Node) (err error)
+	// ping n, extract node from the pong response
+	ping(n *Node, callback func(*Node, error))
 	// pong respond the last ping message from n, echo is the hash of ping message payload
 	pong(echo []byte, n *Node) (err error)
 	// findNode find count nodes near the target to n, put the responsive nodes into ch, ch MUST no be nil
-	findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*vnode.EndPoint) (err error)
+	findNode(target vnode.NodeID, count int, n *Node) (ch <-chan []*vnode.EndPoint, err error)
 	// sendNodes to addr, if eps is too many, the response message will be split to multiple message,
 	// every message is small than maxPacketLength.
 	sendNodes(eps []*vnode.EndPoint, addr *net.UDPAddr) (err error)
@@ -136,14 +136,10 @@ func (a *agent) stop() (err error) {
 	return errSocketIsNotRunning
 }
 
-func pingnil(ch chan<- *Node) {
-	ch <- nil
-}
-
-func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
+func (a *agent) ping(n *Node, callback func(*Node, error)) {
 	udp, err := n.udpAddr()
 	if err != nil {
-		go pingnil(ch)
+		callback(nil, err)
 		return
 	}
 
@@ -161,7 +157,7 @@ func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
 	}, udp)
 
 	if err != nil {
-		go pingnil(ch)
+		callback(nil, err)
 		return
 	}
 
@@ -171,12 +167,10 @@ func (a *agent) ping(n *Node, ch chan<- *Node) (err error) {
 		expectCode: codePong,
 		handler: &pingRequest{
 			hash: hash,
-			done: ch,
+			done: callback,
 		},
 		expiration: now.Add(2 * expiration),
 	})
-
-	return
 }
 
 func (a *agent) pong(echo []byte, n *Node) (err error) {
@@ -201,13 +195,9 @@ func (a *agent) pong(echo []byte, n *Node) (err error) {
 	return
 }
 
-func findnodenil(ch chan<- []*vnode.EndPoint) {
-	ch <- nil
-}
-func (a *agent) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*vnode.EndPoint) (err error) {
+func (a *agent) findNode(target vnode.NodeID, count int, n *Node) (ch <-chan []*vnode.EndPoint, err error) {
 	udp, err := n.udpAddr()
 	if err != nil {
-		go findnodenil(ch)
 		return
 	}
 
@@ -223,22 +213,22 @@ func (a *agent) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*v
 	}, udp)
 
 	if err != nil {
-		go findnodenil(ch)
 		return
 	}
 
+	ch2 := make(chan []*vnode.EndPoint, 1)
 	a.pool.add(&request{
 		expectID:   n.ID,
 		expectFrom: udp.String(),
 		expectCode: codeNeighbors,
 		handler: &findNodeRequest{
 			count: count,
-			ch:    ch,
+			ch:    ch2,
 		},
 		expiration: now.Add(2 * expiration),
 	})
 
-	return
+	return ch2, nil
 }
 
 func (a *agent) sendNodes(eps []*vnode.EndPoint, to *net.UDPAddr) (err error) {
@@ -325,13 +315,11 @@ func (a *agent) readLoop() {
 		err = unPacket(buf[:n], p)
 		if err != nil {
 			a.log.Warn(fmt.Sprintf("failed to unpack message from %s: %v", addr, err))
-			recyclePacket(p)
 			continue
 		}
 
 		if p.expired() {
 			a.log.Warn(fmt.Sprintf("message %d from %s expired", p.c, addr))
-			recyclePacket(p)
 			continue
 		}
 
@@ -342,8 +330,6 @@ func (a *agent) readLoop() {
 
 		if want {
 			a.handler(p)
-		} else {
-			recyclePacket(p)
 		}
 	}
 }

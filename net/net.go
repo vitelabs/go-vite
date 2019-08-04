@@ -157,6 +157,7 @@ func (n *net) onConnection(conn _net.Conn, id peerId, inbound bool) {
 
 	if err != nil {
 		_ = Disconnect(c, err)
+		n.log.Warn(fmt.Sprintf("failed to handshake with %s: %v", conn.RemoteAddr(), err))
 		return
 	}
 
