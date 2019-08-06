@@ -157,12 +157,12 @@ func (p *Peer) setReliable(bool2 bool) {
 
 // WriteMsg will put msg into queue, then write asynchronously
 func (p *Peer) WriteMsg(msg Msg) (err error) {
-	p.write()
-	defer p.writeDone()
-
 	if !p.canWritable() {
 		return errPeerCannotWrite
 	}
+
+	p.write()
+	defer p.writeDone()
 
 	select {
 	case p.writeQueue <- msg:
@@ -279,8 +279,7 @@ func (p *Peer) readLoop() (err error) {
 	for {
 		msg, err = p.codec.ReadMsg()
 		if err != nil {
-			p.log.Debug(fmt.Sprintf("failed to read message: %v", err))
-			p.stopWrite(fmt.Errorf("read error: %v", err))
+			p.stopWrite(fmt.Errorf("failed to read message: %v", err))
 			return
 		}
 
@@ -308,8 +307,7 @@ func (p *Peer) writeLoop() (err error) {
 	var msg Msg
 	for msg = range p.writeQueue {
 		if err = p.codec.WriteMsg(msg); err != nil {
-			p.log.Warn(fmt.Sprintf("failed to write msg %d %d bytes error: %v", msg.Code, len(msg.Payload), err))
-			p.stopWrite(fmt.Errorf("write error: %v", msg))
+			p.stopWrite(fmt.Errorf("failed to write msg %d %d bytes: %v", msg.Code, len(msg.Payload), err))
 			return
 		}
 	}
@@ -375,7 +373,7 @@ func (p *Peer) Close(err error) (err2 error) {
 }
 
 func (p *Peer) Disconnect(err error) {
-	p.log.Warn(fmt.Sprintf("disconnect: %v", err))
+	p.log.Warn(fmt.Sprintf("disconnect peer: %v", err))
 	_ = Disconnect(p.codec, err)
 }
 
