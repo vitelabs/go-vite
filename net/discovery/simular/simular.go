@@ -42,8 +42,7 @@ func main() {
 	const total = 100
 
 	var err error
-	var last *vnode.Node
-	var configs []config
+	var configs = make([]config, 0, total)
 	for i := 0; i < total; i++ {
 		var pub ed25519.PublicKey
 		var prv ed25519.PrivateKey
@@ -52,7 +51,10 @@ func main() {
 			panic(err)
 		}
 
-		id, _ := vnode.Bytes2NodeID(pub)
+		id, err := vnode.Bytes2NodeID(pub)
+		if err != nil {
+			panic(err)
+		}
 		cfg := config{
 			peerKey: prv,
 			node: &vnode.Node{
@@ -68,13 +70,11 @@ func main() {
 			listenAddress: "127.0.0.1:" + strconv.Itoa(port),
 		}
 
-		if last != nil {
-			cfg.bootNodes = []string{
-				last.String(),
+		for j := 1; j < 2; j++ {
+			if k := i - j; k > -1 && k < len(configs) {
+				cfg.bootNodes = append(cfg.bootNodes, configs[k].node.String())
 			}
 		}
-
-		last = cfg.node
 
 		port++
 
@@ -98,14 +98,16 @@ func main() {
 	fmt.Println("start")
 
 	go func() {
+		count := 0
 		ticker := time.NewTicker(10 * time.Second)
 		for {
 			select {
 			case <-ticker.C:
 				for i, d := range discovers {
-					fmt.Println(i, len(d.Nodes()))
+					fmt.Println(count, i, len(d.Nodes()))
 				}
 				fmt.Println("------------")
+				count++
 			}
 		}
 	}()

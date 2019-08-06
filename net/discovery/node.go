@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/vitelabs/go-vite/net/netool"
@@ -13,10 +14,12 @@ type Node struct {
 	checkAt  int64
 	addAt    int64
 	activeAt int64
-	checking bool // is in check flow
-	finding  bool // is finding some target from this node
-	addr     *net.UDPAddr
-	parseAt  int64 // last time addr parsed
+
+	finding int32
+	findAt  int64
+
+	addr    *net.UDPAddr
+	parseAt int64 // last time addr parsed
 }
 
 func (n *Node) udpAddr() (addr *net.UDPAddr, err error) {
@@ -44,6 +47,35 @@ func (n *Node) update(n2 *Node) {
 	n.EndPoint = n2.EndPoint
 }
 
+func (n *Node) needCheck() bool {
+	// 10 minutes
+	now := time.Now().Unix()
+	if now-n.checkAt > 60*10 {
+		return true
+	}
+
+	return false
+}
+
+func (n *Node) couldFind() bool {
+	now := time.Now().Unix()
+	// 1 minute
+	if now-n.findAt < 60 {
+		return false
+	}
+
+	if !atomic.CompareAndSwapInt32(&n.finding, 0, 1) {
+		return false
+	}
+
+	return true
+}
+
+func (n *Node) findDone() {
+	atomic.StoreInt32(&n.finding, 0)
+	n.findAt = time.Now().Unix()
+}
+
 func extractEndPoint(addr *net.UDPAddr, from *vnode.EndPoint) (e *vnode.EndPoint, addr2 *net.UDPAddr) {
 	var err error
 	var done bool
@@ -67,7 +99,7 @@ func extractEndPoint(addr *net.UDPAddr, from *vnode.EndPoint) (e *vnode.EndPoint
 	return
 }
 
-func nodeFromEndPoint(e vnode.EndPoint) (n *Node, err error) {
+func nodeFromEndPoint(e *vnode.EndPoint) (n *Node, err error) {
 	udp, err := net.ResolveUDPAddr("udp", e.String())
 	if err != nil {
 		return
@@ -75,7 +107,7 @@ func nodeFromEndPoint(e vnode.EndPoint) (n *Node, err error) {
 
 	return &Node{
 		Node: vnode.Node{
-			EndPoint: e,
+			EndPoint: *e,
 		},
 		addr:    udp,
 		parseAt: time.Now().Unix(),

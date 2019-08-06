@@ -47,9 +47,10 @@ type net struct {
 
 	db *database.DB
 
-	dialer   _net.Dialer
-	listener _net.Listener
-	hkr      *handshaker
+	dialer       _net.Dialer
+	listener     _net.Listener
+	hkr          *handshaker
+	receiveSlots chan struct{}
 
 	confirmedHashHeightList []*ledger.HashHeight
 
@@ -81,6 +82,8 @@ type net struct {
 func (n *net) listenLoop() {
 	defer n.wg.Done()
 
+	n.receiveSlots = make(chan struct{}, n.config.MaxPendingPeers)
+
 	var tempDelay time.Duration
 	var maxDelay = time.Second
 
@@ -107,6 +110,7 @@ func (n *net) listenLoop() {
 			break
 		}
 
+		n.receiveSlots <- struct{}{}
 		go n.onConnection(conn, peerId{}, true)
 	}
 }
@@ -145,6 +149,7 @@ func (n *net) onConnection(conn _net.Conn, id peerId, inbound bool) {
 	if inbound {
 		flag = PeerFlagInbound
 		c, their, superior, err = n.hkr.ReceiveHandshake(conn)
+		<-n.receiveSlots
 	} else {
 		flag = PeerFlagOutbound
 		c, their, superior, err = n.hkr.InitiateHandshake(conn, id)
@@ -152,6 +157,7 @@ func (n *net) onConnection(conn _net.Conn, id peerId, inbound bool) {
 
 	if err != nil {
 		_ = Disconnect(c, err)
+		n.log.Warn(fmt.Sprintf("failed to handshake with %s: %v", conn.RemoteAddr(), err))
 		return
 	}
 
