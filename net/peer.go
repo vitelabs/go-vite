@@ -160,7 +160,7 @@ func (p *Peer) WriteMsg(msg Msg) (err error) {
 	p.write()
 	defer p.writeDone()
 
-	if atomic.LoadInt32(&p.writable) == 0 {
+	if !p.canWritable() {
 		return errPeerCannotWrite
 	}
 
@@ -279,8 +279,8 @@ func (p *Peer) readLoop() (err error) {
 	for {
 		msg, err = p.codec.ReadMsg()
 		if err != nil {
-			atomic.StoreInt32(&p.writable, 0)
 			p.log.Debug(fmt.Sprintf("failed to read message: %v", err))
+			p.stopWrite(fmt.Errorf("read error: %v", err))
 			return
 		}
 
@@ -308,8 +308,8 @@ func (p *Peer) writeLoop() (err error) {
 	var msg Msg
 	for msg = range p.writeQueue {
 		if err = p.codec.WriteMsg(msg); err != nil {
-			atomic.StoreInt32(&p.writable, 0)
 			p.log.Warn(fmt.Sprintf("failed to write msg %d %d bytes error: %v", msg.Code, len(msg.Payload), err))
+			p.stopWrite(fmt.Errorf("write error: %v", msg))
 			return
 		}
 	}
@@ -330,6 +330,15 @@ func (p *Peer) handleLoop() (err error) {
 	return nil
 }
 
+func (p *Peer) canWritable() bool {
+	return atomic.LoadInt32(&p.writable) == 1
+}
+
+func (p *Peer) stopWrite(err error) {
+	atomic.StoreInt32(&p.writable, 0)
+	p.log.Warn(fmt.Sprintf("stop write: %v", err))
+}
+
 func (p *Peer) Close(err error) (err2 error) {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
 		p.log.Warn(fmt.Sprintf("close: %v", err))
@@ -342,7 +351,7 @@ func (p *Peer) Close(err error) (err2 error) {
 		}
 
 		time.Sleep(100 * time.Millisecond)
-		atomic.StoreInt32(&p.writable, 0)
+		p.stopWrite(fmt.Errorf("close peer: %v", err))
 
 		// ensure nobody is writing
 		for {
