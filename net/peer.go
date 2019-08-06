@@ -116,6 +116,9 @@ type Peer struct {
 
 	reliable int32 // whether the same chain
 
+	busy  int32
+	busyT int64
+
 	running    int32
 	writable   int32 // set to 0 when write error in writeLoop, or close actively
 	writing    int32
@@ -161,15 +164,23 @@ func (p *Peer) WriteMsg(msg Msg) (err error) {
 		return errPeerCannotWrite
 	}
 
+	// 5s
+	if atomic.LoadInt32(&p.busy) == 1 && time.Now().Unix()-p.busyT < 5 {
+		return nil
+	}
+
 	p.write()
 	defer p.writeDone()
 
 	select {
 	case p.writeQueue <- msg:
-		return nil
+		atomic.StoreInt32(&p.busy, 0)
 	default:
-		return errPeerWriteBusy
+		atomic.StoreInt32(&p.busy, 1)
+		p.busyT = time.Now().Unix()
 	}
+
+	return nil
 }
 
 func (p *Peer) write() {
