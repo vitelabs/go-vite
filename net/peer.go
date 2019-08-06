@@ -277,11 +277,10 @@ func (p *Peer) readLoop() (err error) {
 	var msg Msg
 
 	for {
-		p.log.Debug(fmt.Sprintf("begin read message"))
 		msg, err = p.codec.ReadMsg()
-		p.log.Debug(fmt.Sprintf("read message %d %d bytes done", msg.Code, len(msg.Payload)))
 		if err != nil {
 			atomic.StoreInt32(&p.writable, 0)
+			p.log.Debug(fmt.Sprintf("failed to read message: %v", err))
 			return
 		}
 
@@ -308,14 +307,11 @@ func (p *Peer) readLoop() (err error) {
 func (p *Peer) writeLoop() (err error) {
 	var msg Msg
 	for msg = range p.writeQueue {
-		t1 := time.Now()
-		p.log.Debug(fmt.Sprintf("begin write msg %d %d bytes", msg.Code, len(msg.Payload)))
 		if err = p.codec.WriteMsg(msg); err != nil {
-			p.log.Debug(fmt.Sprintf("write msg %d %d bytes error: %v", msg.Code, len(msg.Payload), err))
 			atomic.StoreInt32(&p.writable, 0)
+			p.log.Warn(fmt.Sprintf("failed to write msg %d %d bytes error: %v", msg.Code, len(msg.Payload), err))
 			return
 		}
-		p.log.Debug(fmt.Sprintf("write msg %d %d bytes done[%d][%s]", msg.Code, len(msg.Payload), len(p.writeQueue), time.Now().Sub(t1)))
 	}
 
 	return nil
@@ -324,11 +320,9 @@ func (p *Peer) writeLoop() (err error) {
 func (p *Peer) handleLoop() (err error) {
 	var msg Msg
 	for msg = range p.readQueue {
-		t1 := time.Now()
-		p.log.Debug(fmt.Sprintf("begin handle msg %d", msg.Code))
 		err = p.handler.handle(msg)
-		p.log.Debug(fmt.Sprintf("handle msg %d done[%d][%s]", msg.Code, len(p.readQueue), time.Now().Sub(t1)))
 		if err != nil {
+			p.log.Warn(fmt.Sprintf("failed to handle msg %d: %v", msg.Code, err))
 			return
 		}
 	}
@@ -338,6 +332,8 @@ func (p *Peer) handleLoop() (err error) {
 
 func (p *Peer) Close(err error) (err2 error) {
 	if atomic.CompareAndSwapInt32(&p.running, 1, 0) {
+		p.log.Warn(fmt.Sprintf("close: %v", err))
+
 		if pe, ok := err.(PeerError); ok {
 			_ = p.WriteMsg(Msg{
 				Code:    CodeDisconnect,
@@ -370,6 +366,7 @@ func (p *Peer) Close(err error) (err2 error) {
 }
 
 func (p *Peer) Disconnect(err error) {
+	p.log.Warn(fmt.Sprintf("disconnect: %v", err))
 	_ = Disconnect(p.codec, err)
 }
 
