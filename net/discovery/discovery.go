@@ -140,6 +140,10 @@ func (d *Discovery) Nodes() []*vnode.Node {
 	return vnodes
 }
 
+func (d *Discovery) NodesCount() int {
+	return d.table.size()
+}
+
 func (d *Discovery) SubscribeNode(receiver func(n *vnode.Node)) (subId int) {
 	return d.table.Sub(receiver)
 }
