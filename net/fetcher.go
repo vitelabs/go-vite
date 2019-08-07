@@ -211,7 +211,7 @@ func (f *fetcher) done(id MsgId, peer *Peer, msg Msg, err error) {
 		r.done(peer, msg, err)
 
 		if err != nil {
-			f.log.Warn(fmt.Sprintf("failed to fetch %s to %s", r.hash, peer))
+			f.log.Warn(fmt.Sprintf("failed to fetch %s to %s: %v", r.hash, peer, err))
 		}
 	}
 }
