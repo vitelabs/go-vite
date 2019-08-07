@@ -31,7 +31,7 @@ func TestFetch_failed(t *testing.T) {
 	fet.FetchSnapshotBlocks(hash, 1)
 	msg := Msg{
 		Code:   CodeException,
-		Id:     fet.filter.idGen.MsgID() - 1,
+		Id:     fet.idGen.MsgID() - 1,
 		Sender: peer,
 	}
 	err := fet.handle(msg)
@@ -39,10 +39,10 @@ func TestFetch_failed(t *testing.T) {
 		panic(err)
 	}
 
-	fet.filter.mu.Lock()
-	record := fet.filter.records[hash]
-	fmt.Println(record)
-	fet.filter.mu.Unlock()
+	fet.mu.Lock()
+	ret := fet.recordsByHash[hash]
+	fmt.Println(ret)
+	fet.mu.Unlock()
 
 	fet.FetchSnapshotBlocks(hash, 1)
 

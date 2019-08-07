@@ -375,6 +375,7 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 			b.feed.notifySnapshotBlock(block, types.RemoteBroadcast)
 		} else {
 			b.store.enqueueSnapshotBlock(block)
+			b.log.Info(fmt.Sprintf("syncing, don`t give %s/%d to pool", hash, block.Height))
 		}
 
 	case CodeNewAccountBlock:
@@ -420,6 +421,7 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 			b.feed.notifyAccountBlock(block, types.RemoteBroadcast)
 		} else {
 			b.store.enqueueAccountBlock(block)
+			b.log.Info(fmt.Sprintf("syncing, don`t give %s/%d to pool", hash, block.Height))
 		}
 	}
 

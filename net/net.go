@@ -414,6 +414,8 @@ func New(cfg *config.Net, chain Chain, verifier Verifier, consensus Consensus, i
 
 	fetcher := newFetcher(peers, receiver, blackHashList)
 
+	fetcher.st = syncer.state.state()
+	broadcaster.st = syncer.state.state()
 	syncer.SubscribeSyncStatus(fetcher.subSyncState)
 	syncer.SubscribeSyncStatus(broadcaster.subSyncState)
 
@@ -740,16 +742,19 @@ func (n *net) PeerKey() ed25519.PrivateKey {
 }
 
 func (n *net) Info() NodeInfo {
-	peers := n.peers.info()
+	ps := n.peers.info()
 	info := NodeInfo{
 		ID:        n.node.ID,
 		Name:      n.config.Name,
 		NetID:     n.config.NetID,
 		Version:   version,
-		PeerCount: len(peers),
-		Peers:     peers,
+		Address:   "",
+		PeerCount: len(ps),
+		Peers:     ps,
 		Height:    n.chain.GetLatestSnapshotBlock().Height,
+		Nodes:     n.discover.NodesCount(),
 		Latency:   n.broadcaster.Statistic(),
+		Server:    FileServerStatus{},
 	}
 
 	if n.syncServer != nil {
@@ -768,6 +773,7 @@ type NodeInfo struct {
 	PeerCount int              `json:"peerCount"`
 	Peers     []PeerInfo       `json:"peers"`
 	Height    uint64           `json:"height"`
+	Nodes     int              `json:"nodes"`
 	Latency   []int64          `json:"latency"` // [0,1,12,24]
 	Server    FileServerStatus `json:"server"`
 }
