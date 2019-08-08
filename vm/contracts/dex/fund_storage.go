@@ -46,6 +46,7 @@ var (
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
 	pledgeForVipKeyPrefix = []byte("pldVip:") // pledgeForVip: types.Address
+	pledgeForSuperVipKeyPrefix = []byte("pldSpVip:") // pledgeForSuperVip: types.Address
 
 	pledgesForVxKeyPrefix = []byte("pldsVx:") // pledgesForVx: types.Address
 	pledgesForVxSumKey    = []byte("pldsVxS:")
@@ -78,9 +79,10 @@ var (
 	NewMarketFeeBurnAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(5000))
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
-	PledgeForVxMinAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	PledgeForVipAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
-	PledgeForVxThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	PledgeForVxMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	PledgeForVipAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	PledgeForVxThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	PledgeForSuperVipAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000000))
 
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
@@ -117,6 +119,7 @@ const (
 const (
 	PledgeForVx = iota + 1
 	PledgeForVip
+	PledgeForSuperVip
 )
 
 const (
@@ -1412,6 +1415,24 @@ func DeletePledgeForVip(db vm_db.VmDb, address types.Address) {
 
 func GetPledgeForVipKey(address types.Address) []byte {
 	return append(pledgeForVipKeyPrefix, address.Bytes()...)
+}
+
+func GetPledgeForSuperVip(db vm_db.VmDb, address types.Address) (pledgeVip *PledgeVip, ok bool) {
+	pledgeVip = &PledgeVip{}
+	ok = deserializeFromDb(db, GetPledgeForSuperVipKey(address), pledgeVip)
+	return
+}
+
+func SavePledgeForSuperVip(db vm_db.VmDb, address types.Address, pledgeVip *PledgeVip) {
+	serializeToDb(db, GetPledgeForSuperVipKey(address), pledgeVip)
+}
+
+func DeletePledgeForSuperVip(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetPledgeForSuperVipKey(address), nil)
+}
+
+func GetPledgeForSuperVipKey(address types.Address) []byte {
+	return append(pledgeForSuperVipKeyPrefix, address.Bytes()...)
 }
 
 func GetPledgesForVx(db vm_db.VmDb, address types.Address) (pledgesForVx *PledgesForVx, ok bool) {

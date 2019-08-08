@@ -309,6 +309,8 @@ func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, 
 	var vipReduceFeeRate int32 = 0
 	if _, ok := GetPledgeForVip(db, address); ok {
 		vipReduceFeeRate = VipReduceFeeRate
+	} else if _, ok := GetPledgeForSuperVip(db, address); ok {
+		vipReduceFeeRate = BaseFeeRate
 	}
 	order.TakerFeeRate = BaseFeeRate - vipReduceFeeRate
 	order.TakerBrokerFeeRate = marketInfo.TakerBrokerFeeRate

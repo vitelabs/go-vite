@@ -498,6 +498,49 @@ func (md MethodDexFundPledgeForVip) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	}
 }
 
+type MethodDexFundPledgeForSuperVip struct {
+}
+
+func (md *MethodDexFundPledgeForSuperVip) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundPledgeForSuperVip) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexFundPledgeForSuperVip) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
+}
+
+func (md *MethodDexFundPledgeForSuperVip) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+	return gasTable.DexFundPledgeForVipGas
+}
+
+func (md *MethodDexFundPledgeForSuperVip) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	var (
+		err   error
+		param = new(dex.ParamDexFundPledgeForVip)
+	)
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundPledgeForSuperVip, block.Data); err != nil {
+		return err
+	}
+	if param.ActionType != dex.Pledge && param.ActionType != dex.CancelPledge {
+		return dex.InvalidPledgeActionTypeErr
+	}
+	return nil
+}
+
+func (md MethodDexFundPledgeForSuperVip) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var param = new(dex.ParamDexFundPledgeForVip)
+	cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundPledgeForSuperVip, sendBlock.Data)
+	if appendBlocks, err := dex.HandlePledgeAction(db, dex.PledgeForSuperVip, param.ActionType, sendBlock.AccountAddress, dex.PledgeForSuperVipAmount, nodeConfig.params.ViteXSuperVipPledgeHeight); err != nil {
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPledgeForSuperVip, err, sendBlock)
+	} else {
+		return appendBlocks, nil
+	}
+}
+
 type MethodDexFundPledgeCallback struct {
 }
 
@@ -528,7 +571,13 @@ func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.Acc
 	var callbackParam = new(dex.ParamDexFundPledgeCallBack)
 	cabi.ABIDexFund.UnpackMethod(callbackParam, cabi.MethodNameDexFundPledgeCallback, sendBlock.Data)
 	if callbackParam.Success {
-		if callbackParam.Bid == dex.PledgeForVip {
+		switch callbackParam.Bid {
+		case dex.PledgeForVx:
+			pledgeAmount := dex.GetPledgeForVx(db, callbackParam.PledgeAddress)
+			pledgeAmount.Add(pledgeAmount, callbackParam.Amount)
+			dex.SavePledgeForVx(db, callbackParam.PledgeAddress, pledgeAmount)
+			dex.OnPledgeForVxSuccess(db, vm.ConsensusReader(), callbackParam.PledgeAddress, callbackParam.Amount, pledgeAmount)
+		case dex.PledgeForVip:
 			if pledgeVip, ok := dex.GetPledgeForVip(db, callbackParam.PledgeAddress); ok { //duplicate pledge for vip
 				pledgeVip.PledgeTimes = pledgeVip.PledgeTimes + 1
 				dex.SavePledgeForVip(db, callbackParam.PledgeAddress, pledgeVip)
@@ -539,19 +588,30 @@ func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.Acc
 				pledgeVip.PledgeTimes = 1
 				dex.SavePledgeForVip(db, callbackParam.PledgeAddress, pledgeVip)
 			}
-		} else if callbackParam.Bid == dex.PledgeForVx {
-			pledgeAmount := dex.GetPledgeForVx(db, callbackParam.PledgeAddress)
-			pledgeAmount.Add(pledgeAmount, callbackParam.Amount)
-			dex.SavePledgeForVx(db, callbackParam.PledgeAddress, pledgeAmount)
-			dex.OnPledgeForVxSuccess(db, vm.ConsensusReader(), callbackParam.PledgeAddress, callbackParam.Amount, pledgeAmount)
+		case dex.PledgeForSuperVip:
+			if pledgeSuperVip, ok := dex.GetPledgeForSuperVip(db, callbackParam.PledgeAddress); ok { //duplicate pledge for super vip
+				pledgeSuperVip.PledgeTimes = pledgeSuperVip.PledgeTimes + 1
+				dex.SavePledgeForSuperVip(db, callbackParam.PledgeAddress, pledgeSuperVip)
+				// duplicate pledge for vip, cancel pledge
+				return dex.DoCancelPledge(db, callbackParam.PledgeAddress, callbackParam.Bid, callbackParam.Amount)
+			} else {
+				pledgeSuperVip.Timestamp = dex.GetTimestampInt64(db)
+				pledgeSuperVip.PledgeTimes = 1
+				dex.SavePledgeForSuperVip(db, callbackParam.PledgeAddress, pledgeSuperVip)
+			}
 		}
 	} else {
-		if callbackParam.Bid == dex.PledgeForVip {
+		switch callbackParam.Bid {
+		case dex.PledgeForVx:
+			if callbackParam.Amount.Cmp(sendBlock.Amount) != 0 {
+				panic(dex.InvalidAmountForPledgeCallbackErr)
+			}
+		case dex.PledgeForVip:
 			if dex.PledgeForVipAmount.Cmp(sendBlock.Amount) != 0 {
 				panic(dex.InvalidAmountForPledgeCallbackErr)
 			}
-		} else if callbackParam.Bid == dex.PledgeForVx {
-			if callbackParam.Amount.Cmp(sendBlock.Amount) != 0 {
+		case dex.PledgeForSuperVip:
+			if dex.PledgeForSuperVipAmount.Cmp(sendBlock.Amount) != 0 {
 				panic(dex.InvalidAmountForPledgeCallbackErr)
 			}
 		}
@@ -590,21 +650,8 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 	var cancelPledgeParam = new(dex.ParamDexFundPledgeCallBack)
 	cabi.ABIDexFund.UnpackMethod(cancelPledgeParam, cabi.MethodNameDexFundCancelPledgeCallback, sendBlock.Data)
 	if cancelPledgeParam.Success {
-		if cancelPledgeParam.Bid == dex.PledgeForVip {
-			if dex.PledgeForVipAmount.Cmp(sendBlock.Amount) != 0 {
-				panic(dex.InvalidAmountForPledgeCallbackErr)
-			}
-			if pledgeVip, ok := dex.GetPledgeForVip(db, cancelPledgeParam.PledgeAddress); ok {
-				pledgeVip.PledgeTimes = pledgeVip.PledgeTimes - 1
-				if pledgeVip.PledgeTimes == 0 {
-					dex.DeletePledgeForVip(db, cancelPledgeParam.PledgeAddress)
-				} else {
-					dex.SavePledgeForVip(db, cancelPledgeParam.PledgeAddress, pledgeVip)
-				}
-			} else {
-				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundCancelPledgeCallback, dex.PledgeForVipNotExistsErr, sendBlock)
-			}
-		} else if cancelPledgeParam.Bid == dex.PledgeForVx {
+		switch cancelPledgeParam.Bid {
+		case dex.PledgeForVx:
 			if cancelPledgeParam.Amount.Cmp(sendBlock.Amount) != 0 {
 				panic(dex.InvalidAmountForPledgeCallbackErr)
 			}
@@ -618,6 +665,34 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 				dex.SavePledgeForVx(db, cancelPledgeParam.PledgeAddress, leaved)
 			}
 			dex.OnCancelPledgeForVxSuccess(db, vm.ConsensusReader(), cancelPledgeParam.PledgeAddress, sendBlock.Amount, leaved)
+		case dex.PledgeForVip:
+			if dex.PledgeForVipAmount.Cmp(sendBlock.Amount) != 0 {
+				panic(dex.InvalidAmountForPledgeCallbackErr)
+			}
+			if pledgeVip, ok := dex.GetPledgeForVip(db, cancelPledgeParam.PledgeAddress); ok {
+				pledgeVip.PledgeTimes = pledgeVip.PledgeTimes - 1
+				if pledgeVip.PledgeTimes == 0 {
+					dex.DeletePledgeForVip(db, cancelPledgeParam.PledgeAddress)
+				} else {
+					dex.SavePledgeForVip(db, cancelPledgeParam.PledgeAddress, pledgeVip)
+				}
+			} else {
+				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundCancelPledgeCallback, dex.PledgeForVipNotExistsErr, sendBlock)
+			}
+		case dex.PledgeForSuperVip:
+			if dex.PledgeForSuperVipAmount.Cmp(sendBlock.Amount) != 0 {
+				panic(dex.InvalidAmountForPledgeCallbackErr)
+			}
+			if pledgeSuperVip, ok := dex.GetPledgeForSuperVip(db, cancelPledgeParam.PledgeAddress); ok {
+				pledgeSuperVip.PledgeTimes = pledgeSuperVip.PledgeTimes - 1
+				if pledgeSuperVip.PledgeTimes == 0 {
+					dex.DeletePledgeForSuperVip(db, cancelPledgeParam.PledgeAddress)
+				} else {
+					dex.SavePledgeForSuperVip(db, cancelPledgeParam.PledgeAddress, pledgeSuperVip)
+				}
+			} else {
+				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundCancelPledgeCallback, dex.PledgeForSuperVipNotExistsErr, sendBlock)
+			}
 		}
 		dex.DepositUserAccount(db, cancelPledgeParam.PledgeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}

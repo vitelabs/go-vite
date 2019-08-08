@@ -209,6 +209,15 @@ func (f DexFundApi) IsPledgeVip(address types.Address) (bool, error) {
 	return ok, nil
 }
 
+func (f DexFundApi) IsPledgeSuperVip(address types.Address) (bool, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return false, err
+	}
+	_, ok := dex.GetPledgeForSuperVip(db, address)
+	return ok, nil
+}
+
 func (f DexFundApi) IsViteXStopped() (bool, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {

@@ -16,6 +16,7 @@ const (
         {"type":"function","name":"DexFundPeriodJob", "inputs":[{"name":"periodId","type":"uint64"},{"name":"bizType","type":"uint8"}]},
         {"type":"function","name":"DexFundPledgeForVx", "inputs":[{"name":"actionType","type":"uint8"}, {"name":"amount","type":"uint256"}]},
         {"type":"function","name":"DexFundPledgeForVip", "inputs":[{"name":"actionType","type":"uint8"}]},
+        {"type":"function","name":"DexFundPledgeForSuperVip", "inputs":[{"name":"actionType","type":"uint8"}]},
         {"type":"function","name":"AgentPledgeCallback", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
         {"type":"function","name":"AgentCancelPledgeCallback", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
         {"type":"function","name":"GetTokenInfoCallback", "inputs":[{"name":"tokenId","type":"tokenId"},{"name":"bid","type":"uint8"},{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"},{"name":"owner","type":"address"}]},
@@ -38,6 +39,7 @@ const (
 	MethodNameDexFundNewMarket            = "DexFundNewMarket"
 	MethodNameDexFundPledgeForVx          = "DexFundPledgeForVx"
 	MethodNameDexFundPledgeForVip         = "DexFundPledgeForVip"
+	MethodNameDexFundPledgeForSuperVip    = "DexFundPledgeForSuperVip"
 	MethodNameDexFundPledgeCallback       = "AgentPledgeCallback"
 	MethodNameDexFundCancelPledgeCallback = "AgentCancelPledgeCallback"
 	MethodNameDexFundGetTokenInfoCallback = "GetTokenInfoCallback"

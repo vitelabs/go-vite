@@ -40,6 +40,7 @@ type ContractsParams struct {
 	CreateConsensusGroupPledgeHeight uint64 // Pledge height for registering to be a super node of snapshot group and common delegate group
 	MintPledgeHeight                 uint64 // Pledge height for mintage if choose to pledge instead of destroy vite token
 	ViteXVipPledgeHeight             uint64 // Pledge height for dex_fund contract, in order to upgrade to viteX vip
+	ViteXSuperVipPledgeHeight        uint64 // Pledge height for dex_fund contract, in order to upgrade to viteX super vip
 }
 
 var (
@@ -49,6 +50,7 @@ var (
 		CreateConsensusGroupPledgeHeight: 1,
 		MintPledgeHeight:                 1,
 		ViteXVipPledgeHeight:             1,
+		ViteXSuperVipPledgeHeight:        1,
 	}
 	ContractsParamsMainNet = ContractsParams{
 		RegisterMinPledgeHeight:          3600 * 24 * 3,
@@ -56,5 +58,6 @@ var (
 		CreateConsensusGroupPledgeHeight: 3600 * 24 * 3,
 		MintPledgeHeight:                 3600 * 24 * 30 * 3,
 		ViteXVipPledgeHeight:             3600 * 24 * 30,
+		ViteXSuperVipPledgeHeight:        3600 * 24 * 30,
 	}
 )
