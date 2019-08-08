@@ -752,9 +752,9 @@ func (n *net) Info() NodeInfo {
 		PeerCount: len(ps),
 		Peers:     ps,
 		Height:    n.chain.GetLatestSnapshotBlock().Height,
-		Nodes:     n.discover.NodesCount(),
-		Latency:   n.broadcaster.Statistic(),
-		Server:    FileServerStatus{},
+		//Nodes:     n.discover.NodesCount(),
+		Latency: n.broadcaster.Statistic(),
+		Server:  FileServerStatus{},
 	}
 
 	if n.syncServer != nil {
