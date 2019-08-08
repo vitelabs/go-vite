@@ -239,7 +239,7 @@ func OnTransferOwnerGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTy
 	return
 }
 
-func PreCheckOrderParam(orderParam *ParamDexFundNewOrder) error {
+func PreCheckOrderParam(orderParam *ParamDexFundNewOrder, isNewFork bool) error {
 	if orderParam.Quantity.Sign() <= 0 {
 		return InvalidOrderQuantityErr
 	}
@@ -248,7 +248,7 @@ func PreCheckOrderParam(orderParam *ParamDexFundNewOrder) error {
 		return InvalidOrderTypeErr
 	}
 	if orderParam.OrderType == Limited {
-		if !ValidPrice(orderParam.Price) {
+		if !ValidPrice(orderParam.Price, isNewFork) {
 			return InvalidOrderPriceErr
 		}
 	}
@@ -386,7 +386,7 @@ func newTokenInfoFromCallback(db vm_db.VmDb, param *ParamDexFundGetTokenInfoCall
 	return tokenInfo
 }
 
-func ValidPrice(price string) bool {
+func ValidPrice(price string, isFork bool) bool {
 	if len(price) == 0 {
 		return false
 	} else if pr, err := strconv.ParseFloat(price, 64); err != nil || pr <= 0 {
@@ -397,33 +397,13 @@ func ValidPrice(price string) bool {
 		idx := strings.Index(price, ".")
 		if idx > priceIntMaxLen { // 10^12 < 2^40(5bytes)
 			return false
-		} else if idx >= 0 {
-			if len(price)-(idx+1) > priceDecimalMaxLen { // // max price precision is 12 decimals 10^12 < 2^40(5bytes)
-				return false
-			}
+		} else if idx >= 0 && len(price)-(idx+1) > priceDecimalMaxLen { // max price precision is 12 decimals 10^12 < 2^40(5bytes)
+			return false
+		} else if idx == -1 && isFork && len(price) > priceIntMaxLen {
+			return false
 		}
 	}
 	return true
-}
-
-func VerifyNewOrderPriceForRpc(data []byte) (valid bool) {
-	valid = true
-	if len(data) < 4 {
-		return
-	}
-	if bytes.Equal(data[:4], newOrderMethodId) {
-		param := new(ParamDexFundNewOrder)
-		if err := abi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, data); err == nil {
-			if !ValidPrice(param.Price) {
-				valid = false
-			} else if idx := strings.Index(param.Price, "."); idx == -1 && len(param.Price) > priceIntMaxLen {
-				valid = false
-			}
-		} else {
-			valid = false
-		}
-	}
-	return
 }
 
 func MaxTotalFeeRate(order Order) int32 {

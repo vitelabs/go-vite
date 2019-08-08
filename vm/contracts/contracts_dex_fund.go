@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -200,7 +201,12 @@ func (md *MethodDexFundNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBloc
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, block.Data); err != nil {
 		return err
 	}
-	err = dex.PreCheckOrderParam(param)
+	var latestSb *ledger.SnapshotBlock
+	if latestSb, err = db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		err = dex.PreCheckOrderParam(param, fork.IsNewFork(latestSb.Height))
+	}
 	return
 }
 

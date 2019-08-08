@@ -83,9 +83,6 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 	if !checkTxToAddressAvailable(params.ToAddr) {
 		return errors.New("ToAddress is invalid")
 	}
-	if params.ToAddr == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(params.Data) {
-		return dex.InvalidOrderPriceErr
-	}
 
 	msg := &generator.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
