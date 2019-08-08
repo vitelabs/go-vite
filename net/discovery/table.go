@@ -418,7 +418,7 @@ func (tab *table) add(node *Node) (toCheck *Node) {
 		if old.needCheck() {
 			// same address, different info
 			// check old node
-			tab.checkRemove(old)
+			go tab.checkRemove(old)
 		}
 
 		return old
@@ -436,7 +436,7 @@ func (tab *table) add(node *Node) (toCheck *Node) {
 
 	if toCheck.needCheck() {
 		// toCheck has different address with node
-		tab.checkReplace(bkt, toCheck, node)
+		go tab.checkReplace(bkt, toCheck, node)
 	}
 
 	return
