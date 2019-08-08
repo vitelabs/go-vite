@@ -210,7 +210,9 @@ func (p *pingRequest) handle(pkt *packet, err error) bool {
 	bd := pkt.body
 	if png, ok := bd.(*pong); ok {
 		if bytes.Equal(png.echo, p.hash) {
-			p.receivePong(pkt, png)
+			// will ping this received node
+			// so use goroutine
+			go p.receivePong(pkt, png)
 
 			return true
 		}
@@ -219,6 +221,7 @@ func (p *pingRequest) handle(pkt *packet, err error) bool {
 	return false
 }
 
+// will ping again
 func (p *pingRequest) receivePong(pkt *packet, png *pong) {
 	node := nodeFromPong(pkt)
 	p.done(node, nil)
