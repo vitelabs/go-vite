@@ -671,7 +671,7 @@ func getFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*FeeSumByPeriod, bool) {
 }
 
 //get all feeSums that not divided yet
-func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]*FeeSumByPeriod) {
+func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) map[uint64]*FeeSumByPeriod {
 	var (
 		dexFeeSums    = make(map[uint64]*FeeSumByPeriod)
 		dexFeeSum     *FeeSumByPeriod
@@ -829,7 +829,7 @@ func DeleteUserFees(db vm_db.VmDb, address []byte) {
 func TruncateUserFeesToPeriod(userFees *UserFees, periodId uint64) (truncated bool) {
 	i := 0
 	size := len(userFees.Fees)
-	for ; ; {
+	for {
 		if i < size && userFees.Fees[i].Period < periodId {
 			i++
 		} else {

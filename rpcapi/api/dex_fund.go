@@ -440,6 +440,7 @@ func (f DexFundPrivateApi) GetFundConfig() (map[string]string, error) {
 }
 
 func (f DexFundPrivateApi) GetThresholdForTradeAndMine() (map[int]*apidex.RpcThresholdForTradeAndMine, error) {
+
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err

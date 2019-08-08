@@ -459,7 +459,7 @@ func getDexTokenSymbol(tokenInfo *TokenInfo) string {
 		return tokenInfo.Symbol
 	} else {
 		indexStr := strconv.Itoa(int(tokenInfo.Index))
-		for ; len(indexStr) < 3; {
+		for len(indexStr) < 3 {
 			indexStr = "0" + indexStr
 		}
 		return fmt.Sprintf("%s-%s", tokenInfo.Symbol, indexStr)
