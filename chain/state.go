@@ -31,13 +31,14 @@ func (c *chain) GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.In
 
 // get confirmed snapshot Balance, if history is too old, failed
 func (c *chain) GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error) {
-	balances, err := c.stateDB.GetSnapshotBalanceList(sbHash, addrList, tokenId)
-	if err != nil {
+	balanceMap := make(map[types.Address]*big.Int, len(addrList))
+
+	if err := c.stateDB.GetSnapshotBalanceList(balanceMap, sbHash, addrList, tokenId); err != nil {
 		c.log.Error(err.Error(), "method", "GetConfirmedBalance")
 		return nil, err
 	}
 
-	return balances, nil
+	return balanceMap, nil
 }
 
 // get contract code
@@ -121,7 +122,7 @@ func (c *chain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error) 
 }
 
 func (c *chain) GetQuotaUnused(address types.Address) (uint64, error) {
-	quotaInfo, err := c.GetPledgeQuota(address)
+	_, quotaInfo, err := c.GetPledgeQuota(address)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.GetPledgeQuota failed, address is %s. Error: %s", address, err))
 		c.log.Error(cErr.Error(), "method", "GetQuotaUnused")

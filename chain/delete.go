@@ -120,10 +120,10 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 	}
 
 	// rollback blocks db
-	hasStorageRedoLog, err := c.stateDB.StorageRedo().HasRedo(toHeight)
+	hasStorageRedoLog, err := c.stateDB.Redo().HasRedo(toHeight)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.StorageRedo().HasRedo() failed, toHeight is %d. Error: %s", toHeight, err.Error()))
+		cErr := errors.New(fmt.Sprintf("c.stateDB.Redo().HasRedo() failed, toHeight is %d. Error: %s", toHeight, err.Error()))
 		c.log.Error(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 

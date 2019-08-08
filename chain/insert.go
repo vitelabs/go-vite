@@ -11,10 +11,11 @@ import (
 )
 
 func (c *chain) InsertAccountBlock(vmAccountBlock *vm_db.VmAccountBlock) error {
-	// FOR DEBUG
-	c.log.Info(fmt.Sprintf("insert account block %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash))
 	c.flushMu.RLock()
 	defer c.flushMu.RUnlock()
+
+	// FOR DEBUG
+	c.log.Info(fmt.Sprintf("insert account block %s %d %s %s\n", vmAccountBlock.AccountBlock.AccountAddress, vmAccountBlock.AccountBlock.Height, vmAccountBlock.AccountBlock.Hash, vmAccountBlock.AccountBlock.FromBlockHash))
 
 	vmAbList := []*vm_db.VmAccountBlock{vmAccountBlock}
 	if err := c.em.TriggerInsertAbs(prepareInsertAbsEvent, vmAbList); err != nil {

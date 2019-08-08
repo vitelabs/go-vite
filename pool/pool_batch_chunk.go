@@ -59,6 +59,9 @@ func (pl *pool) insertChunks(chunks *net.Chunk) bool {
 	if state != CONNECTED {
 		return false
 	}
+
+	pl.bc.SetCacheLevelForConsensus(1)
+	defer pl.bc.SetCacheLevelForConsensus(0)
 	err := pl.insertChunksToChain(chunks.SnapshotChunks, source)
 	if err != nil {
 		pl.log.Error("insert chunks fail.", "err", err)

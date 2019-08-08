@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/chain/state"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -32,6 +33,7 @@ type EventListener interface {
 
 type Consensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
+	SBPReader() core.SBPStatReader
 	VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error)
 }
 
@@ -243,7 +245,7 @@ type Chain interface {
 	GetPledgeBeneficialAmount(addr types.Address) (*big.Int, error)
 
 	// total
-	GetPledgeQuota(addr types.Address) (*types.Quota, error)
+	GetPledgeQuota(addr types.Address) (*big.Int, *types.Quota, error)
 
 	// total
 	GetPledgeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error)
@@ -275,6 +277,8 @@ type Chain interface {
 	ClearOnRoadUnconfirmedCache(addr types.Address, hashList []*types.Hash) error
 
 	// ====== Other ======
+	SetCacheLevelForConsensus(level uint32) // affect `GetVoteList` and `GetConfirmedBalanceList`. 0 means no cache, 1 means cache
+
 	NewDb(dirName string) (*leveldb.DB, error)
 
 	Plugins() *chain_plugins.Plugins
@@ -284,6 +288,10 @@ type Chain interface {
 	DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB)
 
 	Flusher() *chain_flusher.Flusher
+
+	StopWrite()
+
+	RecoverWrite()
 
 	// ====== Check ======
 	CheckRedo() error

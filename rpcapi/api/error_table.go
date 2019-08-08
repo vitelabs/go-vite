@@ -82,6 +82,10 @@ var (
 		Message: ErrPoWNotSupportedUnderCongestion.Error(),
 		Code:    -35011,
 	}
+	ErrVmQuotaLimitReached = JsonRpc2Error{
+		Message: util.ErrBlockQuotaLimitReached.Error(),
+		Code:    -35012,
+	}
 
 	// -36001 ~ -36999 verifier_account
 	ErrVerifyAccountAddr = JsonRpc2Error{
@@ -178,6 +182,7 @@ func init() {
 	concernedErrorMap[ErrVmNoReliableStatus.Error()] = ErrVmNoReliableStatus
 	concernedErrorMap[ErrVmInvalidQuotaRatio.Error()] = ErrVmInvalidQuotaRatio
 	concernedErrorMap[ErrVmPoWNotSupported.Error()] = ErrVmPoWNotSupported
+	concernedErrorMap[ErrVmQuotaLimitReached.Error()] = ErrVmQuotaLimitReached
 
 	concernedErrorMap[ErrVerifyAccountAddr.Error()] = ErrVerifyAccountAddr
 	concernedErrorMap[ErrVerifyHash.Error()] = ErrVerifyHash
