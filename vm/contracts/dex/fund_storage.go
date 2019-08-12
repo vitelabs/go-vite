@@ -45,7 +45,7 @@ var (
 	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
-	pledgeForVipKeyPrefix = []byte("pldVip:") // pledgeForVip: types.Address
+	pledgeForVipKeyPrefix      = []byte("pldVip:")   // pledgeForVip: types.Address
 	pledgeForSuperVipKeyPrefix = []byte("pldSpVip:") // pledgeForSuperVip: types.Address
 
 	pledgesForVxKeyPrefix = []byte("pldsVx:") // pledgesForVx: types.Address
@@ -66,6 +66,8 @@ var (
 	lastSettledMakerMinedVxPageKey   = []byte("lsmmvpp:")
 
 	viteOwnerInitiated = []byte("voited:")
+
+	grantedMarketToAgentKeyPrefix = []byte("gtMkAt:")
 
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 
@@ -178,6 +180,11 @@ const (
 	GetTokenForTransferOwner
 )
 
+const (
+	GrantAgent = iota + 1
+	RevokeAgent
+)
+
 type QuoteTokenTypeInfo struct {
 	Decimals              int32
 	DefaultTradeThreshold *big.Int
@@ -196,6 +203,11 @@ type ParamDexFundNewOrder struct {
 	OrderType  uint8
 	Price      string
 	Quantity   *big.Int
+}
+
+type ParamDexFundNewAgentOrder struct {
+	Principal types.Address
+	ParamDexFundNewOrder
 }
 
 type ParamDexPeriodJob struct {
@@ -292,6 +304,13 @@ type ParamDexFundTransferTokenOwner struct {
 
 type ParamDexFundNotifyTime struct {
 	Timestamp int64
+}
+
+type ParamDexFundGrantAgent struct {
+	ActionType uint8 // 1: grant 2: revoke
+	Agent      types.Address
+	TradeToken types.TokenTypeId
+	QuoteToken types.TokenTypeId
 }
 
 type UserFund struct {
@@ -1615,6 +1634,75 @@ func GetVxMinePool(db vm_db.VmDb) *big.Int {
 
 func SaveVxMinePool(db vm_db.VmDb, amount *big.Int) {
 	setValueToDb(db, vxMinePoolKey, amount.Bytes())
+}
+
+func GrantMarketToAgent(db vm_db.VmDb, principal, agent types.Address, marketId int32) {
+	var (
+		key   = GetGrantedMarketToAgentKey(principal, marketId)
+		data  []byte
+		found bool
+	)
+	if data = getValueFromDb(db, key); len(data) >= types.AddressSize {
+		dataLen := len(data)
+		if dataLen%types.AddressSize != 0 {
+			panic(InternalErr)
+		}
+		for i := 0; (i+1)*types.AddressSize <= dataLen; i++ {
+			if bytes.Equal(agent.Bytes(), data[i*types.AddressSize:(i+1)*types.AddressSize]) {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		data = append(data, agent.Bytes()...)
+		setValueToDb(db, key, data)
+	}
+}
+
+func RevokeMarketFromAgent(db vm_db.VmDb, principal, agent types.Address, marketId int32) {
+	var (
+		key  = GetGrantedMarketToAgentKey(principal, marketId)
+		data []byte
+	)
+	if data = getValueFromDb(db, key); len(data) >= types.AddressSize {
+		dataLen := len(data)
+		if dataLen%types.AddressSize != 0 {
+			panic(InternalErr)
+		}
+		for i := 0; (i+1)*types.AddressSize <= dataLen; i++ {
+			if bytes.Equal(agent.Bytes(), data[i*types.AddressSize:(i+1)*types.AddressSize]) {
+				if (i+1)*types.AddressSize < dataLen {
+					copy(data[i*types.AddressSize:], data[dataLen-types.AddressSize:])
+				}
+				data = data[:dataLen-types.AddressSize]
+				break
+			}
+		}
+		setValueToDb(db, key, data)
+	}
+}
+
+func IsMarketGrantedToAgent(db vm_db.VmDb, principal, agent types.Address, marketId int32) bool {
+	if data := getValueFromDb(db, GetGrantedMarketToAgentKey(principal, marketId)); len(data) >= types.AddressSize {
+		if len(data)%types.AddressSize != 0 {
+			panic(InternalErr)
+		}
+		for i := 0; (i+1)*types.AddressSize <= len(data); i++ {
+			if bytes.Equal(agent.Bytes(), data[i*types.AddressSize:(i+1)*types.AddressSize]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func GetGrantedMarketToAgentKey(principal types.Address, marketId int32) []byte {
+	re := make([]byte, len(grantedMarketToAgentKeyPrefix)+types.AddressSize+3)
+	copy(re[:], grantedMarketToAgentKeyPrefix)
+	copy(re[len(grantedMarketToAgentKeyPrefix):], principal.Bytes())
+	copy(re[len(grantedMarketToAgentKeyPrefix)+types.AddressSize:], Uint32ToBytes(uint32(marketId))[1:])
+	return re
 }
 
 func deserializeFromDb(db vm_db.VmDb, key []byte, serializable SerializableDex) bool {

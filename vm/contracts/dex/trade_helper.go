@@ -11,6 +11,7 @@ import (
 var marketByMarketIdPrefix = []byte("mkIf:")
 
 var tradeTimestampKey = []byte("ttmsp:")
+var sendHashMapOrderIdPrefixKey = []byte("hmId:")
 
 const CleanExpireOrdersMaxCount = 200
 
@@ -91,6 +92,26 @@ func GetTradeTimestamp(db vm_db.VmDb) int64 {
 	} else {
 		return 0
 	}
+}
+
+func SaveHashMapOrderId(db vm_db.VmDb, sendHash []byte, orderId []byte) {
+	setValueToDb(db, GetHashMapOrderIdKey(sendHash), orderId)
+}
+
+func GetOrderIdByHash(db vm_db.VmDb, sendHash []byte) ([]byte, bool) {
+	if orderId := getValueFromDb(db, GetHashMapOrderIdKey(sendHash)); len(orderId) == OrderIdBytesLength {
+		return orderId, true
+	} else {
+		return nil, false
+	}
+}
+
+func DeleteHashMapOrderId(db vm_db.VmDb, sendHash []byte) {
+	setValueToDb(db, GetHashMapOrderIdKey(sendHash), nil)
+}
+
+func GetHashMapOrderIdKey(sendHash []byte) []byte {
+	return append(sendHashMapOrderIdPrefixKey, sendHash[len(sendHashMapOrderIdPrefixKey):]...)
 }
 
 func TryUpdateTimestamp(db vm_db.VmDb, timestamp int64, preHash types.Hash) {

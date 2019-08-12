@@ -26,6 +26,8 @@ message Order {
     bytes RefundToken = 20;
     bytes RefundQuantity = 21; //refund trade/quote token
     int64 Timestamp = 22; // [unset on serialize]
+    bytes Agent = 23;
+    bytes SendHash = 24;
 }
 
 //storage

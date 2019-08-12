@@ -52,7 +52,7 @@ type builtinContract struct {
 var (
 	simpleContracts      = newSimpleContracts()
 	dexContracts         = newDexContracts()
-	dexDelegateContracts = newDexDelegateContracts()
+	dexDelegateContracts = newDexAgentContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
@@ -113,7 +113,7 @@ func newDexContracts() map[types.Address]*builtinContract {
 			cabi.MethodNameDexFundNewInviter:           &MethodDexFundNewInviter{},
 			cabi.MethodNameDexFundBindInviteCode:       &MethodDexFundBindInviteCode{},
 			cabi.MethodNameDexFundEndorseVxMinePool:    &MethodDexFundEndorseVxMinePool{},
-			cabi.MethodNameDexFunSettleMakerMinedVx:    &MethodDexFundSettleMakerMinedVx{},
+			cabi.MethodNameDexFundSettleMakerMinedVx:   &MethodDexFundSettleMakerMinedVx{},
 		},
 		cabi.ABIDexFund,
 	}
@@ -128,9 +128,13 @@ func newDexContracts() map[types.Address]*builtinContract {
 	}
 	return contracts
 }
-func newDexDelegateContracts() map[types.Address]*builtinContract {
+
+func newDexAgentContracts() map[types.Address]*builtinContract {
 	contracts := newDexContracts()
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundPledgeForSuperVip] = &MethodDexFundPledgeForSuperVip{}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundGrantAgent] = &MethodDexFundGrantAgent{}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundNewAgentOrder] = &MethodDexFundNewAgentOrder{}
+	contracts[types.AddressDexTrade].m[cabi.MethodNameDexTradeCancelOrderByHash] = &MethodDexTradeCancelOrderByHash{}
 	return contracts
 }
 

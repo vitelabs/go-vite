@@ -8,6 +8,7 @@ var (
 	InvalidInputParamErr = errors.New("invalid input param")
 
 	InvalidOrderIdErr       = errors.New("invalid order id")
+	InvalidOrderHashErr     = errors.New("invalid order hash")
 	InvalidOrderTypeErr     = errors.New("invalid order type")
 	InvalidOrderPriceErr    = errors.New("invalid order price format")
 	InvalidOrderQuantityErr = errors.New("invalid order quantity")
@@ -18,6 +19,8 @@ var (
 	TradeMarketExistsErr            = errors.New("trade market already exists")
 	TradeMarketNotExistsErr         = errors.New("trade market not exists")
 	TradeMarketStoppedErr           = errors.New("trade market stopped")
+	TradeMarketNotGrantedErr        = errors.New("trade market not granted")
+	TradeMarketAlreadyGrantedErr    = errors.New("trade market already granted ")
 	ComposeOrderIdFailErr           = errors.New("compose order id fail")
 	DeComposeOrderIdFailErr         = errors.New("decompose order id fail")
 	TradeMarketInvalidQuoteTokenErr = errors.New("invalid quote token")

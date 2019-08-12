@@ -3,6 +3,7 @@ package dex
 import (
 	"bytes"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -255,7 +256,45 @@ func PreCheckOrderParam(orderParam *ParamDexFundNewOrder, isNewFork bool) error 
 	return nil
 }
 
-func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, address types.Address) (*MarketInfo, error) {
+func DoNewOrder(db vm_db.VmDb, param *ParamDexFundNewOrder, accountAddress, agent *types.Address, sendHash types.Hash) ([]*ledger.AccountBlock, error) {
+	var (
+		dexFund        *UserFund
+		tradeBlockData []byte
+		err            error
+		orderInfoBytes []byte
+		marketInfo     *MarketInfo
+		ok             bool
+	)
+	order := &Order{}
+	if marketInfo, err = RenderOrder(order, param, db, accountAddress, agent, sendHash); err != nil {
+		return nil, err
+	}
+	if dexFund, ok = GetUserFund(db, *accountAddress); !ok {
+		return nil, ExceedFundAvailableErr
+	}
+	if err = CheckAndLockFundForNewOrder(dexFund, order, marketInfo); err != nil {
+		return nil, err
+	}
+	SaveUserFund(db, *accountAddress, dexFund)
+	if orderInfoBytes, err = order.Serialize(); err != nil {
+		panic(err)
+	}
+	if tradeBlockData, err = cabi.ABIDexTrade.PackMethod(cabi.MethodNameDexTradeNewOrder, orderInfoBytes); err != nil {
+		panic(err)
+	}
+	return []*ledger.AccountBlock{
+		{
+			AccountAddress: types.AddressDexFund,
+			ToAddress:      types.AddressDexTrade,
+			BlockType:      ledger.BlockTypeSendCall,
+			TokenId:        ledger.ViteTokenId,
+			Amount:         big.NewInt(0),
+			Data:           tradeBlockData,
+		},
+	}, nil
+}
+
+func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, accountAddress, agent *types.Address, sendHash types.Hash) (*MarketInfo, error) {
 	var (
 		marketInfo *MarketInfo
 		ok         bool
@@ -267,15 +306,19 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 		return nil, TradeMarketNotExistsErr
 	} else if marketInfo.Stopped {
 		return nil, TradeMarketStoppedErr
+	} else if agent != nil {
+		if !IsMarketGrantedToAgent(db, *accountAddress, *agent, marketInfo.MarketId) {
+			return nil, TradeMarketNotGrantedErr
+		}
 	}
 	order.Id = ComposeOrderId(db, marketInfo.MarketId, param.Side, param.Price)
 	order.MarketId = marketInfo.MarketId
-	order.Address = address.Bytes()
+	order.Address = accountAddress.Bytes()
 	order.Side = param.Side
 	order.Type = int32(param.OrderType)
 	order.Price = PriceToBytes(param.Price)
 	order.Quantity = param.Quantity.Bytes()
-	RenderFeeRate(address, order, marketInfo, db)
+	RenderFeeRate(*accountAddress, order, marketInfo, db)
 	if order.Type == Limited {
 		order.Amount = CalculateRawAmount(order.Quantity, order.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 		if !order.Side { //buy
@@ -292,6 +335,13 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
 	order.Timestamp = GetTimestampInt64(db)
+	order.Quantity = param.Quantity.Bytes()
+	if IsNewFork(db) {
+		if agent != nil {
+			order.Agent = agent.Bytes()
+		}
+		order.SendHash = sendHash.Bytes()
+	}
 	return marketInfo, nil
 }
 
@@ -421,6 +471,14 @@ func MaxTotalFeeRate(order Order) int32 {
 // only for unit test
 func SetFeeRate(baseRate int32) {
 	BaseFeeRate = baseRate
+}
+
+func IsNewFork(db vm_db.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return fork.IsNewFork(latestSb.Height)
+	}
 }
 
 func ValidBrokerFeeRate(feeRate int32) bool {

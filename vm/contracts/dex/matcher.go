@@ -135,7 +135,7 @@ func (mc *Matcher) CancelOrderById(order *Order) {
 	order.Status = Cancelled
 	mc.handleRefund(order)
 	mc.emitOrderUpdate(*order)
-	mc.deleteOrder(order.Id)
+	mc.deleteOrder(order)
 }
 
 func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook, preHash types.Hash) (err error) {
@@ -188,7 +188,7 @@ func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBoo
 
 func (mc *Matcher) handleTakerRes(taker *Order) {
 	if taker.Status == PartialExecuted || taker.Status == Pending {
-		mc.saveOrder(*taker)
+		mc.saveOrder(*taker, true)
 	} else { // in case isDust still need refund FullExecuted status order
 		mc.handleRefund(taker)
 	}
@@ -199,9 +199,9 @@ func (mc *Matcher) handleModifiedMakers(makers []*Order) {
 	for _, maker := range makers {
 		if maker.Status == FullyExecuted || maker.Status == Cancelled {
 			mc.handleRefund(maker) // in case isDust still need refund FullExecuted status order
-			mc.deleteOrder(maker.Id)
+			mc.deleteOrder(maker)
 		} else {
-			mc.saveOrder(*maker)
+			mc.saveOrder(*maker, false)
 		}
 		mc.emitOrderUpdate(*maker)
 	}
@@ -342,17 +342,23 @@ func (mc *Matcher) getMakerBookToTaker(takerSide bool) (*levelDbBook, error) {
 	return getMakerBook(mc.db, mc.MarketInfo.MarketId, !takerSide)
 }
 
-func (mc *Matcher) saveOrder(order Order) {
+func (mc *Matcher) saveOrder(order Order, isTaker bool) {
 	orderId := order.Id
 	if data, err := order.SerializeCompact(); err != nil {
 		panic(err)
 	} else {
 		setValueToDb(mc.db, orderId, data)
 	}
+	if isTaker && len(order.SendHash) > 0 {
+		SaveHashMapOrderId(mc.db, order.SendHash, orderId)
+	}
 }
 
-func (mc *Matcher) deleteOrder(orderId []byte) {
-	setValueToDb(mc.db, orderId, nil)
+func (mc *Matcher) deleteOrder(order *Order) {
+	setValueToDb(mc.db, order.Id, nil)
+	if len(order.SendHash) > 0 {
+		DeleteHashMapOrderId(mc.db, order.SendHash)
+	}
 }
 
 func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo) (tx *OrderTx) {
