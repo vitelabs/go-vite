@@ -200,15 +200,15 @@ func (md *MethodDexTradeCancelOrderByHash) GetReceiveQuota(gasTable *util.GasTab
 }
 
 func (md *MethodDexTradeCancelOrderByHash) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
-	err = cabi.ABIDexTrade.UnpackMethod(new(types.Hash), cabi.MethodNameDexTradeCancelOrderByHash, block.Data)
+	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexSerializedData), cabi.MethodNameDexTradeCancelOrderByHash, block.Data)
 	return
 }
 
 func (md MethodDexTradeCancelOrderByHash) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	sendHash := new(types.Hash)
+	sendHash := new(dex.ParamDexSerializedData)
 	cabi.ABIDexTrade.UnpackMethod(sendHash, cabi.MethodNameDexTradeCancelOrderByHash, sendBlock.Data)
 
-	if orderId, ok := dex.GetOrderIdByHash(db, sendHash.Bytes()); !ok {
+	if orderId, ok := dex.GetOrderIdByHash(db, sendHash.Data); !ok {
 		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCancelOrderByHash, dex.InvalidOrderHashErr, sendBlock)
 	} else {
 		return handleCancelOrderById(db, orderId, cabi.MethodNameDexTradeCancelOrderByHash, block, sendBlock)
