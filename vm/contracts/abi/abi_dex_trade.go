@@ -12,7 +12,7 @@ const (
 		{"type":"function","name":"DexTradeCancelOrder", "inputs":[{"name":"orderId","type":"bytes"}]},
 		{"type":"function","name":"DexTradeNotifyNewMarket", "inputs":[{"name":"data","type":"bytes"}]},
 		{"type":"function","name":"DexTradeCleanExpireOrders", "inputs":[{"name":"data","type":"bytes"}]},
-		{"type":"function","name":"DexTradeCancelOrderByHash", "inputs":[{"name":"sendHash","type":"hash"}]}
+		{"type":"function","name":"DexTradeCancelOrderByHash", "inputs":[{"name":"sendHash","type":"bytes"}]}
 ]`
 	MethodNameDexTradeNewOrder          = "DexTradeNewOrder"
 	MethodNameDexTradeCancelOrder       = "DexTradeCancelOrder"
