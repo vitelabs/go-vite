@@ -81,6 +81,14 @@ func (f DexTradeApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMar
 	}
 }
 
+func (f DexTradeApi) GetTimestamp() (timestamp int64, err error) {
+	if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+		return -1, err
+	} else {
+		return dex.GetTradeTimestamp(tradeDb), nil
+	}
+}
+
 func getDb(c chain.Chain, address types.Address) (db vm_db.VmDb, err error) {
 	prevHash, err := getPrevBlockHash(c, address)
 	if err != nil {
@@ -94,33 +102,33 @@ func getDb(c chain.Chain, address types.Address) (db vm_db.VmDb, err error) {
 }
 
 type RpcOrder struct {
-	Id                   string   `json:"Id"`
-	Address              string   `json:"Address"`
-	MarketId             int32    `json:"MarketId"`
-	Side                 bool     `json:"Side"`
-	Type                 int32    `json:"Type"`
-	Price                string   `json:"Price"`
-	TakerFeeRate         int32    `json:"TakerFeeRate"`
-	MakerFeeRate         int32    `json:"MakerFeeRate"`
-	TakerBrokerFeeRate   int32    `json:"TakerBrokerFeeRate"`
-	MakerBrokerFeeRate   int32    `json:"MakerBrokerFeeRate"`
-	Quantity             string   `json:"Quantity"`
-	Amount               string   `json:"Amount"`
-	LockedBuyFee         string   `json:"LockedBuyFee,omitempty"`
-	Status               int32    `json:"Status"`
-	CancelReason         int32    `json:"CancelReason,omitempty"`
-	ExecutedQuantity     string   `json:"ExecutedQuantity,omitempty"`
-	ExecutedAmount       string   `json:"ExecutedAmount,omitempty"`
-	ExecutedBaseFee      string   `json:"ExecutedBaseFee,omitempty"`
-	ExecutedBrokerFee    string   `json:"ExecutedBrokerFee,omitempty"`
-	RefundToken          string   `json:"RefundToken,omitempty"`
-	RefundQuantity       string   `json:"RefundQuantity,omitempty"`
-	Timestamp            int64    `json:"Timestamp"`
+	Id                 string `json:"Id"`
+	Address            string `json:"Address"`
+	MarketId           int32  `json:"MarketId"`
+	Side               bool   `json:"Side"`
+	Type               int32  `json:"Type"`
+	Price              string `json:"Price"`
+	TakerFeeRate       int32  `json:"TakerFeeRate"`
+	MakerFeeRate       int32  `json:"MakerFeeRate"`
+	TakerBrokerFeeRate int32  `json:"TakerBrokerFeeRate"`
+	MakerBrokerFeeRate int32  `json:"MakerBrokerFeeRate"`
+	Quantity           string `json:"Quantity"`
+	Amount             string `json:"Amount"`
+	LockedBuyFee       string `json:"LockedBuyFee,omitempty"`
+	Status             int32  `json:"Status"`
+	CancelReason       int32  `json:"CancelReason,omitempty"`
+	ExecutedQuantity   string `json:"ExecutedQuantity,omitempty"`
+	ExecutedAmount     string `json:"ExecutedAmount,omitempty"`
+	ExecutedBaseFee    string `json:"ExecutedBaseFee,omitempty"`
+	ExecutedBrokerFee  string `json:"ExecutedBrokerFee,omitempty"`
+	RefundToken        string `json:"RefundToken,omitempty"`
+	RefundQuantity     string `json:"RefundQuantity,omitempty"`
+	Timestamp          int64  `json:"Timestamp"`
 }
 
 type OrdersRes struct {
 	Orders []*RpcOrder `json:"orders,omitempty"`
-	Size   int        `json:"size"`
+	Size   int         `json:"size"`
 }
 
 func OrderToRpc(order *dex.Order) *RpcOrder {

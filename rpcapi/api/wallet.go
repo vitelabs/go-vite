@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -298,9 +297,6 @@ func (m WalletApi) SignData(addr types.Address, hexMsg string) (*HexSignedTuple,
 func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.Hash, error) {
 	if !checkTxToAddressAvailable(params.ToAddr) {
 		return nil, errors.New("ToAddress is invalid")
-	}
-	if params.ToAddr == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(params.Data) {
-		return nil, dex.InvalidOrderPriceErr
 	}
 	amount, ok := new(big.Int).SetString(params.Amount, 10)
 	if !ok {

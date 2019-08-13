@@ -45,14 +45,16 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 	}
 	defer iterator.Release()
 	for {
-		if ok = iterator.Next(); ok {
-			userFeesKey = iterator.Key()
-			userFeesBytes = iterator.Value()
-			if len(userFeesBytes) == 0 {
-				continue
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				panic(iterator.Error())
 			}
-		} else {
 			break
+		}
+		userFeesKey = iterator.Key()
+		userFeesBytes = iterator.Value()
+		if len(userFeesBytes) == 0 {
+			continue
 		}
 
 		addressBytes := userFeesKey[len(userFeeKeyPrefix):]
@@ -160,14 +162,16 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 	}
 	defer iterator.Release()
 	for {
-		if ok = iterator.Next(); ok {
-			pledgesForVxKey = iterator.Key()
-			pledgeForVxValue = iterator.Value()
-			if len(pledgeForVxValue) == 0 {
-				continue
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				panic(iterator.Error())
 			}
-		} else {
 			break
+		}
+		pledgesForVxKey = iterator.Key()
+		pledgeForVxValue = iterator.Value()
+		if len(pledgeForVxValue) == 0 {
+			continue
 		}
 		addressBytes := pledgesForVxKey[len(pledgesForVxKeyPrefix):]
 		address := types.Address{}
@@ -220,7 +224,7 @@ func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader ut
 	return nil
 }
 
-func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rateSum string, begin, end int)(amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
+func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rateSum string, begin, end int) (amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
 	if vxPool.Sign() > 0 {
 		success = true
 		toDivideTotal := GetVxToMineByPeriodId(db, periodId)
@@ -232,7 +236,7 @@ func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, 
 			amountSum.Set(vxPool)
 			notEnough = true
 		}
-		amount := new(big.Int).Div(amountSum, big.NewInt(int64(end - begin + 1)))
+		amount := new(big.Int).Div(amountSum, big.NewInt(int64(end-begin+1)))
 		amountForItems = make(map[int32]*big.Int)
 		vxAmtLeaved = new(big.Int).Set(vxPool)
 		for i := begin; i <= end; i++ {

@@ -3,6 +3,7 @@ package dex
 import (
 	"bytes"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -239,7 +240,7 @@ func OnTransferOwnerGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTy
 	return
 }
 
-func PreCheckOrderParam(orderParam *ParamDexFundNewOrder) error {
+func PreCheckOrderParam(orderParam *ParamDexFundNewOrder, isNewFork bool) error {
 	if orderParam.Quantity.Sign() <= 0 {
 		return InvalidOrderQuantityErr
 	}
@@ -248,14 +249,52 @@ func PreCheckOrderParam(orderParam *ParamDexFundNewOrder) error {
 		return InvalidOrderTypeErr
 	}
 	if orderParam.OrderType == Limited {
-		if !ValidPrice(orderParam.Price) {
+		if !ValidPrice(orderParam.Price, isNewFork) {
 			return InvalidOrderPriceErr
 		}
 	}
 	return nil
 }
 
-func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, address types.Address) (*MarketInfo, error) {
+func DoNewOrder(db vm_db.VmDb, param *ParamDexFundNewOrder, accountAddress, agent *types.Address, sendHash types.Hash) ([]*ledger.AccountBlock, error) {
+	var (
+		dexFund        *UserFund
+		tradeBlockData []byte
+		err            error
+		orderInfoBytes []byte
+		marketInfo     *MarketInfo
+		ok             bool
+	)
+	order := &Order{}
+	if marketInfo, err = RenderOrder(order, param, db, accountAddress, agent, sendHash); err != nil {
+		return nil, err
+	}
+	if dexFund, ok = GetUserFund(db, *accountAddress); !ok {
+		return nil, ExceedFundAvailableErr
+	}
+	if err = CheckAndLockFundForNewOrder(dexFund, order, marketInfo); err != nil {
+		return nil, err
+	}
+	SaveUserFund(db, *accountAddress, dexFund)
+	if orderInfoBytes, err = order.Serialize(); err != nil {
+		panic(err)
+	}
+	if tradeBlockData, err = cabi.ABIDexTrade.PackMethod(cabi.MethodNameDexTradeNewOrder, orderInfoBytes); err != nil {
+		panic(err)
+	}
+	return []*ledger.AccountBlock{
+		{
+			AccountAddress: types.AddressDexFund,
+			ToAddress:      types.AddressDexTrade,
+			BlockType:      ledger.BlockTypeSendCall,
+			TokenId:        ledger.ViteTokenId,
+			Amount:         big.NewInt(0),
+			Data:           tradeBlockData,
+		},
+	}, nil
+}
+
+func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, accountAddress, agent *types.Address, sendHash types.Hash) (*MarketInfo, error) {
 	var (
 		marketInfo *MarketInfo
 		ok         bool
@@ -267,15 +306,19 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 		return nil, TradeMarketNotExistsErr
 	} else if marketInfo.Stopped {
 		return nil, TradeMarketStoppedErr
+	} else if agent != nil {
+		if !IsMarketGrantedToAgent(db, *accountAddress, *agent, marketInfo.MarketId) {
+			return nil, TradeMarketNotGrantedErr
+		}
 	}
 	order.Id = ComposeOrderId(db, marketInfo.MarketId, param.Side, param.Price)
 	order.MarketId = marketInfo.MarketId
-	order.Address = address.Bytes()
+	order.Address = accountAddress.Bytes()
 	order.Side = param.Side
 	order.Type = int32(param.OrderType)
 	order.Price = PriceToBytes(param.Price)
 	order.Quantity = param.Quantity.Bytes()
-	RenderFeeRate(address, order, marketInfo, db)
+	RenderFeeRate(*accountAddress, order, marketInfo, db)
 	if order.Type == Limited {
 		order.Amount = CalculateRawAmount(order.Quantity, order.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 		if !order.Side { //buy
@@ -292,6 +335,13 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, addre
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
 	order.Timestamp = GetTimestampInt64(db)
+	order.Quantity = param.Quantity.Bytes()
+	if IsNewFork(db) {
+		if agent != nil {
+			order.Agent = agent.Bytes()
+		}
+		order.SendHash = sendHash.Bytes()
+	}
 	return marketInfo, nil
 }
 
@@ -309,6 +359,8 @@ func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, 
 	var vipReduceFeeRate int32 = 0
 	if _, ok := GetPledgeForVip(db, address); ok {
 		vipReduceFeeRate = VipReduceFeeRate
+	} else if _, ok := GetPledgeForSuperVip(db, address); ok {
+		vipReduceFeeRate = BaseFeeRate
 	}
 	order.TakerFeeRate = BaseFeeRate - vipReduceFeeRate
 	order.TakerBrokerFeeRate = marketInfo.TakerBrokerFeeRate
@@ -386,7 +438,7 @@ func newTokenInfoFromCallback(db vm_db.VmDb, param *ParamDexFundGetTokenInfoCall
 	return tokenInfo
 }
 
-func ValidPrice(price string) bool {
+func ValidPrice(price string, isFork bool) bool {
 	if len(price) == 0 {
 		return false
 	} else if pr, err := strconv.ParseFloat(price, 64); err != nil || pr <= 0 {
@@ -397,33 +449,13 @@ func ValidPrice(price string) bool {
 		idx := strings.Index(price, ".")
 		if idx > priceIntMaxLen { // 10^12 < 2^40(5bytes)
 			return false
-		} else if idx >= 0 {
-			if len(price)-(idx+1) > priceDecimalMaxLen { // // max price precision is 12 decimals 10^12 < 2^40(5bytes)
-				return false
-			}
+		} else if idx >= 0 && len(price)-(idx+1) > priceDecimalMaxLen { // max price precision is 12 decimals 10^12 < 2^40(5bytes)
+			return false
+		} else if idx == -1 && isFork && len(price) > priceIntMaxLen {
+			return false
 		}
 	}
 	return true
-}
-
-func VerifyNewOrderPriceForRpc(data []byte) (valid bool) {
-	valid = true
-	if len(data) < 4 {
-		return
-	}
-	if bytes.Equal(data[:4], newOrderMethodId) {
-		param := new(ParamDexFundNewOrder)
-		if err := abi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, data); err == nil {
-			if !ValidPrice(param.Price) {
-				valid = false
-			} else if idx := strings.Index(param.Price, "."); idx == -1 && len(param.Price) > priceIntMaxLen {
-				valid = false
-			}
-		} else {
-			valid = false
-		}
-	}
-	return
 }
 
 func MaxTotalFeeRate(order Order) int32 {
@@ -439,6 +471,14 @@ func MaxTotalFeeRate(order Order) int32 {
 // only for unit test
 func SetFeeRate(baseRate int32) {
 	BaseFeeRate = baseRate
+}
+
+func IsNewFork(db vm_db.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return fork.IsNewFork(latestSb.Height)
+	}
 }
 
 func ValidBrokerFeeRate(feeRate int32) bool {
@@ -459,7 +499,7 @@ func getDexTokenSymbol(tokenInfo *TokenInfo) string {
 		return tokenInfo.Symbol
 	} else {
 		indexStr := strconv.Itoa(int(tokenInfo.Index))
-		for ; len(indexStr) < 3; {
+		for len(indexStr) < 3 {
 			indexStr = "0" + indexStr
 		}
 		return fmt.Sprintf("%s-%s", tokenInfo.Symbol, indexStr)

@@ -187,3 +187,10 @@ message SettleMakerMinedVx {
     int32 Page = 2;
     bool  finish = 3;
 }
+
+//event
+message MarketAgentRelation {
+    bytes Principal = 1;
+    bytes Agent = 2;
+    int32 marketId = 3;
+}

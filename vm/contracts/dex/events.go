@@ -22,6 +22,8 @@ const minedVxForPledgeEventName = "minedVxForPledgeEvent"
 const minedVxForOperationEventName = "minedVxForOperation"
 const inviteRelationEventName = "inviteRelationEvent"
 const settleMakerMinedVxEventName = "settleMakerMinedVxEvent"
+const grantMarketToAgentEventName = "grantMarketToAgentEvent"
+const revokeMarketFromAgentEventName = "revokeMarketFromAgentEvent"
 const errEventName = "errEvent"
 
 type DexEvent interface {
@@ -84,6 +86,14 @@ type InviteRelationEvent struct {
 
 type SettleMakerMinedVxEvent struct {
 	dexproto.SettleMakerMinedVx
+}
+
+type GrantMarketToAgentEvent struct {
+	dexproto.MarketAgentRelation
+}
+
+type RevokeMarketFromAgentEvent struct {
+	dexproto.MarketAgentRelation
 }
 
 type ErrEvent struct {
@@ -336,6 +346,42 @@ func (smmv SettleMakerMinedVxEvent) toDataBytes() []byte {
 func (smmv SettleMakerMinedVxEvent) FromBytes(data []byte) interface{} {
 	event := SettleMakerMinedVxEvent{}
 	if err := proto.Unmarshal(data, &event.SettleMakerMinedVx); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (gmta GrantMarketToAgentEvent) GetTopicId() types.Hash {
+	return fromNameToHash(grantMarketToAgentEventName)
+}
+
+func (gmta GrantMarketToAgentEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&gmta.MarketAgentRelation)
+	return data
+}
+
+func (gmta GrantMarketToAgentEvent) FromBytes(data []byte) interface{} {
+	event := GrantMarketToAgentEvent{}
+	if err := proto.Unmarshal(data, &event.MarketAgentRelation); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (rmfa RevokeMarketFromAgentEvent) GetTopicId() types.Hash {
+	return fromNameToHash(revokeMarketFromAgentEventName)
+}
+
+func (rmfa RevokeMarketFromAgentEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&rmfa.MarketAgentRelation)
+	return data
+}
+
+func (rmfa RevokeMarketFromAgentEvent) FromBytes(data []byte) interface{} {
+	event := RevokeMarketFromAgentEvent{}
+	if err := proto.Unmarshal(data, &event.MarketAgentRelation); err != nil {
 		return nil
 	} else {
 		return event

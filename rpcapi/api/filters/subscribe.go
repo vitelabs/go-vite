@@ -86,7 +86,7 @@ func (r *Range) toHeightRange() (*heightRange, error) {
 		if err != nil {
 			return nil, err
 		}
-		if toHeight < fromHeight {
+		if toHeight < fromHeight && toHeight != 0 {
 			return nil, errors.New("to height < from height")
 		}
 		return &heightRange{fromHeight, toHeight}, nil

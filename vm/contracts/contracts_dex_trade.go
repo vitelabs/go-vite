@@ -95,34 +95,7 @@ func (md *MethodDexTradeCancelOrder) DoSend(db vm_db.VmDb, block *ledger.Account
 func (md MethodDexTradeCancelOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamDexCancelOrder)
 	cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeCancelOrder, sendBlock.Data)
-	var (
-		order        *dex.Order
-		err          error
-		marketId     int32
-		matcher      *dex.Matcher
-		appendBlocks []*ledger.AccountBlock
-	)
-	if marketId, _, _, _, err = dex.DeComposeOrderId(param.OrderId); err != nil {
-		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCancelOrder, dex.InvalidOrderIdErr, sendBlock)
-	}
-	if matcher, err = dex.NewMatcher(db, marketId); err != nil {
-		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCancelOrder, err, sendBlock)
-	}
-	if order, err = matcher.GetOrderById(param.OrderId); err != nil {
-		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCancelOrder, err, sendBlock)
-	}
-	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), []byte(order.Address)) {
-		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCancelOrder, dex.CancelOrderOwnerInvalidErr, sendBlock)
-	}
-	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
-		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCancelOrder, dex.CancelOrderInvalidStatusErr, sendBlock)
-	}
-	matcher.CancelOrderById(order)
-	if appendBlocks, err = handleSettleActions(block, matcher.GetFundSettles(), nil, matcher.MarketInfo); err != nil {
-		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCancelOrder, err, sendBlock)
-	} else {
-		return appendBlocks, nil
-	}
+	return handleCancelOrderById(db, param.OrderId, cabi.MethodNameDexTradeCancelOrder, block, sendBlock)
 }
 
 type MethodDexTradeNotifyNewMarket struct {
@@ -207,6 +180,41 @@ func (md MethodDexTradeCleanExpireOrders) DoReceive(db vm_db.VmDb, block *ledger
 	}
 }
 
+type MethodDexTradeCancelOrderByHash struct {
+}
+
+func (md *MethodDexTradeCancelOrderByHash) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexTradeCancelOrderByHash) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexTradeCancelOrderByHash) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return util.TxGasCost(data, gasTable)
+}
+
+func (md *MethodDexTradeCancelOrderByHash) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+	return 0
+}
+
+func (md *MethodDexTradeCancelOrderByHash) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+	err = cabi.ABIDexTrade.UnpackMethod(new(types.Hash), cabi.MethodNameDexTradeCancelOrderByHash, block.Data)
+	return
+}
+
+func (md MethodDexTradeCancelOrderByHash) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	sendHash := new(types.Hash)
+	cabi.ABIDexTrade.UnpackMethod(sendHash, cabi.MethodNameDexTradeCancelOrderByHash, sendBlock.Data)
+
+	if orderId, ok := dex.GetOrderIdByHash(db, sendHash.Bytes()); !ok {
+		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCancelOrderByHash, dex.InvalidOrderHashErr, sendBlock)
+	} else {
+		return handleCancelOrderById(db, orderId, cabi.MethodNameDexTradeCancelOrderByHash, block, sendBlock)
+	}
+}
+
 func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
 	fundSettle := &dexproto.FundSettle{}
 	switch order.Side {
@@ -222,6 +230,8 @@ func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.A
 	userFundSettle.FundSettles = append(userFundSettle.FundSettles, fundSettle)
 	settleActions := &dexproto.SettleActions{}
 	settleActions.FundActions = append(settleActions.FundActions, userFundSettle)
+	settleActions.TradeToken = marketInfo.TradeToken
+	settleActions.QuoteToken = marketInfo.QuoteToken
 	var (
 		settleData, dexSettleBlockData []byte
 		newErr                         error
@@ -242,6 +252,37 @@ func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.A
 			Data:           dexSettleBlockData,
 		},
 	}, nil
+}
+
+func handleCancelOrderById(db vm_db.VmDb, orderId []byte, method string, block, sendBlock *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
+	var (
+		order        *dex.Order
+		marketId     int32
+		matcher      *dex.Matcher
+		appendBlocks []*ledger.AccountBlock
+		err          error
+	)
+	if marketId, _, _, _, err = dex.DeComposeOrderId(orderId); err != nil {
+		return handleDexReceiveErr(tradeLogger, method, dex.InvalidOrderIdErr, sendBlock)
+	}
+	if matcher, err = dex.NewMatcher(db, marketId); err != nil {
+		return handleDexReceiveErr(tradeLogger, method, err, sendBlock)
+	}
+	if order, err = matcher.GetOrderById(orderId); err != nil {
+		return handleDexReceiveErr(tradeLogger, method, err, sendBlock)
+	}
+	if !bytes.Equal(sendBlock.AccountAddress.Bytes(), order.Address) && !bytes.Equal(sendBlock.AccountAddress.Bytes(), order.Agent) {
+		return handleDexReceiveErr(tradeLogger, method, dex.CancelOrderOwnerInvalidErr, sendBlock)
+	}
+	if order.Status != dex.Pending && order.Status != dex.PartialExecuted {
+		return handleDexReceiveErr(tradeLogger, method, dex.CancelOrderInvalidStatusErr, sendBlock)
+	}
+	matcher.CancelOrderById(order)
+	if appendBlocks, err = handleSettleActions(block, matcher.GetFundSettles(), nil, matcher.MarketInfo); err != nil {
+		return handleDexReceiveErr(tradeLogger, method, err, sendBlock)
+	} else {
+		return appendBlocks, nil
+	}
 }
 
 func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[bool]*dexproto.FundSettle, feeSettles map[types.Address]*dexproto.UserFeeSettle, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
