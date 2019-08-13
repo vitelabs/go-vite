@@ -285,9 +285,9 @@ Prepare:
 
 	if err := s.sync(); err == nil {
 		s.state.sync()
-		s.log.Info("syncing")
+		s.log.Info(fmt.Sprintf("syncing: local %d to %d", current, syncPeerHeight))
 	} else {
-		s.log.Warn(fmt.Sprintf("failed to sync: %v", err))
+		s.log.Warn(fmt.Sprintf("failed to sync local %d to %d: %v", current, syncPeerHeight, err))
 		return
 	}
 
@@ -323,7 +323,7 @@ Prepare:
 
 			if current == oldHeight {
 				if now.Sub(lastCheckTime) > s.timeout {
-					s.log.Error("sync error: stuck")
+					s.log.Error(fmt.Sprintf("sync error: stuck at %d", current))
 					s.stopSync()
 
 					if retrySync > 3 {
@@ -481,8 +481,6 @@ func (s *syncer) sync() error {
 
 // init points will be construct before download
 func (s *syncer) downloadLoop(point *ledger.HashHeight, end uint64, points []*HashHeightPoint) {
-	s.log.Info("begin download loop")
-
 	s.syncWG.Add(1)
 	defer s.syncWG.Done()
 

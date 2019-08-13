@@ -47,8 +47,8 @@ type nodeCollector interface {
 	resolve(id vnode.NodeID) *Node
 	// size is the number of nodes in the collector
 	size() int
-	// iterate nodes in collector, fn will be invoked and pass every node into
-	iterate(fn func(*Node))
+	// iterate nodes in collector, exit iteration when fn return false
+	iterate(fn func(*Node) bool)
 	// max is the collector`s capacity
 	max() int
 }
@@ -89,6 +89,8 @@ type nodeTable interface {
 	oldest() []*Node
 	// findNeighbors return count nodes near the id
 	findNeighbors(id vnode.NodeID, count int) []*Node
+
+	findSource(id vnode.NodeID, count int) []*Node
 	// store will store all nodes to database
 	store(db nodeStore)
 	// resolveAddr find the node match `node.Address() == address`
@@ -130,9 +132,11 @@ func newListBucket(max int) bucket {
 	}
 }
 
-func (b *listBucket) iterate(fn func(*Node)) {
+func (b *listBucket) iterate(fn func(*Node) bool) {
 	for c := b.head.next; c != nil; c = c.next {
-		fn(c.Node)
+		if !fn(c.Node) {
+			break
+		}
 	}
 }
 
@@ -272,7 +276,7 @@ func (b *listBucket) max() int {
 }
 
 type pinger interface {
-	ping(n *Node) error
+	ping(n *Node, callback func(err error))
 }
 
 type table struct {
@@ -386,7 +390,7 @@ func (tab *table) notify(n *vnode.Node) {
 }
 
 func (tab *table) add(node *Node) (toCheck *Node) {
-	if node.ID == tab.id {
+	if node.ID == tab.id || node.ID == vnode.ZERO {
 		return nil
 	}
 
@@ -394,40 +398,35 @@ func (tab *table) add(node *Node) (toCheck *Node) {
 
 	addr := node.Address()
 
-	tab.rw.Lock()
-	defer tab.rw.Unlock()
+	bkt := tab.getBucket(node.ID)
+	old := bkt.resolve(node.ID)
+	if old == nil {
+		tab.rw.Lock()
+		old = tab.nodeMap[addr]
+		tab.rw.Unlock()
+	}
 
-	// same address
-	if old, ok := tab.nodeMap[addr]; ok {
+	if old != nil {
 		// nothing change
 		if old.Equal(&node.Node) {
-			bkt := tab.getBucket(node.ID)
+			tab.rw.Lock()
 			bkt.bubble(node.ID)
+			tab.rw.Unlock()
 			return nil
 		}
 
-		// same address, different info
-		// check old node
-		go tab.checkRemove(old)
+		if old.needCheck() {
+			// same address, different info
+			// check old node
+			go tab.checkRemove(old)
+		}
 
 		return old
 	}
 
-	// no nodes has the same address
-	bkt := tab.getBucket(node.ID)
-
-	// same id, different netId, different address
-	if node.Net != tab.netId {
-		if old := bkt.resolve(node.ID); old != nil {
-			go tab.checkRemove(old)
-
-			return old
-		}
-
-		return nil
-	}
-
 	// no nodes with the same id and address, and net is the same
+	tab.rw.Lock()
+	defer tab.rw.Unlock()
 	toCheck = bkt.add(node)
 	if toCheck == nil {
 		// bucket not full
@@ -435,33 +434,35 @@ func (tab *table) add(node *Node) (toCheck *Node) {
 		return
 	}
 
-	// toCheck has different address with node
-	go tab.checkReplace(bkt, toCheck, node)
+	if toCheck.needCheck() {
+		// toCheck has different address with node
+		go tab.checkReplace(bkt, toCheck, node)
+	}
 
 	return
 }
 
 func (tab *table) checkRemove(node *Node) {
-	err := tab.socket.ping(node)
-	if err != nil {
-		tab.remove(node.ID)
-	} else {
-		tab.bubble(node.ID)
-	}
+	tab.socket.ping(node, func(err error) {
+		if err != nil {
+			tab.remove(node.ID)
+			discvLog.Warn("remove %s", node)
+		}
+	})
 }
 
 func (tab *table) checkReplace(bkt bucket, oldNode, newNode *Node) {
-	err := tab.socket.ping(oldNode)
-	if err != nil {
-		tab.rw.Lock()
-		if bkt.replace(oldNode.ID, newNode) {
-			delete(tab.nodeMap, oldNode.Address())
-			tab.nodeMap[newNode.Address()] = newNode
+	tab.socket.ping(oldNode, func(err error) {
+		if err != nil {
+			tab.rw.Lock()
+			if bkt.replace(oldNode.ID, newNode) {
+				delete(tab.nodeMap, oldNode.Address())
+				tab.nodeMap[newNode.Address()] = newNode
+			}
+			tab.rw.Unlock()
+			discvLog.Warn("replace %s to %s", oldNode, newNode)
 		}
-		tab.rw.Unlock()
-	} else {
-		tab.bubble(oldNode.ID)
-	}
+	})
 }
 
 func (tab *table) addNodes(nodes []*Node) {
@@ -479,7 +480,6 @@ func (tab *table) getBucket(id vnode.NodeID) bucket {
 }
 
 func (tab *table) remove(id vnode.NodeID) (node *Node) {
-
 	tab.rw.Lock()
 	defer tab.rw.Unlock()
 
@@ -507,7 +507,7 @@ func (tab *table) bubble(id vnode.NodeID) bool {
 }
 
 func (tab *table) findNeighbors(target vnode.NodeID, count int) (nodes []*Node) {
-	nes := closet{
+	ns := &closet{
 		nodes: make([]*Node, 0, count),
 		pivot: target,
 	}
@@ -516,17 +516,43 @@ func (tab *table) findNeighbors(target vnode.NodeID, count int) (nodes []*Node) 
 	defer tab.rw.RUnlock()
 
 	for _, bkt := range tab.buckets {
-		bkt.iterate(func(node *Node) {
-			if node.Ext != nil {
-				nodes = append(nodes, node)
-			} else {
-				nes.push(node)
+		bkt.iterate(func(node *Node) bool {
+			if node.ID == target {
+				return true
 			}
+			ns.push(node)
+			return true
 		})
 	}
 
-	nodes = append(nodes, nes.nodes...)
-	return nodes
+	return ns.nodes
+}
+
+func (tab *table) findSource(target vnode.NodeID, count int) (nodes []*Node) {
+	exit := false
+
+	tab.rw.RLock()
+	defer tab.rw.RUnlock()
+
+	for _, bkt := range tab.buckets {
+		bkt.iterate(func(node *Node) bool {
+			if node.couldFind() {
+				nodes = append(nodes, node)
+			}
+			if len(nodes) > count {
+				exit = true
+				return false
+			}
+
+			return true
+		})
+
+		if exit {
+			break
+		}
+	}
+
+	return
 }
 
 func (tab *table) oldest() (nodes []*Node) {
@@ -565,8 +591,8 @@ func (tab *table) max() int {
 func (tab *table) resolve(id vnode.NodeID) *Node {
 	bkt := tab.getBucket(id)
 
-	tab.rw.Lock()
-	defer tab.rw.Unlock()
+	tab.rw.RLock()
+	defer tab.rw.RUnlock()
 
 	return bkt.resolve(id)
 }
@@ -590,28 +616,26 @@ func (tab *table) store(db nodeStore) {
 	}
 }
 
-func (tab *table) iterate(fn func(*Node)) {
+func (tab *table) iterate(fn func(*Node) bool) {
 	nodes := tab.nodes(0)
 	for _, n := range nodes {
-		fn(n)
+		if !fn(n) {
+			break
+		}
 	}
 }
 
 // toFind return the sub-tree need more nodes
 func (tab *table) subTreeToFind() uint {
+	perm := rand.Perm(len(tab.buckets))
+
 	tab.rw.RLock()
 	defer tab.rw.RUnlock()
 
-	var buckets []uint
-	for i, bkt := range tab.buckets {
-		if bkt.size() < tab.bucketSize/2 {
-			buckets = append(buckets, uint(i))
+	for _, i := range perm {
+		if tab.buckets[i].size() < tab.bucketSize/2 {
+			return uint(i) + tab.minDistance
 		}
-	}
-
-	if len(buckets) > 0 {
-		i := rand.Intn(len(buckets))
-		return buckets[i] + tab.minDistance
 	}
 
 	return 0

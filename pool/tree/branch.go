@@ -384,8 +384,8 @@ func (self branch) isGarbage() bool {
 	if !self.isLeafBranch() {
 		return false
 	}
-	// not updated for a long time (4 minutes)
-	if time.Now().After(self.utime.Add(time.Minute * 4)) {
+	// not updated for a long time (20 minutes)
+	if time.Now().After(self.utime.Add(time.Minute * 20)) {
 		return true
 	}
 
