@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 	"math/rand"
 
