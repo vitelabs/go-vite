@@ -29,7 +29,7 @@ const (
 		{"type":"function","name":"DexFundBindInviteCode", "inputs":[{"name":"code","type":"uint32"}]},
 		{"type":"function","name":"DexFundEndorseVx", "inputs":[]},
 		{"type":"function","name":"DexFundSettleMakerMinedVx", "inputs":[{"name":"data","type":"bytes"}]},
-		{"type":"function","name":"DexFundGrantAgent", "inputs":[{"name":"agent","type":"address"},{"name":"actionType","type":"uint8"}]},
+		{"type":"function","name":"DexFundConfigMarketAgent", "inputs":[{"name":"actionType","type":"uint8"},{"name":"agent","type":"address"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"}]},
 		{"type":"function","name":"DexFundNewAgentOrder", "inputs":[{"name":"principal","type":"address"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"uint8"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}]}
     ]`
 
@@ -54,7 +54,7 @@ const (
 	MethodNameDexFundBindInviteCode       = "DexFundBindInviteCode"
 	MethodNameDexFundEndorseVxMinePool    = "DexFundEndorseVx"
 	MethodNameDexFundSettleMakerMinedVx   = "DexFundSettleMakerMinedVx"
-	MethodNameDexFundGrantAgent           = "DexFundGrantAgent"
+	MethodNameDexFundConfigMarketAgent    = "DexFundConfigMarketAgent"
 	MethodNameDexFundNewAgentOrder        = "DexFundNewAgentOrder"
 )
 

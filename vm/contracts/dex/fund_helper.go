@@ -357,10 +357,10 @@ func isAmountTooSmall(db vm_db.VmDb, amount []byte, marketInfo *MarketInfo) bool
 
 func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, db vm_db.VmDb) {
 	var vipReduceFeeRate int32 = 0
-	if _, ok := GetPledgeForVip(db, address); ok {
-		vipReduceFeeRate = VipReduceFeeRate
-	} else if _, ok := GetPledgeForSuperVip(db, address); ok {
+	if _, ok := GetPledgeForSuperVip(db, address); ok {
 		vipReduceFeeRate = BaseFeeRate
+	} else if _, ok := GetPledgeForVip(db, address); ok {
+		vipReduceFeeRate = VipReduceFeeRate
 	}
 	order.TakerFeeRate = BaseFeeRate - vipReduceFeeRate
 	order.TakerBrokerFeeRate = marketInfo.TakerBrokerFeeRate

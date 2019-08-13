@@ -62,6 +62,10 @@ func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 		if _, ok := GetPledgeForVip(db, address); ok {
 			return nil, PledgeForVipExistsErr
 		}
+	} else if pledgeType == PledgeForSuperVip {
+		if _, ok := GetPledgeForSuperVip(db, address); ok {
+			return nil, PledgeForSuperVipExistsErr
+		}
 	}
 	if _, err := SubUserFund(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err

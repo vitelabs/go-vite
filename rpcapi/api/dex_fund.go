@@ -240,9 +240,25 @@ func (f DexFundApi) GetInviteeCode(address types.Address) (uint32, error) {
 		return 0, err
 	}
 	if inviter, err := dex.GetInviterByInvitee(db, address); err != nil {
-		return 0, err
+		if err == dex.NotBindInviterErr {
+			return 0, nil
+		} else {
+			return 0, err
+		}
 	} else {
 		return dex.GetCodeByInviter(db, *inviter), nil
+	}
+}
+
+func (f DexFundApi) IsMarketGrantedToAgent(principal, agent types.Address, tradeToken, quoteToken types.TokenTypeId) (bool, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return false, err
+	}
+	if marketInfo, ok := dex.GetMarketInfo(db, tradeToken, quoteToken); !ok {
+		return false, dex.TradeMarketNotExistsErr
+	} else {
+		return dex.IsMarketGrantedToAgent(db, principal, agent, marketInfo.MarketId), nil
 	}
 }
 

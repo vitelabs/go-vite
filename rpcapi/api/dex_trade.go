@@ -35,14 +35,18 @@ func (f DexTradeApi) GetOrderById(orderIdStr string) (*RpcOrder, error) {
 	if db, err := getDb(f.chain, types.AddressDexTrade); err != nil {
 		return nil, err
 	} else {
-		if matcher := dex.NewRawMatcher(db); err != nil {
-			return nil, err
+		return innerGetOrderById(db, orderId)
+	}
+}
+
+func (f DexTradeApi) GetOrderBySendHash(sendHash types.Hash) (*RpcOrder, error) {
+	if db, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+		return nil, err
+	} else {
+		if orderId, ok := dex.GetOrderIdByHash(db, sendHash.Bytes()); !ok {
+			return nil, dex.OrderNotExistsErr
 		} else {
-			if order, err := matcher.GetOrderById(orderId); err != nil {
-				return nil, err
-			} else {
-				return OrderToRpc(order), nil
-			}
+			return innerGetOrderById(db, orderId)
 		}
 	}
 }
@@ -89,6 +93,15 @@ func (f DexTradeApi) GetTimestamp() (timestamp int64, err error) {
 	}
 }
 
+func innerGetOrderById(db vm_db.VmDb, orderId []byte) (*RpcOrder, error) {
+	matcher := dex.NewRawMatcher(db)
+	if order, err := matcher.GetOrderById(orderId); err != nil {
+		return nil, err
+	} else {
+		return OrderToRpc(order), nil
+	}
+}
+
 func getDb(c chain.Chain, address types.Address) (db vm_db.VmDb, err error) {
 	prevHash, err := getPrevBlockHash(c, address)
 	if err != nil {
@@ -124,6 +137,8 @@ type RpcOrder struct {
 	RefundToken        string `json:"RefundToken,omitempty"`
 	RefundQuantity     string `json:"RefundQuantity,omitempty"`
 	Timestamp          int64  `json:"Timestamp"`
+	Agent              string `json:"Agent,omitempty"`
+	SendHash           string `json:"SendHash,omitempty"`
 }
 
 type OrdersRes struct {
@@ -172,6 +187,14 @@ func OrderToRpc(order *dex.Order) *RpcOrder {
 	}
 	if len(order.RefundQuantity) > 0 {
 		rpcOrder.RefundQuantity = apidex.AmountBytesToString(order.RefundQuantity)
+	}
+	if len(order.Agent) > 0 {
+		agent, _ := types.BytesToAddress(order.Agent)
+		rpcOrder.Agent = agent.String()
+	}
+	if len(order.SendHash) > 0 {
+		sendHash, _ := types.BytesToHash(order.SendHash)
+		rpcOrder.SendHash = sendHash.String()
 	}
 	rpcOrder.Timestamp = order.Timestamp
 	return rpcOrder
