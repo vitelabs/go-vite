@@ -76,7 +76,7 @@ func IsTest() bool {
 //   isTestParam: use test params for built-in contracts.
 //   isDebug: print debug log.
 //   datadir: print debug log under this directory.
-func InitVMConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
+func InitVMConfig(isTest bool, isTestParam bool, isQuotaTestParam bool, isDebug bool, datadir string) {
 	if isTest {
 		nodeConfig = NodeConfig{
 			isTest: isTest,
@@ -110,7 +110,7 @@ func InitVMConfig(isTest bool, isTestParam bool, isDebug bool, datadir string) {
 	nodeConfig.log = log15.New("module", "vm")
 	nodeConfig.interpreterLog = log15.New("module", "vm")
 	contracts.InitContractsConfig(isTestParam)
-	quota.InitQuotaConfig(isTest, isTestParam)
+	quota.InitQuotaConfig(isTest, isQuotaTestParam)
 	nodeConfig.IsDebug = isDebug
 	if isDebug {
 		initLog(datadir, "dbug")
