@@ -1320,10 +1320,11 @@ func (md *MethodDexFundNewAgentOrder) GetReceiveQuota(gasTable *util.GasTable) u
 }
 
 func (md *MethodDexFundNewAgentOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if err := cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundNewAgentOrder), cabi.MethodNameDexFundNewAgentOrder, block.Data); err != nil {
+	param := new(dex.ParamDexFundNewAgentOrder)
+	if err := cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewAgentOrder, block.Data); err != nil {
 		return err
 	}
-	return nil
+	return dex.PreCheckOrderParam(&param.ParamDexFundNewOrder, true)
 }
 
 func (md MethodDexFundNewAgentOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {

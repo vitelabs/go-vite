@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/ledger"
+	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 	"strconv"
 	"testing"
@@ -55,6 +57,14 @@ func TestValidPrice(t *testing.T) {
 	assert.False(t, ValidPrice("-.24523", true))
 	assert.False(t, ValidPrice(".2452e3", true))
 	assert.False(t, ValidPrice("3.2452e3", true))
+}
+
+func TestVerifyNewOrderPriceForRpc(t *testing.T) {
+	data, err := cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundNewOrder, VxTokenId, ledger.ViteTokenId, true, uint8(Limited), "123456789012", big.NewInt(800))
+	assert.Equal(t, nil, err)
+	assert.True(t, VerifyNewOrderPriceForRpc(data))
+	data, _ = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundNewOrder, VxTokenId, ledger.ViteTokenId, true, uint8(Limited), "1234567890123", big.NewInt(800))
+	assert.False(t, VerifyNewOrderPriceForRpc(data))
 }
 
 func TestPriceConvert(t *testing.T) {
