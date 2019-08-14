@@ -21,6 +21,7 @@ package net
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	_net "net"
 	"time"
 
@@ -162,6 +163,7 @@ func (h *handshaker) readHandshake(c Codec) (their *HandshakeMsg, msgId MsgId, e
 	c.SetReadTimeout(handshakeTimeout)
 	msg, err := c.ReadMsg()
 	if err != nil {
+		netLog.Warn(fmt.Sprintf("failed to handshake with %s: read error: %v", c.Address(), err))
 		err = PeerNetworkError
 		return
 	}
@@ -179,6 +181,7 @@ func (h *handshaker) readHandshake(c Codec) (their *HandshakeMsg, msgId MsgId, e
 
 	if msg.Code != CodeHandshake {
 		err = PeerNotHandshakeMsg
+		netLog.Warn(fmt.Sprintf("failed to handshake with %s: not handshakeMsg %d", c.Address(), msg.Code))
 		return
 	}
 
@@ -269,6 +272,7 @@ func (h *handshaker) sendHandshake(c Codec, our *HandshakeMsg, msgId MsgId) (err
 		Payload: data,
 	})
 	if err != nil {
+		netLog.Warn(fmt.Sprintf("failed to handshake with %s: write error: %v", c.Address(), err))
 		err = PeerNetworkError
 		return
 	}

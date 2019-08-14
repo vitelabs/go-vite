@@ -30,7 +30,7 @@ import (
 )
 
 var errStopped = errors.New("discovery server has stopped")
-var errWaitOvertime = errors.New("wait for response timeout")
+var errResponseTimeout = errors.New("response timeout")
 
 // request expect a response, eg. ping, findNode
 type request struct {
@@ -168,7 +168,7 @@ func (p *requestPoolImpl) clean(now time.Time) {
 		l.Filter(func(value interface{}) bool {
 			wt := value.(*request)
 			if wt.expiration.Before(now) {
-				wt.handler.handle(nil, errWaitOvertime)
+				wt.handler.handle(nil, errResponseTimeout)
 				return true
 			}
 			return false
@@ -198,18 +198,20 @@ func (p *requestPoolImpl) release() {
 
 type pingRequest struct {
 	hash []byte
-	done chan<- *Node
+	done func(*Node, error)
 }
 
 func (p *pingRequest) handle(pkt *packet, err error) bool {
 	if err != nil {
-		go pingnil(p.done)
+		p.done(nil, err)
 		return true
 	}
 
 	bd := pkt.body
 	if png, ok := bd.(*pong); ok {
 		if bytes.Equal(png.echo, p.hash) {
+			// will ping this received node
+			// so use goroutine
 			go p.receivePong(pkt, png)
 
 			return true
@@ -219,31 +221,32 @@ func (p *pingRequest) handle(pkt *packet, err error) bool {
 	return false
 }
 
+// will ping again
 func (p *pingRequest) receivePong(pkt *packet, png *pong) {
-	if p.done != nil {
-		p.done <- nodeFromPong(pkt)
-	}
+	node := nodeFromPong(pkt)
+	p.done(node, nil)
 }
 
 type findNodeRequest struct {
-	count int
-	rec   []*vnode.EndPoint
-	ch    chan<- []*vnode.EndPoint
+	count    int
+	received int
+	ch       chan<- []*vnode.EndPoint
+	closed   int32
 }
 
 func (f *findNodeRequest) handle(pkt *packet, err error) bool {
 	if err != nil {
-		go f.done()
+		f.close()
 		return true
 	}
 
 	bd := pkt.body
 	if n, ok := bd.(*neighbors); ok {
-		f.rec = append(f.rec, n.endpoints...)
-
+		f.received += len(n.endpoints)
+		f.ch <- n.endpoints
 		// the last packet maybe received first
-		if len(f.rec) >= f.count || n.last {
-			go f.done()
+		if f.received >= f.count || n.last {
+			f.close()
 			return true
 		}
 	}
@@ -251,6 +254,8 @@ func (f *findNodeRequest) handle(pkt *packet, err error) bool {
 	return false
 }
 
-func (f *findNodeRequest) done() {
-	f.ch <- f.rec
+func (f *findNodeRequest) close() {
+	if atomic.CompareAndSwapInt32(&f.closed, 0, 1) {
+		close(f.ch)
+	}
 }

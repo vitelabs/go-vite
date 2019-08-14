@@ -13,6 +13,8 @@ import (
 )
 
 var errNoSuitablePeer = errors.New("no suitable peer")
+var errFetchTimeout = errors.New("timeout")
+var errNoResource = errors.New("no resource")
 
 type gid struct {
 	index uint32 // atomic
@@ -29,25 +31,29 @@ type MsgIder interface {
 // fetch filter
 const maxMark = 3       // times
 const timeThreshold = 4 // second
-const expiration = 20   // 20s
+const expiration = 30   // 30s
+
+type peerFetchResult struct {
+	status reqState
+	t      int64
+}
 
 type record struct {
-	id          MsgId
-	addAt       int64
-	t           int64 // change state time
-	mark        int
-	st          reqState
-	targets     map[peerId]bool // whether failed
-	restTargets int
-	callback    func(msg Msg, err error)
+	id       MsgId
+	hash     types.Hash
+	addAt    int64
+	t        int64 // change state time
+	mark     int
+	st       reqState
+	targets  map[peerId]*peerFetchResult // whether failed
+	callback func(msg Msg, err error)
 }
 
 func (r *record) inc() {
 	r.mark++
 }
 
-func (r *record) clean() {
-	r.restTargets = 0
+func (r *record) refresh() {
 	r.st = reqPending
 	r.mark = 0
 	r.addAt = time.Now().Unix()
@@ -55,107 +61,100 @@ func (r *record) clean() {
 
 func (r *record) reset() {
 	r.mark = 0
-	r.st = reqPending
-	r.addAt = time.Now().Unix()
-	r.targets = make(map[peerId]bool)
-	r.restTargets = 0
+	r.targets = nil
 	r.callback = nil
 }
 
-func (r *record) done(msg Msg, err error) {
+func (r *record) done(peer *Peer, msg Msg, err error) {
+	now := time.Now().Unix()
+
+	// when clean timeout, peer is nil, msg is a zero struct, err is timeout
+	if peer != nil {
+		if result, ok := r.targets[peer.Id]; ok {
+			if err != nil {
+				result.status = reqError
+				result.t = now
+			} else {
+				result.status = reqDone
+				result.t = now
+			}
+		}
+	}
+
 	if r.st != reqPending {
 		return
 	}
 
-	if err != nil {
-		r.st = reqError
-	} else {
+	if err == nil {
+		// request done if any peer is done
 		r.st = reqDone
-	}
-	r.t = time.Now().Unix()
+		r.t = now
 
-	if r.callback != nil {
-		go r.callback(msg, err)
-	}
-}
-
-func (r *record) fail(pid peerId) {
-	if failed, ok := r.targets[pid]; ok {
-		if false == failed {
-			r.targets[pid] = false
-			r.restTargets--
-		}
-	}
-
-	if r.restTargets == 0 && r.st == reqPending {
-		r.st = reqError
-		r.t = time.Now().Unix()
 		if r.callback != nil {
-			r.callback(Msg{}, errors.New("timeout"))
+			go r.callback(msg, nil)
+		}
+	} else {
+		rest := 0
+		for _, ret := range r.targets {
+			if ret.status != reqError {
+				rest++
+			}
+		}
+
+		// all peers fail
+		if rest == 0 {
+			r.st = reqError
+			r.t = now
+
+			if r.callback != nil {
+				go r.callback(msg, err)
+			}
 		}
 	}
 }
 
-type filter struct {
-	idGen    MsgIder
-	idToHash map[MsgId]*record
-	records  map[types.Hash]*record
-	mu       sync.Mutex
-	pool     sync.Pool
-}
-
-func newFilter() *filter {
-	return &filter{
-		idGen:    new(gid),
-		idToHash: make(map[MsgId]*record, 1000),
-		records:  make(map[types.Hash]*record, 1000),
-		pool: sync.Pool{
-			New: func() interface{} {
-				return &record{
-					targets: make(map[peerId]bool),
-				}
-			},
-		},
-	}
-}
-
-func (f *filter) clean(t int64) {
+func (f *fetcher) clean(t int64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	for hash, r := range f.records {
+	for _, r := range f.recordsById {
 		if (t - r.addAt) > expiration {
-			delete(f.records, hash)
-			delete(f.idToHash, r.id)
+			delete(f.recordsByHash, r.hash)
+			delete(f.recordsById, r.id)
 
-			r.done(Msg{}, errors.New("timeout"))
+			r.done(nil, Msg{}, errFetchTimeout)
 
+			// recycle
+			for _, ret := range r.targets {
+				f.peerFetchResultPool.Put(ret)
+			}
+			r.reset()
 			f.pool.Put(r)
 		}
 	}
 }
 
 // will suppress fetch
-func (f *filter) hold(hash types.Hash) (r *record, hold bool) {
+func (f *fetcher) hold(hash types.Hash) (r *record, hold bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	now := time.Now().Unix()
 
 	var ok bool
-	if r, ok = f.records[hash]; ok {
+	if r, ok = f.recordsByHash[hash]; ok {
 		if r.st == reqError {
-			r.clean()
+			r.refresh()
 			return r, false
 		} else if r.st == reqDone {
 			if r.mark >= maxMark && (now-r.t) >= timeThreshold {
-				r.clean()
+				r.refresh()
 				return r, false
 			}
 		} else {
 			// pending
 			if r.mark >= maxMark*2 && (now-r.addAt) >= timeThreshold*2 {
-				r.clean()
+				r.refresh()
 				return r, false
 			}
 		}
@@ -165,47 +164,60 @@ func (f *filter) hold(hash types.Hash) (r *record, hold bool) {
 	}
 
 	r = f.pool.Get().(*record)
-	r.reset()
+	r.st = reqPending
+	r.addAt = now
 	r.id = f.idGen.MsgID()
+	r.hash = hash
+	r.targets = make(map[peerId]*peerFetchResult)
 
-	f.records[hash] = r
-	f.idToHash[r.id] = r
+	f.recordsByHash[hash] = r
+	f.recordsById[r.id] = r
 
 	return r, false
 }
 
-func (f *filter) add(hash types.Hash) (r *record) {
+func (f *fetcher) add(hash types.Hash) (r *record) {
 	r = f.pool.Get().(*record)
-	r.reset()
+	r.st = reqPending
+	r.addAt = time.Now().Unix()
+	r.targets = make(map[peerId]*peerFetchResult)
 	r.id = f.idGen.MsgID()
 
 	f.mu.Lock()
-	f.idToHash[r.id] = r
+	f.recordsById[r.id] = r
 	f.mu.Unlock()
 
 	return r
 }
 
-func (f *filter) done(id MsgId, msg Msg) {
+func (f *fetcher) pending(id MsgId, peer *Peer) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	if r, ok := f.idToHash[id]; ok {
-		r.done(msg, nil)
+	if r, ok := f.recordsById[id]; ok {
+		if peer != nil {
+			result := r.targets[peer.Id]
+			result.status = reqPending
+			result.t = time.Now().Unix()
+		}
 	}
 }
 
-func (f *filter) fail(id MsgId, pid peerId) {
+func (f *fetcher) done(id MsgId, peer *Peer, msg Msg, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	if r, ok := f.idToHash[id]; ok {
-		r.fail(pid)
+	if r, ok := f.recordsById[id]; ok {
+		r.done(peer, msg, err)
+
+		if err != nil {
+			f.log.Warn(fmt.Sprintf("failed to fetch %s to %s: %v", r.hash, peer, err))
+		}
 	}
 }
 
 // height is 0 when fetch account block
-func (f *filter) pickTargets(r *record, height uint64, peers *peerSet) peers {
+func (f *fetcher) pickTargets(r *record, height uint64, peers *peerSet) peers {
 	if height > 10 {
 		height -= 10
 	}
@@ -216,15 +228,24 @@ func (f *filter) pickTargets(r *record, height uint64, peers *peerSet) peers {
 		return nil
 	}
 
+	now := time.Now().Unix()
+
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
 	var hole bool
 	for i, p := range ps {
-		if _, ok := r.targets[p.Id]; ok {
-			hole = true
-			ps[i] = nil
-			continue
+		if result, ok := r.targets[p.Id]; ok {
+			if result.status == reqDone {
+				// as target again
+				continue
+			}
+
+			// not as target
+			if result.status == reqWaiting || result.status == reqPending || (result.status == reqError && now-result.t < 10) {
+				hole = true
+				ps[i] = nil
+			}
 		}
 	}
 
@@ -246,15 +267,22 @@ func (f *filter) pickTargets(r *record, height uint64, peers *peerSet) peers {
 	}
 
 	for _, p := range ps {
-		r.targets[p.Id] = false
-		r.restTargets++
+		result := f.peerFetchResultPool.Get().(*peerFetchResult)
+		result.status = reqWaiting
+		result.t = now
+		r.targets[p.Id] = result
 	}
 
 	return ps
 }
 
 type fetcher struct {
-	filter *filter
+	idGen               MsgIder
+	recordsById         map[MsgId]*record
+	recordsByHash       map[types.Hash]*record
+	mu                  sync.Mutex
+	pool                sync.Pool
+	peerFetchResultPool sync.Pool
 
 	peers *peerSet
 
@@ -275,7 +303,21 @@ func newFetcher(peers *peerSet, receiver blockReceiver, blackBlocks map[types.Ha
 	}
 
 	return &fetcher{
-		filter:      newFilter(),
+		idGen:         new(gid),
+		recordsById:   make(map[MsgId]*record, 1000),
+		recordsByHash: make(map[types.Hash]*record, 1000),
+		pool: sync.Pool{
+			New: func() interface{} {
+				return &record{
+					targets: make(map[peerId]*peerFetchResult),
+				}
+			},
+		},
+		peerFetchResultPool: sync.Pool{
+			New: func() interface{} {
+				return &peerFetchResult{}
+			},
+		},
 		peers:       peers,
 		receiver:    receiver,
 		blackBlocks: blackBlocks,
@@ -305,7 +347,7 @@ func (f *fetcher) stop() {
 }
 
 func (f *fetcher) cleanLoop() {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(4 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -313,7 +355,7 @@ func (f *fetcher) cleanLoop() {
 		case <-f.term:
 			return
 		case now := <-ticker.C:
-			f.filter.clean(now.Unix())
+			f.clean(now.Unix())
 		}
 	}
 }
@@ -340,8 +382,6 @@ func (f *fetcher) handle(msg Msg) (err error) {
 		}
 		msg.Recycle()
 
-		f.log.Info(fmt.Sprintf("receive %d snapshotblocks %d from %s", len(bs.Blocks), msg.Id, msg.Sender))
-
 		for _, block := range bs.Blocks {
 			if err = f.receiver.receiveSnapshotBlock(block, types.RemoteFetch); err != nil {
 				return err
@@ -349,7 +389,8 @@ func (f *fetcher) handle(msg Msg) (err error) {
 		}
 
 		if len(bs.Blocks) > 0 {
-			f.filter.done(msg.Id, msg)
+			f.done(msg.Id, msg.Sender, msg, nil)
+			f.log.Info(fmt.Sprintf("receive snapshotblocks %s/%d from %s", bs.Blocks[len(bs.Blocks)-1].Hash, len(bs.Blocks), msg.Sender))
 		}
 
 	case CodeAccountBlocks:
@@ -360,8 +401,6 @@ func (f *fetcher) handle(msg Msg) (err error) {
 		}
 		msg.Recycle()
 
-		f.log.Info(fmt.Sprintf("receive %d accountblocks from %s", len(bs.Blocks), msg.Sender))
-
 		for _, block := range bs.Blocks {
 			if err = f.receiver.receiveAccountBlock(block, types.RemoteFetch); err != nil {
 				return err
@@ -369,11 +408,12 @@ func (f *fetcher) handle(msg Msg) (err error) {
 		}
 
 		if len(bs.Blocks) > 0 {
-			f.filter.done(msg.Id, msg)
+			f.done(msg.Id, msg.Sender, msg, nil)
+			f.log.Info(fmt.Sprintf("receive accountblocks %s/%d from %s", bs.Blocks[len(bs.Blocks)-1].Hash, len(bs.Blocks), msg.Sender))
 		}
 
 	case CodeException:
-		f.filter.fail(msg.Id, msg.Sender.Id)
+		f.done(msg.Id, msg.Sender, msg, errNoResource)
 	}
 
 	return nil
@@ -385,21 +425,21 @@ func (f *fetcher) FetchSnapshotBlocks(hash types.Hash, count uint64) {
 	}
 
 	if !f.st.syncExited() {
-		f.log.Debug("in syncing flow, cannot fetch")
+		f.log.Info("in syncing flow, cannot fetch %s/%d", hash, count)
 		return
 	}
 
 	// been suppressed
-	r, hold := f.filter.hold(hash)
+	r, hold := f.hold(hash)
 	if hold {
-		f.log.Debug(fmt.Sprintf("fetch suppressed GetSnapshotBlocks[hash %s, count %d]", hash, count))
+		f.log.Info(fmt.Sprintf("fetch suppressed GetSnapshotBlocks %s/%d", hash, count))
 		return
 	}
 
-	ps := f.filter.pickTargets(r, 0, f.peers)
+	ps := f.pickTargets(r, 0, f.peers)
 
 	if len(ps) == 0 {
-		f.log.Warn(fmt.Sprintf("no suit peers for %s", hash))
+		f.log.Warn(fmt.Sprintf("no suit peers for %s/%d", hash, count))
 		return
 	}
 
@@ -412,14 +452,12 @@ func (f *fetcher) FetchSnapshotBlocks(hash types.Hash, count uint64) {
 			}
 
 			if err := p.send(CodeGetSnapshotBlocks, r.id, m); err != nil {
-				f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks[hash %s, count %d] to %s: %v", hash, count, p, err))
-				f.filter.fail(r.id, p.Id)
+				f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks %s/%d to %s: %v", hash, count, p, err))
+				f.done(r.id, p, Msg{}, err)
 			} else {
-				f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", hash, count, p))
+				f.log.Info(fmt.Sprintf("send GetSnapshotBlocks %s/%d to %s", hash, count, p))
+				f.pending(r.id, p)
 			}
-		} else {
-			f.log.Error(fmt.Sprintf("failed to fetch GetSnapshotBlocks[hash %s, count %d]: %v", hash, count, errNoSuitablePeer))
-			f.filter.fail(r.id, peerId{})
 		}
 	}
 }
@@ -432,21 +470,21 @@ func (f *fetcher) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, 
 	}
 
 	if !f.st.syncExited() {
-		f.log.Debug("in syncing flow, cannot fetch")
+		f.log.Info("in syncing flow, cannot fetch %s/%d", hash, count)
 		return
 	}
 
-	r, hold := f.filter.hold(hash)
+	r, hold := f.hold(hash)
 	// been suppressed
 	if hold {
-		f.log.Debug(fmt.Sprintf("fetch suppressed GetSnapshotBlocks[hash %s, count %d]", hash, count))
+		f.log.Info(fmt.Sprintf("fetch suppressed GetSnapshotBlocks %s/%d", hash, count))
 		return
 	}
 
-	ps := f.filter.pickTargets(r, height, f.peers)
+	ps := f.pickTargets(r, height, f.peers)
 
 	if len(ps) == 0 {
-		f.log.Warn(fmt.Sprintf("no suit peers for %s", hash))
+		f.log.Warn(fmt.Sprintf("no suit peers for %s/%d", hash, count))
 		return
 	}
 
@@ -459,14 +497,12 @@ func (f *fetcher) FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, 
 			}
 
 			if err := p.send(CodeGetSnapshotBlocks, r.id, m); err != nil {
-				f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks[hash %s, count %d] to %s: %v", hash, count, p, err))
-				f.filter.fail(r.id, p.Id)
+				f.log.Error(fmt.Sprintf("failed to send GetSnapshotBlocks %s/%d to %s: %v", hash, count, p, err))
+				f.done(r.id, p, Msg{}, err)
 			} else {
-				f.log.Info(fmt.Sprintf("send GetSnapshotBlocks[hash %s, count %d] to %s", hash, count, p))
+				f.log.Info(fmt.Sprintf("send GetSnapshotBlocks %s/%d to %s", hash, count, p))
+				f.pending(r.id, p)
 			}
-		} else {
-			f.log.Error(fmt.Sprintf("failed to fetch GetSnapshotBlocks[hash %s, count %d]: %v", hash, count, errNoSuitablePeer))
-			f.filter.fail(r.id, peerId{})
 		}
 	}
 }
@@ -477,21 +513,21 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 	}
 
 	if !f.st.syncExited() {
-		f.log.Debug("in syncing flow, cannot fetch")
+		f.log.Info("in syncing flow, cannot fetch %s/%d", start, count)
 		return
 	}
 
-	r, hold := f.filter.hold(start)
+	r, hold := f.hold(start)
 	// been suppressed
 	if hold {
-		f.log.Debug(fmt.Sprintf("fetch suppressed GetAccountBlocks[hash %s, count %d]", start, count))
+		f.log.Info(fmt.Sprintf("fetch suppressed GetAccountBlocks %s/%d", start, count))
 		return
 	}
 
-	ps := f.filter.pickTargets(r, 0, f.peers)
+	ps := f.pickTargets(r, 0, f.peers)
 
 	if len(ps) == 0 {
-		f.log.Warn(fmt.Sprintf("no suit peers for %s", start))
+		f.log.Warn(fmt.Sprintf("no suit peers for %s/%d", start, count))
 		return
 	}
 
@@ -511,14 +547,12 @@ func (f *fetcher) FetchAccountBlocks(start types.Hash, count uint64, address *ty
 			}
 
 			if err := p.send(CodeGetAccountBlocks, r.id, m); err != nil {
-				f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
-				f.filter.fail(r.id, p.Id)
+				f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks %s/%d to %s: %v", start, count, p, err))
+				f.done(r.id, p, Msg{}, err)
 			} else {
-				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p))
+				f.log.Info(fmt.Sprintf("send GetAccountBlocks %s/%d to %s", start, count, p))
+				f.pending(r.id, p)
 			}
-		} else {
-			f.log.Error(fmt.Sprintf("failed to fetch GetAccountBlocks[hash %s, count %d]: %v", start, count, errNoSuitablePeer))
-			f.filter.fail(r.id, peerId{})
 		}
 	}
 }
@@ -529,21 +563,21 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 	}
 
 	if !f.st.syncExited() {
-		f.log.Debug("in syncing flow, cannot fetch")
+		f.log.Info("in syncing flow, cannot fetch %s/%d", start, count)
 		return
 	}
 
-	r, hold := f.filter.hold(start)
+	r, hold := f.hold(start)
 	// been suppressed
 	if hold {
-		f.log.Debug(fmt.Sprintf("fetch suppressed GetAccountBlocks[hash %s, count %d]", start, count))
+		f.log.Info(fmt.Sprintf("fetch suppressed GetAccountBlocks %s/%d", start, count))
 		return
 	}
 
-	ps := f.filter.pickTargets(r, sHeight, f.peers)
+	ps := f.pickTargets(r, sHeight, f.peers)
 
 	if len(ps) == 0 {
-		f.log.Warn(fmt.Sprintf("no suit peers for %s", start))
+		f.log.Warn(fmt.Sprintf("no suit peers for %s/%d", start, count))
 		return
 	}
 
@@ -563,14 +597,12 @@ func (f *fetcher) FetchAccountBlocksWithHeight(start types.Hash, count uint64, a
 			}
 
 			if err := p.send(CodeGetAccountBlocks, r.id, m); err != nil {
-				f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks[hash %s, count %d] to %s: %v", start, count, p, err))
-				f.filter.fail(r.id, p.Id)
+				f.log.Error(fmt.Sprintf("failed to send GetAccountBlocks %s/%d to %s: %v", start, count, p, err))
+				f.done(r.id, p, Msg{}, err)
 			} else {
-				f.log.Info(fmt.Sprintf("send GetAccountBlocks[hash %s, count %d] to %s", start, count, p))
+				f.log.Info(fmt.Sprintf("send GetAccountBlocks %s/%d to %s", start, count, p))
+				f.pending(r.id, p)
 			}
-		} else {
-			f.log.Error(fmt.Sprintf("failed to fetch GetAccountBlocks[hash %s, count %d]: %v", start, count, errNoSuitablePeer))
-			f.filter.fail(r.id, peerId{})
 		}
 	}
 }
@@ -584,14 +616,14 @@ func (f *fetcher) fetchSnapshotBlock(hash types.Hash, peer *Peer, callback func(
 		Forward: false,
 	}
 
-	r := f.filter.add(hash)
+	r := f.add(hash)
 	r.callback = callback
 
 	err := peer.send(CodeGetSnapshotBlocks, r.id, m)
 	if err != nil {
-		r.done(Msg{}, err)
 		f.log.Warn(fmt.Sprintf("failed to query reliable %s to %s", hash, peer))
+		f.done(r.id, peer, Msg{}, err)
 	} else {
-		f.log.Info(fmt.Sprintf("query reliable %s %d to %s", hash, r.id, peer))
+		f.log.Info(fmt.Sprintf("query reliable %s to %s", hash, peer))
 	}
 }

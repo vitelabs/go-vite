@@ -101,9 +101,10 @@ type Config struct {
 	ErrorLogDir string `json:"ErrorLogDir"`
 
 	//VM
-	VMTestEnabled      bool `json:"VMTestEnabled"`
-	VMTestParamEnabled bool `json:"VMTestParamEnabled"`
-	VMDebug            bool `json:"VMDebug"`
+	VMTestEnabled         bool `json:"VMTestEnabled"`
+	VMTestParamEnabled    bool `json:"VMTestParamEnabled"`
+	QuotaTestParamEnabled bool `json:"QuotaTestParamEnabled"`
+	VMDebug               bool `json:"VMDebug"`
 
 	// subscribe
 	SubscribeEnabled bool `json:"SubscribeEnabled"`
@@ -183,9 +184,10 @@ func (c *Config) makeRewardConfig() *biz.Reward {
 
 func (c *Config) makeVmConfig() *config.Vm {
 	return &config.Vm{
-		IsVmTest:         c.VMTestEnabled,
-		IsUseVmTestParam: c.VMTestParamEnabled,
-		IsVmDebug:        c.VMDebug,
+		IsVmTest:            c.VMTestEnabled,
+		IsUseVmTestParam:    c.VMTestParamEnabled,
+		IsUseQuotaTestParam: c.QuotaTestParamEnabled,
+		IsVmDebug:           c.VMDebug,
 	}
 }
 

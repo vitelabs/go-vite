@@ -21,12 +21,12 @@ package discovery
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net/vnode"
 )
@@ -42,7 +42,6 @@ const dbCleanInterval = time.Hour
 var errDiscoveryIsRunning = errors.New("discovery is running")
 var errDiscoveryIsStopped = errors.New("discovery is stopped")
 var errDifferentNet = errors.New("different net")
-var errPingFailed = errors.New("failed to ping node")
 
 var discvLog = log15.New("module", "discovery")
 
@@ -84,6 +83,22 @@ func (db *discvDB) ReadNodes(expiration int64) (nodes []*Node) {
 	return
 }
 
+type pingStatus = byte
+
+const (
+	ping_ing     pingStatus = 0
+	ping_success pingStatus = 1
+	ping_failed  pingStatus = 2
+)
+
+type checkEndPointResult struct {
+	time      int64
+	status    pingStatus
+	node      *Node
+	err       error
+	callbacks []func(err error)
+}
+
 type Discovery struct {
 	node *vnode.Node
 
@@ -96,8 +111,7 @@ type Discovery struct {
 
 	finder Finder
 
-	// nodes wait to check
-	stage map[string]*Node // key is the communication address, not endpoint
+	stage map[string]*checkEndPointResult
 	mu    sync.Mutex
 
 	socket socket
@@ -110,7 +124,6 @@ type Discovery struct {
 	looking int32 // is looking self
 
 	refreshing bool
-	cond       *sync.Cond
 
 	wg sync.WaitGroup
 
@@ -127,9 +140,14 @@ func (d *Discovery) Nodes() []*vnode.Node {
 	return vnodes
 }
 
+func (d *Discovery) NodesCount() int {
+	return d.table.size()
+}
+
 func (d *Discovery) SubscribeNode(receiver func(n *vnode.Node)) (subId int) {
 	return d.table.Sub(receiver)
 }
+
 func (d *Discovery) Unsubscribe(subId int) {
 	d.table.UnSub(subId)
 }
@@ -162,21 +180,6 @@ func (d *Discovery) Delete(id vnode.NodeID, reason error) {
 	d.log.Info(fmt.Sprintf("remove node %s from table: %v", id.String(), reason))
 }
 
-func (d *Discovery) Resolve(id vnode.NodeID) (ret *vnode.Node) {
-	node := d.table.resolve(id)
-	if node != nil {
-		return &node.Node
-	}
-
-	if nodes := d.lookup(id, 1); len(nodes) > 0 {
-		if nodes[0].ID == id {
-			return &(nodes[0].Node)
-		}
-	}
-
-	return
-}
-
 // New create a Discovery implementation
 func New(peerKey ed25519.PrivateKey, node *vnode.Node, bootNodes, bootSeeds []string, listenAddress string, db NodeDB) *Discovery {
 	d := &Discovery{
@@ -186,15 +189,13 @@ func New(peerKey ed25519.PrivateKey, node *vnode.Node, bootNodes, bootSeeds []st
 		booters:    nil,
 		table:      nil,
 		finder:     nil,
-		stage:      make(map[string]*Node),
-		mu:         sync.Mutex{},
+		stage:      make(map[string]*checkEndPointResult),
 		socket:     nil,
 		db:         nil,
 		running:    0,
 		term:       nil,
 		looking:    0,
 		refreshing: false,
-		cond:       nil,
 		wg:         sync.WaitGroup{},
 		log:        discvLog,
 	}
@@ -203,8 +204,6 @@ func New(peerKey ed25519.PrivateKey, node *vnode.Node, bootNodes, bootSeeds []st
 			db,
 		}
 	}
-
-	d.cond = sync.NewCond(&d.mu)
 
 	d.socket = newAgent(peerKey, d.node, listenAddress, d.handle)
 
@@ -271,35 +270,79 @@ func (d *Discovery) Stop() (err error) {
 }
 
 // ping and update a node, will be blocked, so should invoked by goroutine
-func (d *Discovery) ping(n *Node) error {
-	n.checking = true
-	ch := make(chan *Node, 1)
-	err := d.socket.ping(n, ch)
+func (d *Discovery) ping(n *Node, callback func(err error)) {
+	address := n.Address()
+	now := time.Now().Unix()
 
-	if err != nil {
-		n.checking = false
-		return err
+	d.mu.Lock()
+	if r, ok := d.stage[address]; ok {
+		if r.status == ping_ing {
+			r.callbacks = append(r.callbacks, callback)
+			d.mu.Unlock()
+			return
+		} else if r.status == ping_failed && now-r.time < 10*60 {
+			err := r.err
+			d.mu.Unlock()
+			callback(err)
+			return
+		} else if r.status == ping_success && now-r.time < 10*60 {
+			n.update(r.node)
+			d.mu.Unlock()
+			callback(nil)
+			return
+		}
 	}
 
-	n2 := <-ch
-	n.checking = false
-	if n2 == nil {
-		return errPingFailed
+	d.stage[address] = &checkEndPointResult{
+		time:   now,
+		status: ping_ing,
+		node:   n,
+		err:    nil,
+		callbacks: []func(err error){
+			callback,
+		},
 	}
+	d.mu.Unlock()
 
-	if n2.Net != d.node.Net {
-		return errDifferentNet
-	}
+	d.socket.ping(n, func(node *Node, err error) {
+		d.mu.Lock()
 
-	n.checkAt = time.Now().Unix()
-	n.update(n2)
-	return nil
+		r, ok := d.stage[address]
+		if !ok {
+			r = &checkEndPointResult{}
+			d.stage[address] = r
+		}
+
+		r.time = time.Now().Unix()
+		if err != nil {
+			r.status = ping_failed
+			r.err = err
+			r.node = n
+		} else {
+			n.update(node)
+			r.status = ping_success
+			r.node = node
+		}
+
+		callbacks := r.callbacks
+		d.mu.Unlock()
+
+		for _, cb := range callbacks {
+			cb(r.err)
+		}
+
+		//if r.err != nil {
+		//	discvLog.Warn(fmt.Sprintf("failed to check %s: %v\n", n, r.err))
+		//}
+	})
 }
 
 func (d *Discovery) pingDelete(n *Node) {
-	if d.ping(n) != nil {
-		d.table.resolve(n.ID)
-	}
+	d.ping(n, func(err error) {
+		if err != nil {
+			d.table.remove(n.ID)
+		}
+	})
 }
 
 func (d *Discovery) tableLoop() {
@@ -353,7 +396,7 @@ Loop:
 func (d *Discovery) findLoop() {
 	defer d.wg.Done()
 
-	duration := 10 * time.Second
+	duration := 30 * time.Second
 	ticker := time.NewTicker(duration)
 	defer ticker.Stop()
 
@@ -374,18 +417,19 @@ Loop:
 }
 
 func (d *Discovery) handle(pkt *packet) {
-	defer recyclePacket(pkt)
-
-	d.table.bubble(pkt.id)
+	exist := d.table.bubble(pkt.id)
 
 	switch pkt.c {
 	case codePing:
+		//discvLog.Info(fmt.Sprintf("receive ping from %s", pkt.from.String()))
 		n := nodeFromPing(pkt)
 		if n.Net == d.node.Net {
 			_ = d.socket.pong(pkt.hash, n)
 		}
 
-		d.table.add(n)
+		if !exist {
+			d.table.add(n)
+		}
 
 	case codePong:
 		// nothing
@@ -405,6 +449,7 @@ func (d *Discovery) handle(pkt *packet) {
 			}
 		}
 
+		//discvLog.Info(fmt.Sprintf("send %d ep to %s", len(eps), pkt.from.String()))
 		_ = d.socket.sendNodes(eps, pkt.from)
 
 	case codeNeighbors:
@@ -413,74 +458,77 @@ func (d *Discovery) handle(pkt *packet) {
 }
 
 // receiveNode get from bootNodes or ping message, check and put into table
-func (d *Discovery) receiveNode(n *Node) error {
+func (d *Discovery) receiveNode(n *Node) {
 	if n.Net != d.node.Net {
-		return errDifferentNet
-	}
-
-	if d.table.resolve(n.ID) != nil {
-		return nil
-	}
-
-	// 30min
-	if time.Now().Unix()-n.checkAt > 30*60 {
-		return d.checkNode(n)
-	}
-
-	d.table.add(n)
-	return nil
-}
-
-// receiveEndPoint from neighbors message
-func (d *Discovery) receiveEndPoint(e vnode.EndPoint) (n *Node, err error) {
-	addr := e.String()
-	if n = d.table.resolveAddr(addr); n != nil {
 		return
 	}
 
-	n, err = nodeFromEndPoint(e)
-	if err != nil {
-		return nil, err
+	if d.table.resolve(n.ID) != nil {
+		return
 	}
 
-	err = d.ping(n)
-	if err != nil {
-		return nil, err
-	}
-
-	return n, nil
-}
-
-func (d *Discovery) checkNode(n *Node) error {
 	addr, err := n.udpAddr()
 	if err != nil {
-		return err
+		return
 	}
 
-	d.mu.Lock()
-	if _, ok := d.stage[addr.String()]; ok {
-		d.mu.Unlock()
-		return nil
-	}
-	d.stage[addr.String()] = n
-	d.mu.Unlock()
-
-	// ping
-	err = d.ping(n)
-
-	d.mu.Lock()
-	delete(d.stage, addr.String())
-	d.mu.Unlock()
-
-	if err != nil {
-		return err
+	if d.table.resolveAddr(addr.String()) != nil {
+		return
 	}
 
-	// if ping success, then add to table
-	d.table.add(n)
+	if n.needCheck() {
+		d.ping(n, func(err error) {
+			if err != nil {
+				return
+			}
 
-	return nil
+			d.table.add(n)
+		})
+	} else {
+		d.table.add(n)
+	}
 }
+
+// receiveEndPoint from neighbors message
+func (d *Discovery) receiveEndPoint(e *vnode.EndPoint) (valid bool) {
+	addr := e.String()
+	if d.table.resolveAddr(addr) != nil {
+		return false
+	}
+
+	node, err := nodeFromEndPoint(e)
+	if err != nil {
+		return false
+	}
+
+	d.ping(node, func(err error) {
+		if err != nil {
+			return
+		}
+
+		d.table.add(node)
+	})
+
+	return true
+}
+
+//func (d *Discovery) checkNode(n *Node) error {
+//	_, err := n.udpAddr()
+//	if err != nil {
+//		return err
+//	}
+//
+//	err = d.ping(n)
+//
+//	if err != nil {
+//		return err
+//	}
+//
+//	// if ping success, then add to table
+//	d.table.add(n)
+//
+//	return nil
+//}
 
 func (d *Discovery) getBootNodes(num int) (bootNodes []*Node) {
 	for _, btr := range d.booters {
@@ -491,6 +539,7 @@ func (d *Discovery) getBootNodes(num int) (bootNodes []*Node) {
 }
 
 func (d *Discovery) init() {
+	discvLog.Info("init")
 	if d.loadBootNodes() {
 		d.refresh()
 	}
@@ -511,8 +560,10 @@ Load:
 		goto Load
 	}
 
+	discvLog.Info(fmt.Sprintf("load %d bootNodes", len(bootNodes)))
+
 	for _, n := range bootNodes {
-		_ = d.receiveNode(n)
+		d.receiveNode(n)
 	}
 
 	return true
@@ -524,8 +575,7 @@ func (d *Discovery) findSubTree(distance uint) {
 	}
 
 	id := vnode.RandFromDistance(d.node.ID, distance)
-	nodes := d.lookup(id, bucketSize)
-	d.table.addNodes(nodes)
+	d.lookup(id, bucketSize)
 }
 
 func (d *Discovery) refresh() {
@@ -539,124 +589,75 @@ func (d *Discovery) refresh() {
 
 	for i := uint(0); i < vnode.IDBits; i++ {
 		id := vnode.RandFromDistance(d.node.ID, i)
-		nodes := d.lookup(id, bucketSize)
-		d.table.addNodes(nodes)
-		// have no enough nodes
-		if len(nodes) < bucketSize {
-			break
-		}
+		d.lookup(id, bucketSize)
 	}
 
 	d.mu.Lock()
 	d.refreshing = false
 	d.mu.Unlock()
-
-	d.cond.Broadcast()
 }
 
-func (d *Discovery) lookup(target vnode.NodeID, count int) (result []*Node) {
+func (d *Discovery) lookup(target vnode.NodeID, count int) {
 	// is looking
 	if !atomic.CompareAndSwapInt32(&d.looking, 0, 1) {
-		return nil
+		return
 	}
 
 	defer atomic.StoreInt32(&d.looking, 0)
 
-	nodes := d.table.findNeighbors(target, count)
-
+	nodes := d.table.findSource(target, count)
 	if len(nodes) == 0 {
 		return
 	}
 
-	asked := make(map[vnode.NodeID]struct{}) // nodes has sent findnode message
-	asked[d.node.ID] = struct{}{}
-	asked[target] = struct{}{}
+	//discvLog.Info(fmt.Sprintf("retrieve %d nodes to find %s", len(nodes), target))
 
-	// all nodes of responsive neighbors, use for filter to ensure the same node pushed once
-	seen := make(map[vnode.NodeID]struct{})
-	seen[d.node.ID] = struct{}{}
-	for _, n := range nodes {
-		seen[n.ID] = struct{}{}
-	}
+	curr := make(chan struct{}, 10)
 
-	const alpha = 5
-	reply := make(chan []*Node, alpha)
-	queries := 0
-
-Loop:
-	for {
-		for i := 0; i < len(nodes) && queries < alpha; i++ {
-			n := nodes[i]
-			if _, ok := asked[n.ID]; !ok {
-				asked[n.ID] = struct{}{}
-				go d.findNode(target, count, n, reply)
-				queries++
-			}
-		}
-
-		if queries == 0 {
-			break
-		}
-
-		select {
-		case <-d.term:
-			break Loop
-		case ns := <-reply:
-			queries--
-			for _, n := range ns {
-				if n != nil && n.Net == d.node.Net {
-					if _, ok := seen[n.ID]; !ok {
-						seen[n.ID] = struct{}{}
-						result = append(result, n)
-					}
-				}
+	for i := 0; i < len(nodes); i++ {
+		ratio := d.findNode(target, count, nodes[i], curr)
+		if ratio < 0.3 {
+			if rand.Intn(10) < 5 {
+				break
 			}
 		}
 	}
-
-	return
 }
 
-func (d *Discovery) findNode(target vnode.NodeID, count int, n *Node, ch chan<- []*Node) {
-	epChan := make(chan []*vnode.EndPoint)
-	err := d.socket.findNode(target, count, n, epChan)
+func (d *Discovery) findNode(target vnode.NodeID, count int, n *Node, curr chan struct{}) (ratio float64) {
+	epChan, err := d.socket.findNode(target, count, n)
 	if err != nil {
-		ch <- nil
 		return
 	}
 
-	eps := <-epChan
-	var nodes []*Node
-	if len(eps) > 0 {
-		curr := make(chan struct{}, 10)
-		nch := make(chan *Node)
-		var wg sync.WaitGroup
-		for _, ep := range eps {
-			wg.Add(1)
-			go func(ep *vnode.EndPoint) {
-				defer wg.Done()
+	total := 0
+	var valid int32 = 0
+	for eps := range epChan {
+		total += len(eps)
+		if len(eps) > 0 {
+			for _, ep := range eps {
 				curr <- struct{}{}
-				defer func() {
-					<-curr
-				}()
-				node, e := d.receiveEndPoint(*ep)
-				if e != nil {
-					return
-				}
-				nch <- node
-			}(ep)
-		}
-
-		go func() {
-			wg.Wait()
-			close(nch)
-		}()
-
-		nodes = make([]*Node, 0, len(eps))
-		for n = range nch {
-			nodes = append(nodes, n)
+				go d.receiveEndPointCurr(ep, curr, &valid)
+			}
 		}
 	}
 
-	ch <- nodes
+	//discvLog.Info(fmt.Sprintf("receive %d eps from %s", total, n))
+
+	n.findDone()
+
+	if total == 0 {
+		return 0
+	}
+
+	return float64(valid) / float64(total)
+}
+
+func (d *Discovery) receiveEndPointCurr(ep *vnode.EndPoint, ch <-chan struct{}, validCount *int32) {
+	valid := d.receiveEndPoint(ep)
+	if valid {
+		atomic.AddInt32(validCount, 1)
+	}
+
+	<-ch
 }

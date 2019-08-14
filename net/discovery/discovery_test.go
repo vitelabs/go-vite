@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 
@@ -108,5 +110,51 @@ func TestTimer(t *testing.T) {
 
 	if time.Now().Unix()-start != 1 {
 		t.Fail()
+	}
+}
+
+func Test_splitEndPoints(t *testing.T) {
+	_, privateKey, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+
+	var eps = make([]*vnode.EndPoint, 500)
+	for i := range eps {
+		eps[i] = &vnode.EndPoint{
+			Host: []byte{
+				127, 0, 0, 1,
+			},
+			Port: 8888,
+			Typ:  vnode.HostIPv4,
+		}
+	}
+
+	ept := splitEndPoints(eps)
+
+	n := &neighbors{
+		endpoints: nil,
+		last:      false,
+		time:      time.Now(),
+	}
+
+	msg := message{
+		c:    codeNeighbors,
+		id:   vnode.RandomNodeID(),
+		body: n,
+	}
+
+	for i, epl := range ept {
+		n.endpoints = epl
+		n.last = i == len(ept)-1
+
+		data, _, err := msg.pack(privateKey)
+		if err != nil {
+			panic(err)
+		}
+
+		if len(data) > maxPacketLength {
+			panic("packet too large")
+		}
 	}
 }
