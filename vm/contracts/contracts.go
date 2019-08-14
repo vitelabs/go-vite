@@ -50,9 +50,9 @@ type builtinContract struct {
 }
 
 var (
-	simpleContracts      = newSimpleContracts()
-	dexContracts         = newDexContracts()
-	dexDelegateContracts = newDexAgentContracts()
+	simpleContracts   = newSimpleContracts()
+	dexContracts      = newDexContracts()
+	dexAgentContracts = newDexAgentContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
@@ -141,7 +141,7 @@ func newDexAgentContracts() map[types.Address]*builtinContract {
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
 	if fork.IsNewFork(sbHeight) {
-		contractsMap = dexDelegateContracts
+		contractsMap = dexAgentContracts
 	} else if fork.IsDexFork(sbHeight) {
 		contractsMap = dexContracts
 	} else {
