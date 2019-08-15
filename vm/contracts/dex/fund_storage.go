@@ -43,6 +43,7 @@ var (
 	vxSumFundsKey   = []byte("vxFS:") // vxFundSum
 
 	lastJobPeriodIdWithBizTypeKey = []byte("ljpBId:")
+	normalMineStartedKey          = []byte("nmst:")
 	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
@@ -72,8 +73,9 @@ var (
 
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 
-	VxTokenId, _          = types.HexToTokenTypeId("tti_564954455820434f494e69b5")
-	VxMinedAmtFirstPeriod = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(13)), nil), big.NewInt(47703236213)) // 477032.36213
+	VxTokenId, _             = types.HexToTokenTypeId("tti_564954455820434f494e69b5")
+	PreheatMinedAmtPerPeriod = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	VxMinedAmtFirstPeriod    = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(13)), nil), big.NewInt(47703236213)) // 477032.36213
 
 	VxDividendThreshold      = new(big.Int).Mul(commonTokenPow, big.NewInt(10))
 	NewMarketFeeAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
@@ -143,10 +145,11 @@ const (
 
 //MethodNameDexFundOwnerConfigTrade
 const (
-	OwnerConfigMineMarket     = 1
-	OwnerConfigNewQuoteToken  = 2
-	OwnerConfigTradeThreshold = 4
-	OwnerConfigMineThreshold  = 8
+	OwnerConfigMineMarket      = 1
+	OwnerConfigNewQuoteToken   = 2
+	OwnerConfigTradeThreshold  = 4
+	OwnerConfigMineThreshold   = 8
+	OwnerConfigStartNormalMine = 16
 )
 
 const (
@@ -308,11 +311,11 @@ type ParamDexFundNotifyTime struct {
 	Timestamp int64
 }
 
-type ParamDexFundConfigMarketAgent struct {
-	ActionType uint8 // 1: grant 2: revoke
-	Agent      types.Address
-	TradeToken types.TokenTypeId
-	QuoteToken types.TokenTypeId
+type ParamDexFundConfigMarketsAgent struct {
+	ActionType  uint8 // 1: grant 2: revoke
+	Agent       types.Address
+	TradeTokens []types.TokenTypeId
+	QuoteTokens []types.TokenTypeId
 }
 
 type UserFund struct {
@@ -966,6 +969,14 @@ func SaveLastJobPeriodIdByBizType(db vm_db.VmDb, periodId uint64, bizType uint8)
 
 func GetLastJobPeriodIdKey(bizType uint8) []byte {
 	return append(lastJobPeriodIdWithBizTypeKey, byte(bizType))
+}
+
+func StartNormalMine(db vm_db.VmDb) {
+	setValueToDb(db, normalMineStartedKey, []byte{1})
+}
+
+func IsNormalMineStarted(db vm_db.VmDb) bool {
+	return len(getValueFromDb(db, normalMineStartedKey)) > 0
 }
 
 func GetFirstMinedVxPeriodId(db vm_db.VmDb) uint64 {
