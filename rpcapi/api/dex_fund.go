@@ -508,6 +508,37 @@ func (f DexFundPrivateApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 	return dex.VerifyDexFundBalance(db, getConsensusReader(f.vite)), nil
 }
 
+func (f DexFundPrivateApi) GetFirstMinedVxPeriodId() (uint64, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return 0, err
+	}
+	if firstPeriodId := dex.GetFirstMinedVxPeriodId(db); err != nil {
+		return 0, err
+	} else {
+		return firstPeriodId, nil
+	}
+}
+
+func (f DexFundPrivateApi) GetLastSettledMakerMinedVxInfo() (map[string]uint64, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	lastSettleInfo := make(map[string]uint64)
+	lastSettleInfo["period"] = dex.GetLastSettledMakerMinedVxPeriod(db)
+	lastSettleInfo["page"] = uint64(dex.GetLastSettledMakerMinedVxPage(db))
+	return lastSettleInfo, nil
+}
+
+func (f DexFundPrivateApi) IsNormalMineStarted() (bool, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return false, err
+	}
+	return dex.IsNormalMineStarted(db), nil
+}
+
 func getConsensusReader(vite *vite.Vite) *util.VMConsensusReader {
 	return util.NewVmConsensusReader(vite.Consensus().SBPReader())
 }
