@@ -477,7 +477,7 @@ func (md *MethodDexFundPledgeForSuperVip) GetSendQuota(data []byte, gasTable *ut
 }
 
 func (md *MethodDexFundPledgeForSuperVip) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundPledgeForVipGas
+	return gasTable.DexFundPledgeForSuperVipGas
 }
 
 func (md *MethodDexFundPledgeForSuperVip) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -860,6 +860,9 @@ func (md MethodDexFundOwnerConfigTrade) DoReceive(db vm_db.VmDb, block *ledger.A
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMineThreshold) {
 			dex.SaveMineThreshold(db, param.TokenType4MineThr, param.MineThreshold)
+		}
+		if dex.IsNewFork(db) && dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStartNormalMine) {
+			dex.StartNormalMine(db)
 		}
 	} else {
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundOwnerConfigTrade, dex.OnlyOwnerAllowErr, sendBlock)
@@ -1265,7 +1268,7 @@ func (md *MethodDexFundConfigMarketsAgent) DoSend(db vm_db.VmDb, block *ledger.A
 	var param = new(dex.ParamDexFundConfigMarketsAgent)
 	if err := cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundConfigMarketsAgent, block.Data); err != nil {
 		return err
-	} else if param.ActionType != dex.GrantAgent && param.ActionType != dex.RevokeAgent || len(param.QuoteTokens) == 0 || len(param.TradeTokens) != len(param.QuoteTokens) {
+	} else if param.ActionType != dex.GrantAgent && param.ActionType != dex.RevokeAgent || len(param.QuoteTokens) == 0 || len(param.TradeTokens) != len(param.QuoteTokens) || block.AccountAddress == param.Agent {
 		return dex.InvalidInputParamErr
 	}
 	return nil

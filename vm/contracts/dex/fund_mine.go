@@ -275,22 +275,26 @@ func GetVxAmountToMine(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rate str
 }
 
 func GetVxToMineByPeriodId(db vm_db.VmDb, periodId uint64) *big.Int {
-	var firstPeriodId uint64
-	if firstPeriodId = GetFirstMinedVxPeriodId(db); firstPeriodId == 0 {
-		firstPeriodId = periodId
-		SaveFirstMinedVxPeriodId(db, firstPeriodId)
-	}
-	var amount *big.Int
-	for i := 0; firstPeriodId+uint64(i) <= periodId; i++ {
-		if i == 0 {
-			amount = new(big.Int).Set(VxMinedAmtFirstPeriod)
-		} else if i <= 364 {
-			amount.Mul(amount, big.NewInt(995)).Div(amount, big.NewInt(1000))
-		} else {
-			amount.Mul(amount, big.NewInt(998)).Div(amount, big.NewInt(1000))
+	if !IsNormalMineStarted(db) {
+		return PreheatMinedAmtPerPeriod
+	} else {
+		var firstPeriodId uint64
+		if firstPeriodId = GetFirstMinedVxPeriodId(db); firstPeriodId == 0 {
+			firstPeriodId = periodId
+			SaveFirstMinedVxPeriodId(db, firstPeriodId)
 		}
+		var amount *big.Int
+		for i := 0; firstPeriodId+uint64(i) <= periodId; i++ {
+			if i == 0 {
+				amount = new(big.Int).Set(VxMinedAmtFirstPeriod)
+			} else if i <= 364 {
+				amount.Mul(amount, big.NewInt(995)).Div(amount, big.NewInt(1000))
+			} else {
+				amount.Mul(amount, big.NewInt(998)).Div(amount, big.NewInt(1000))
+			}
+		}
+		return amount
 	}
-	return amount
 }
 
 func AccumulateAmountFromMap(amountMap map[int32]*big.Int) *big.Int {
