@@ -90,6 +90,7 @@ type SyncCache interface {
 	Chunks() SegmentList
 	NewReader(segment Segment) (ChunkReader, error)
 	Delete(seg Segment) error
+	Close() error
 }
 
 type DBStatus struct {
