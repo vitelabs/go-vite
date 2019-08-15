@@ -219,7 +219,7 @@ type GasTable struct {
 	DexFundBindInviteCodeGas       uint64
 	DexFundEndorseVxMinePoolGas    uint64
 	DexFundSettleMakerMinedVxGas   uint64
-	DexFundGrantAgentGas           uint64
+	DexFundConfigMarketsAgentGas   uint64
 	DexFundNewAgentOrderGas        uint64
 }
 
@@ -438,7 +438,7 @@ var (
 		DexFundBindInviteCodeGas:       8400,
 		DexFundEndorseVxMinePoolGas:    6300,
 		DexFundSettleMakerMinedVxGas:   25200,
-		DexFundGrantAgentGas:           8400,
+		DexFundConfigMarketsAgentGas:   8400,
 		DexFundNewAgentOrderGas:        25200,
 	}
 )

@@ -132,7 +132,7 @@ func newDexContracts() map[types.Address]*builtinContract {
 func newDexAgentContracts() map[types.Address]*builtinContract {
 	contracts := newDexContracts()
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundPledgeForSuperVip] = &MethodDexFundPledgeForSuperVip{}
-	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundConfigMarketAgent] = &MethodDexFundConfigMarketAgent{}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundConfigMarketsAgent] = &MethodDexFundConfigMarketsAgent{}
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundNewAgentOrder] = &MethodDexFundNewAgentOrder{}
 	contracts[types.AddressDexTrade].m[cabi.MethodNameDexTradeCancelOrderByHash] = &MethodDexTradeCancelOrderByHash{}
 	return contracts

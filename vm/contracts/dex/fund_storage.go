@@ -308,11 +308,11 @@ type ParamDexFundNotifyTime struct {
 	Timestamp int64
 }
 
-type ParamDexFundConfigMarketAgent struct {
+type ParamDexFundConfigMarketsAgent struct {
 	ActionType uint8 // 1: grant 2: revoke
 	Agent      types.Address
-	TradeToken types.TokenTypeId
-	QuoteToken types.TokenTypeId
+	TradeTokens []types.TokenTypeId
+	QuoteTokens []types.TokenTypeId
 }
 
 type UserFund struct {

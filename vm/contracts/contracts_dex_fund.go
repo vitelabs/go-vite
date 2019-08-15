@@ -1242,59 +1242,59 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 	return nil, nil
 }
 
-type MethodDexFundConfigMarketAgent struct {
+type MethodDexFundConfigMarketsAgent struct {
 }
 
-func (md *MethodDexFundConfigMarketAgent) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexFundConfigMarketsAgent) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundConfigMarketAgent) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexFundConfigMarketsAgent) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (md *MethodDexFundConfigMarketAgent) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+func (md *MethodDexFundConfigMarketsAgent) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexFundConfigMarketAgent) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundGrantAgentGas
+func (md *MethodDexFundConfigMarketsAgent) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+	return gasTable.DexFundConfigMarketsAgentGas
 }
 
-func (md *MethodDexFundConfigMarketAgent) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	var param = new(dex.ParamDexFundConfigMarketAgent)
-	if err := cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundConfigMarketAgent, block.Data); err != nil {
+func (md *MethodDexFundConfigMarketsAgent) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	var param = new(dex.ParamDexFundConfigMarketsAgent)
+	if err := cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundConfigMarketsAgent, block.Data); err != nil {
 		return err
-	} else if param.ActionType != dex.GrantAgent && param.ActionType != dex.RevokeAgent {
+	} else if param.ActionType != dex.GrantAgent && param.ActionType != dex.RevokeAgent || len(param.QuoteTokens) == 0 || len(param.TradeTokens) != len(param.QuoteTokens) {
 		return dex.InvalidInputParamErr
 	}
 	return nil
 }
 
-func (md MethodDexFundConfigMarketAgent) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundConfigMarketsAgent) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
-		param = new(dex.ParamDexFundConfigMarketAgent)
+		param = new(dex.ParamDexFundConfigMarketsAgent)
 		err   error
 	)
-	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundConfigMarketAgent, sendBlock.Data); err != nil {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundConfigMarketAgent, err, sendBlock)
+	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundConfigMarketsAgent, sendBlock.Data); err != nil {
+		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundConfigMarketsAgent, err, sendBlock)
 	}
-	if marketInfo, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); !ok {
-		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundConfigMarketAgent, dex.TradeMarketNotExistsErr, sendBlock)
-	} else {
-		switch param.ActionType {
-		case dex.GrantAgent:
-			if dex.IsMarketGrantedToAgent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId) {
-				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundConfigMarketAgent, dex.TradeMarketAlreadyGrantedErr, sendBlock)
+	for i, tradeToken := range param.TradeTokens {
+		if marketInfo, ok := dex.GetMarketInfo(db, tradeToken, param.QuoteTokens[i]); !ok {
+			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundConfigMarketsAgent, dex.TradeMarketNotExistsErr, sendBlock)
+		} else {
+			switch param.ActionType {
+			case dex.GrantAgent:
+				if !dex.IsMarketGrantedToAgent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId) {
+					dex.GrantMarketToAgent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId)
+					dex.AddGrantMarketToAgentEvent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId)
+				}
+			case dex.RevokeAgent:
+				if dex.IsMarketGrantedToAgent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId) {
+					dex.RevokeMarketFromAgent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId)
+					dex.AddRevokeMarketFromAgentEvent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId)
+				}
 			}
-			dex.GrantMarketToAgent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId)
-			dex.AddGrantMarketToAgentEvent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId)
-		case dex.RevokeAgent:
-			if !dex.IsMarketGrantedToAgent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId) {
-				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundConfigMarketAgent, dex.TradeMarketNotGrantedErr, sendBlock)
-			}
-			dex.RevokeMarketFromAgent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId)
-			dex.AddRevokeMarketFromAgentEvent(db, sendBlock.AccountAddress, param.Agent, marketInfo.MarketId)
 		}
 	}
 	return nil, nil
