@@ -103,35 +103,29 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 
 /*
  * 1. Check and init ledger (check genesis block)
- * 2. Init index database
- * 3. Init state database
- * 4. Init block database
- * 5. Init cache
+ * 2. Init indexDB
+ * 3. Init stateDB
+ * 4. Init blockDB
+ * 5. Init cache(indexDB cache, stateDB cache, blockDB cache, syncCache)
  */
 func (c *chain) Init() error {
 	c.log.Info("Begin initializing", "method", "Init")
-	for {
-		// init db
-		if err := c.newDbAndRecover(); err != nil {
-			return err
-		}
 
-		// check ledger
-		status, err := c.checkAndInitData()
-		if err != nil {
-			return err
-		}
+	// init db
+	if err := c.newDbAndRecover(); err != nil {
+		return err
+	}
 
-		// ledger is valid
-		if status == chain_genesis.LedgerValid {
-			break
-		}
+	// check ledger
+	status, err := c.checkAndInitData()
+	if err != nil {
+		return err
+	}
 
-		// close and clean ledger data
-		if err := c.closeAndCleanData(); err != nil {
-			return err
-		}
-
+	// ledger is invalid
+	if status != chain_genesis.LedgerValid {
+		return errors.New(fmt.Sprintf("The genesis state is incorrect. You can fix the problem by removing the database manually."+
+			"The directory of database is %s.", c.chainDir))
 	}
 
 	// init cache
