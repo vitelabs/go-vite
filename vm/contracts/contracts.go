@@ -147,14 +147,15 @@ func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeigh
 	} else {
 		contractsMap = simpleContracts
 	}
-	p, ok := contractsMap[addr]
-	if ok {
+	p, addrExists := contractsMap[addr]
+	if addrExists {
 		if method, err := p.abi.MethodById(methodSelector); err == nil {
-			c, ok := p.m[method.Name]
-			return c, ok, nil
-		} else {
-			return nil, ok, util.ErrAbiMethodNotFound
+			c, methodExists := p.m[method.Name]
+			if methodExists {
+				return c, methodExists, nil
+			}
 		}
+		return nil, addrExists, util.ErrAbiMethodNotFound
 	}
-	return nil, ok, nil
+	return nil, addrExists, nil
 }
