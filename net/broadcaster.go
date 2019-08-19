@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/bloom"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -13,6 +15,8 @@ import (
 	"github.com/vitelabs/go-vite/tools/circle"
 )
 
+const filterCap = 100000
+const rt = 0.01
 const defaultBroadcastTTL = 32
 
 // A blockStore implementation can store blocks in queue,
@@ -285,6 +289,11 @@ func (p *snapshotMsgPool) put(msg *NewSnapshotBlock) {
 	p.Pool.Put(msg)
 }
 
+type broadChainReader interface {
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+}
+
 type broadcaster struct {
 	peers *peerSet
 
@@ -294,26 +303,26 @@ type broadcaster struct {
 
 	verifier Verifier
 	feed     blockNotifier
-	filter   blockFilter
+	filter   *bloom.Filter
 
 	store blockStore
 
 	mu        sync.Mutex
 	statistic circle.List // statistic latency of block propagation
-	chain     chainReader
+	chain     broadChainReader
 
 	log log15.Logger
 }
 
 func newBroadcaster(peers *peerSet, verifier Verifier, feed blockNotifier,
-	store blockStore, strategy forwardStrategy, chain chainReader) *broadcaster {
+	store blockStore, strategy forwardStrategy, chain broadChainReader) *broadcaster {
 	return &broadcaster{
 		peers:     peers,
 		statistic: circle.NewList(records24h),
 		verifier:  verifier,
 		feed:      feed,
 		store:     store,
-		filter:    newBlockFilter(filterCap),
+		filter:    bloom.New(filterCap, rt),
 		strategy:  strategy,
 		chain:     chain,
 		log:       netLog.New("module", "broadcaster"),
@@ -349,7 +358,7 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, msg.Sender))
 
 		// check if block has exist first
-		if exist := b.filter.has(block.Hash[:]); exist {
+		if exist := b.filter.Test(block.Hash[:]); exist {
 			return nil
 		}
 
@@ -357,8 +366,12 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 		hash := block.ComputeHash()
 
 		// check if has exist or record, return true if has exist
-		if exist := b.filter.lookAndRecord(hash[:]); exist {
+		if exist := b.filter.TestAndAdd(hash[:]); exist {
 			return nil
+		}
+
+		if confirmTimes, _ := b.chain.GetConfirmedTimes(hash); confirmTimes > 100 {
+			return
 		}
 
 		if err = b.verifier.VerifyNetSb(block); err != nil {
@@ -395,7 +408,7 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, msg.Sender))
 
 		// check if block has exist first
-		if exist := b.filter.has(block.Hash[:]); exist {
+		if exist := b.filter.Test(block.Hash[:]); exist {
 			return nil
 		}
 
@@ -403,7 +416,7 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 		hash := block.ComputeHash()
 
 		// check if has exist or record, return true if has exist
-		if exist := b.filter.lookAndRecord(hash[:]); exist {
+		if exist := b.filter.TestAndAdd(hash[:]); exist {
 			return nil
 		}
 
@@ -510,7 +523,7 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 		return
 	}
 
-	b.filter.record(block.Hash.Bytes())
+	b.filter.Add(block.Hash.Bytes())
 
 	var rawMsg = Msg{
 		Code:    CodeNewSnapshotBlock,
@@ -548,7 +561,7 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 		return
 	}
 
-	b.filter.record(block.Hash.Bytes())
+	b.filter.Add(block.Hash.Bytes())
 
 	var rawMsg = Msg{
 		Code:    CodeNewAccountBlock,
@@ -589,7 +602,9 @@ func (b *broadcaster) forwardSnapshotBlock(msg *NewSnapshotBlock, sender *Peer) 
 
 	pl := b.strategy.choosePeers(sender)
 	for _, p := range pl {
-		if p.markIfNotExist(msg.Block.Hash) {
+		if p.knownBlocks.TestAndAdd(msg.Block.Hash.Bytes()) {
+			continue
+		} else {
 			if err = p.WriteMsg(rawMsg); err != nil {
 				p.catch(err)
 				b.log.Error(fmt.Sprintf("failed to forward snapshotblock %s/%d to %s: %v", msg.Block.Hash, msg.Block.Height, p, err))
@@ -626,7 +641,9 @@ func (b *broadcaster) forwardAccountBlock(msg *NewAccountBlock, sender *Peer) {
 
 	pl := b.strategy.choosePeers(sender)
 	for _, p := range pl {
-		if p.markIfNotExist(msg.Block.Hash) {
+		if p.knownBlocks.TestAndAdd(msg.Block.Hash.Bytes()) {
+			continue
+		} else {
 			if err = p.WriteMsg(rawMsg); err != nil {
 				p.catch(err)
 				b.log.Error(fmt.Sprintf("failed to forward accountblock %s to %s: %v", msg.Block.Hash, p, err))
