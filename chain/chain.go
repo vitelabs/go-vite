@@ -2,7 +2,6 @@ package chain
 
 import (
 	"fmt"
-
 	"github.com/vitelabs/go-vite/common/fork"
 
 	"github.com/vitelabs/go-vite/chain/plugins"
@@ -56,6 +55,8 @@ type chain struct {
 
 	cache *chain_cache.Cache
 
+	metaDB *leveldb.DB
+
 	indexDB *chain_index.IndexDB
 
 	blockDB *chain_block.BlockDB
@@ -96,6 +97,7 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
+
 	c.genesisAccountBlockHash = chain_genesis.VmBlocksToHashMap(c.genesisAccountBlocks)
 
 	return c
@@ -243,6 +245,13 @@ func (c *chain) SetConsensus(cs Consensus) {
 
 func (c *chain) newDbAndRecover() error {
 	var err error
+	// new metaDB
+	c.metaDB, err = c.NewDb("chain_meta")
+	if err != nil {
+		c.log.Error(fmt.Sprintf("new meta db failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
+		return err
+	}
+
 	// new ledger db
 	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir, c); err != nil {
 		c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
@@ -305,7 +314,7 @@ func (c *chain) newDbAndRecover() error {
 
 func (c *chain) checkAndInitData() (byte, error) {
 	// check ledger
-	status, err := chain_genesis.CheckLedger(c, c.genesisSnapshotBlock)
+	status, err := chain_genesis.CheckLedger(c, c.genesisSnapshotBlock, c.genesisAccountBlocks)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
 

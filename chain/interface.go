@@ -293,6 +293,10 @@ type Chain interface {
 
 	RecoverWrite()
 
+	WriteGenesisCheckSum(hash types.Hash) error
+
+	QueryGenesisCheckSum() (*types.Hash, error)
+
 	// ====== Check ======
 	CheckRedo() error
 
