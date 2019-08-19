@@ -420,6 +420,10 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 			return nil
 		}
 
+		if confirmTimes, _ := b.chain.GetConfirmedTimes(hash); confirmTimes > 100 {
+			return
+		}
+
 		if err = b.verifier.VerifyNetAb(block); err != nil {
 			b.log.Error(fmt.Sprintf("verify new accountblock %s from %s error: %v", hash, msg.Sender, err))
 			return err
