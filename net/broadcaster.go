@@ -355,6 +355,11 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 
 		block := nb.Block
 
+		if block.Height+100 < b.chain.GetLatestSnapshotBlock().Height {
+			b.log.Warn(fmt.Sprintf("receive new snapshotblock %s/%d from %s: too old", block.Hash, block.Height, msg.Sender))
+			return
+		}
+
 		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, msg.Sender))
 
 		// check if block has exist first
@@ -368,10 +373,6 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 		// check if has exist or record, return true if has exist
 		if exist := b.filter.TestAndAdd(hash[:]); exist {
 			return nil
-		}
-
-		if confirmTimes, _ := b.chain.GetConfirmedTimes(hash); confirmTimes > 100 {
-			return
 		}
 
 		if err = b.verifier.VerifyNetSb(block); err != nil {
@@ -421,6 +422,7 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 		}
 
 		if confirmTimes, _ := b.chain.GetConfirmedTimes(hash); confirmTimes > 100 {
+			b.log.Warn(fmt.Sprintf("receive new accountblock %s from %s: confirmed times %d too old", block.Hash, msg.Sender, confirmTimes))
 			return
 		}
 
