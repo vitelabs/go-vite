@@ -207,7 +207,6 @@ func (md *MethodDexTradeCancelOrderByHash) DoSend(db vm_db.VmDb, block *ledger.A
 func (md MethodDexTradeCancelOrderByHash) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	sendHash := new(types.Hash)
 	cabi.ABIDexTrade.UnpackMethod(sendHash, cabi.MethodNameDexTradeCancelOrderByHash, sendBlock.Data)
-
 	if orderId, ok := dex.GetOrderIdByHash(db, sendHash.Bytes()); !ok {
 		return handleDexReceiveErr(tradeLogger, cabi.MethodNameDexTradeCancelOrderByHash, dex.InvalidOrderHashErr, sendBlock)
 	} else {

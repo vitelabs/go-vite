@@ -306,10 +306,8 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, accou
 		return nil, TradeMarketNotExistsErr
 	} else if marketInfo.Stopped {
 		return nil, TradeMarketStoppedErr
-	} else if agent != nil {
-		if !IsMarketGrantedToAgent(db, *accountAddress, *agent, marketInfo.MarketId) {
-			return nil, TradeMarketNotGrantedErr
-		}
+	} else if agent != nil && !IsMarketGrantedToAgent(db, *accountAddress, *agent, marketInfo.MarketId) {
+		return nil, TradeMarketNotGrantedErr
 	}
 	order.Id = ComposeOrderId(db, marketInfo.MarketId, param.Side, param.Price)
 	order.MarketId = marketInfo.MarketId
@@ -335,7 +333,6 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, accou
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
 	order.Timestamp = GetTimestampInt64(db)
-	order.Quantity = param.Quantity.Bytes()
 	if IsNewFork(db) {
 		if agent != nil {
 			order.Agent = agent.Bytes()

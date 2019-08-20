@@ -1268,7 +1268,7 @@ func (md *MethodDexFundConfigMarketsAgent) DoSend(db vm_db.VmDb, block *ledger.A
 	var param = new(dex.ParamDexFundConfigMarketsAgent)
 	if err := cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundConfigMarketsAgent, block.Data); err != nil {
 		return err
-	} else if param.ActionType != dex.GrantAgent && param.ActionType != dex.RevokeAgent || len(param.QuoteTokens) == 0 || len(param.TradeTokens) != len(param.QuoteTokens) || block.AccountAddress == param.Agent {
+	} else if param.ActionType != dex.GrantAgent && param.ActionType != dex.RevokeAgent || len(param.TradeTokens) == 0 || len(param.TradeTokens) != len(param.QuoteTokens) || block.AccountAddress == param.Agent {
 		return dex.InvalidInputParamErr
 	}
 	return nil
