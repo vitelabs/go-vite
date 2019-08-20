@@ -631,6 +631,11 @@ func (b *broadcaster) subSyncState(st SyncState) {
 }
 
 func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
+	if b.st == Syncing {
+		b.log.Warn(fmt.Sprintf("failed to broadcast snapshotblock %s/%d: syncing", block.Hash, block.Height))
+		return
+	}
+
 	var msg = &NewSnapshotBlock{
 		Block: block,
 		TTL:   defaultBroadcastTTL,
@@ -669,6 +674,11 @@ func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 }
 
 func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
+	if b.st == Syncing {
+		b.log.Warn(fmt.Sprintf("failed to broadcast accountblock %s/%d: syncing", block.Hash, block.Height))
+		return
+	}
+
 	var msg = &NewAccountBlock{
 		Block: block,
 		TTL:   defaultBroadcastTTL,
