@@ -181,6 +181,7 @@ func GetPledgeListByPage(db StorageDatabase, lastKey []byte, count uint64) ([]*t
 		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err != nil {
 			continue
 		}
+		pledgeInfo.PledgeAddress = GetPledgeAddrFromPledgeKey(iterator.Key())
 		pledgeInfoList = append(pledgeInfoList, pledgeInfo)
 		count = count - 1
 		if count == 0 {

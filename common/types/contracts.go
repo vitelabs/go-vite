@@ -66,4 +66,5 @@ type PledgeInfo struct {
 	Agent          bool
 	AgentAddress   Address
 	Bid            uint8
+	PledgeAddress  Address
 }
