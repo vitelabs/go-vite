@@ -291,10 +291,12 @@ var errMissingBroadcastBlock = errors.New("propagation missing block")
 //	p.Pool.Put(msg)
 //}
 type pickItem struct {
-	total    int32
-	picked   int32
-	failed   int32
-	createAt int64
+	total     int32
+	picked    int32
+	failed    int32
+	createAt  int64
+	resetting int32
+	life      int64
 }
 
 func (p *pickItem) inc() {
@@ -306,16 +308,33 @@ func (p *pickItem) fail() {
 func (p *pickItem) pick() {
 	atomic.AddInt32(&p.picked, 1)
 }
+func (p *pickItem) reset(now int64) {
+	if !p.expired(now) {
+		return
+	}
+
+	if atomic.CompareAndSwapInt32(&p.resetting, 0, 1) {
+		p.createAt = now
+		p.total = 0
+		p.failed = 0
+		p.picked = 0
+
+		atomic.StoreInt32(&p.resetting, 0)
+	}
+}
+func (p *pickItem) expired(now int64) bool {
+	return p.createAt+p.life < now
+}
 
 type ringStatic struct {
 	rw    sync.RWMutex
 	items []*pickItem
-	index int
-	size  int
+	index int32
+	size  int32
 	d     int64
 }
 
-func newRingStatic(size int, d int64) *ringStatic {
+func newRingStatic(size int32, d int64) *ringStatic {
 	r := &ringStatic{
 		items: make([]*pickItem, size),
 		index: 0,
@@ -330,6 +349,7 @@ func newRingStatic(size int, d int64) *ringStatic {
 			picked:   0,
 			failed:   0,
 			createAt: now,
+			life:     d,
 		}
 	}
 
@@ -338,19 +358,13 @@ func newRingStatic(size int, d int64) *ringStatic {
 func (r *ringStatic) get() *pickItem {
 	now := time.Now().Unix()
 
-	r.rw.Lock()
-	defer r.rw.Unlock()
-
-	item := r.items[r.index]
-	if now-item.createAt > r.d {
-		r.index++
-		r.index = r.index & (r.size - 1)
-
-		item = r.items[r.index]
-		item.createAt = now
-		item.total = 0
-		item.failed = 0
-		item.picked = 0
+	index := atomic.LoadInt32(&r.index)
+	item := r.items[index]
+	if item.expired(now) {
+		index = (index + 1) & (r.size - 1)
+		atomic.StoreInt32(&r.index, index)
+		item = r.items[index]
+		item.reset(now)
 	}
 
 	return item
@@ -359,15 +373,9 @@ func (r *ringStatic) failedRatio() float32 {
 	var failed int32
 	var pick int32
 
-	r.rw.RLock()
-	defer r.rw.RUnlock()
-
 	for _, item := range r.items {
-		if item == nil {
-			break
-		}
-		failed += atomic.LoadInt32(&item.failed)
-		pick += atomic.LoadInt32(&item.picked)
+		failed += item.failed
+		pick += item.picked
 	}
 
 	if pick == 0 {
@@ -415,7 +423,7 @@ func newBroadcaster(peers *peerSet, verifier Verifier, feed blockNotifier,
 		filter:    bloom.New(filterCap, rt),
 		strategy:  strategy,
 		chain:     chain,
-		rings:     newRingStatic(8, 10),
+		rings:     newRingStatic(8, 2),
 		log:       netLog.New("module", "broadcaster"),
 	}
 }

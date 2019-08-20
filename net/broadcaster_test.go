@@ -410,7 +410,7 @@ func TestCommonPeers2(t *testing.T) {
 }
 
 func TestRing_Get(t *testing.T) {
-	s := newRingStatic(8)
+	s := newRingStatic(8, 2)
 
 	t.Parallel()
 	for i := 0; i < 100; i++ {
@@ -428,6 +428,16 @@ func TestRing_Get(t *testing.T) {
 				fmt.Println(ratio)
 			})
 		}
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(25 * time.Millisecond)
 	}
+}
+
+func BenchmarkRingStatic(b *testing.B) {
+	s := newRingStatic(8, 2)
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			s.failedRatio()
+		}
+	})
 }
