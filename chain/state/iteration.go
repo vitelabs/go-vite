@@ -16,11 +16,11 @@ import (
 
 func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) interfaces.StorageIterator {
 	slice := util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix))
-	return newStateStorageIterator(sDB.store.NewIterator(slice))
+	return newStateStorageIterator(sDB.store.NewIterator(slice), 0)
 }
 
 func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	return newStateStorageIterator(sDB.NewRawSnapshotStorageIteratorByHeight(snapshotHeight, addr, prefix)), nil
+	return newStateStorageIterator(sDB.NewRawSnapshotStorageIteratorByHeight(snapshotHeight, addr, prefix), snapshotHeight), nil
 }
 
 func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash types.Hash, addr types.Address, prefix []byte) (interfaces.StorageIterator, error) {
@@ -44,12 +44,14 @@ func (sDB *StateDB) NewRawSnapshotStorageIteratorByHeight(snapshotHeight uint64,
 }
 
 type stateStorageIterator struct {
-	iter interfaces.StorageIterator
+	iter           interfaces.StorageIterator
+	snapshotHeight uint64
 }
 
-func newStateStorageIterator(iter interfaces.StorageIterator) interfaces.StorageIterator {
+func newStateStorageIterator(iter interfaces.StorageIterator, snapshotHeight uint64) interfaces.StorageIterator {
 	return &stateStorageIterator{
-		iter: iter,
+		iter:           iter,
+		snapshotHeight: snapshotHeight,
 	}
 }
 
@@ -62,7 +64,15 @@ func (iterator *stateStorageIterator) Prev() bool {
 }
 
 func (iterator *stateStorageIterator) Seek(key []byte) bool {
-	return iterator.iter.Seek(key)
+	seekKey := key
+
+	if iterator.snapshotHeight > 0 {
+		seekKey = chain_utils.CreateHistoryStorageValueKey(&types.AddressPledge, seekKey, iterator.snapshotHeight)
+	} else {
+		seekKey = chain_utils.CreateStorageValueKey(&types.AddressPledge, seekKey)
+	}
+
+	return iterator.iter.Seek(seekKey)
 }
 
 func (iterator *stateStorageIterator) Next() bool {
@@ -139,6 +149,7 @@ func (sIterator *snapshotStorageIterator) Next() bool {
 }
 func (sIterator *snapshotStorageIterator) Seek(key []byte) bool {
 	iter := sIterator.iter
+
 	sIterator.iterOk = iter.Seek(key)
 
 	if sIterator.iterOk {

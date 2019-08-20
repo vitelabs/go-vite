@@ -254,6 +254,8 @@ type Chain interface {
 
 	GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error)
 
+	GetPledgeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error)
+
 	// ====== Sync ledger ======
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
 

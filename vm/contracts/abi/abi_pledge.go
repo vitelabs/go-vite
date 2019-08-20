@@ -154,3 +154,38 @@ func GetPledgeInfo(db StorageDatabase, pledgeAddr, beneficialAddr, agentAddr typ
 	}
 	return nil, nil
 }
+
+func GetPledgeListByPage(db StorageDatabase, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error) {
+	iterator, err := db.NewStorageIterator(nil)
+	util.DealWithErr(err)
+	defer iterator.Release()
+
+	if len(lastKey) > 0 {
+		ok := iterator.Seek(lastKey)
+		if !ok {
+			return nil, nil, nil
+		}
+	}
+	pledgeInfoList := make([]*types.PledgeInfo, 0, count)
+	for {
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, nil, iterator.Error()
+			}
+			break
+		}
+		if !IsPledgeKey(iterator.Key()) {
+			continue
+		}
+		pledgeInfo := new(types.PledgeInfo)
+		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err != nil {
+			continue
+		}
+		pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+		count = count - 1
+		if count == 0 {
+			break
+		}
+	}
+	return pledgeInfoList, iterator.Key(), nil
+}

@@ -58,3 +58,12 @@ type TokenInfo struct {
 	IsReIssuable  bool     `json:"isReIssuable"`
 	Index         uint16   `json:"index"`
 }
+
+type PledgeInfo struct {
+	Amount         *big.Int
+	WithdrawHeight uint64
+	BeneficialAddr Address
+	Agent          bool
+	AgentAddress   Address
+	Bid            uint8
+}

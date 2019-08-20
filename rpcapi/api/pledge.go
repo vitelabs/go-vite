@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -217,4 +218,21 @@ type QuotaCoefficientInfo struct {
 func (p *PledgeApi) GetQuotaCoefficient() (*QuotaCoefficientInfo, error) {
 	qc, globalQuota, isCongestion := quota.CalcQc(p.chain, p.chain.GetLatestSnapshotBlock().Height)
 	return &QuotaCoefficientInfo{bigIntToString(qc), Uint64ToString(globalQuota), isCongestion}, nil
+}
+
+type GetPledgeListByPageResult struct {
+	PledgeInfoList []*types.PledgeInfo `json:"list"`
+	LastKey        string              `json:"lastKey"`
+}
+
+func (p *PledgeApi) GetPledgeListByPage(snapshotHash types.Hash, lastKey string, count uint64) (*GetPledgeListByPageResult, error) {
+	lastKeyBytes, err := hex.DecodeString(lastKey)
+	if err != nil {
+		return nil, err
+	}
+	list, lastKeyBytes, err := p.chain.GetPledgeListByPage(snapshotHash, lastKeyBytes, count)
+	if err != nil {
+		return nil, err
+	}
+	return &GetPledgeListByPageResult{list, hex.EncodeToString(lastKeyBytes)}, nil
 }

@@ -147,3 +147,14 @@ func (c *chain) GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error
 	}
 	return abi.GetTokenMap(sd)
 }
+
+func (c *chain) GetPledgeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressPledge)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
+		c.log.Error(cErr.Error(), "method", "GetPledgeAmountByPage")
+
+		return nil, nil, cErr
+	}
+	return abi.GetPledgeListByPage(sd, lastKey, count)
+}
