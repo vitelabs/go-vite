@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	InitVMConfig(false, false, false, common.HomeDir())
+	InitVMConfig(false, false, false, false, common.HomeDir())
 	initFork()
 }
 
@@ -433,7 +433,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 }
 
 func TestVmForTest(t *testing.T) {
-	InitVMConfig(true, true, false, "")
+	InitVMConfig(true, true, true, false, "")
 	db, _, _, _, _, _ := prepareDb(big.NewInt(0))
 
 	addr1, _, _ := types.CreateAddress()
