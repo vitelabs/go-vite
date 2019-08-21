@@ -14,13 +14,13 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 )
 
-func (sDB *StateDB) NewStorageIterator(addr *types.Address, prefix []byte) interfaces.StorageIterator {
-	slice := util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(addr, prefix))
-	return newStateStorageIterator(sDB.store.NewIterator(slice), 0)
+func (sDB *StateDB) NewStorageIterator(addr types.Address, prefix []byte) interfaces.StorageIterator {
+	slice := util.BytesPrefix(chain_utils.CreateStorageValueKeyPrefix(&addr, prefix))
+	return newStateStorageIterator(sDB.store.NewIterator(slice), addr, 0)
 }
 
 func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	return newStateStorageIterator(sDB.NewRawSnapshotStorageIteratorByHeight(snapshotHeight, addr, prefix), snapshotHeight), nil
+	return newStateStorageIterator(sDB.NewRawSnapshotStorageIteratorByHeight(snapshotHeight, addr, prefix), addr, snapshotHeight), nil
 }
 
 func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash types.Hash, addr types.Address, prefix []byte) (interfaces.StorageIterator, error) {
@@ -46,12 +46,14 @@ func (sDB *StateDB) NewRawSnapshotStorageIteratorByHeight(snapshotHeight uint64,
 type stateStorageIterator struct {
 	iter           interfaces.StorageIterator
 	snapshotHeight uint64
+	addr types.Address
 }
 
-func newStateStorageIterator(iter interfaces.StorageIterator, snapshotHeight uint64) interfaces.StorageIterator {
+func newStateStorageIterator(iter interfaces.StorageIterator, addr types.Address, snapshotHeight uint64) interfaces.StorageIterator {
 	return &stateStorageIterator{
 		iter:           iter,
 		snapshotHeight: snapshotHeight,
+		addr: addr,
 	}
 }
 
@@ -65,13 +67,11 @@ func (iterator *stateStorageIterator) Prev() bool {
 
 func (iterator *stateStorageIterator) Seek(key []byte) bool {
 	seekKey := key
-
 	if iterator.snapshotHeight > 0 {
-		seekKey = chain_utils.CreateHistoryStorageValueKey(&types.AddressPledge, seekKey, iterator.snapshotHeight)
+		seekKey = chain_utils.CreateHistoryStorageValueKey(&iterator.addr, seekKey, 0)
 	} else {
-		seekKey = chain_utils.CreateStorageValueKey(&types.AddressPledge, seekKey)
+		seekKey = chain_utils.CreateStorageValueKey(&iterator.addr, seekKey)
 	}
-
 	return iterator.iter.Seek(seekKey)
 }
 
@@ -115,6 +115,7 @@ type snapshotStorageIterator struct {
 }
 
 func newSnapshotStorageIterator(iter interfaces.StorageIterator, height uint64) interfaces.StorageIterator {
+
 	sIterator := &snapshotStorageIterator{
 		iter:           iter,
 		snapshotHeight: height,

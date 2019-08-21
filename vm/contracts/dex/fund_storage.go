@@ -679,7 +679,6 @@ func GetUserFundsByPage(db abi.StorageDatabase, lastAddress types.Address, count
 		}
 		key := iterator.Key()
 		data := iterator.Value()
-
 		if len(data) > 0 {
 			fund := &UserFund{}
 			if err = fund.DeSerialize(data); err != nil {
