@@ -416,6 +416,50 @@ func (f DexFundApi) VerifyFundBalance() (*dex.FundVerifyRes, error) {
 	return dex.VerifyDexFundBalance(db, getConsensusReader(f.vite)), nil
 }
 
+func (f DexFundApi) GetUserFundsByPage(snapshotHash types.Hash, lastAddress string, count int) (*apidex.UserFunds, error) {
+	if count <= 0 {
+		return nil, dex.InvalidInputParamErr
+	}
+	var lastAddr = types.ZERO_ADDRESS
+	if len(lastAddress) > 0 {
+		if addr, err := types.HexToAddress(lastAddress); err != nil {
+			return nil, err
+		} else {
+			lastAddr = addr
+		}
+	}
+	if funds, err := f.chain.GetDexFundsByPage(snapshotHash, lastAddr, count); err != nil {
+		return nil, err
+	} else {
+		fundsRes := &apidex.UserFunds{}
+		for _, fund := range funds {
+			simpleFund := &apidex.SimpleUserFund{}
+			if address, err := types.BytesToAddress(fund.Address); err != nil {
+				return nil, err
+			} else {
+				simpleFund.Address = address.String()
+			}
+			for _, acc := range fund.Accounts {
+				simpleAcc := &apidex.SimpleAccountInfo{}
+				if token, err := types.BytesToTokenTypeId(acc.Token); err != nil {
+					return nil, err
+				} else {
+					simpleAcc.Token = token.String()
+				}
+				if len(acc.Available) > 0 {
+					simpleAcc.Available = apidex.AmountBytesToString(acc.Available)
+				}
+				if len(acc.Locked) > 0 {
+					simpleAcc.Locked = apidex.AmountBytesToString(acc.Locked)
+				}
+				simpleFund.Accounts = append(simpleFund.Accounts, simpleAcc)
+			}
+			fundsRes.Funds = append(fundsRes.Funds, simpleFund)
+		}
+		return fundsRes, nil
+	}
+}
+
 func getConsensusReader(vite *vite.Vite) *util.VMConsensusReader {
 	return util.NewVmConsensusReader(vite.Consensus().SBPReader())
 }
