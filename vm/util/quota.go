@@ -207,6 +207,7 @@ type GasTable struct {
 	DexFundPeriodJobGas            uint64
 	DexFundPledgeForVxGas          uint64
 	DexFundPledgeForVipGas         uint64
+	DexFundPledgeForSuperVipGas    uint64
 	DexFundPledgeCallbackGas       uint64
 	DexFundCancelPledgeCallbackGas uint64
 	DexFundGetTokenInfoCallbackGas uint64
@@ -219,6 +220,17 @@ type GasTable struct {
 	DexFundBindInviteCodeGas       uint64
 	DexFundEndorseVxMinePoolGas    uint64
 	DexFundSettleMakerMinedVxGas   uint64
+	DexFundConfigMarketsAgentGas   uint64
+	DexFundNewAgentOrderGas        uint64
+}
+
+func GasTableByHeight(sbHeight uint64) *GasTable {
+	if !fork.IsDexFork(sbHeight) {
+		return &initGasTable
+	} else if !fork.IsStemFork(sbHeight) {
+		return &viteGasTable
+	}
+	return &dexAgentGasTable
 }
 
 var (
@@ -319,7 +331,12 @@ var (
 		GetTokenInfoGas:       63200,
 	}
 
-	viteGasTable = GasTable{
+	viteGasTable     = newViteGasTable()
+	dexAgentGasTable = newDexAgentGasTable()
+)
+
+func newViteGasTable() GasTable {
+	return GasTable{
 		AddGas:            2,
 		MulGas:            2,
 		SubGas:            2,
@@ -437,11 +454,12 @@ var (
 		DexFundEndorseVxMinePoolGas:    6300,
 		DexFundSettleMakerMinedVxGas:   25200,
 	}
-)
+}
 
-func GasTableByHeight(sbHeight uint64) *GasTable {
-	if !fork.IsDexFork(sbHeight) {
-		return &initGasTable
-	}
-	return &viteGasTable
+func newDexAgentGasTable() GasTable {
+	gt := newViteGasTable()
+	gt.DexFundPledgeForSuperVipGas = 33600
+	gt.DexFundConfigMarketsAgentGas = 8400
+	gt.DexFundNewAgentOrderGas = 25200
+	return gt
 }

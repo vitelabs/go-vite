@@ -262,7 +262,7 @@ type SimpleAccountInfo struct {
 }
 
 type SimpleUserFund struct {
-	Address  string `json:"address"`
+	Address  string               `json:"address"`
 	Accounts []*SimpleAccountInfo `json:"accounts"`
 }
 

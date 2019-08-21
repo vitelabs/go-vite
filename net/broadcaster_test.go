@@ -2,14 +2,13 @@ package net
 
 import (
 	"fmt"
-	"math/big"
+	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/vnode"
-
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/net/vnode"
 	"github.com/vitelabs/go-vite/tools/circle"
 )
 
@@ -189,94 +188,94 @@ func TestMemStore_EnqueueSnapshotBlock(t *testing.T) {
 //	broadcaster.handle()
 //}
 
-func TestAccountMsgPool(t *testing.T) {
-	p := newAccountMsgPool()
+//func TestAccountMsgPool(t *testing.T) {
+//	p := newAccountMsgPool()
+//
+//	for i := 0; i < 1000; i++ {
+//		var nb = new(NewAccountBlock)
+//		nb.Block = &ledger.AccountBlock{
+//			BlockType:      0,
+//			Hash:           types.Hash{byte(i % 256)},
+//			Height:         uint64(i),
+//			PrevHash:       types.Hash{},
+//			AccountAddress: types.Address{},
+//			PublicKey:      nil,
+//			ToAddress:      types.Address{},
+//			FromBlockHash:  types.Hash{},
+//			Amount:         new(big.Int),
+//			TokenId:        types.TokenTypeId{},
+//			Quota:          0,
+//			Fee:            new(big.Int),
+//			Data:           nil,
+//			LogHash:        nil,
+//			Difficulty:     nil,
+//			Nonce:          nil,
+//			Signature:      nil,
+//		}
+//		nb.TTL = int32(i)
+//
+//		data, err := nb.Serialize()
+//		if err != nil {
+//			panic(err)
+//		}
+//
+//		msg := p.get()
+//		err = msg.Deserialize(data)
+//		if err != nil {
+//			panic(err)
+//		}
+//
+//		if msg.Block.Hash != nb.Block.Hash {
+//			t.Errorf("wrong hash")
+//		}
+//		if msg.TTL != nb.TTL {
+//			t.Errorf("wrong ttl")
+//		}
+//
+//		p.put(msg)
+//	}
+//}
 
-	for i := 0; i < 1000; i++ {
-		var nb = new(NewAccountBlock)
-		nb.Block = &ledger.AccountBlock{
-			BlockType:      0,
-			Hash:           types.Hash{byte(i % 256)},
-			Height:         uint64(i),
-			PrevHash:       types.Hash{},
-			AccountAddress: types.Address{},
-			PublicKey:      nil,
-			ToAddress:      types.Address{},
-			FromBlockHash:  types.Hash{},
-			Amount:         new(big.Int),
-			TokenId:        types.TokenTypeId{},
-			Quota:          0,
-			Fee:            new(big.Int),
-			Data:           nil,
-			LogHash:        nil,
-			Difficulty:     nil,
-			Nonce:          nil,
-			Signature:      nil,
-		}
-		nb.TTL = int32(i)
-
-		data, err := nb.Serialize()
-		if err != nil {
-			panic(err)
-		}
-
-		msg := p.get()
-		err = msg.Deserialize(data)
-		if err != nil {
-			panic(err)
-		}
-
-		if msg.Block.Hash != nb.Block.Hash {
-			t.Errorf("wrong hash")
-		}
-		if msg.TTL != nb.TTL {
-			t.Errorf("wrong ttl")
-		}
-
-		p.put(msg)
-	}
-}
-
-func TestSnapshotMsgPool(t *testing.T) {
-	p := newSnapshotMsgPool()
-
-	var now = time.Now()
-	for i := 0; i < 1000; i++ {
-		var nb = new(NewSnapshotBlock)
-		nb.Block = &ledger.SnapshotBlock{
-			Hash:            types.Hash{byte(i % 256)},
-			PrevHash:        types.Hash{},
-			Height:          uint64(i),
-			PublicKey:       []byte("hello"),
-			Signature:       []byte("hello"),
-			Seed:            0,
-			Timestamp:       &now,
-			SeedHash:        &types.Hash{},
-			SnapshotContent: nil,
-		}
-		nb.TTL = int32(i)
-
-		data, err := nb.Serialize()
-		if err != nil {
-			panic(err)
-		}
-
-		msg := p.get()
-		err = msg.Deserialize(data)
-		if err != nil {
-			panic(err)
-		}
-
-		if msg.Block.Hash != nb.Block.Hash {
-			t.Errorf("wrong hash")
-		}
-		if msg.TTL != nb.TTL {
-			t.Errorf("wrong ttl")
-		}
-
-		p.put(msg)
-	}
-}
+//func TestSnapshotMsgPool(t *testing.T) {
+//	p := newSnapshotMsgPool()
+//
+//	var now = time.Now()
+//	for i := 0; i < 1000; i++ {
+//		var nb = new(NewSnapshotBlock)
+//		nb.Block = &ledger.SnapshotBlock{
+//			Hash:            types.Hash{byte(i % 256)},
+//			PrevHash:        types.Hash{},
+//			Height:          uint64(i),
+//			PublicKey:       []byte("hello"),
+//			Signature:       []byte("hello"),
+//			Seed:            0,
+//			Timestamp:       &now,
+//			SeedHash:        &types.Hash{},
+//			SnapshotContent: nil,
+//		}
+//		nb.TTL = int32(i)
+//
+//		data, err := nb.Serialize()
+//		if err != nil {
+//			panic(err)
+//		}
+//
+//		msg := p.get()
+//		err = msg.Deserialize(data)
+//		if err != nil {
+//			panic(err)
+//		}
+//
+//		if msg.Block.Hash != nb.Block.Hash {
+//			t.Errorf("wrong hash")
+//		}
+//		if msg.TTL != nb.TTL {
+//			t.Errorf("wrong ttl")
+//		}
+//
+//		p.put(msg)
+//	}
+//}
 
 func BenchmarkCrossPeers(b *testing.B) {
 	var p = &Peer{
@@ -408,4 +407,37 @@ func TestCommonPeers2(t *testing.T) {
 	if len(commons) != 1 {
 		t.Errorf("wrong commons count: %d", len(commons))
 	}
+}
+
+func TestRing_Get(t *testing.T) {
+	s := newRingStatic(8, 2)
+
+	t.Parallel()
+	for i := 0; i < 100; i++ {
+		for j := 0; j < 100; j++ {
+			t.Run("test"+strconv.Itoa(i), func(t *testing.T) {
+				item := s.get()
+				item.inc()
+				item.pick()
+
+				if rand.Intn(10) > 5 {
+					item.fail()
+				}
+
+				ratio := s.failedRatio()
+				fmt.Println(ratio)
+			})
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+}
+
+func BenchmarkRingStatic(b *testing.B) {
+	s := newRingStatic(8, 2)
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			s.failedRatio()
+		}
+	})
 }
