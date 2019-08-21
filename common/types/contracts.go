@@ -60,10 +60,11 @@ type TokenInfo struct {
 }
 
 type PledgeInfo struct {
-	Amount         *big.Int
-	WithdrawHeight uint64
-	BeneficialAddr Address
-	Agent          bool
-	AgentAddress   Address
-	Bid            uint8
+	Amount         *big.Int `json:"amount"`
+	WithdrawHeight uint64   `json:"withdrawHeight"`
+	BeneficialAddr Address  `json:"beneficialAddr"`
+	Agent          bool     `json:"agent"`
+	AgentAddress   Address  `json:"agentAddr"`
+	Bid            uint8    `json:"bid"`
+	PledgeAddress  Address  `json:"pledgeAddr"`
 }

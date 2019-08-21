@@ -105,7 +105,7 @@ type PledgeInfo struct {
 	Bid            uint8         `json:"bid"`
 }
 
-func NewPledgeInfo(info *abi.PledgeInfo, snapshotBlock *ledger.SnapshotBlock) *PledgeInfo {
+func NewPledgeInfo(info *types.PledgeInfo, snapshotBlock *ledger.SnapshotBlock) *PledgeInfo {
 	return &PledgeInfo{
 		*bigIntToString(info.Amount),
 		Uint64ToString(info.WithdrawHeight),
@@ -116,7 +116,7 @@ func NewPledgeInfo(info *abi.PledgeInfo, snapshotBlock *ledger.SnapshotBlock) *P
 		info.Bid}
 }
 
-type byWithdrawHeight []*abi.PledgeInfo
+type byWithdrawHeight []*types.PledgeInfo
 
 func (a byWithdrawHeight) Len() int      { return len(a) }
 func (a byWithdrawHeight) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
