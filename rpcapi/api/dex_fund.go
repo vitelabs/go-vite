@@ -331,10 +331,11 @@ func (f DexFundApi) GetCurrentPledgeForVxSum() (string, error) {
 	if vxSums, ok := dex.GetPledgesForVxSum(db); !ok {
 		return "0", nil
 	} else {
-		if len(vxSums.Pledges) > 0 {
+		pledgesLen := len(vxSums.Pledges)
+		if pledgesLen == 0 {
 			return "0", nil
 		} else {
-			return new(big.Int).SetBytes(vxSums.Pledges[len(vxSums.Pledges)-1].Amount).String(), nil
+			return new(big.Int).SetBytes(vxSums.Pledges[pledgesLen-1].Amount).String(), nil
 		}
 	}
 }
