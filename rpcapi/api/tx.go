@@ -102,7 +102,6 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if param.ToAddr != nil && *param.ToAddr == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(param.Data) {
 		return nil, dex.InvalidOrderPriceErr
 	}
-
 	if param.PrivateKey == nil {
 		return nil, errors.New("privateKey is nil")
 	}

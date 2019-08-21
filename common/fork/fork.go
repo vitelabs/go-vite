@@ -102,12 +102,30 @@ func IsSeedFork(snapshotHeight uint64) bool {
 	return snapshotHeight >= seedForkPoint.Height
 }
 
+/*
+IsDexFork checks whether current snapshot block height is over sprout hard fork.
+Vite pre-mainnet hard forks at snapshot block height 5442723.
+Contents:
+  1. Dynamic quota acquisition. Quota acquisition from staking will reduce
+     when network traffic rate is too high.
+  2. Adjustment of quota consumption for some built-in contract transactions
+     and VM instructions.
+  3. ViteX decentralized exchange support.
+*/
 func IsDexFork(snapshotHeight uint64) bool {
 	dexForkPoint, ok := forkPointMap["DexFork"]
 	if !ok {
 		panic("check dex fork failed. DexFork is not existed.")
 	}
 	return snapshotHeight >= dexForkPoint.Height
+}
+
+func IsStemFork(snapshotHeight uint64) bool {
+	stemForkPoint, ok := forkPointMap["StemFork"]
+	if !ok {
+		panic("check stem fork failed. StemFork is not existed.")
+	}
+	return snapshotHeight >= stemForkPoint.Height
 }
 
 func IsForkPoint(snapshotHeight uint64) bool {

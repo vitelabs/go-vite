@@ -43,10 +43,12 @@ var (
 	vxSumFundsKey   = []byte("vxFS:") // vxFundSum
 
 	lastJobPeriodIdWithBizTypeKey = []byte("ljpBId:")
+	normalMineStartedKey          = []byte("nmst:")
 	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
-	pledgeForVipKeyPrefix = []byte("pldVip:") // pledgeForVip: types.Address
+	pledgeForVipKeyPrefix      = []byte("pldVip:")   // pledgeForVip: types.Address
+	pledgeForSuperVipKeyPrefix = []byte("pldSpVip:") // pledgeForSuperVip: types.Address
 
 	pledgesForVxKeyPrefix = []byte("pldsVx:") // pledgesForVx: types.Address
 	pledgesForVxSumKey    = []byte("pldsVxS:")
@@ -67,10 +69,13 @@ var (
 
 	viteOwnerInitiated = []byte("voited:")
 
+	grantedMarketToAgentKeyPrefix = []byte("gtMkAt:")
+
 	commonTokenPow = new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(18)), nil)
 
-	VxTokenId, _          = types.HexToTokenTypeId("tti_564954455820434f494e69b5")
-	VxMinedAmtFirstPeriod = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(13)), nil), big.NewInt(47703236213)) // 477032.36213
+	VxTokenId, _             = types.HexToTokenTypeId("tti_564954455820434f494e69b5")
+	PreheatMinedAmtPerPeriod = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	VxMinedAmtFirstPeriod    = new(big.Int).Mul(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(13)), nil), big.NewInt(47703236213)) // 477032.36213
 
 	VxDividendThreshold      = new(big.Int).Mul(commonTokenPow, big.NewInt(10))
 	NewMarketFeeAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
@@ -79,9 +84,10 @@ var (
 	NewMarketFeeBurnAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(5000))
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
-	PledgeForVxMinAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	PledgeForVipAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
-	PledgeForVxThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	PledgeForVxMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	PledgeForVipAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	PledgeForVxThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	PledgeForSuperVipAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000000))
 
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
@@ -108,8 +114,7 @@ var (
 	}
 	initOwner, _          = types.HexToAddress("vite_a8a00b3a2f60f5defb221c68f79b65f3620ee874f951a825db")
 	initViteTokenOwner, _ = types.HexToAddress("vite_050697d3810c30816b005a03511c734c1159f50907662b046f")
-	newOrderMethodId, _ = hex.DecodeString("147927ec")
-
+	newOrderMethodId, _   = hex.DecodeString("147927ec")
 )
 
 const (
@@ -120,6 +125,7 @@ const (
 const (
 	PledgeForVx = iota + 1
 	PledgeForVip
+	PledgeForSuperVip
 )
 
 const (
@@ -139,10 +145,11 @@ const (
 
 //MethodNameDexFundOwnerConfigTrade
 const (
-	OwnerConfigMineMarket     = 1
-	OwnerConfigNewQuoteToken  = 2
-	OwnerConfigTradeThreshold = 4
-	OwnerConfigMineThreshold  = 8
+	OwnerConfigMineMarket      = 1
+	OwnerConfigNewQuoteToken   = 2
+	OwnerConfigTradeThreshold  = 4
+	OwnerConfigMineThreshold   = 8
+	OwnerConfigStartNormalMine = 16
 )
 
 const (
@@ -178,6 +185,11 @@ const (
 	GetTokenForTransferOwner
 )
 
+const (
+	GrantAgent = iota + 1
+	RevokeAgent
+)
+
 type QuoteTokenTypeInfo struct {
 	Decimals              int32
 	DefaultTradeThreshold *big.Int
@@ -196,6 +208,11 @@ type ParamDexFundNewOrder struct {
 	OrderType  uint8
 	Price      string
 	Quantity   *big.Int
+}
+
+type ParamDexFundNewAgentOrder struct {
+	Principal types.Address
+	ParamDexFundNewOrder
 }
 
 type ParamDexPeriodJob struct {
@@ -292,6 +309,13 @@ type ParamDexFundTransferTokenOwner struct {
 
 type ParamDexFundNotifyTime struct {
 	Timestamp int64
+}
+
+type ParamDexFundConfigMarketsAgent struct {
+	ActionType  uint8 // 1: grant 2: revoke
+	Agent       types.Address
+	TradeTokens []types.TokenTypeId
+	QuoteTokens []types.TokenTypeId
 }
 
 type UserFund struct {
@@ -671,7 +695,7 @@ func getFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*FeeSumByPeriod, bool) {
 }
 
 //get all feeSums that not divided yet
-func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) (map[uint64]*FeeSumByPeriod) {
+func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) map[uint64]*FeeSumByPeriod {
 	var (
 		dexFeeSums    = make(map[uint64]*FeeSumByPeriod)
 		dexFeeSum     *FeeSumByPeriod
@@ -829,7 +853,7 @@ func DeleteUserFees(db vm_db.VmDb, address []byte) {
 func TruncateUserFeesToPeriod(userFees *UserFees, periodId uint64) (truncated bool) {
 	i := 0
 	size := len(userFees.Fees)
-	for ; ; {
+	for {
 		if i < size && userFees.Fees[i].Period < periodId {
 			i++
 		} else {
@@ -945,6 +969,14 @@ func SaveLastJobPeriodIdByBizType(db vm_db.VmDb, periodId uint64, bizType uint8)
 
 func GetLastJobPeriodIdKey(bizType uint8) []byte {
 	return append(lastJobPeriodIdWithBizTypeKey, byte(bizType))
+}
+
+func StartNormalMine(db vm_db.VmDb) {
+	setValueToDb(db, normalMineStartedKey, []byte{1})
+}
+
+func IsNormalMineStarted(db vm_db.VmDb) bool {
+	return len(getValueFromDb(db, normalMineStartedKey)) > 0
 }
 
 func GetFirstMinedVxPeriodId(db vm_db.VmDb) uint64 {
@@ -1417,6 +1449,24 @@ func GetPledgeForVipKey(address types.Address) []byte {
 	return append(pledgeForVipKeyPrefix, address.Bytes()...)
 }
 
+func GetPledgeForSuperVip(db vm_db.VmDb, address types.Address) (pledgeVip *PledgeVip, ok bool) {
+	pledgeVip = &PledgeVip{}
+	ok = deserializeFromDb(db, GetPledgeForSuperVipKey(address), pledgeVip)
+	return
+}
+
+func SavePledgeForSuperVip(db vm_db.VmDb, address types.Address, pledgeVip *PledgeVip) {
+	serializeToDb(db, GetPledgeForSuperVipKey(address), pledgeVip)
+}
+
+func DeletePledgeForSuperVip(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetPledgeForSuperVipKey(address), nil)
+}
+
+func GetPledgeForSuperVipKey(address types.Address) []byte {
+	return append(pledgeForSuperVipKeyPrefix, address.Bytes()...)
+}
+
 func GetPledgesForVx(db vm_db.VmDb, address types.Address) (pledgesForVx *PledgesForVx, ok bool) {
 	pledgesForVx = &PledgesForVx{}
 	ok = deserializeFromDb(db, GetPledgesForVxKey(address), pledgesForVx)
@@ -1597,6 +1647,75 @@ func GetVxMinePool(db vm_db.VmDb) *big.Int {
 
 func SaveVxMinePool(db vm_db.VmDb, amount *big.Int) {
 	setValueToDb(db, vxMinePoolKey, amount.Bytes())
+}
+
+func GrantMarketToAgent(db vm_db.VmDb, principal, agent types.Address, marketId int32) {
+	var (
+		key   = GetGrantedMarketToAgentKey(principal, marketId)
+		data  []byte
+		found bool
+	)
+	if data = getValueFromDb(db, key); len(data) >= types.AddressSize {
+		dataLen := len(data)
+		if dataLen%types.AddressSize != 0 {
+			panic(InternalErr)
+		}
+		for i := 0; (i+1)*types.AddressSize <= dataLen; i++ {
+			if bytes.Equal(agent.Bytes(), data[i*types.AddressSize:(i+1)*types.AddressSize]) {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		data = append(data, agent.Bytes()...)
+		setValueToDb(db, key, data)
+	}
+}
+
+func RevokeMarketFromAgent(db vm_db.VmDb, principal, agent types.Address, marketId int32) {
+	var (
+		key  = GetGrantedMarketToAgentKey(principal, marketId)
+		data []byte
+	)
+	if data = getValueFromDb(db, key); len(data) >= types.AddressSize {
+		dataLen := len(data)
+		if dataLen%types.AddressSize != 0 {
+			panic(InternalErr)
+		}
+		for i := 0; (i+1)*types.AddressSize <= dataLen; i++ {
+			if bytes.Equal(agent.Bytes(), data[i*types.AddressSize:(i+1)*types.AddressSize]) {
+				if (i+1)*types.AddressSize < dataLen {
+					copy(data[i*types.AddressSize:], data[dataLen-types.AddressSize:])
+				}
+				data = data[:dataLen-types.AddressSize]
+				break
+			}
+		}
+		setValueToDb(db, key, data)
+	}
+}
+
+func IsMarketGrantedToAgent(db vm_db.VmDb, principal, agent types.Address, marketId int32) bool {
+	if data := getValueFromDb(db, GetGrantedMarketToAgentKey(principal, marketId)); len(data) >= types.AddressSize {
+		if len(data)%types.AddressSize != 0 {
+			panic(InternalErr)
+		}
+		for i := 0; (i+1)*types.AddressSize <= len(data); i++ {
+			if bytes.Equal(agent.Bytes(), data[i*types.AddressSize:(i+1)*types.AddressSize]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func GetGrantedMarketToAgentKey(principal types.Address, marketId int32) []byte {
+	re := make([]byte, len(grantedMarketToAgentKeyPrefix)+types.AddressSize+3)
+	copy(re[:], grantedMarketToAgentKeyPrefix)
+	copy(re[len(grantedMarketToAgentKeyPrefix):], principal.Bytes())
+	copy(re[len(grantedMarketToAgentKeyPrefix)+types.AddressSize:], Uint32ToBytes(uint32(marketId))[1:])
+	return re
 }
 
 func deserializeFromDb(db vm_db.VmDb, key []byte, serializable SerializableDex) bool {

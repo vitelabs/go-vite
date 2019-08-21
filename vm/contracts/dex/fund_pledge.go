@@ -62,6 +62,10 @@ func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 		if _, ok := GetPledgeForVip(db, address); ok {
 			return nil, PledgeForVipExistsErr
 		}
+	} else if pledgeType == PledgeForSuperVip {
+		if _, ok := GetPledgeForSuperVip(db, address); ok {
+			return nil, PledgeForSuperVipExistsErr
+		}
 	}
 	if _, err := SubUserFund(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err
@@ -75,7 +79,8 @@ func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amoun
 }
 
 func cancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]byte, error) {
-	if pledgeType == PledgeForVx {
+	switch pledgeType {
+	case PledgeForVx:
 		available := GetPledgeForVx(db, address)
 		leave := new(big.Int).Sub(available, amount)
 		if leave.Sign() < 0 {
@@ -83,9 +88,13 @@ func cancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8,
 		} else if leave.Sign() > 0 && leave.Cmp(PledgeForVxMinAmount) < 0 {
 			return nil, PledgeAmountLeavedNotValidErr
 		}
-	} else {
+	case PledgeForVip:
 		if _, ok := GetPledgeForVip(db, address); !ok {
 			return nil, PledgeForVipNotExistsErr
+		}
+	case PledgeForSuperVip:
+		if _, ok := GetPledgeForSuperVip(db, address); !ok {
+			return nil, PledgeForSuperVipNotExistsErr
 		}
 	}
 	if cancelPledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, address, types.AddressDexFund, amount, uint8(pledgeType)); err != nil {

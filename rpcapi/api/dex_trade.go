@@ -1,7 +1,7 @@
 package api
 
 import (
-	"encoding/base64"
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
@@ -28,21 +28,25 @@ func (f DexTradeApi) String() string {
 }
 
 func (f DexTradeApi) GetOrderById(orderIdStr string) (*RpcOrder, error) {
-	orderId, err := base64.StdEncoding.DecodeString(orderIdStr)
+	orderId, err := hex.DecodeString(orderIdStr)
 	if err != nil {
 		return nil, err
 	}
 	if db, err := getDb(f.chain, types.AddressDexTrade); err != nil {
 		return nil, err
 	} else {
-		if matcher := dex.NewRawMatcher(db); err != nil {
-			return nil, err
+		return innerGetOrderById(db, orderId)
+	}
+}
+
+func (f DexTradeApi) GetOrderBySendHash(sendHash types.Hash) (*RpcOrder, error) {
+	if db, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+		return nil, err
+	} else {
+		if orderId, ok := dex.GetOrderIdByHash(db, sendHash.Bytes()); !ok {
+			return nil, dex.OrderNotExistsErr
 		} else {
-			if order, err := matcher.GetOrderById(orderId); err != nil {
-				return nil, err
-			} else {
-				return OrderToRpc(order), nil
-			}
+			return innerGetOrderById(db, orderId)
 		}
 	}
 }
@@ -81,6 +85,23 @@ func (f DexTradeApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMar
 	}
 }
 
+func (f DexTradeApi) GetTimestamp() (timestamp int64, err error) {
+	if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+		return -1, err
+	} else {
+		return dex.GetTradeTimestamp(tradeDb), nil
+	}
+}
+
+func innerGetOrderById(db vm_db.VmDb, orderId []byte) (*RpcOrder, error) {
+	matcher := dex.NewRawMatcher(db)
+	if order, err := matcher.GetOrderById(orderId); err != nil {
+		return nil, err
+	} else {
+		return OrderToRpc(order), nil
+	}
+}
+
 func getDb(c chain.Chain, address types.Address) (db vm_db.VmDb, err error) {
 	prevHash, err := getPrevBlockHash(c, address)
 	if err != nil {
@@ -94,33 +115,35 @@ func getDb(c chain.Chain, address types.Address) (db vm_db.VmDb, err error) {
 }
 
 type RpcOrder struct {
-	Id                   string   `json:"Id"`
-	Address              string   `json:"Address"`
-	MarketId             int32    `json:"MarketId"`
-	Side                 bool     `json:"Side"`
-	Type                 int32    `json:"Type"`
-	Price                string   `json:"Price"`
-	TakerFeeRate         int32    `json:"TakerFeeRate"`
-	MakerFeeRate         int32    `json:"MakerFeeRate"`
-	TakerBrokerFeeRate   int32    `json:"TakerBrokerFeeRate"`
-	MakerBrokerFeeRate   int32    `json:"MakerBrokerFeeRate"`
-	Quantity             string   `json:"Quantity"`
-	Amount               string   `json:"Amount"`
-	LockedBuyFee         string   `json:"LockedBuyFee,omitempty"`
-	Status               int32    `json:"Status"`
-	CancelReason         int32    `json:"CancelReason,omitempty"`
-	ExecutedQuantity     string   `json:"ExecutedQuantity,omitempty"`
-	ExecutedAmount       string   `json:"ExecutedAmount,omitempty"`
-	ExecutedBaseFee      string   `json:"ExecutedBaseFee,omitempty"`
-	ExecutedBrokerFee    string   `json:"ExecutedBrokerFee,omitempty"`
-	RefundToken          string   `json:"RefundToken,omitempty"`
-	RefundQuantity       string   `json:"RefundQuantity,omitempty"`
-	Timestamp            int64    `json:"Timestamp"`
+	Id                 string `json:"Id"`
+	Address            string `json:"Address"`
+	MarketId           int32  `json:"MarketId"`
+	Side               bool   `json:"Side"`
+	Type               int32  `json:"Type"`
+	Price              string `json:"Price"`
+	TakerFeeRate       int32  `json:"TakerFeeRate"`
+	MakerFeeRate       int32  `json:"MakerFeeRate"`
+	TakerBrokerFeeRate int32  `json:"TakerBrokerFeeRate"`
+	MakerBrokerFeeRate int32  `json:"MakerBrokerFeeRate"`
+	Quantity           string `json:"Quantity"`
+	Amount             string `json:"Amount"`
+	LockedBuyFee       string `json:"LockedBuyFee,omitempty"`
+	Status             int32  `json:"Status"`
+	CancelReason       int32  `json:"CancelReason,omitempty"`
+	ExecutedQuantity   string `json:"ExecutedQuantity,omitempty"`
+	ExecutedAmount     string `json:"ExecutedAmount,omitempty"`
+	ExecutedBaseFee    string `json:"ExecutedBaseFee,omitempty"`
+	ExecutedBrokerFee  string `json:"ExecutedBrokerFee,omitempty"`
+	RefundToken        string `json:"RefundToken,omitempty"`
+	RefundQuantity     string `json:"RefundQuantity,omitempty"`
+	Timestamp          int64  `json:"Timestamp"`
+	Agent              string `json:"Agent,omitempty"`
+	SendHash           string `json:"SendHash,omitempty"`
 }
 
 type OrdersRes struct {
 	Orders []*RpcOrder `json:"orders,omitempty"`
-	Size   int        `json:"size"`
+	Size   int         `json:"size"`
 }
 
 func OrderToRpc(order *dex.Order) *RpcOrder {
@@ -129,7 +152,7 @@ func OrderToRpc(order *dex.Order) *RpcOrder {
 	}
 	address, _ := types.BytesToAddress(order.Address)
 	rpcOrder := &RpcOrder{}
-	rpcOrder.Id = base64.StdEncoding.EncodeToString(order.Id)
+	rpcOrder.Id = hex.EncodeToString(order.Id)
 	rpcOrder.Address = address.String()
 	rpcOrder.MarketId = order.MarketId
 	rpcOrder.Side = order.Side
@@ -164,6 +187,14 @@ func OrderToRpc(order *dex.Order) *RpcOrder {
 	}
 	if len(order.RefundQuantity) > 0 {
 		rpcOrder.RefundQuantity = apidex.AmountBytesToString(order.RefundQuantity)
+	}
+	if len(order.Agent) > 0 {
+		agent, _ := types.BytesToAddress(order.Agent)
+		rpcOrder.Agent = agent.String()
+	}
+	if len(order.SendHash) > 0 {
+		sendHash, _ := types.BytesToHash(order.SendHash)
+		rpcOrder.SendHash = sendHash.String()
 	}
 	rpcOrder.Timestamp = order.Timestamp
 	return rpcOrder
