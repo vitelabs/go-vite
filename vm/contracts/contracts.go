@@ -140,7 +140,7 @@ func newDexAgentContracts() map[types.Address]*builtinContract {
 
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if fork.IsNewFork(sbHeight) {
+	if fork.IsStemFork(sbHeight) {
 		contractsMap = dexAgentContracts
 	} else if fork.IsDexFork(sbHeight) {
 		contractsMap = dexContracts

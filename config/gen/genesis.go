@@ -53,7 +53,7 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 				Height:  5442723,
 				Version: 2,
 			},
-			NewFork: &config.ForkPoint{
+			StemFork: &config.ForkPoint{
 				Height:  10000000,
 				Version: 3,
 			},

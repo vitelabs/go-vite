@@ -19,7 +19,7 @@ func initForkPointsForQuotaTest() {
 	fork.SetForkPoints(&config.ForkPoints{
 		SeedFork: &config.ForkPoint{Height: 100, Version: 1},
 		DexFork:  &config.ForkPoint{Height: 200, Version: 1},
-		NewFork:  &config.ForkPoint{Height: 200, Version: 1}})
+		StemFork: &config.ForkPoint{Height: 200, Version: 1}})
 }
 
 type testQuotaDb struct {
