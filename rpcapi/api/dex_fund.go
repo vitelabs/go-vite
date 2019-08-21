@@ -262,6 +262,83 @@ func (f DexFundApi) IsMarketGrantedToAgent(principal, agent types.Address, trade
 	}
 }
 
+func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	periodId := dex.GetCurrentPeriodId(db, getConsensusReader(f.vite))
+	toMine := dex.GetVxToMineByPeriodId(db, periodId)
+	available := dex.GetVxMinePool(db)
+	if toMine.Cmp(available) > 0 {
+		toMine = available
+	}
+	mineInfo = new(apidex.RpcVxMineInfo)
+	if toMine.Sign() == 0 {
+		err = fmt.Errorf("no vx available on mine")
+		return
+	}
+	mineInfo.HistoryMinedSum = new(big.Int).Sub(new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100000000)), available).String()
+	mineInfo.Total = toMine.String()
+	var (
+		amountForItems map[int32]*big.Int
+		amount *big.Int
+		success bool
+	)
+	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
+		mineInfo.FeeMineDetail = make(map[int32]string)
+		feeMineSum := new(big.Int)
+		for tokenType, amount := range amountForItems {
+			mineInfo.FeeMineDetail[tokenType] = amount.String()
+			feeMineSum.Add(feeMineSum, amount)
+		}
+		mineInfo.FeeMineTotal = feeMineSum.String()
+	} else {
+		return
+	}
+	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateForPledgeMine); success {
+		mineInfo.PledgeMine = amount.String()
+	} else {
+		return
+	}
+	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
+		mineInfo.MakerMine = amountForItems[dex.MineForMaker].String()
+	}
+	return
+}
+
+func (f DexFundApi) GetCurrentFeesForMine() (fees map[int32]string, err error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if feeSum, ok := dex.GetCurrentFeeSum(db, getConsensusReader(f.vite)); !ok {
+		return
+	} else {
+		fees = make(map[int32]string, len(feeSum.FeesForMine))
+		for _, feeForMine := range feeSum.FeesForMine {
+			fees[feeForMine.QuoteTokenType] = new(big.Int).Add(new(big.Int).SetBytes(feeForMine.BaseAmount), new(big.Int).SetBytes(feeForMine.InviteBonusAmount)).String()
+		}
+		return
+	}
+}
+
+func (f DexFundApi) GetCurrentPledgeForVxSum() (string, error) {
+	db, err := getDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return "0", err
+	}
+	if vxSums, ok := dex.GetPledgesForVxSum(db); !ok {
+		return "0", nil
+	} else {
+		if len(vxSums.Pledges) > 0 {
+			return "0", nil
+		} else {
+			return new(big.Int).SetBytes(vxSums.Pledges[len(vxSums.Pledges)-1].Amount).String(), nil
+		}
+	}
+}
+
 type DexFundPrivateApi struct {
 	vite  *vite.Vite
 	chain chain.Chain
