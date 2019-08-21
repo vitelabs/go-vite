@@ -2,7 +2,6 @@ package chain
 
 import (
 	"fmt"
-
 	"github.com/vitelabs/go-vite/common/fork"
 
 	"github.com/vitelabs/go-vite/chain/plugins"
@@ -56,6 +55,8 @@ type chain struct {
 
 	cache *chain_cache.Cache
 
+	metaDB *leveldb.DB
+
 	indexDB *chain_index.IndexDB
 
 	blockDB *chain_block.BlockDB
@@ -96,6 +97,7 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
+
 	c.genesisAccountBlockHash = chain_genesis.VmBlocksToHashMap(c.genesisAccountBlocks)
 
 	return c
@@ -103,35 +105,29 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 
 /*
  * 1. Check and init ledger (check genesis block)
- * 2. Init index database
- * 3. Init state database
- * 4. Init block database
- * 5. Init cache
+ * 2. Init indexDB
+ * 3. Init stateDB
+ * 4. Init blockDB
+ * 5. Init cache(indexDB cache, stateDB cache, blockDB cache, syncCache)
  */
 func (c *chain) Init() error {
 	c.log.Info("Begin initializing", "method", "Init")
-	for {
-		// init db
-		if err := c.newDbAndRecover(); err != nil {
-			return err
-		}
 
-		// check ledger
-		status, err := c.checkAndInitData()
-		if err != nil {
-			return err
-		}
+	// init db
+	if err := c.newDbAndRecover(); err != nil {
+		return err
+	}
 
-		// ledger is valid
-		if status == chain_genesis.LedgerValid {
-			break
-		}
+	// check ledger
+	status, err := c.checkAndInitData()
+	if err != nil {
+		return err
+	}
 
-		// close and clean ledger data
-		if err := c.closeAndCleanData(); err != nil {
-			return err
-		}
-
+	// ledger is invalid
+	if status != chain_genesis.LedgerValid {
+		return errors.New(fmt.Sprintf("The genesis state is incorrect. You can fix the problem by removing the database manually."+
+			"The directory of database is %s.", c.chainDir))
 	}
 
 	// init cache
@@ -204,11 +200,19 @@ func (c *chain) Destroy() error {
 	}
 	c.log.Info("Close blockDB", "method", "Close")
 
+	if err := c.syncCache.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.syncCache.Close failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Close")
+		return cErr
+	}
+	c.log.Info("Close syncCache", "method", "Close")
+
 	c.flusher = nil
 	c.cache = nil
 	c.stateDB = nil
 	c.indexDB = nil
 	c.blockDB = nil
+	c.syncCache = nil
 
 	c.log.Info("Complete destruction", "method", "Close")
 
@@ -241,6 +245,13 @@ func (c *chain) SetConsensus(cs Consensus) {
 
 func (c *chain) newDbAndRecover() error {
 	var err error
+	// new metaDB
+	c.metaDB, err = c.NewDb("chain_meta")
+	if err != nil {
+		c.log.Error(fmt.Sprintf("new meta db failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
+		return err
+	}
+
 	// new ledger db
 	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir, c); err != nil {
 		c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
@@ -303,7 +314,7 @@ func (c *chain) newDbAndRecover() error {
 
 func (c *chain) checkAndInitData() (byte, error) {
 	// check ledger
-	status, err := chain_genesis.CheckLedger(c, c.genesisSnapshotBlock)
+	status, err := chain_genesis.CheckLedger(c, c.genesisSnapshotBlock, c.genesisAccountBlocks)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
 

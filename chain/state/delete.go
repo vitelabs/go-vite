@@ -460,7 +460,11 @@ func (sDB *StateDB) recoverStorageToSnapshot(batch *leveldb.Batch, height uint64
 		iter.Seek(seekTemplateKey)
 
 		if iter.Prev() && bytes.Equal(seekTemplateKey[keyStartIndex:keyEndIndex], iter.Key()[keyStartIndex:keyEndIndex]) {
-			batch.Put(storageTemplateKey, iter.Value())
+			if len(iter.Value()) > 0 {
+				batch.Put(storageTemplateKey, iter.Value())
+			} else {
+				batch.Delete(storageTemplateKey)
+			}
 		} else {
 			batch.Delete(storageTemplateKey)
 		}
@@ -486,7 +490,7 @@ func (sDB *StateDB) recoverStorageToSnapshot(batch *leveldb.Batch, height uint64
 		return err
 	}
 
-	// delete unconfirmed balance
+	// delete unconfirmed key
 	for keyStr := range keySet {
 		key := []byte(keyStr)
 		copy(storageTemplateKey[keyStartIndex:], common.RightPadBytes(key, types.HashSize))
