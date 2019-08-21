@@ -20,7 +20,6 @@ var (
 	TradeMarketNotExistsErr         = errors.New("trade market not exists")
 	TradeMarketStoppedErr           = errors.New("trade market stopped")
 	TradeMarketNotGrantedErr        = errors.New("trade market not granted")
-	TradeMarketAlreadyGrantedErr    = errors.New("trade market already granted ")
 	ComposeOrderIdFailErr           = errors.New("compose order id fail")
 	DeComposeOrderIdFailErr         = errors.New("decompose order id fail")
 	TradeMarketInvalidQuoteTokenErr = errors.New("invalid quote token")

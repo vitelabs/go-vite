@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	InitVMConfig(false, false, false, common.HomeDir())
+	InitVMConfig(false, false, false, false, common.HomeDir())
 	initFork()
 }
 
@@ -29,7 +29,7 @@ func initFork() {
 	fork.SetForkPoints(&config.ForkPoints{
 		SeedFork: &config.ForkPoint{Height: 100, Version: 1},
 		DexFork:  &config.ForkPoint{Height: 200, Version: 1},
-		NewFork:  &config.ForkPoint{Height: 300, Version: 1}})
+		StemFork: &config.ForkPoint{Height: 300, Version: 1}})
 }
 
 func TestVmRun(t *testing.T) {
@@ -433,7 +433,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 }
 
 func TestVmForTest(t *testing.T) {
-	InitVMConfig(true, true, false, "")
+	InitVMConfig(true, true, true, false, "")
 	db, _, _, _, _, _ := prepareDb(big.NewInt(0))
 
 	addr1, _, _ := types.CreateAddress()

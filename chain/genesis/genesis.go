@@ -24,10 +24,12 @@ func InitLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock, vmBlock
 
 	// insert genesis snapshot block
 	chain.InsertSnapshotBlock(genesisSnapshotBlock)
-	return nil
+
+	sumHash := CheckSum(vmBlocks)
+	return chain.WriteGenesisCheckSum(sumHash)
 }
 
-func CheckLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock) (byte, error) {
+func CheckLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock, genesisAccountBlocks []*vm_db.VmAccountBlock) (byte, error) {
 	firstSb, err := chain.QuerySnapshotBlockByHeight(1)
 	if err != nil {
 		return LedgerUnknown, err
@@ -36,10 +38,26 @@ func CheckLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock) (byte,
 		return LedgerEmpty, nil
 	}
 
-	if firstSb.Hash == genesisSnapshotBlock.Hash {
-		return LedgerValid, nil
+	if firstSb.Hash != genesisSnapshotBlock.Hash {
+		return LedgerInvalid, nil
 	}
-	return LedgerInvalid, nil
+
+	sumHash := CheckSum(genesisAccountBlocks)
+
+	querySumHash, err := chain.QueryGenesisCheckSum()
+	if err != nil {
+		return LedgerUnknown, err
+	}
+	if querySumHash == nil {
+		if err := chain.WriteGenesisCheckSum(sumHash); err != nil {
+			return LedgerUnknown, err
+
+		}
+	} else if sumHash != *querySumHash {
+		return LedgerInvalid, nil
+	}
+
+	return LedgerValid, nil
 }
 
 func VmBlocksToHashMap(accountBlocks []*vm_db.VmAccountBlock) map[types.Hash]struct{} {

@@ -140,21 +140,22 @@ func newDexAgentContracts() map[types.Address]*builtinContract {
 
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if fork.IsNewFork(sbHeight) {
+	if fork.IsStemFork(sbHeight) {
 		contractsMap = dexAgentContracts
 	} else if fork.IsDexFork(sbHeight) {
 		contractsMap = dexContracts
 	} else {
 		contractsMap = simpleContracts
 	}
-	p, ok := contractsMap[addr]
-	if ok {
+	p, addrExists := contractsMap[addr]
+	if addrExists {
 		if method, err := p.abi.MethodById(methodSelector); err == nil {
-			c, ok := p.m[method.Name]
-			return c, ok, nil
-		} else {
-			return nil, ok, util.ErrAbiMethodNotFound
+			c, methodExists := p.m[method.Name]
+			if methodExists {
+				return c, methodExists, nil
+			}
 		}
+		return nil, addrExists, util.ErrAbiMethodNotFound
 	}
-	return nil, ok, nil
+	return nil, addrExists, nil
 }

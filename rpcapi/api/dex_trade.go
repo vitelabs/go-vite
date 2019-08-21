@@ -1,7 +1,7 @@
 package api
 
 import (
-	"encoding/base64"
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
@@ -28,7 +28,7 @@ func (f DexTradeApi) String() string {
 }
 
 func (f DexTradeApi) GetOrderById(orderIdStr string) (*RpcOrder, error) {
-	orderId, err := base64.StdEncoding.DecodeString(orderIdStr)
+	orderId, err := hex.DecodeString(orderIdStr)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func OrderToRpc(order *dex.Order) *RpcOrder {
 	}
 	address, _ := types.BytesToAddress(order.Address)
 	rpcOrder := &RpcOrder{}
-	rpcOrder.Id = base64.StdEncoding.EncodeToString(order.Id)
+	rpcOrder.Id = hex.EncodeToString(order.Id)
 	rpcOrder.Address = address.String()
 	rpcOrder.MarketId = order.MarketId
 	rpcOrder.Side = order.Side

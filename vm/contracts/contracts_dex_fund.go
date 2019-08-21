@@ -200,7 +200,7 @@ func (md *MethodDexFundNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBloc
 	if err = cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, block.Data); err != nil {
 		return err
 	}
-	return dex.PreCheckOrderParam(param, dex.IsNewFork(db))
+	return dex.PreCheckOrderParam(param, dex.IsStemFork(db))
 }
 
 func (md *MethodDexFundNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -861,7 +861,7 @@ func (md MethodDexFundOwnerConfigTrade) DoReceive(db vm_db.VmDb, block *ledger.A
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMineThreshold) {
 			dex.SaveMineThreshold(db, param.TokenType4MineThr, param.MineThreshold)
 		}
-		if dex.IsNewFork(db) && dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStartNormalMine) {
+		if dex.IsStemFork(db) && dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStartNormalMine) {
 			dex.StartNormalMine(db)
 		}
 	} else {
@@ -1268,7 +1268,7 @@ func (md *MethodDexFundConfigMarketsAgent) DoSend(db vm_db.VmDb, block *ledger.A
 	var param = new(dex.ParamDexFundConfigMarketsAgent)
 	if err := cabi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundConfigMarketsAgent, block.Data); err != nil {
 		return err
-	} else if param.ActionType != dex.GrantAgent && param.ActionType != dex.RevokeAgent || len(param.QuoteTokens) == 0 || len(param.TradeTokens) != len(param.QuoteTokens) || block.AccountAddress == param.Agent {
+	} else if param.ActionType != dex.GrantAgent && param.ActionType != dex.RevokeAgent || len(param.TradeTokens) == 0 || len(param.TradeTokens) != len(param.QuoteTokens) || block.AccountAddress == param.Agent {
 		return dex.InvalidInputParamErr
 	}
 	return nil

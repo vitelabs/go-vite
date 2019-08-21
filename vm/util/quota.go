@@ -227,7 +227,7 @@ type GasTable struct {
 func GasTableByHeight(sbHeight uint64) *GasTable {
 	if !fork.IsDexFork(sbHeight) {
 		return &initGasTable
-	} else if !fork.IsNewFork(sbHeight) {
+	} else if !fork.IsStemFork(sbHeight) {
 		return &viteGasTable
 	}
 	return &dexAgentGasTable

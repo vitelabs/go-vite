@@ -240,7 +240,7 @@ func OnTransferOwnerGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTy
 	return
 }
 
-func PreCheckOrderParam(orderParam *ParamDexFundNewOrder, isNewFork bool) error {
+func PreCheckOrderParam(orderParam *ParamDexFundNewOrder, isStemFork bool) error {
 	if orderParam.Quantity.Sign() <= 0 {
 		return InvalidOrderQuantityErr
 	}
@@ -249,7 +249,7 @@ func PreCheckOrderParam(orderParam *ParamDexFundNewOrder, isNewFork bool) error 
 		return InvalidOrderTypeErr
 	}
 	if orderParam.OrderType == Limited {
-		if !ValidPrice(orderParam.Price, isNewFork) {
+		if !ValidPrice(orderParam.Price, isStemFork) {
 			return InvalidOrderPriceErr
 		}
 	}
@@ -306,10 +306,8 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, accou
 		return nil, TradeMarketNotExistsErr
 	} else if marketInfo.Stopped {
 		return nil, TradeMarketStoppedErr
-	} else if agent != nil {
-		if !IsMarketGrantedToAgent(db, *accountAddress, *agent, marketInfo.MarketId) {
-			return nil, TradeMarketNotGrantedErr
-		}
+	} else if agent != nil && !IsMarketGrantedToAgent(db, *accountAddress, *agent, marketInfo.MarketId) {
+		return nil, TradeMarketNotGrantedErr
 	}
 	order.Id = ComposeOrderId(db, marketInfo.MarketId, param.Side, param.Price)
 	order.MarketId = marketInfo.MarketId
@@ -335,8 +333,7 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, accou
 	order.RefundToken = []byte{}
 	order.RefundQuantity = big.NewInt(0).Bytes()
 	order.Timestamp = GetTimestampInt64(db)
-	order.Quantity = param.Quantity.Bytes()
-	if IsNewFork(db) {
+	if IsStemFork(db) {
 		if agent != nil {
 			order.Agent = agent.Bytes()
 		}
@@ -489,11 +486,11 @@ func SetFeeRate(baseRate int32) {
 	BaseFeeRate = baseRate
 }
 
-func IsNewFork(db vm_db.VmDb) bool {
+func IsStemFork(db vm_db.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsNewFork(latestSb.Height)
+		return fork.IsStemFork(latestSb.Height)
 	}
 }
 
