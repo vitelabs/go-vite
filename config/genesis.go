@@ -32,8 +32,9 @@ type ForkPoint struct {
 }
 
 type ForkPoints struct {
-	SeedFork *ForkPoint
-	DexFork  *ForkPoint
+	SeedFork   *ForkPoint
+	DexFork    *ForkPoint
+	DexFeeFork *ForkPoint
 }
 
 type GenesisVmLog struct {

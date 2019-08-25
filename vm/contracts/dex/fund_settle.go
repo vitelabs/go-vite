@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
+	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
-func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.UserFundSettle, marketInfo *MarketInfo) error {
+func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.UserFundSettle, marketInfo *MarketInfo, fundLogger log15.Logger) error {
 	address := types.Address{}
 	address.SetBytes([]byte(action.Address))
 	dexFund, _ := GetUserFund(db, address)
@@ -28,19 +30,21 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.U
 				panic(InvalidTokenErr)
 			}
 			account, exists := GetAccountByTokeIdFromFund(dexFund, tokenId)
+			var (
+				exceed    bool
+				actualSub []byte
+			)
 			//fmt.Printf("origin account for :address %s, tokenId %s, available %s, locked %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(account.Available).String(), new(big.Int).SetBytes(account.Locked).String())
 			if CmpToBigZero(fundSettle.ReduceLocked) != 0 {
-				if CmpForBigInt(fundSettle.ReduceLocked, account.Locked) > 0 {
-					panic(ExceedFundLockedErr)
+				if account.Locked, _, exceed = SafeSubBigInt(account.Locked, fundSettle.ReduceLocked); exceed {
+					fundLogger.Error(cabi.MethodNameDexFundSettleOrders+" DoSettleFund exceed for reduceLocked", "locked", new(big.Int).SetBytes(account.Locked).String(), "reduceLocked", new(big.Int).SetBytes(fundSettle.ReduceLocked).String())
 				}
-				account.Locked = SubBigIntAbs(account.Locked, fundSettle.ReduceLocked)
 			}
 			if CmpToBigZero(fundSettle.ReleaseLocked) != 0 {
-				if CmpForBigInt(fundSettle.ReleaseLocked, account.Locked) > 0 {
-					panic(ExceedFundLockedErr)
+				if account.Locked, actualSub, exceed = SafeSubBigInt(account.Locked, fundSettle.ReleaseLocked); exceed {
+					fundLogger.Error(cabi.MethodNameDexFundSettleOrders+" DoSettleFund exceed for releaseLocked", "locked", new(big.Int).SetBytes(account.Locked).String(), "releaseLocked", new(big.Int).SetBytes(fundSettle.ReleaseLocked).String())
 				}
-				account.Locked = SubBigIntAbs(account.Locked, fundSettle.ReleaseLocked)
-				account.Available = AddBigInt(account.Available, fundSettle.ReleaseLocked)
+				account.Available = AddBigInt(account.Available, actualSub)
 			}
 			if CmpToBigZero(fundSettle.IncAvailable) != 0 {
 				account.Available = AddBigInt(account.Available, fundSettle.IncAvailable)

@@ -110,6 +110,14 @@ func IsDexFork(snapshotHeight uint64) bool {
 	return snapshotHeight >= dexForkPoint.Height
 }
 
+func IsDexFeeFork(snapshotHeight uint64) bool {
+	dexFeeForkPoint, ok := forkPointMap["DexFeeFork"]
+	if !ok {
+		panic("check dex fee fork failed. DexFeeFork is not existed.")
+	}
+	return snapshotHeight >= dexFeeForkPoint.Height
+}
+
 func IsForkPoint(snapshotHeight uint64) bool {
 	// assume that fork point list is sorted by height asc
 	for i := len(forkPointList) - 1; i >= 0; i-- {

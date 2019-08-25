@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -433,6 +434,14 @@ func MaxTotalFeeRate(order Order) int32 {
 		return takerRate
 	} else {
 		return makerRate
+	}
+}
+
+func IsDexFeeFork(db vm_db.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return fork.IsDexFeeFork(latestSb.Height)
 	}
 }
 
