@@ -37,12 +37,20 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.U
 			//fmt.Printf("origin account for :address %s, tokenId %s, available %s, locked %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(account.Available).String(), new(big.Int).SetBytes(account.Locked).String())
 			if CmpToBigZero(fundSettle.ReduceLocked) != 0 {
 				if account.Locked, _, exceed = SafeSubBigInt(account.Locked, fundSettle.ReduceLocked); exceed {
-					fundLogger.Error(cabi.MethodNameDexFundSettleOrders+" DoSettleFund exceed for reduceLocked", "locked", new(big.Int).SetBytes(account.Locked).String(), "reduceLocked", new(big.Int).SetBytes(fundSettle.ReduceLocked).String())
+					if IsDexFeeFork(db) {
+						fundLogger.Error(cabi.MethodNameDexFundSettleOrders+" DoSettleFund exceed for reduceLocked", "locked", new(big.Int).SetBytes(account.Locked).String(), "reduceLocked", new(big.Int).SetBytes(fundSettle.ReduceLocked).String())
+					} else {
+						panic(ExceedFundLockedErr)
+					}
 				}
 			}
 			if CmpToBigZero(fundSettle.ReleaseLocked) != 0 {
 				if account.Locked, actualSub, exceed = SafeSubBigInt(account.Locked, fundSettle.ReleaseLocked); exceed {
-					fundLogger.Error(cabi.MethodNameDexFundSettleOrders+" DoSettleFund exceed for releaseLocked", "locked", new(big.Int).SetBytes(account.Locked).String(), "releaseLocked", new(big.Int).SetBytes(fundSettle.ReleaseLocked).String())
+					if IsDexFeeFork(db) {
+						fundLogger.Error(cabi.MethodNameDexFundSettleOrders+" DoSettleFund exceed for releaseLocked", "locked", new(big.Int).SetBytes(account.Locked).String(), "releaseLocked", new(big.Int).SetBytes(fundSettle.ReleaseLocked).String())
+					} else {
+						panic(ExceedFundLockedErr)
+					}
 				}
 				account.Available = AddBigInt(account.Available, actualSub)
 			}
