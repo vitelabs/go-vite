@@ -68,10 +68,10 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 	if len(feeActions) == 0 && feeForDividend == nil {
 		return
 	}
-	periodId := GetCurrentPeriodId(db, reader)
-	feeSumByPeriod, ok := GetFeeSumByPeriodId(db, periodId)
+	currentPeriodId := GetCurrentPeriodId(db, reader)
+	feeSumByPeriod, ok := GetFeeSumByPeriodId(db, currentPeriodId)
 	if !ok { // need roll period when current period feeSum not saved yet
-		feeSumByPeriod = RollAndGentNewFeeSumByPeriod(db, periodId)
+		feeSumByPeriod = RollAndGentNewFeeSumByPeriod(db, currentPeriodId)
 	}
 	if inviteRelations == nil {
 		inviteRelations = make(map[types.Address]*types.Address)
@@ -89,7 +89,7 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 		if allowMine {
 			var needAddSum bool
 			var addBaseSum, addInviteeSum []byte
-			inviteRelations, needAddSum, addBaseSum, addInviteeSum = settleUserFees(db, periodId, feeTokenDecimals, quoteTokenType, mineThreshold, feeAction, inviteRelations)
+			inviteRelations, needAddSum, addBaseSum, addInviteeSum = settleUserFees(db, currentPeriodId, feeTokenDecimals, quoteTokenType, mineThreshold, feeAction, inviteRelations)
 			if needAddSum {
 				needIncSumForMine = true
 				incBaseSumForMine = AddBigInt(incBaseSumForMine, addBaseSum)
@@ -132,7 +132,7 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 			feeSumByPeriod.FeesForMine = append(feeSumByPeriod.FeesForMine, newFeeSumForMine(quoteTokenType, incBaseSumForMine, incInviteeSumForMine))
 		}
 	}
-	SaveCurrentFeeSum(db, reader, feeSumByPeriod)
+	SaveFeeSumWithPeriodId(db, currentPeriodId, feeSumByPeriod)
 }
 
 //baseAmount + brokerAmount for vx mine,

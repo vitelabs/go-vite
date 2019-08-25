@@ -681,7 +681,7 @@ func GetUserFundKey(address types.Address) []byte {
 }
 
 func GetCurrentFeeSum(db vm_db.VmDb, reader util.ConsensusReader) (*FeeSumByPeriod, bool) {
-	return getFeeSumByKey(db, GetFeeSumCurrentKey(db, reader))
+	return getFeeSumByKey(db, GetFeeSumKeyByPeriodId(GetCurrentPeriodId(db, reader)))
 }
 
 func GetFeeSumByPeriodId(db vm_db.VmDb, periodId uint64) (*FeeSumByPeriod, bool) {
@@ -724,11 +724,7 @@ func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) map[uint64]*
 	}
 }
 
-func SaveCurrentFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeSum *FeeSumByPeriod) {
-	serializeToDb(db, GetFeeSumCurrentKey(db, reader), feeSum)
-}
-
-func SaveFeeSumWithPeriodId(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
+func SaveFeeSumWithPeriodId(db vm_db.VmDb, periodId uint64, feeSum *FeeSumByPeriod) {
 	serializeToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 }
 
@@ -788,10 +784,6 @@ func markFormerFeeSumsAsMined(db vm_db.VmDb, periodId uint64) {
 
 func GetFeeSumKeyByPeriodId(periodId uint64) []byte {
 	return append(feeSumKeyPrefix, Uint64ToBytes(periodId)...)
-}
-
-func GetFeeSumCurrentKey(db vm_db.VmDb, reader util.ConsensusReader) []byte {
-	return GetFeeSumKeyByPeriodId(GetCurrentPeriodId(db, reader))
 }
 
 func GetFeeSumLastPeriodIdForRoll(db vm_db.VmDb) uint64 {

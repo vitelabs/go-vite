@@ -116,8 +116,10 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 				}
 			}
 			minedAmt := new(big.Int).Add(vxMinedForBase, vxMinedForInvite)
-			updatedAcc := DepositUserAccount(db, address, VxTokenId, minedAmt)
-			OnDepositVx(db, reader, address, minedAmt, updatedAcc)
+			if minedAmt.Sign() > 0 {
+				updatedAcc := DepositUserAccount(db, address, VxTokenId, minedAmt)
+				OnDepositVx(db, reader, address, minedAmt, updatedAcc)
+			}
 		}
 		if len(userFees.Fees) == 1 {
 			DeleteUserFees(db, addressBytes)
@@ -199,9 +201,11 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 		}
 		//fmt.Printf("tokenId %s, address %s, vxSumAmt %s, userVxAmount %s, dividedVxAmt %s, toDivideFeeAmt %s, toDivideLeaveAmt %s\n", tokenId.String(), address.String(), vxSumAmt.String(), userVxAmount.String(), dividedVxAmtMap[tokenId], toDivideFeeAmt.String(), toDivideLeaveAmt.String())
 		minedAmt, finished := DivideByProportion(pledgeForVxSumAmt, pledgeAmt, dividedPledgeAmountSum, amtForPledge, amtLeavedToMine)
-		updatedAcc := DepositUserAccount(db, address, VxTokenId, minedAmt)
-		OnDepositVx(db, reader, address, minedAmt, updatedAcc)
-		AddMinedVxForPledgeEvent(db, address, pledgeAmt, minedAmt)
+		if minedAmt.Sign() > 0 {
+			updatedAcc := DepositUserAccount(db, address, VxTokenId, minedAmt)
+			OnDepositVx(db, reader, address, minedAmt, updatedAcc)
+			AddMinedVxForPledgeEvent(db, address, pledgeAmt, minedAmt)
+		}
 		if finished {
 			break
 		}
