@@ -481,6 +481,14 @@ func MaxTotalFeeRate(order Order) int32 {
 	}
 }
 
+func IsDexFeeFork(db vm_db.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return fork.IsDexFeeFork(latestSb.Height)
+	}
+}
+
 // only for unit test
 func SetFeeRate(baseRate int32) {
 	BaseFeeRate = baseRate
