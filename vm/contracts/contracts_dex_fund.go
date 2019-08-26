@@ -265,7 +265,7 @@ func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.Accou
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundSettleOrders, dex.TradeMarketNotExistsErr, sendBlock)
 	} else {
 		for _, fundAction := range settleActions.FundActions {
-			if err = dex.DoSettleFund(db, vm.ConsensusReader(), fundAction, marketInfo); err != nil {
+			if err = dex.DoSettleFund(db, vm.ConsensusReader(), fundAction, marketInfo, fundLogger); err != nil {
 				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundSettleOrders, err, sendBlock)
 			}
 		}

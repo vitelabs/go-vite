@@ -145,7 +145,7 @@ func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook, preHash ty
 		mc.handleTakerRes(taker)
 	} else {
 		// must not set db in recursiveTakeOrder
-		if err = mc.recursiveTakeOrder(taker, maker, makerBook, &modifiedMakers, &txs); err != nil {
+		if err = mc.recursiveTakeOrder(taker, maker, makerBook, &modifiedMakers, &txs, IsDexFeeFork(mc.db)); err != nil {
 			return
 		} else {
 			mc.handleTakerRes(taker)
@@ -158,14 +158,14 @@ func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook, preHash ty
 }
 
 //TODO add assertion for order calculation correctness
-func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBook, modifiedMakers *[]*Order, txs *[]*OrderTx) error {
+func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBook, modifiedMakers *[]*Order, txs *[]*OrderTx, isDexFeeFork bool) error {
 	if filterTimeout(mc.db, maker) {
 		*modifiedMakers = append(*modifiedMakers, maker)
 	} else {
 		matched, _ := matchPrice(taker, maker)
 		//fmt.Printf("recursiveTakeOrder matched for taker.id %d is %t\n", taker.Id, matched)
 		if matched {
-			tx := calculateOrderAndTx(taker, maker, mc.MarketInfo)
+			tx := calculateOrderAndTx(taker, maker, mc.MarketInfo, isDexFeeFork)
 			*txs = append(*txs, tx)
 			if taker.Status == PartialExecuted && len(*txs) >= maxTxsCountPerTaker {
 				taker.Status = Cancelled
@@ -180,7 +180,7 @@ func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBoo
 		return nil
 	}
 	if newMaker, ok := makerBook.nextOrder(); ok {
-		return mc.recursiveTakeOrder(taker, newMaker, makerBook, modifiedMakers, txs)
+		return mc.recursiveTakeOrder(taker, newMaker, makerBook, modifiedMakers, txs, isDexFeeFork)
 	} else {
 		return nil
 	}
@@ -361,7 +361,7 @@ func (mc *Matcher) deleteOrder(order *Order) {
 	}
 }
 
-func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo) (tx *OrderTx) {
+func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo, isDexFeeFork bool) (tx *OrderTx) {
 	tx = &OrderTx{}
 	tx.Id = generateTxId(taker.Id, maker.Id)
 	tx.TakerSide = taker.Side
@@ -373,8 +373,8 @@ func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo) (tx *Order
 	makerAmount := calculateOrderAmount(maker, executeQuantity, maker.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 	executeAmount := MinBigInt(takerAmount, makerAmount)
 	//fmt.Printf("calculateOrderAndTx executeQuantity %v, takerAmount %v, makerAmount %v, executeAmount %v\n", new(big.Int).SetBytes(executeQuantity).String(), new(big.Int).SetBytes(takerAmount).String(), new(big.Int).SetBytes(makerAmount).String(), new(big.Int).SetBytes(executeAmount).String())
-	takerFee, takerExecutedFee, takerBrokerFee, takerExecutedBrokerFee := CalculateFeeAndExecutedFee(taker, executeAmount, taker.TakerFeeRate, taker.TakerBrokerFeeRate)
-	makerFee, makerExecutedFee, makerBrokerFee, makerExecutedBrokerFee := CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerBrokerFeeRate)
+	takerFee, takerExecutedFee, takerBrokerFee, takerExecutedBrokerFee := CalculateFeeAndExecutedFee(taker, executeAmount, taker.TakerFeeRate, taker.TakerBrokerFeeRate, isDexFeeFork)
+	makerFee, makerExecutedFee, makerBrokerFee, makerExecutedBrokerFee := CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerBrokerFeeRate, isDexFeeFork)
 	updateOrder(taker, executeQuantity, executeAmount, takerExecutedFee, takerExecutedBrokerFee, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedBrokerFee, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 	tx.Quantity = executeQuantity
@@ -439,10 +439,12 @@ func CalculateAmountForRate(amount []byte, rate int32) []byte {
 	}
 }
 
-func CalculateFeeAndExecutedFee(order *Order, amount []byte, feeRate, brokerFeeRate int32) (incBaseFee, executedBaseFee, incBrokerFee, executedBrokerFee []byte) {
+func CalculateFeeAndExecutedFee(order *Order, amount []byte, feeRate, brokerFeeRate int32, isDexFeeFork bool) (incBaseFee, executedBaseFee, incBrokerFee, executedBrokerFee []byte) {
 	var leaved bool
 	if incBaseFee, executedBaseFee, leaved = calculateExecutedFee(amount, feeRate, order.Side, order.ExecutedBaseFee, order.LockedBuyFee, order.ExecutedBaseFee, order.ExecutedBrokerFee); leaved {
 		incBrokerFee, executedBrokerFee, _ = calculateExecutedFee(amount, brokerFeeRate, order.Side, order.ExecutedBrokerFee, order.LockedBuyFee, executedBaseFee, order.ExecutedBrokerFee)
+	} else if isDexFeeFork {
+		executedBrokerFee = order.ExecutedBrokerFee
 	}
 	return
 }
