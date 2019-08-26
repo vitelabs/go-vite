@@ -1553,7 +1553,7 @@ func SetTimerTimestamp(db vm_db.VmDb, timestamp int64, reader util.ConsensusRead
 
 func doRollPeriod(db vm_db.VmDb, newPeriodId uint64) {
 	newFeeSum := RollAndGentNewFeeSumByPeriod(db, newPeriodId)
-	SaveFeeSumWithPeriodId(db, newFeeSum, newPeriodId)
+	SaveFeeSumWithPeriodId(db, newPeriodId, newFeeSum)
 }
 
 func GetTimerTimestamp(db vm_db.VmDb) int64 {
