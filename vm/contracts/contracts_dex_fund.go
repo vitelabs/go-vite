@@ -162,17 +162,21 @@ func (md MethodDexFundNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewMarket, err, sendBlock)
 		}
 	} else {
-		getTokenInfoData := dex.OnNewMarketPending(db, param, marketInfo)
-		return []*ledger.AccountBlock{
-			{
-				AccountAddress: types.AddressDexFund,
-				ToAddress:      types.AddressMintage,
-				BlockType:      ledger.BlockTypeSendCall,
-				TokenId:        ledger.ViteTokenId,
-				Amount:         big.NewInt(0),
-				Data:           getTokenInfoData,
-			},
-		}, nil
+		if getTokenInfoData, err := dex.OnNewMarketPending(db, param, marketInfo); err != nil {
+			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundNewMarket, err, sendBlock)
+		} else {
+			return []*ledger.AccountBlock{
+				{
+					AccountAddress: types.AddressDexFund,
+					ToAddress:      types.AddressMintage,
+					BlockType:      ledger.BlockTypeSendCall,
+					TokenId:        ledger.ViteTokenId,
+					Amount:         big.NewInt(0),
+					Data:           getTokenInfoData,
+				},
+			}, nil
+		}
+
 	}
 }
 

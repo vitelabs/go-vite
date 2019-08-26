@@ -1026,14 +1026,14 @@ func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quote
 	}
 }
 
-func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) {
+func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) error {
 	pendingNewMarkets, _ := GetPendingNewMarkets(db)
 	var foundTradeToken bool
 	for _, action := range pendingNewMarkets.PendingActions {
 		if bytes.Equal(action.TradeToken, tradeToken.Bytes()) {
 			for _, qt := range action.QuoteTokens {
 				if bytes.Equal(qt, quoteToken.Bytes()) {
-					panic(PendingNewMarketInnerConflictErr)
+					return PendingNewMarketInnerConflictErr
 				}
 			}
 			foundTradeToken = true
@@ -1047,6 +1047,7 @@ func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTyp
 		pendingNewMarkets.PendingActions = append(pendingNewMarkets.PendingActions, action)
 	}
 	SavePendingNewMarkets(db, pendingNewMarkets)
+	return nil
 }
 
 func GetPendingNewMarkets(db vm_db.VmDb) (pendingNewMarkets *PendingNewMarkets, ok bool) {
