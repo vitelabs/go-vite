@@ -1033,7 +1033,11 @@ func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTyp
 		if bytes.Equal(action.TradeToken, tradeToken.Bytes()) {
 			for _, qt := range action.QuoteTokens {
 				if bytes.Equal(qt, quoteToken.Bytes()) {
-					return PendingNewMarketInnerConflictErr
+					if IsStemFork(db) {
+						return PendingNewMarketInnerConflictErr
+					} else {
+						panic(PendingNewMarketInnerConflictErr)
+					}
 				}
 			}
 			foundTradeToken = true

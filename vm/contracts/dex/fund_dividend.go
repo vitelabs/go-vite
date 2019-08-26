@@ -154,7 +154,7 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodId uint64) error {
 			continue
 		}
 		if len(brokerFeeSumKey) != 32 {
-			panic(fmt.Errorf("invalid broker fee type"))
+			panic(fmt.Errorf("invalid broker fee sum key type"))
 		}
 		DeleteBrokerFeeSumByKey(db, brokerFeeSumKey)
 		brokerFeeSum := &BrokerFeeSumByPeriod{}

@@ -47,7 +47,9 @@ func (md *MethodDexFundUserDeposit) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	account := dex.DepositUserAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, sendBlock.Amount)
 	// must do after account updated by deposit
 	if sendBlock.TokenId == dex.VxTokenId {
-		dex.OnDepositVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, sendBlock.Amount, account)
+		if err := dex.OnDepositVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, sendBlock.Amount, account); err != nil {
+			return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserDeposit, err, sendBlock)
+		}
 	}
 	return nil, nil
 }
@@ -96,7 +98,9 @@ func (md *MethodDexFundUserWithdraw) DoReceive(db vm_db.VmDb, block *ledger.Acco
 		return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)
 	} else {
 		if param.Token == dex.VxTokenId {
-			dex.OnWithdrawVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount, acc)
+			if err = dex.OnWithdrawVx(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount, acc); err != nil {
+				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundUserWithdraw, err, sendBlock)
+			}
 		}
 	}
 	return []*ledger.AccountBlock{
@@ -543,7 +547,9 @@ func (md MethodDexFundPledgeCallback) DoReceive(db vm_db.VmDb, block *ledger.Acc
 			pledgeAmount := dex.GetPledgeForVx(db, callbackParam.PledgeAddress)
 			pledgeAmount.Add(pledgeAmount, callbackParam.Amount)
 			dex.SavePledgeForVx(db, callbackParam.PledgeAddress, pledgeAmount)
-			dex.OnPledgeForVxSuccess(db, vm.ConsensusReader(), callbackParam.PledgeAddress, callbackParam.Amount, pledgeAmount)
+			if err := dex.OnPledgeForVxSuccess(db, vm.ConsensusReader(), callbackParam.PledgeAddress, callbackParam.Amount, pledgeAmount); err != nil {
+				handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPledgeCallback, err, sendBlock)
+			}
 		case dex.PledgeForVip:
 			if pledgeVip, ok := dex.GetPledgeForVip(db, callbackParam.PledgeAddress); ok { //duplicate pledge for vip
 				pledgeVip.PledgeTimes = pledgeVip.PledgeTimes + 1
@@ -631,7 +637,9 @@ func (md MethodDexFundCancelPledgeCallback) DoReceive(db vm_db.VmDb, block *ledg
 			} else {
 				dex.SavePledgeForVx(db, cancelPledgeParam.PledgeAddress, leaved)
 			}
-			dex.OnCancelPledgeForVxSuccess(db, vm.ConsensusReader(), cancelPledgeParam.PledgeAddress, sendBlock.Amount, leaved)
+			if err := dex.OnCancelPledgeForVxSuccess(db, vm.ConsensusReader(), cancelPledgeParam.PledgeAddress, sendBlock.Amount, leaved); err != nil {
+				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundCancelPledgeCallback, err, sendBlock)
+			}
 		case dex.PledgeForVip:
 			if dex.PledgeForVipAmount.Cmp(sendBlock.Amount) != 0 {
 				panic(dex.InvalidAmountForPledgeCallbackErr)
@@ -1229,7 +1237,9 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 				amt.Set(poolAmt)
 			}
 			acc := dex.DepositUserAccount(db, addr, dex.VxTokenId, amt)
-			dex.OnDepositVx(db, vm.ConsensusReader(), addr, amt, acc)
+			if err = dex.OnDepositVx(db, vm.ConsensusReader(), addr, amt, acc); err != nil {
+				return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundSettleMakerMinedVx, err, sendBlock)
+			}
 			poolAmt.Sub(poolAmt, amt)
 			if poolAmt.Sign() <= 0 {
 				break
