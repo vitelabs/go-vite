@@ -43,7 +43,7 @@ func (p *DataApi) GetPledgeListByPage(snapshotHash types.Hash, lastKey string, c
 	return &GetPledgeListByPageResult{list, hex.EncodeToString(lastKeyBytes)}, nil
 }
 
-func (f DataApi) GetUserFundsByPage(snapshotHash types.Hash, lastAddress string, count int) (*apidex.UserFunds, error) {
+func (f DataApi) GetDexUserFundsByPage(snapshotHash types.Hash, lastAddress string, count int) (*apidex.UserFunds, error) {
 	if count <= 0 {
 		return nil, dex.InvalidInputParamErr
 	}
