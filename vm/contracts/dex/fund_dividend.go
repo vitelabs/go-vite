@@ -59,7 +59,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 
 	iterator, err := db.NewStorageIterator(VxFundKeyPrefix)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	defer iterator.Release()
 
@@ -137,7 +137,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 func DoDivideBrokerFees(db vm_db.VmDb, periodId uint64) error {
 	iterator, err := db.NewStorageIterator(append(brokerFeeSumKeyPrefix, Uint64ToBytes(periodId)...))
 	if err != nil {
-		return err
+		panic(err)
 	}
 	defer iterator.Release()
 	for {

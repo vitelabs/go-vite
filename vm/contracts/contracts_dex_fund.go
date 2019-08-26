@@ -339,7 +339,7 @@ func (md MethodDexFundPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 		switch param.BizType {
 		case dex.MineVxForFeeJob:
 			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
-				if refund, err = dex.DoMineVxForFee(db, vm.ConsensusReader(), param.PeriodId, amtForItems); err != nil {
+				if refund, err = dex.DoMineVxForFee(db, vm.ConsensusReader(), param.PeriodId, amtForItems, fundLogger); err != nil {
 					return handleDexReceiveErr(fundLogger, cabi.MethodNameDexFundPeriodJob, err, sendBlock)
 				}
 			} else {

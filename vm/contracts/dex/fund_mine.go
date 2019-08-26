@@ -1,15 +1,15 @@
 package dex
 
 import (
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
 //Note: allow mine from specify periodId, former periods will be ignore
-func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int) (*big.Int, error) {
+func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int, fundLogger log15.Logger) (*big.Int, error) {
 	var (
 		feeSum                *FeeSumByPeriod
 		feeSumMap             = make(map[int32]*big.Int) // quoteTokenType -> amount
@@ -41,7 +41,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 
 	iterator, err := db.NewStorageIterator(userFeeKeyPrefix)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	defer iterator.Release()
 	for {
@@ -89,8 +89,10 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 				}
 				if feeSumAmt, ok := feeSumMap[userFee.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
 					// TODO change to continue after test
-					panic(fmt.Errorf("user with valid userFee, but no valid feeSum"))
-					//continue
+					fundLogger.Error("DoMineVxForFee", "encounter err" , "user with valid userFee, but no valid feeSum",
+						"periodId", periodId, "address", address.String(), "quoteTokenType", userFee.QuoteTokenType,
+						"baseFee", new(big.Int).SetBytes(userFee.BaseAmount), "inviteFee", new(big.Int).SetBytes(userFee.InviteBonusAmount))
+					continue
 				} else {
 					var vxDividend, vxDividendForInvite *big.Int
 					var finished, finishedForInvite bool
