@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
