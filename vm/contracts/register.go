@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"github.com/vitelabs/go-vite/common/fork"
 	"math/big"
 	"regexp"
 	"runtime/debug"
@@ -66,7 +67,10 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 		return nil, util.ErrInvalidMethodParam
 	}
 	pledgeParam, _ := abi.GetRegisterOfPledgeInfo(groupInfo.RegisterConditionParam)
-	if sendBlock.Amount.Cmp(pledgeParam.PledgeAmount) != 0 || sendBlock.TokenId != pledgeParam.PledgeToken {
+	sb, err := db.LatestSnapshotBlock()
+	if isLeafFork := fork.IsLeafFork(sb.Height); (!isLeafFork && sendBlock.Amount.Cmp(sbpStakeAmountPreMainnet) != 0) ||
+		(isLeafFork && sendBlock.Amount.Cmp(sbpStakeAmountMainnet) != 0) ||
+		sendBlock.TokenId != pledgeParam.PledgeToken {
 		return nil, util.ErrInvalidMethodParam
 	}
 
@@ -313,14 +317,10 @@ func CalcReward(reader util.ConsensusReader, db vm_db.VmDb, old *types.Registrat
 		}
 	}()
 	genesisTime := db.GetGenesisSnapshotBlock().Timestamp.Unix()
-	pledgeAmount, err := getSnapshotGroupPledgeAmount(db)
-	if err != nil {
-		return 0, 0, nil, false, err
-	}
-	return calcReward(old, genesisTime, pledgeAmount, current, reader)
+	return calcReward(old, genesisTime, db, current, reader)
 }
 
-func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.Int, current *ledger.SnapshotBlock, reader util.ConsensusReader) (int64, int64, *Reward, bool, error) {
+func calcReward(old *types.Registration, genesisTime int64, db vm_db.VmDb, current *ledger.SnapshotBlock, reader util.ConsensusReader) (int64, int64, *Reward, bool, error) {
 	var startIndex, endIndex uint64
 	var startTime, endTime int64
 	drained := false
@@ -348,7 +348,13 @@ func calcReward(old *types.Registration, genesisTime int64, pledgeAmount *big.In
 		return 0, 0, nil, false, err
 	}
 	reward := newZeroReward()
+	forkIndex := uint64(0)
 	for _, detail := range details {
+		var pledgeAmount *big.Int
+		pledgeAmount, forkIndex, err = getSnapshotGroupPledgeAmount(db, reader, genesisTime, detail.Index, forkIndex)
+		if err != nil {
+			return 0, 0, nil, false, err
+		}
 		reward.Add(calcRewardByDayDetail(detail, old.Name, pledgeAmount))
 	}
 	return startTime, endTime, reward, drained, nil
@@ -358,16 +364,26 @@ func getRewardTimeLimit(current *ledger.SnapshotBlock) int64 {
 	return current.Timestamp.Unix() - GetRewardTimeLimit
 }
 
-func getSnapshotGroupPledgeAmount(db vm_db.VmDb) (*big.Int, error) {
-	group, err := abi.GetConsensusGroup(db, types.SNAPSHOT_GID)
+func getSnapshotGroupPledgeAmount(db vm_db.VmDb, reader util.ConsensusReader, genesisTime int64, index uint64, forkIndex uint64) (*big.Int, uint64, error) {
+	sb, err := db.LatestSnapshotBlock()
 	if err != nil {
-		return nil, err
+		return nil, forkIndex, err
 	}
-	pledgeParam, err := abi.GetRegisterOfPledgeInfo(group.RegisterConditionParam)
-	if err != nil {
-		return nil, err
+	if !fork.IsLeafFork(sb.Height) {
+		return sbpStakeAmountPreMainnet, 0, nil
 	}
-	return pledgeParam.PledgeAmount, nil
+	if forkIndex == 0 {
+		forkHeight := fork.GetLeafFork()
+		forkSb, err := db.GetSnapshotBlockByHeight(forkHeight)
+		if err != nil {
+			return nil, forkIndex, err
+		}
+		forkIndex = reader.GetIndexByTime(forkSb.Timestamp.Unix(), genesisTime)
+	}
+	if index <= forkIndex {
+		return sbpStakeAmountPreMainnet, forkIndex, nil
+	}
+	return sbpStakeAmountMainnet, forkIndex, nil
 }
 
 func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64) (m map[string]*Reward, err error) {
@@ -381,10 +397,6 @@ func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64
 	if timestamp < genesisTime {
 		return nil, util.ErrInvalidMethodParam
 	}
-	pledgeAmount, err := getSnapshotGroupPledgeAmount(db)
-	if err != nil {
-		return nil, err
-	}
 	index := reader.GetIndexByTime(timestamp, genesisTime)
 	endTime := reader.GetEndTimeByIndex(index)
 	current, err := db.LatestSnapshotBlock()
@@ -394,6 +406,10 @@ func CalcRewardByDay(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64
 	timeLimit := getRewardTimeLimit(current)
 	if endTime > timeLimit {
 		return nil, util.ErrRewardNotDue
+	}
+	pledgeAmount, _, err := getSnapshotGroupPledgeAmount(db, reader, genesisTime, index)
+	if err != nil {
+		return nil, err
 	}
 	return calcRewardByDay(reader, index, pledgeAmount)
 }
@@ -414,7 +430,8 @@ func CalcRewardByDayIndex(db vm_db.VmDb, reader util.ConsensusReader, index uint
 	if endTime > timeLimit {
 		return nil, util.ErrRewardNotDue
 	}
-	pledgeAmount, err := getSnapshotGroupPledgeAmount(db)
+	genesisTime := db.GetGenesisSnapshotBlock().Timestamp.Unix()
+	pledgeAmount, _, err := getSnapshotGroupPledgeAmount(db, reader, genesisTime, index)
 	if err != nil {
 		return nil, err
 	}

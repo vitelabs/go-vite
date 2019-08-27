@@ -33,6 +33,8 @@ type Chain interface {
 
 	GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
 
+	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
 	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
@@ -119,6 +121,8 @@ type VmDb interface {
 	GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.SnapshotBlock, error)
 
 	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+
+	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
 
 	// ====== Meta & Code ======
 	SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta)
