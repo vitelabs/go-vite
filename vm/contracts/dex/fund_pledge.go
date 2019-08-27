@@ -104,15 +104,15 @@ func cancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8,
 	}
 }
 
-func OnPledgeForVxSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) {
-	doChangePledgedVxAmount(db, reader, address, amount, updatedAmount)
+func OnPledgeForVxSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+	return doChangePledgedVxAmount(db, reader, address, amount, updatedAmount)
 }
 
-func OnCancelPledgeForVxSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) {
-	doChangePledgedVxAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount)
+func OnCancelPledgeForVxSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+	return doChangePledgedVxAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount)
 }
 
-func doChangePledgedVxAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int) {
+func doChangePledgedVxAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int) error {
 	var (
 		pledges          *PledgesForVx
 		sumChange        *big.Int
@@ -182,12 +182,12 @@ func doChangePledgedVxAmount(db vm_db.VmDb, reader util.ConsensusReader, address
 			if sumChange.Sign() > 0 {
 				pledgesForVxSum.Pledges = append(pledgesForVxSum.Pledges, &dexproto.PledgeForVxByPeriod{Period: periodId, Amount: sumChange.Bytes()})
 			} else {
-				panic(fmt.Errorf("vxPledgesum initiation get negative value"))
+				return fmt.Errorf("vxPledgesum initiation get negative value")
 			}
 		} else {
 			sumRes := new(big.Int).Add(new(big.Int).SetBytes(pledgesForVxSum.Pledges[sumsLen-1].Amount), sumChange)
 			if sumRes.Sign() < 0 {
-				panic(fmt.Errorf("vxPledgesum updated res get negative value"))
+				return fmt.Errorf("vxPledgesum updated res get negative value")
 			}
 			if pledgesForVxSum.Pledges[sumsLen-1].Period == periodId {
 				pledgesForVxSum.Pledges[sumsLen-1].Amount = sumRes.Bytes()
@@ -197,4 +197,5 @@ func doChangePledgedVxAmount(db vm_db.VmDb, reader util.ConsensusReader, address
 		}
 		SavePledgesForVxSum(db, pledgesForVxSum)
 	}
+	return nil
 }

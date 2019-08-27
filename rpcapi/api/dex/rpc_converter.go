@@ -269,3 +269,12 @@ type SimpleUserFund struct {
 type UserFunds struct {
 	Funds []*SimpleUserFund `json:"funds"`
 }
+
+type RpcVxMineInfo struct {
+	HistoryMinedSum string           `json:"historyMinedSum"`
+	Total           string           `json:"total"`
+	FeeMineTotal    string           `json:"feeMineTotal"`
+	FeeMineDetail   map[int32]string `json:"feeMineDetail"`
+	PledgeMine      string           `json:"pledgeMine"`
+	MakerMine       string           `json:"makerMine"`
+}
