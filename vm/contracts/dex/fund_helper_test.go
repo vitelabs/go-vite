@@ -3,7 +3,6 @@ package dex
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/ledger"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -95,6 +94,6 @@ func TestRandomBytesFromBytes(t *testing.T) {
 		}
 		assert.False(t, ok)
 		resMap[resStr] = ""
-		fmt.Printf("%d -> %s\n", i, resStr)
+		//fmt.Printf("%d -> %s\n", i, resStr)
 	}
 }

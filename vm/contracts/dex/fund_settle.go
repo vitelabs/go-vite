@@ -62,7 +62,9 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.U
 			}
 			// must do after account updated by settle
 			if bytes.Equal(token, VxTokenId.Bytes()) {
-				OnSettleVx(db, reader, action.Address, fundSettle, account)
+				if err = OnSettleVx(db, reader, action.Address, fundSettle, account); err != nil {
+					return err
+				}
 			}
 			//fmt.Printf("settle for :address %s, tokenId %s, ReduceLocked %s, ReleaseLocked %s, IncAvailable %s\n", address.String(), tokenId.String(), new(big.Int).SetBytes(action.ReduceLocked).String(), new(big.Int).SetBytes(action.ReleaseLocked).String(), new(big.Int).SetBytes(action.IncAvailable).String())
 		}
@@ -80,10 +82,10 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 	if len(feeActions) == 0 && feeForDividend == nil {
 		return
 	}
-	periodId := GetCurrentPeriodId(db, reader)
-	feeSumByPeriod, ok := GetFeeSumByPeriodId(db, periodId)
+	currentPeriodId := GetCurrentPeriodId(db, reader)
+	feeSumByPeriod, ok := GetFeeSumByPeriodId(db, currentPeriodId)
 	if !ok { // need roll period when current period feeSum not saved yet
-		feeSumByPeriod = RollAndGentNewFeeSumByPeriod(db, periodId)
+		feeSumByPeriod = RollAndGentNewFeeSumByPeriod(db, currentPeriodId)
 	}
 	if inviteRelations == nil {
 		inviteRelations = make(map[types.Address]*types.Address)
@@ -101,7 +103,7 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 		if allowMine {
 			var needAddSum bool
 			var addBaseSum, addInviteeSum []byte
-			inviteRelations, needAddSum, addBaseSum, addInviteeSum = settleUserFees(db, periodId, feeTokenDecimals, quoteTokenType, mineThreshold, feeAction, inviteRelations)
+			inviteRelations, needAddSum, addBaseSum, addInviteeSum = settleUserFees(db, currentPeriodId, feeTokenDecimals, quoteTokenType, mineThreshold, feeAction, inviteRelations)
 			if needAddSum {
 				needIncSumForMine = true
 				incBaseSumForMine = AddBigInt(incBaseSumForMine, addBaseSum)
@@ -144,7 +146,7 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 			feeSumByPeriod.FeesForMine = append(feeSumByPeriod.FeesForMine, newFeeSumForMine(quoteTokenType, incBaseSumForMine, incInviteeSumForMine))
 		}
 	}
-	SaveCurrentFeeSum(db, reader, feeSumByPeriod)
+	SaveFeeSumWithPeriodId(db, currentPeriodId, feeSumByPeriod)
 }
 
 //baseAmount + brokerAmount for vx mine,
@@ -258,17 +260,17 @@ func SettleBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeActions [
 	SaveCurrentBrokerFeeSum(db, reader, marketInfo.Owner, brokerFeeSumByPeriod)
 }
 
-func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) {
-	doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
+func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
+	return doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
 }
 
-func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) {
-	doSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
+func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
+	return doSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
 }
 
-func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.FundSettle, updatedVxAccount *dexproto.Account) {
+func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.FundSettle, updatedVxAccount *dexproto.Account) error {
 	amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
-	doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
+	return doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
 }
 
 func splitDividendPool(feeSumAcc *dexproto.FeeSumForDividend) (toDividendAmt, rolledAmount *big.Int) {
@@ -278,7 +280,7 @@ func splitDividendPool(feeSumAcc *dexproto.FeeSumForDividend) (toDividendAmt, ro
 }
 
 // only settle validAmount and amount changed from previous period
-func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) {
+func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
 	var (
 		vxFunds               *VxFunds
 		userNewAmt, sumChange *big.Int
@@ -349,12 +351,12 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 			if sumChange.Sign() > 0 {
 				vxSumFunds.Funds = append(vxSumFunds.Funds, &dexproto.VxFundByPeriod{Period: periodId, Amount: sumChange.Bytes()})
 			} else {
-				panic(fmt.Errorf("vxFundSum initiation get negative value"))
+				return fmt.Errorf("vxFundSum initiation get negative value")
 			}
 		} else {
 			sumRes := new(big.Int).Add(new(big.Int).SetBytes(vxSumFunds.Funds[sumFundsLen-1].Amount), sumChange)
 			if sumRes.Sign() < 0 {
-				panic(fmt.Errorf("vxFundSum updated res get negative value"))
+				return fmt.Errorf("vxFundSum updated res get negative value")
 			}
 			if vxSumFunds.Funds[sumFundsLen-1].Period == periodId {
 				vxSumFunds.Funds[sumFundsLen-1].Amount = sumRes.Bytes()
@@ -365,6 +367,7 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 		}
 		SaveVxSumFunds(db, vxSumFunds)
 	}
+	return nil
 }
 
 func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.Address]*types.Address, fee []byte) (bool, *types.Address, []byte) {
