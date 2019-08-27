@@ -136,14 +136,6 @@ func IsStemFork(snapshotHeight uint64) bool {
 	return snapshotHeight >= stemForkPoint.Height
 }
 
-func IsLeafFork(snapshotHeight uint64) bool {
-	leafForkPoint, ok := forkPointMap["LeafFork"]
-	if !ok {
-		panic("check leaf fork failed. LeafFork is not existed.")
-	}
-	return snapshotHeight >= leafForkPoint.Height
-}
-
 func IsForkPoint(snapshotHeight uint64) bool {
 	// assume that fork point list is sorted by height asc
 	for i := len(forkPointList) - 1; i >= 0; i-- {
