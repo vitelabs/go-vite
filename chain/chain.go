@@ -82,7 +82,7 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 		chainCfg = defaultConfig()
 	}
 
-	if !fork.IsInit() {
+	if !fork.IsInitForkPoint() {
 		fork.SetForkPoints(genesisCfg.ForkPoints)
 	}
 
@@ -146,6 +146,11 @@ func (c *chain) Init() error {
 		}
 	*/
 	c.log.Info("Complete initialization", "method", "Init")
+
+	// init fork
+	if !fork.IsInitChain() {
+		fork.SetChain(c)
+	}
 
 	return nil
 }
@@ -340,7 +345,7 @@ func (c *chain) checkAndInitData() (byte, error) {
 }
 
 func (c *chain) checkForkPointsAndRollback() error {
-	forkPointList := fork.GetForkPointList()
+	forkPointList := fork.GetActiveForkPointList()
 
 	// check
 	var rollbackForkPoint *fork.ForkPointItem

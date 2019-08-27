@@ -44,6 +44,7 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 		}
 		return genesisConfig.ForkPoints
 	} else {
+		// TODO default CooperateFork.
 		return &config.ForkPoints{
 			SeedFork: &config.ForkPoint{
 				Height:  3488471,

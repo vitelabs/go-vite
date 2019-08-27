@@ -129,6 +129,8 @@ type SnapshotBlock struct {
 	SeedHash *types.Hash `json:"seedHash"` // 5
 
 	SnapshotContent SnapshotContent `json:"snapshotContent"` // 6
+
+	Version uint64 `json:"version"`
 }
 
 func ComputeSeedHash(seed uint64, prevHash types.Hash, timestamp *time.Time) types.Hash {
@@ -159,9 +161,14 @@ func (sb *SnapshotBlock) hashSourceLength() int {
 	size += len(sb.SnapshotContent) * ScItemBytesLen
 
 	// forkName
-	forkName := fork.GetRecentForkName(sb.Height)
+	forkName := fork.GetRecentActiveForkName(sb.Height)
 	if forkName != "" {
 		size += len(forkName)
+	}
+	// Add version
+	if fork.IsCooperateFork(sb.Height) {
+		// append version
+		size += 8
 	}
 
 	return size
@@ -202,9 +209,17 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	}
 
 	// Add fork name
-	forkName := fork.GetRecentForkName(sb.Height)
+	forkName := fork.GetRecentActiveForkName(sb.Height)
 	if forkName != "" {
 		source = append(source, []byte(forkName)...)
+	}
+
+	// Add version
+	if fork.IsCooperateFork(sb.Height) {
+		// append version
+		versionBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(versionBytes, sb.Version)
+		source = append(source, versionBytes...)
 	}
 
 	hash, _ := types.BytesToHash(crypto.Hash256(source))
@@ -249,6 +264,8 @@ func (sb *SnapshotBlock) Proto() *vitepb.SnapshotBlock {
 	}
 	// 9
 	pb.SnapshotContent = sb.SnapshotContent.proto()
+	// 10
+	pb.Version = sb.Version
 	return pb
 }
 
@@ -295,6 +312,8 @@ func (sb *SnapshotBlock) DeProto(pb *vitepb.SnapshotBlock) error {
 		}
 	}
 
+	// 10
+	sb.Version = pb.Version
 	return nil
 }
 

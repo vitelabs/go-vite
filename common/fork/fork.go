@@ -18,6 +18,9 @@ type ForkPointItem struct {
 type ForkPointList []*ForkPointItem
 type ForkPointMap map[string]*ForkPointItem
 
+var chainInstance Chain
+var activeManager *ActiveManager
+
 var isInitForkPoint = false
 var forkPointList ForkPointList
 var forkPointMap = make(ForkPointMap)
@@ -26,8 +29,11 @@ func (a ForkPointList) Len() int           { return len(a) }
 func (a ForkPointList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ForkPointList) Less(i, j int) bool { return a[i].Height < a[j].Height }
 
-func IsInit() bool {
+func IsInitForkPoint() bool {
 	return isInitForkPoint
+}
+func IsInitChain() bool {
+	return chainInstance != nil
 }
 
 func SetForkPoints(points *config.ForkPoints) {
@@ -56,6 +62,13 @@ func SetForkPoints(points *config.ForkPoints) {
 	}
 
 	isInitForkPoint = true
+}
+
+// TODO register events
+func SetChain(c Chain) {
+	chainInstance = c
+	activeManager = newActiveManager(chainInstance)
+	//chainInstance
 }
 
 func CheckForkPoints(points config.ForkPoints) error {
@@ -99,7 +112,7 @@ func IsSeedFork(snapshotHeight uint64) bool {
 	if !ok {
 		panic("check seed fork failed. SeedFork is not existed.")
 	}
-	return snapshotHeight >= seedForkPoint.Height
+	return snapshotHeight >= seedForkPoint.Height && IsActive(*seedForkPoint)
 }
 
 func IsDexFork(snapshotHeight uint64) bool {
@@ -107,7 +120,7 @@ func IsDexFork(snapshotHeight uint64) bool {
 	if !ok {
 		panic("check dex fork failed. DexFork is not existed.")
 	}
-	return snapshotHeight >= dexForkPoint.Height
+	return snapshotHeight >= dexForkPoint.Height && IsActive(*dexForkPoint)
 }
 
 func IsDexFeeFork(snapshotHeight uint64) bool {
@@ -115,15 +128,23 @@ func IsDexFeeFork(snapshotHeight uint64) bool {
 	if !ok {
 		panic("check dex fee fork failed. DexFeeFork is not existed.")
 	}
-	return snapshotHeight >= dexFeeForkPoint.Height
+	return snapshotHeight >= dexFeeForkPoint.Height && IsActive(*dexFeeForkPoint)
 }
 
-func IsForkPoint(snapshotHeight uint64) bool {
+func IsCooperateFork(snapshotHeight uint64) bool {
+	cooperateForkPoint, ok := forkPointMap["CooperateFork"]
+	if !ok {
+		panic("check cooperate fork failed. CooperateFork is not existed.")
+	}
+	return snapshotHeight >= cooperateForkPoint.Height && IsActive(*cooperateForkPoint)
+}
+
+func IsActiveForkPoint(snapshotHeight uint64) bool {
 	// assume that fork point list is sorted by height asc
 	for i := len(forkPointList) - 1; i >= 0; i-- {
 		forkPoint := forkPointList[i]
 		if forkPoint.Height == snapshotHeight {
-			return true
+			return IsActive(*forkPoint)
 		}
 
 		if forkPoint.Height < snapshotHeight {
@@ -138,14 +159,21 @@ func GetForkPoints() config.ForkPoints {
 	return forkPoints
 }
 
-func GetForkPointList() ForkPointList {
-	return forkPointList
+func GetActiveForkPointList() ForkPointList {
+	activeForkPointList := make(ForkPointList, 0, len(forkPointList))
+	for _, forkPoint := range forkPointList {
+		if IsActive(*forkPoint) {
+			activeForkPointList = append(activeForkPointList, forkPoint)
+		}
+	}
+
+	return activeForkPointList
 }
 
-func GetRecentForkName(blockHeight uint64) string {
+func GetRecentActiveForkName(blockHeight uint64) string {
 	for i := len(forkPointList) - 1; i >= 0; i-- {
 		item := forkPointList[i]
-		if item.Height <= blockHeight {
+		if item.Height <= blockHeight && IsActive(*item) {
 			return item.forkName
 		}
 	}
