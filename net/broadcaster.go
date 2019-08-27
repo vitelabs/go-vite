@@ -3,8 +3,12 @@ package net
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/bloom"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -13,7 +17,9 @@ import (
 	"github.com/vitelabs/go-vite/tools/circle"
 )
 
-const defaultBroadcastTTL = 32
+const filterCap = 100000
+const rt = 0.01
+const defaultBroadcastTTL = 16
 
 // A blockStore implementation can store blocks in queue,
 // when node is syncing, blocks from remote broadcaster can be stored.
@@ -241,48 +247,147 @@ func commonPeers(ourPeers peers, ppMap map[peerId]struct{}, sender peerId, commo
 
 var errMissingBroadcastBlock = errors.New("propagation missing block")
 
-type accountMsgPool struct {
-	sync.Pool
+//type accountMsgPool struct {
+//	sync.Pool
+//}
+//
+//func newAccountMsgPool() *accountMsgPool {
+//	return &accountMsgPool{
+//		Pool: sync.Pool{
+//			New: func() interface{} {
+//				return new(NewAccountBlock)
+//			},
+//		},
+//	}
+//}
+//
+//func (p *accountMsgPool) get() *NewAccountBlock {
+//	return p.Pool.Get().(*NewAccountBlock)
+//}
+//
+//func (p *accountMsgPool) put(msg *NewAccountBlock) {
+//	p.Pool.Put(msg)
+//}
+//
+//type snapshotMsgPool struct {
+//	sync.Pool
+//}
+//
+//func newSnapshotMsgPool() *snapshotMsgPool {
+//	return &snapshotMsgPool{
+//		Pool: sync.Pool{
+//			New: func() interface{} {
+//				return new(NewSnapshotBlock)
+//			},
+//		},
+//	}
+//}
+//
+//func (p *snapshotMsgPool) get() *NewSnapshotBlock {
+//	return p.Pool.Get().(*NewSnapshotBlock)
+//}
+//
+//func (p *snapshotMsgPool) put(msg *NewSnapshotBlock) {
+//	p.Pool.Put(msg)
+//}
+type pickItem struct {
+	total     int32
+	picked    int32
+	failed    int32
+	createAt  int64
+	resetting int32
+	life      int64
 }
 
-func newAccountMsgPool() *accountMsgPool {
-	return &accountMsgPool{
-		Pool: sync.Pool{
-			New: func() interface{} {
-				return new(NewAccountBlock)
-			},
-		},
+func (p *pickItem) inc() {
+	atomic.AddInt32(&p.total, 1)
+}
+func (p *pickItem) fail() {
+	atomic.AddInt32(&p.failed, 1)
+}
+func (p *pickItem) pick() {
+	atomic.AddInt32(&p.picked, 1)
+}
+func (p *pickItem) reset(now int64) {
+	if !p.expired(now) {
+		return
+	}
+
+	if atomic.CompareAndSwapInt32(&p.resetting, 0, 1) {
+		p.createAt = now
+		p.total = 0
+		p.failed = 0
+		p.picked = 0
+
+		atomic.StoreInt32(&p.resetting, 0)
 	}
 }
-
-func (p *accountMsgPool) get() *NewAccountBlock {
-	return p.Pool.Get().(*NewAccountBlock)
+func (p *pickItem) expired(now int64) bool {
+	return p.createAt+p.life < now
 }
 
-func (p *accountMsgPool) put(msg *NewAccountBlock) {
-	p.Pool.Put(msg)
+type ringStatic struct {
+	rw    sync.RWMutex
+	items []*pickItem
+	index int32
+	size  int32
+	d     int64
 }
 
-type snapshotMsgPool struct {
-	sync.Pool
-}
-
-func newSnapshotMsgPool() *snapshotMsgPool {
-	return &snapshotMsgPool{
-		Pool: sync.Pool{
-			New: func() interface{} {
-				return new(NewSnapshotBlock)
-			},
-		},
+func newRingStatic(size int32, d int64) *ringStatic {
+	r := &ringStatic{
+		items: make([]*pickItem, size),
+		index: 0,
+		size:  size,
+		d:     d,
 	}
+
+	now := time.Now().Unix()
+	for i := range r.items {
+		r.items[i] = &pickItem{
+			total:    0,
+			picked:   0,
+			failed:   0,
+			createAt: now,
+			life:     d,
+		}
+	}
+
+	return r
+}
+func (r *ringStatic) get() *pickItem {
+	now := time.Now().Unix()
+
+	index := atomic.LoadInt32(&r.index)
+	item := r.items[index]
+	if item.expired(now) {
+		index = (index + 1) & (r.size - 1)
+		atomic.StoreInt32(&r.index, index)
+		item = r.items[index]
+		item.reset(now)
+	}
+
+	return item
+}
+func (r *ringStatic) failedRatio() float32 {
+	var failed int32
+	var pick int32
+
+	for _, item := range r.items {
+		failed += item.failed
+		pick += item.picked
+	}
+
+	if pick == 0 {
+		pick++
+	}
+
+	return float32(failed) / float32(pick)
 }
 
-func (p *snapshotMsgPool) get() *NewSnapshotBlock {
-	return p.Pool.Get().(*NewSnapshotBlock)
-}
-
-func (p *snapshotMsgPool) put(msg *NewSnapshotBlock) {
-	p.Pool.Put(msg)
+type broadChainReader interface {
+	GetLatestSnapshotBlock() *ledger.SnapshotBlock
+	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
 }
 
 type broadcaster struct {
@@ -294,28 +399,31 @@ type broadcaster struct {
 
 	verifier Verifier
 	feed     blockNotifier
-	filter   blockFilter
+	filter   *bloom.Filter
+
+	rings *ringStatic
 
 	store blockStore
 
 	mu        sync.Mutex
 	statistic circle.List // statistic latency of block propagation
-	chain     chainReader
+	chain     broadChainReader
 
 	log log15.Logger
 }
 
 func newBroadcaster(peers *peerSet, verifier Verifier, feed blockNotifier,
-	store blockStore, strategy forwardStrategy, chain chainReader) *broadcaster {
+	store blockStore, strategy forwardStrategy, chain broadChainReader) *broadcaster {
 	return &broadcaster{
 		peers:     peers,
 		statistic: circle.NewList(records24h),
 		verifier:  verifier,
 		feed:      feed,
 		store:     store,
-		filter:    newBlockFilter(filterCap),
+		filter:    bloom.New(filterCap, rt),
 		strategy:  strategy,
 		chain:     chain,
+		rings:     newRingStatic(8, 2),
 		log:       netLog.New("module", "broadcaster"),
 	}
 }
@@ -346,10 +454,15 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 
 		block := nb.Block
 
+		if block.Height+100 < b.chain.GetLatestSnapshotBlock().Height {
+			b.log.Warn(fmt.Sprintf("receive new snapshotblock %s/%d from %s: too old", block.Hash, block.Height, msg.Sender))
+			return
+		}
+
 		b.log.Info(fmt.Sprintf("receive new snapshotblock %s/%d from %s", block.Hash, block.Height, msg.Sender))
 
 		// check if block has exist first
-		if exist := b.filter.has(block.Hash[:]); exist {
+		if exist := b.filter.Test(block.Hash[:]); exist {
 			return nil
 		}
 
@@ -357,7 +470,7 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 		hash := block.ComputeHash()
 
 		// check if has exist or record, return true if has exist
-		if exist := b.filter.lookAndRecord(hash[:]); exist {
+		if exist := b.filter.TestAndAdd(hash[:]); exist {
 			return nil
 		}
 
@@ -395,7 +508,7 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 		b.log.Info(fmt.Sprintf("receive new accountblock %s from %s", block.Hash, msg.Sender))
 
 		// check if block has exist first
-		if exist := b.filter.has(block.Hash[:]); exist {
+		if exist := b.filter.Test(block.Hash[:]); exist {
 			return nil
 		}
 
@@ -403,8 +516,27 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 		hash := block.ComputeHash()
 
 		// check if has exist or record, return true if has exist
-		if exist := b.filter.lookAndRecord(hash[:]); exist {
+		if exist := b.filter.TestAndAdd(hash[:]); exist {
 			return nil
+		}
+
+		pickItem := b.rings.get()
+		pickItem.inc()
+
+		checkFailedRatio := b.rings.failedRatio()
+		shouldCheck := false
+		if checkFailedRatio > 0.3 { // if check failed ratio > 0.3, then check all
+			shouldCheck = true
+		} else if rand.Intn(10) < 3 { // if check failed ratio < 0.3, then check 30%
+			shouldCheck = true
+		}
+		if shouldCheck {
+			pickItem.pick()
+			if confirmTimes, _ := b.chain.GetConfirmedTimes(hash); confirmTimes > 100 {
+				pickItem.fail()
+				b.log.Warn(fmt.Sprintf("receive new accountblock %s from %s: confirmed times %d too old", block.Hash, msg.Sender, confirmTimes))
+				return
+			}
 		}
 
 		if err = b.verifier.VerifyNetAb(block); err != nil {
@@ -499,6 +631,11 @@ func (b *broadcaster) subSyncState(st SyncState) {
 }
 
 func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
+	if b.st == Syncing {
+		b.log.Warn(fmt.Sprintf("failed to broadcast snapshotblock %s/%d: syncing", block.Hash, block.Height))
+		return
+	}
+
 	var msg = &NewSnapshotBlock{
 		Block: block,
 		TTL:   defaultBroadcastTTL,
@@ -510,7 +647,7 @@ func (b *broadcaster) BroadcastSnapshotBlock(block *ledger.SnapshotBlock) {
 		return
 	}
 
-	b.filter.record(block.Hash.Bytes())
+	b.filter.Add(block.Hash.Bytes())
 
 	var rawMsg = Msg{
 		Code:    CodeNewSnapshotBlock,
@@ -537,6 +674,11 @@ func (b *broadcaster) BroadcastSnapshotBlocks(blocks []*ledger.SnapshotBlock) {
 }
 
 func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
+	if b.st == Syncing {
+		b.log.Warn(fmt.Sprintf("failed to broadcast accountblock %s/%d: syncing", block.Hash, block.Height))
+		return
+	}
+
 	var msg = &NewAccountBlock{
 		Block: block,
 		TTL:   defaultBroadcastTTL,
@@ -548,7 +690,7 @@ func (b *broadcaster) BroadcastAccountBlock(block *ledger.AccountBlock) {
 		return
 	}
 
-	b.filter.record(block.Hash.Bytes())
+	b.filter.Add(block.Hash.Bytes())
 
 	var rawMsg = Msg{
 		Code:    CodeNewAccountBlock,
@@ -589,7 +731,9 @@ func (b *broadcaster) forwardSnapshotBlock(msg *NewSnapshotBlock, sender *Peer) 
 
 	pl := b.strategy.choosePeers(sender)
 	for _, p := range pl {
-		if p.markIfNotExist(msg.Block.Hash) {
+		if p.knownBlocks.TestAndAdd(msg.Block.Hash.Bytes()) {
+			continue
+		} else {
 			if err = p.WriteMsg(rawMsg); err != nil {
 				p.catch(err)
 				b.log.Error(fmt.Sprintf("failed to forward snapshotblock %s/%d to %s: %v", msg.Block.Hash, msg.Block.Height, p, err))
@@ -626,7 +770,9 @@ func (b *broadcaster) forwardAccountBlock(msg *NewAccountBlock, sender *Peer) {
 
 	pl := b.strategy.choosePeers(sender)
 	for _, p := range pl {
-		if p.markIfNotExist(msg.Block.Hash) {
+		if p.knownBlocks.TestAndAdd(msg.Block.Hash.Bytes()) {
+			continue
+		} else {
 			if err = p.WriteMsg(rawMsg); err != nil {
 				p.catch(err)
 				b.log.Error(fmt.Sprintf("failed to forward accountblock %s to %s: %v", msg.Block.Hash, p, err))
@@ -634,5 +780,17 @@ func (b *broadcaster) forwardAccountBlock(msg *NewAccountBlock, sender *Peer) {
 				b.log.Info(fmt.Sprintf("forward accountblock %s to %s", msg.Block.Hash, p))
 			}
 		}
+	}
+}
+
+type broadcastStatus struct {
+	checkFailedRatio float32
+	latency          []int64
+}
+
+func (b *broadcaster) status() broadcastStatus {
+	return broadcastStatus{
+		checkFailedRatio: b.rings.failedRatio(),
+		latency:          b.Statistic(),
 	}
 }

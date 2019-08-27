@@ -14,21 +14,27 @@ type levelDbBook struct {
 
 func getMakerBook(db vm_db.VmDb, marketId int32, side bool) (book *levelDbBook, err error) {
 	book = &levelDbBook{db: db, marketId: marketId, side: side}
-	book.iterator, err = db.NewStorageIterator(getBookPrefix(book))
+	if book.iterator, err = db.NewStorageIterator(getBookPrefix(book)); err != nil {
+		panic(err)
+	}
 	return
 }
 
 func (book *levelDbBook) nextOrder() (order *Order, ok bool) {
-	if ok = book.iterator.Next(); ok {
-		orderId := book.iterator.Key()
-		orderData := book.iterator.Value()
-		if len(orderId) != OrderIdBytesLength || len(orderData) == 0 {
-			panic(IterateVmDbFailedErr)
+	if ok = book.iterator.Next(); !ok {
+		if book.iterator.Error() != nil {
+			panic(book.iterator.Error())
 		}
-		order = &Order{}
-		if err := order.DeSerializeCompact(orderData, orderId); err != nil {
-			panic(err)
-		}
+		return
+	}
+	orderId := book.iterator.Key()
+	orderData := book.iterator.Value()
+	if len(orderId) != OrderIdBytesLength || len(orderData) == 0 {
+		panic(IterateVmDbFailedErr)
+	}
+	order = &Order{}
+	if err := order.DeSerializeCompact(orderData, orderId); err != nil {
+		panic(err)
 	}
 	return
 }

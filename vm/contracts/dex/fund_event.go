@@ -96,6 +96,22 @@ func AddSettleMakerMinedVxEvent(db vm_db.VmDb, periodId uint64, page int32, fini
 	doEmitEventLog(db, event)
 }
 
+func AddGrantMarketToAgentEvent(db vm_db.VmDb, principal, agent types.Address, marketId int32) {
+	event := &GrantMarketToAgentEvent{}
+	event.Principal = principal.Bytes()
+	event.Agent = agent.Bytes()
+	event.MarketId = marketId
+	doEmitEventLog(db, event)
+}
+
+func AddRevokeMarketFromAgentEvent(db vm_db.VmDb, principal, agent types.Address, marketId int32) {
+	event := &RevokeMarketFromAgentEvent{}
+	event.Principal = principal.Bytes()
+	event.Agent = agent.Bytes()
+	event.MarketId = marketId
+	doEmitEventLog(db, event)
+}
+
 func AddErrEvent(db vm_db.VmDb, err error) {
 	event := &ErrEvent{}
 	event.error = err

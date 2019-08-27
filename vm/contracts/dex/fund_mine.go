@@ -1,15 +1,15 @@
 package dex
 
 import (
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
 //Note: allow mine from specify periodId, former periods will be ignore
-func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int) (*big.Int, error) {
+func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int, fundLogger log15.Logger) (*big.Int, error) {
 	var (
 		feeSum                *FeeSumByPeriod
 		feeSumMap             = make(map[int32]*big.Int) // quoteTokenType -> amount
@@ -41,18 +41,20 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 
 	iterator, err := db.NewStorageIterator(userFeeKeyPrefix)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	defer iterator.Release()
 	for {
-		if ok = iterator.Next(); ok {
-			userFeesKey = iterator.Key()
-			userFeesBytes = iterator.Value()
-			if len(userFeesBytes) == 0 {
-				continue
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				panic(iterator.Error())
 			}
-		} else {
 			break
+		}
+		userFeesKey = iterator.Key()
+		userFeesBytes = iterator.Value()
+		if len(userFeesBytes) == 0 {
+			continue
 		}
 
 		addressBytes := userFeesKey[len(userFeeKeyPrefix):]
@@ -87,8 +89,10 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 				}
 				if feeSumAmt, ok := feeSumMap[userFee.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
 					// TODO change to continue after test
-					panic(fmt.Errorf("user with valid userFee, but no valid feeSum"))
-					//continue
+					fundLogger.Error("DoMineVxForFee", "encounter err" , "user with valid userFee, but no valid feeSum",
+						"periodId", periodId, "address", address.String(), "quoteTokenType", userFee.QuoteTokenType,
+						"baseFee", new(big.Int).SetBytes(userFee.BaseAmount), "inviteFee", new(big.Int).SetBytes(userFee.InviteBonusAmount))
+					continue
 				} else {
 					var vxDividend, vxDividendForInvite *big.Int
 					var finished, finishedForInvite bool
@@ -112,8 +116,12 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 				}
 			}
 			minedAmt := new(big.Int).Add(vxMinedForBase, vxMinedForInvite)
-			updatedAcc := DepositUserAccount(db, address, VxTokenId, minedAmt)
-			OnDepositVx(db, reader, address, minedAmt, updatedAcc)
+			if minedAmt.Sign() > 0 {
+				updatedAcc := DepositUserAccount(db, address, VxTokenId, minedAmt)
+				if err = OnDepositVx(db, reader, address, minedAmt, updatedAcc); err != nil {
+					return nil, err
+				}
+			}
 		}
 		if len(userFees.Fees) == 1 {
 			DeleteUserFees(db, addressBytes)
@@ -160,14 +168,16 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 	}
 	defer iterator.Release()
 	for {
-		if ok = iterator.Next(); ok {
-			pledgesForVxKey = iterator.Key()
-			pledgeForVxValue = iterator.Value()
-			if len(pledgeForVxValue) == 0 {
-				continue
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				panic(iterator.Error())
 			}
-		} else {
 			break
+		}
+		pledgesForVxKey = iterator.Key()
+		pledgeForVxValue = iterator.Value()
+		if len(pledgeForVxValue) == 0 {
+			continue
 		}
 		addressBytes := pledgesForVxKey[len(pledgesForVxKeyPrefix):]
 		address := types.Address{}
@@ -193,9 +203,13 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 		}
 		//fmt.Printf("tokenId %s, address %s, vxSumAmt %s, userVxAmount %s, dividedVxAmt %s, toDivideFeeAmt %s, toDivideLeaveAmt %s\n", tokenId.String(), address.String(), vxSumAmt.String(), userVxAmount.String(), dividedVxAmtMap[tokenId], toDivideFeeAmt.String(), toDivideLeaveAmt.String())
 		minedAmt, finished := DivideByProportion(pledgeForVxSumAmt, pledgeAmt, dividedPledgeAmountSum, amtForPledge, amtLeavedToMine)
-		updatedAcc := DepositUserAccount(db, address, VxTokenId, minedAmt)
-		OnDepositVx(db, reader, address, minedAmt, updatedAcc)
-		AddMinedVxForPledgeEvent(db, address, pledgeAmt, minedAmt)
+		if minedAmt.Sign() > 0 {
+			updatedAcc := DepositUserAccount(db, address, VxTokenId, minedAmt)
+			if err = OnDepositVx(db, reader, address, minedAmt, updatedAcc); err != nil {
+				return amtLeavedToMine, err
+			}
+			AddMinedVxForPledgeEvent(db, address, pledgeAmt, minedAmt)
+		}
 		if finished {
 			break
 		}
@@ -214,13 +228,15 @@ func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader ut
 		maintainer := GetMaintainer(db)
 		amtForMaintainer, _ := amtForMakerAndMaintainer[MineForMaintainer]
 		updatedAcc := DepositUserAccount(db, *maintainer, VxTokenId, amtForMaintainer)
-		OnDepositVx(db, reader, *maintainer, amtForMaintainer, updatedAcc)
+		if err := OnDepositVx(db, reader, *maintainer, amtForMaintainer, updatedAcc); err != nil {
+			return err
+		}
 		AddMinedVxForOperationEvent(db, MineForMaintainer, *maintainer, amtForMaintainer)
 	}
 	return nil
 }
 
-func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rateSum string, begin, end int)(amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
+func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rateSum string, begin, end int) (amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
 	if vxPool.Sign() > 0 {
 		success = true
 		toDivideTotal := GetVxToMineByPeriodId(db, periodId)
@@ -232,7 +248,7 @@ func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, 
 			amountSum.Set(vxPool)
 			notEnough = true
 		}
-		amount := new(big.Int).Div(amountSum, big.NewInt(int64(end - begin + 1)))
+		amount := new(big.Int).Div(amountSum, big.NewInt(int64(end-begin+1)))
 		amountForItems = make(map[int32]*big.Int)
 		vxAmtLeaved = new(big.Int).Set(vxPool)
 		for i := begin; i <= end; i++ {
@@ -271,22 +287,26 @@ func GetVxAmountToMine(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rate str
 }
 
 func GetVxToMineByPeriodId(db vm_db.VmDb, periodId uint64) *big.Int {
-	var firstPeriodId uint64
-	if firstPeriodId = GetFirstMinedVxPeriodId(db); firstPeriodId == 0 {
-		firstPeriodId = periodId
-		SaveFirstMinedVxPeriodId(db, firstPeriodId)
-	}
-	var amount *big.Int
-	for i := 0; firstPeriodId+uint64(i) <= periodId; i++ {
-		if i == 0 {
-			amount = new(big.Int).Set(VxMinedAmtFirstPeriod)
-		} else if i <= 364 {
-			amount.Mul(amount, big.NewInt(995)).Div(amount, big.NewInt(1000))
-		} else {
-			amount.Mul(amount, big.NewInt(998)).Div(amount, big.NewInt(1000))
+	if !IsNormalMineStarted(db) {
+		return PreheatMinedAmtPerPeriod
+	} else {
+		var firstPeriodId uint64
+		if firstPeriodId = GetFirstMinedVxPeriodId(db); firstPeriodId == 0 {
+			firstPeriodId = periodId
+			SaveFirstMinedVxPeriodId(db, firstPeriodId)
 		}
+		var amount *big.Int
+		for i := 0; firstPeriodId+uint64(i) <= periodId; i++ {
+			if i == 0 {
+				amount = new(big.Int).Set(VxMinedAmtFirstPeriod)
+			} else if i <= 364 {
+				amount.Mul(amount, big.NewInt(995)).Div(amount, big.NewInt(1000))
+			} else {
+				amount.Mul(amount, big.NewInt(998)).Div(amount, big.NewInt(1000))
+			}
+		}
+		return amount
 	}
-	return amount
 }
 
 func AccumulateAmountFromMap(amountMap map[int32]*big.Int) *big.Int {

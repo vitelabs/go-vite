@@ -59,7 +59,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 
 	iterator, err := db.NewStorageIterator(VxFundKeyPrefix)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	defer iterator.Release()
 
@@ -71,14 +71,17 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 		if len(feeSumMap) == 0 {
 			break
 		}
-		if ok = iterator.Next(); ok {
-			userVxFundsKey = iterator.Key()
-			userVxFundsBytes = iterator.Value()
-			if len(userVxFundsBytes) == 0 {
-				continue
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				panic(iterator.Error())
 			}
-		} else {
 			break
+		}
+
+		userVxFundsKey = iterator.Key()
+		userVxFundsBytes = iterator.Value()
+		if len(userVxFundsBytes) == 0 {
+			continue
 		}
 
 		addressBytes := userVxFundsKey[len(VxFundKeyPrefix):]
@@ -134,24 +137,26 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 func DoDivideBrokerFees(db vm_db.VmDb, periodId uint64) error {
 	iterator, err := db.NewStorageIterator(append(brokerFeeSumKeyPrefix, Uint64ToBytes(periodId)...))
 	if err != nil {
-		return err
+		panic(err)
 	}
 	defer iterator.Release()
 	for {
 		var brokerFeeSumKey, brokerFeeSumBytes []byte
-		if ok := iterator.Next(); ok {
-			brokerFeeSumKey = iterator.Key() //3+8+21
-			brokerFeeSumBytes = iterator.Value()
-			if len(brokerFeeSumBytes) == 0 {
-				continue
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				panic(iterator.Error())
 			}
-			if len(brokerFeeSumKey) != 32 {
-				panic(fmt.Errorf("invalid broker fee type"))
-			}
-			DeleteBrokerFeeSumByKey(db, brokerFeeSumKey)
-		} else {
 			break
 		}
+		brokerFeeSumKey = iterator.Key() //3+8+21
+		brokerFeeSumBytes = iterator.Value()
+		if len(brokerFeeSumBytes) == 0 {
+			continue
+		}
+		if len(brokerFeeSumKey) != 32 {
+			panic(fmt.Errorf("invalid broker fee sum key type"))
+		}
+		DeleteBrokerFeeSumByKey(db, brokerFeeSumKey)
 		brokerFeeSum := &BrokerFeeSumByPeriod{}
 		if err = brokerFeeSum.DeSerialize(brokerFeeSumBytes); err != nil {
 			panic(err)
