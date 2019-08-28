@@ -142,7 +142,7 @@ func (c *chain) GetQuotaUsedList(address types.Address) []types.QuotaInfo {
 }
 
 func (c *chain) GetStorageIterator(address types.Address, prefix []byte) (interfaces.StorageIterator, error) {
-	ss := c.stateDB.NewStorageIterator(&address, prefix)
+	ss := c.stateDB.NewStorageIterator(address, prefix)
 	return ss, nil
 }
 
