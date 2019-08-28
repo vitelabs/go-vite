@@ -17,7 +17,7 @@ func (p *MethodVote) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodVote) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (p *MethodVote) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodVote) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
@@ -38,10 +38,10 @@ func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameVote, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if !checkRegisterAndVoteParam(param.Gid, param.NodeName) {
+	if !checkRegisterAndVoteParam(param.Gid, param.SuperNodeName) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameVote, param.Gid, param.NodeName)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameVote, param.Gid, param.SuperNodeName)
 	return nil
 }
 
@@ -53,13 +53,13 @@ func (p *MethodVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBl
 	if consensusGroupInfo == nil {
 		return nil, util.ErrInvalidMethodParam
 	}
-	active, err := abi.IsActiveRegistration(db, param.NodeName, param.Gid)
+	active, err := abi.IsActiveRegistration(db, param.SuperNodeName, param.Gid)
 	util.DealWithErr(err)
 	if !active {
 		return nil, util.ErrInvalidMethodParam
 	}
 	voteKey := abi.GetVoteKey(sendBlock.AccountAddress, param.Gid)
-	voteStatus, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, param.NodeName)
+	voteStatus, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, param.SuperNodeName)
 	util.SetValue(db, voteKey, voteStatus)
 	return nil, nil
 }
@@ -71,7 +71,7 @@ func (p *MethodCancelVote) GetFee(block *ledger.AccountBlock) (*big.Int, error) 
 	return big.NewInt(0), nil
 }
 
-func (p *MethodCancelVote) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (p *MethodCancelVote) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodCancelVote) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {

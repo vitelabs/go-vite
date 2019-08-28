@@ -148,3 +148,9 @@ func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog
 	topics, data, _ := c.PackEvent(name, params...)
 	return &ledger.VmLog{Topics: topics, Data: data}
 }
+
+func CheckFork(db dbInterface, f func(uint64) bool) bool {
+	sb, err := db.LatestSnapshotBlock()
+	DealWithErr(err)
+	return f(sb.Height)
+}

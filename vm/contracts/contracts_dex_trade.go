@@ -24,7 +24,7 @@ func (md *MethodDexTradeNewOrder) GetFee(block *ledger.AccountBlock) (*big.Int, 
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeNewOrder) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexTradeNewOrder) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -75,7 +75,7 @@ func (md *MethodDexTradeCancelOrder) GetFee(block *ledger.AccountBlock) (*big.In
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeCancelOrder) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexTradeCancelOrder) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -105,7 +105,7 @@ func (md *MethodDexTradeNotifyNewMarket) GetFee(block *ledger.AccountBlock) (*bi
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeNotifyNewMarket) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexTradeNotifyNewMarket) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -144,7 +144,7 @@ func (md *MethodDexTradeCleanExpireOrders) GetFee(block *ledger.AccountBlock) (*
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeCleanExpireOrders) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexTradeCleanExpireOrders) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 
@@ -187,7 +187,7 @@ func (md *MethodDexTradeCancelOrderByHash) GetFee(block *ledger.AccountBlock) (*
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeCancelOrderByHash) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexTradeCancelOrderByHash) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 

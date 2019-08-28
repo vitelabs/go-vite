@@ -41,7 +41,7 @@ type BuiltinContractMethod interface {
 	// receive block quota
 	GetReceiveQuota(gasTable *util.GasTable) uint64
 	// refund data at receive error
-	GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool)
+	GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool)
 }
 
 type builtinContract struct {
@@ -53,6 +53,7 @@ var (
 	simpleContracts   = newSimpleContracts()
 	dexContracts      = newDexContracts()
 	dexAgentContracts = newDexAgentContracts()
+	leafContracts     = newLeafContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
@@ -138,9 +139,29 @@ func newDexAgentContracts() map[types.Address]*builtinContract {
 	return contracts
 }
 
+func newLeafContracts() map[types.Address]*builtinContract {
+	contracts := newDexAgentContracts()
+
+	contracts[types.AddressPledge].m[cabi.MethodNamePledgeV2] = &MethodPledge{}
+	contracts[types.AddressPledge].m[cabi.MethodNameCancelPledgeV2] = &MethodCancelPledge{}
+	contracts[types.AddressPledge].m[cabi.MethodNameAgentPledgeV2] = &MethodAgentPledge{}
+	contracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledgeV2] = &MethodAgentCancelPledge{}
+
+	contracts[types.AddressConsensusGroup].m[cabi.MethodNameCancelRegisterV2] = &MethodCancelRegister{}
+	contracts[types.AddressConsensusGroup].m[cabi.MethodNameRewardV2] = &MethodReward{}
+	contracts[types.AddressConsensusGroup].m[cabi.MethodNameCancelVoteV2] = &MethodCancelVote{}
+
+	contracts[types.AddressMintage].m[cabi.MethodNameMintV2] = &MethodMint{}
+	contracts[types.AddressMintage].m[cabi.MethodNameIssueV2] = &MethodIssue{}
+	contracts[types.AddressMintage].m[cabi.MethodNameTransferOwnerV2] = &MethodTransferOwner{}
+	return contracts
+}
+
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if fork.IsStemFork(sbHeight) {
+	if fork.IsLeafFork(sbHeight) {
+		contractsMap = leafContracts
+	} else if fork.IsStemFork(sbHeight) {
 		contractsMap = dexAgentContracts
 	} else if fork.IsDexFork(sbHeight) {
 		contractsMap = dexContracts
