@@ -32,7 +32,7 @@ import (
 
 func TestFilter_record(t *testing.T) {
 	count := mrand.Intn(100000)
-	f := New(uint(count)/2, 0.01)
+	f := New(uint(count), 0.01)
 	m := make(map[types.Hash]struct{}, count)
 
 	for i := 0; i < count; i++ {
@@ -63,6 +63,7 @@ func TestFilter_record(t *testing.T) {
 func TestFilter_LookAndRecord(t *testing.T) {
 	count := mrand.Intn(100000)
 	f := New(uint(count), 0.01)
+	count *= 10
 
 	m := make(map[types.Hash]struct{}, count)
 
@@ -98,7 +99,7 @@ func TestBlockFilter(t *testing.T) {
 		http.ListenAndServe("localhost:8081", nil)
 	}()
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		m[i] = New(100000, 0.0001)
 	}
 
