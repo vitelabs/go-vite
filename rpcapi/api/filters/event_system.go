@@ -234,7 +234,7 @@ func appendOnroadMsg(onroadMsgs map[types.Address][]*OnroadMsg, toAddr types.Add
 	if _, ok := onroadMsgs[toAddr]; !ok {
 		onroadMsgs[toAddr] = make([]*OnroadMsg, 0)
 	}
-	onroadMsgs[toAddr] = append(onroadMsgs[toAddr], &OnroadMsg{Hash: hash, Closed: closed, Removed: removed})
+	onroadMsgs[toAddr] = append(onroadMsgs[toAddr], &OnroadMsg{Hash: hash, Closed: closed, Received: closed, Removed: removed})
 	return onroadMsgs
 }
 

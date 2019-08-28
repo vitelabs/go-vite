@@ -460,6 +460,7 @@ func TestVmForTest(t *testing.T) {
 type TestCaseMap map[string]TestCase
 
 type TestCaseSendBlock struct {
+	BlockType byte
 	ToAddress types.Address
 	Amount    string
 	TokenID   types.TokenTypeId
@@ -490,8 +491,8 @@ type TestCase struct {
 	Seed          uint64
 }
 
-func TestVm(t *testing.T) {
-	testDir := "./test/"
+func TestVmInterpreter(t *testing.T) {
+	testDir := "./test/interpreter_test/"
 	testFiles, ok := ioutil.ReadDir(testDir)
 	if ok != nil {
 		t.Fatalf("read dir failed, %v", ok)
@@ -500,9 +501,6 @@ func TestVm(t *testing.T) {
 		if testFile.IsDir() {
 			continue
 		}
-		/*if testFile.Name() != "contract.json" {
-			continue
-		}*/
 		file, ok := os.Open(testDir + testFile.Name())
 		if ok != nil {
 			t.Fatalf("open test file failed, %v", ok)
@@ -578,7 +576,7 @@ func TestVm(t *testing.T) {
 						t.Fatalf("%v: %v failed, log hash error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.LogHash, logHash)
 					}
 				} else if len(testCase.LogList) > 0 {
-					if checkLogListResult := checkLogList(testCase.LogList, db); checkLogListResult != "" {
+					if checkLogListResult := checkLogList(testCase.LogList, db.logList); checkLogListResult != "" {
 						t.Fatalf("%v: %v failed, log list error, %v", testFile.Name(), k, checkLogListResult)
 					}
 				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vm.sendBlockList); checkSendBlockListResult != "" {
@@ -588,11 +586,11 @@ func TestVm(t *testing.T) {
 		}
 	}
 }
-func checkLogList(expected []TestLog, got *memoryDatabase) string {
-	if len(expected) != len(got.logList) {
-		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got.logList))
+func checkLogList(expected []TestLog, got []*ledger.VmLog) string {
+	if len(expected) != len(got) {
+		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got))
 	}
-	for index, lGot := range got.logList {
+	for index, lGot := range got {
 		lexpected := expected[index]
 		if len(lexpected.Topics) != len(lGot.Topics) {
 			return strconv.Itoa(index) + "th log topic len not match, expected " + strconv.Itoa(len(lexpected.Topics)) + ", got " + strconv.Itoa(len(lGot.Topics))
@@ -636,14 +634,16 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*ledger.AccountBloc
 	}
 	for i, expectedSendBlock := range expected {
 		gotSendBlock := got[i]
-		if gotSendBlock.ToAddress != expectedSendBlock.ToAddress {
-			return "expected toAddress " + expectedSendBlock.ToAddress.String() + ", got toAddress " + gotSendBlock.ToAddress.String()
+		if (expectedSendBlock.BlockType > 0 && gotSendBlock.BlockType != expectedSendBlock.BlockType) || (expectedSendBlock.BlockType == 0 && gotSendBlock.BlockType != ledger.BlockTypeSendCall) {
+			return strconv.Itoa(i) + "th, expected blockType " + strconv.Itoa(int(expectedSendBlock.BlockType)) + ", got blockType " + strconv.Itoa(int(gotSendBlock.BlockType))
+		} else if gotSendBlock.ToAddress != expectedSendBlock.ToAddress {
+			return strconv.Itoa(i) + "th, expected toAddress " + expectedSendBlock.ToAddress.String() + ", got toAddress " + gotSendBlock.ToAddress.String()
 		} else if gotAmount := hex.EncodeToString(gotSendBlock.Amount.Bytes()); gotAmount != expectedSendBlock.Amount {
-			return "expected amount " + expectedSendBlock.Amount + ", got amount " + gotAmount
+			return strconv.Itoa(i) + "th, expected amount " + expectedSendBlock.Amount + ", got amount " + gotAmount
 		} else if gotSendBlock.TokenId != expectedSendBlock.TokenID {
-			return "expected tokenId " + expectedSendBlock.TokenID.String() + ", got tokenId " + gotSendBlock.TokenId.String()
+			return strconv.Itoa(i) + "th, expected tokenId " + expectedSendBlock.TokenID.String() + ", got tokenId " + gotSendBlock.TokenId.String()
 		} else if gotData := hex.EncodeToString(gotSendBlock.Data); gotData != expectedSendBlock.Data {
-			return "expected data " + expectedSendBlock.Data + ", got data " + gotData
+			return strconv.Itoa(i) + "th, expected data " + expectedSendBlock.Data + ", got data " + gotData
 		}
 	}
 	return ""

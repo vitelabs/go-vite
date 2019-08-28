@@ -91,7 +91,6 @@ func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]by
 	if !util.IsValidQuotaRatio(param.QuotaRatio) {
 		return nil, util.ErrInvalidQuotaRatio
 	}
-	sb := c.chain.GetLatestSnapshotBlock()
 	if len(param.Params) > 0 {
 		data := util.GetCreateContractData(
 			helper.JoinBytes(code, param.Params),
@@ -99,8 +98,7 @@ func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]by
 			param.ConfirmTime,
 			param.SeedCount,
 			param.QuotaRatio,
-			param.Gid,
-			sb.Height)
+			param.Gid)
 		return data, nil
 	} else {
 		data := util.GetCreateContractData(
@@ -109,8 +107,7 @@ func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]by
 			param.ConfirmTime,
 			param.SeedCount,
 			param.QuotaRatio,
-			param.Gid,
-			sb.Height)
+			param.Gid)
 		return data, nil
 	}
 }

@@ -138,9 +138,10 @@ type AccountBlock struct {
 }
 
 type OnroadMsg struct {
-	Hash    types.Hash `json:"hash"`
-	Closed  bool       `json:"closed"`
-	Removed bool       `json:"removed"`
+	Hash     types.Hash `json:"hash"`
+	Closed   bool       `json:"closed"` // Deprecated: use received instead
+	Received bool       `json:"received"`
+	Removed  bool       `json:"removed"`
 }
 
 type AccountBlockWithHeight struct {
