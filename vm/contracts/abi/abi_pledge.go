@@ -27,8 +27,8 @@ const (
 		{"type":"callback","name":"AgentPledge","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
 		{"type":"callback","name":"DelegateStake","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
 
-		{"type":"callback","name":"AgentCancelPledge","inputs":[{"name":"success","type":"bool"}]},
-		{"type":"callback","name":"CancelDelegatedStaking","inputs":[{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"AgentCancelPledge","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"CancelDelegatedStaking","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
 
 		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"beneficialAddr","type":"address"},{"name":"agent","type":"bool"},{"name":"agentAddress","type":"address"},{"name":"bid","type":"uint8"}]},
 

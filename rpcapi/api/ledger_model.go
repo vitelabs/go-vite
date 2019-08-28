@@ -310,31 +310,33 @@ type RpcTokenBalanceInfo struct {
 }
 
 type RpcTokenInfo struct {
-	TokenName     string            `json:"tokenName"`
-	TokenSymbol   string            `json:"tokenSymbol"`
-	TotalSupply   *string           `json:"totalSupply,omitempty"` // *big.Int
-	Decimals      uint8             `json:"decimals"`
-	Owner         types.Address     `json:"owner"`
-	TokenId       types.TokenTypeId `json:"tokenId"`
-	MaxSupply     *string           `json:"maxSupply"` // *big.Int
-	OwnerBurnOnly bool              `json:"ownerBurnOnly"`
-	IsReIssuable  bool              `json:"isReIssuable"`
-	Index         uint16            `json:"index"`
+	TokenName       string            `json:"tokenName"`
+	TokenSymbol     string            `json:"tokenSymbol"`
+	TotalSupply     *string           `json:"totalSupply,omitempty"` // *big.Int
+	Decimals        uint8             `json:"decimals"`
+	Owner           types.Address     `json:"owner"`
+	TokenId         types.TokenTypeId `json:"tokenId"`
+	MaxSupply       *string           `json:"maxSupply"`     // *big.Int
+	OwnerBurnOnly   bool              `json:"ownerBurnOnly"` // Deprecated: use isOwnerBurnOnly field instead
+	IsOwnerBurnOnly bool              `json:"isOwnerBurnOnly"`
+	IsReIssuable    bool              `json:"isReIssuable"`
+	Index           uint16            `json:"index"`
 }
 
 func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
 	var rt *RpcTokenInfo = nil
 	if tinfo != nil {
 		rt = &RpcTokenInfo{
-			TokenName:     tinfo.TokenName,
-			TokenSymbol:   tinfo.TokenSymbol,
-			TotalSupply:   nil,
-			Decimals:      tinfo.Decimals,
-			Owner:         tinfo.Owner,
-			TokenId:       tti,
-			OwnerBurnOnly: tinfo.OwnerBurnOnly,
-			IsReIssuable:  tinfo.IsReIssuable,
-			Index:         tinfo.Index,
+			TokenName:       tinfo.TokenName,
+			TokenSymbol:     tinfo.TokenSymbol,
+			TotalSupply:     nil,
+			Decimals:        tinfo.Decimals,
+			Owner:           tinfo.Owner,
+			TokenId:         tti,
+			OwnerBurnOnly:   tinfo.OwnerBurnOnly,
+			IsOwnerBurnOnly: tinfo.OwnerBurnOnly,
+			IsReIssuable:    tinfo.IsReIssuable,
+			Index:           tinfo.Index,
 		}
 		if tinfo.TotalSupply != nil {
 			s := tinfo.TotalSupply.String()

@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/rpcapi/api/filters"
 	"math/big"
 	"strconv"
 
@@ -472,4 +473,8 @@ func parseHeight(height interface{}) (uint64, error) {
 	}
 	return heightUint64, nil
 
+}
+
+func (l *LedgerApi) GetVmLogsByFilter(param filters.VmLogFilterParam) ([]*filters.Logs, error) {
+	return filters.GetLogs(l.chain, param.AddrRange, param.Topics)
 }

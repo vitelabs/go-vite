@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/vitelabs/go-vite/ledger"
 	"sort"
 	"time"
 
@@ -32,15 +33,22 @@ func (r RegisterApi) String() string {
 	return "RegisterApi"
 }
 
+// Private
 func (r *RegisterApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
 	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
 }
+
+// Private
 func (r *RegisterApi) GetCancelRegisterData(gid types.Gid, name string) ([]byte, error) {
 	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, gid, name)
 }
+
+// Private
 func (r *RegisterApi) GetRewardData(gid types.Gid, name string, beneficialAddr types.Address) ([]byte, error) {
 	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, gid, name, beneficialAddr)
 }
+
+// Private
 func (r *RegisterApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
 	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, gid, name, nodeAddr)
 }
@@ -70,6 +78,7 @@ func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
 	return a[i].WithdrawHeight > a[j].WithdrawHeight
 }
 
+// Deprecated: use contract_getSBPListByOwner
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
 	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
@@ -101,29 +110,49 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	return targetList, nil
 }
 
-func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, error) {
+type SBPInfo struct {
+	Name           string        `json:"name"`
+	NodeAddr       types.Address `json:"producerAddress"`
+	PledgeAddr     types.Address `json:"stakingAddress"`
+	PledgeAmount   string        `json:"stakingAmount"`
+	WithdrawHeight string        `json:"expirationHeight"`
+	WithdrawTime   int64         `json:"expirationTime"`
+	CancelTime     int64         `json:"cancelTime"`
+}
+
+func newSBPInfo(info *types.Registration, sb *ledger.SnapshotBlock) *SBPInfo {
+	return &SBPInfo{
+		Name:           info.Name,
+		NodeAddr:       info.NodeAddr,
+		PledgeAddr:     info.PledgeAddr,
+		PledgeAmount:   *bigIntToString(info.Amount),
+		WithdrawHeight: Uint64ToString(info.WithdrawHeight),
+		WithdrawTime:   getWithdrawTime(sb.Timestamp, sb.Height, info.WithdrawHeight),
+		CancelTime:     info.CancelTime,
+	}
+}
+
+func (r *ContractApi) GetSBPListByOwner(gid types.Gid, stakingAddress types.Address) ([]*SBPInfo, error) {
 	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
-	}
-	info, err := abi.GetRegistration(db, gid, name)
-	if err != nil {
-		return nil, err
-	}
-	if info == nil {
-		return nil, nil
 	}
 	sb, err := db.LatestSnapshotBlock()
 	if err != nil {
 		return nil, err
 	}
-	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, sb)
+	list, err := abi.GetRegistrationList(db, gid, stakingAddress)
 	if err != nil {
 		return nil, err
 	}
-	result := ToReward(reward)
-	result.Drained = contracts.RewardDrained(reward, drained)
-	return result, nil
+	targetList := make([]*SBPInfo, len(list))
+	if len(list) > 0 {
+		sort.Sort(byRegistrationWithdrawHeight(list))
+		for i, info := range list {
+			targetList[i] = newSBPInfo(info, sb)
+		}
+	}
+	return targetList, nil
 }
 
 type Reward struct {
@@ -151,7 +180,75 @@ func ToReward(source *contracts.Reward) *Reward {
 	}
 }
 
+// Deprecated: use contract_getSBPRewardPendingWithdrawal
+func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, error) {
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	info, err := abi.GetRegistration(db, gid, name)
+	if err != nil {
+		return nil, err
+	}
+	if info == nil {
+		return nil, nil
+	}
+	sb, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, sb)
+	if err != nil {
+		return nil, err
+	}
+	result := ToReward(reward)
+	result.Drained = contracts.RewardDrained(reward, drained)
+	return result, nil
+}
+
+func (r *ContractApi) GetSBPRewardPendingWithdrawal(gid types.Gid, name string) (*Reward, error) {
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	info, err := abi.GetRegistration(db, gid, name)
+	if err != nil {
+		return nil, err
+	}
+	if info == nil {
+		return nil, nil
+	}
+	sb, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, sb)
+	if err != nil {
+		return nil, err
+	}
+	result := ToReward(reward)
+	result.Drained = contracts.RewardDrained(reward, drained)
+	return result, nil
+}
+
+// Deprecated: use contract_getSBPRewardByCycle instead
 func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string]*Reward, error) {
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	m, err := contracts.CalcRewardByDay(db, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
+	if err != nil {
+		return nil, err
+	}
+	rewardMap := make(map[string]*Reward, len(m))
+	for name, reward := range m {
+		rewardMap[name] = ToReward(reward)
+	}
+	return rewardMap, nil
+}
+
+func (r *ContractApi) GetSBPRewardByCycle(gid types.Gid, timestamp int64) (map[string]*Reward, error) {
 	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
@@ -173,6 +270,7 @@ type RewardInfo struct {
 	EndTime   int64              `json:"endTime"`
 }
 
+// Deprecated: use contract_getSBPRewardByIndex instead
 func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (*RewardInfo, error) {
 	index, err := StringToUint64(indexStr)
 	if err != nil {
@@ -193,7 +291,28 @@ func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (*RewardI
 	startTime, endTime := r.cs.SBPReader().GetDayTimeIndex().Index2Time(index)
 	return &RewardInfo{rewardMap, startTime.Unix(), endTime.Unix()}, nil
 }
+func (r *ContractApi) GetSBPRewardByIndex(gid types.Gid, indexStr string) (*RewardInfo, error) {
+	index, err := StringToUint64(indexStr)
+	if err != nil {
+		return nil, err
+	}
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	m, err := contracts.CalcRewardByDayIndex(db, util.NewVmConsensusReader(r.cs.SBPReader()), index)
+	if err != nil {
+		return nil, err
+	}
+	rewardMap := make(map[string]*Reward, len(m))
+	for name, reward := range m {
+		rewardMap[name] = ToReward(reward)
+	}
+	startTime, endTime := r.cs.SBPReader().GetDayTimeIndex().Index2Time(index)
+	return &RewardInfo{rewardMap, startTime.Unix(), endTime.Unix()}, nil
+}
 
+// Deprecated: use contract_getSBP instead
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
 	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
@@ -202,11 +321,28 @@ func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Regist
 	return abi.GetRegistration(db, gid, name)
 }
 
+func (r *ContractApi) GetSBP(name string, gid types.Gid) (*SBPInfo, error) {
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	info, err := abi.GetRegistration(db, gid, name)
+	if err != nil {
+		return nil, err
+	}
+	sb, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	return newSBPInfo(info, sb), nil
+}
+
 type RegistParam struct {
 	Name string     `json:"name"`
 	Gid  *types.Gid `json:"gid"`
 }
 
+// Deprecated
 func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*types.Address, error) {
 	if len(paramList) == 0 {
 		return nil, nil
@@ -240,6 +376,7 @@ type CandidateInfo struct {
 	VoteNum  string        `json:"voteNum"`
 }
 
+// Deprecated: usecontract_getSBPList instead
 func (r *RegisterApi) GetCandidateList() ([]*CandidateInfo, error) {
 	head := r.chain.GetLatestSnapshotBlock()
 	details, _, err := r.cs.API().ReadVoteMap((*head.Timestamp).Add(time.Second))
@@ -249,6 +386,25 @@ func (r *RegisterApi) GetCandidateList() ([]*CandidateInfo, error) {
 	var result []*CandidateInfo
 	for _, v := range details {
 		result = append(result, &CandidateInfo{v.Name, v.CurrentAddr, *bigIntToString(v.Balance)})
+	}
+	return result, nil
+}
+
+type SBPCandidateInfo struct {
+	Name     string        `json:"name"`
+	NodeAddr types.Address `json:"producerAddr"`
+	VoteNum  string        `json:"voteNum"`
+}
+
+func (r *ContractApi) GetSBPList() ([]*SBPCandidateInfo, error) {
+	head := r.chain.GetLatestSnapshotBlock()
+	details, _, err := r.cs.API().ReadVoteMap((*head.Timestamp).Add(time.Second))
+	if err != nil {
+		return nil, err
+	}
+	var result []*SBPCandidateInfo
+	for _, v := range details {
+		result = append(result, &SBPCandidateInfo{v.Name, v.CurrentAddr, *bigIntToString(v.Balance)})
 	}
 	return result, nil
 }

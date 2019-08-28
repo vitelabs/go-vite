@@ -174,6 +174,13 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewStatsApi(vite),
 			Public:    true,
 		}
+	case "util":
+		return rpc.API{
+			Namespace: "util",
+			Version:   "1.0",
+			Service:   api.NewUtilApi(vite),
+			Public:    true,
+		}
 	default:
 		return rpc.API{}
 	}
@@ -188,9 +195,5 @@ func GetApis(vite *vite.Vite, apiModule ...string) []rpc.API {
 }
 
 func GetPublicApis(vite *vite.Vite) []rpc.API {
-	return GetApis(vite, "ledger", "public_onroad", "net", "contract", "pledge", "register", "vote", "mintage", "consensusGroup", "testapi", "pow", "tx", "debug", "dashboard")
-}
-
-func GetAllApis(vite *vite.Vite) []rpc.API {
-	return GetApis(vite, "ledger", "wallet", "private_onroad", "net", "contract", "pledge", "register", "vote", "mintage", "consensusGroup", "testapi", "pow", "tx", "debug", "dashboard", "vmdebug", "subscribe")
+	return GetApis(vite, "ledger", "net", "contract", "util")
 }

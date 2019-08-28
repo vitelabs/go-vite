@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm"
@@ -17,12 +18,14 @@ import (
 
 type ContractApi struct {
 	chain chain.Chain
+	cs    consensus.Consensus
 	log   log15.Logger
 }
 
 func NewContractApi(vite *vite.Vite) *ContractApi {
 	return &ContractApi{
 		chain: vite.Chain(),
+		cs:    vite.Consensus(),
 		log:   log15.New("module", "rpc_api/contract_api"),
 	}
 }
@@ -31,6 +34,7 @@ func (c ContractApi) String() string {
 	return "ContractApi"
 }
 
+// Deprecated: use contract_createContractAddress instead
 func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
 	h, err := StringToUint64(heightStr)
 	if err != nil {
@@ -40,6 +44,16 @@ func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightS
 	return &addr, nil
 }
 
+func (c *ContractApi) CreateContractAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
+	h, err := StringToUint64(heightStr)
+	if err != nil {
+		return nil, err
+	}
+	addr := util.NewContractAddress(selfAddr, h, prevHash)
+	return &addr, nil
+}
+
+// Private
 func (c *ContractApi) GetCreateContractParams(abiStr string, params []string) ([]byte, error) {
 	if len(abiStr) > 0 && len(params) > 0 {
 		abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
@@ -68,6 +82,7 @@ type CreateContractDataParam struct {
 	Params      []byte    `json:"params"`
 }
 
+// Private
 func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]byte, error) {
 	code, err := hex.DecodeString(param.HexCode)
 	if err != nil {
@@ -100,6 +115,7 @@ func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]by
 	}
 }
 
+// Private
 func (c *ContractApi) GetCallContractData(abiStr string, methodName string, params []string) ([]byte, error) {
 	abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
 	if err != nil {
@@ -116,6 +132,7 @@ func (c *ContractApi) GetCallContractData(abiStr string, methodName string, para
 	return abiContract.PackMethod(methodName, arguments...)
 }
 
+// Private
 func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, params []string) ([]byte, error) {
 	abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
 	if err != nil {
@@ -133,13 +150,17 @@ func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, pa
 }
 
 type CallOffChainMethodParam struct {
-	SelfAddr          types.Address `json:"selfAddr"`
-	OffChainCode      string        `json:"offchainCode"`
-	OffChainCodeBytes []byte        `json:"offchainCodeBytes"`
-	Data              []byte        `json:"data"`
+	SelfAddr          types.Address  `json:"selfAddr"` // Deprecated: use address field instead
+	Addr              *types.Address `json:"address"`
+	OffChainCode      string         `json:"offchainCode"`
+	OffChainCodeBytes []byte         `json:"offchainCodeBytes"`
+	Data              []byte         `json:"data"`
 }
 
 func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
+	if param.Addr != nil {
+		param.SelfAddr = *param.Addr
+	}
 	prevHash, err := getPrevBlockHash(c.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
@@ -160,6 +181,7 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	return vm.NewVM(nil).OffChainReader(db, codeBytes, param.Data)
 }
 
+// Private
 func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {
 	var prefixBytes []byte
 	if len(prefix) > 0 {
