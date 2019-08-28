@@ -18,7 +18,7 @@ import (
 )
 
 const filterCap = 100000
-const rt = 0.01
+const rt = 0.0001
 const defaultBroadcastTTL = 16
 
 // A blockStore implementation can store blocks in queue,

@@ -99,7 +99,7 @@ func TestBlockFilter(t *testing.T) {
 	}()
 
 	for i := 0; i < 1000; i++ {
-		m[i] = New(100000, 0.01)
+		m[i] = New(100000, 0.0001)
 	}
 
 	ch := make(chan struct{})
