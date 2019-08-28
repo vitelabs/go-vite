@@ -23,7 +23,7 @@ const (
 		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"Name":"name","type":"string"},{"name":"producerAddress","type":"address"}]},
 		{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}, {"name":"name","type":"string"}]},
 		{"type":"function","name":"CancelRegistration","inputs":[{"name":"gid","type":"gid"}, {"name":"name","type":"string"}]},
-		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"beneficialAddr","type":"address"}]},
+		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"receiverAddress","type":"address"}]},
 		{"type":"function","name":"WithdrawReward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"receiverAddress","type":"address"}]},
 		{"type":"variable","name":"registration","inputs":[{"name":"name","type":"string"},{"name":"nodeAddr","type":"address"},{"name":"pledgeAddr","type":"address"},{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"rewardTime","type":"int64"},{"name":"cancelTime","type":"int64"},{"name":"hisAddrList","type":"address[]"}]},
 		{"type":"variable","name":"hisName","inputs":[{"name":"name","type":"string"}]},

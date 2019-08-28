@@ -141,6 +141,9 @@ func (db *mockDB) GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.Snapsh
 func (db *mockDB) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
 	return 0, nil
 }
+func (db *mockDB) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	return nil, nil
+}
 func (db *mockDB) SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta) {
 	db.contractMetaMap[toAddr] = meta
 }

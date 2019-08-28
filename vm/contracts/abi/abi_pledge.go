@@ -19,7 +19,7 @@ const (
 		{"type":"function","name":"CancelStaking","inputs":[{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"}]},
 
 		{"type":"function","name":"AgentPledge", "inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakingHeight","type":"uint64"}]},
-		{"type":"function","name":"DelegateStake", "inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakingHeight","type":"uint64"}]},
+		{"type":"function","name":"DelegateStaking", "inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakingHeight","type":"uint64"}]},
 		
 		{"type":"function","name":"AgentCancelPledge","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
 		{"type":"function","name":"CancelDelegatedStaking","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
@@ -40,7 +40,7 @@ const (
 	MethodNameCancelPledge        = "CancelPledge"
 	MethodNameCancelPledgeV2      = "CancelStaking"
 	MethodNameAgentPledge         = "AgentPledge"
-	MethodNameAgentPledgeV2       = "DelegateStake"
+	MethodNameAgentPledgeV2       = "DelegateStaking"
 	MethodNameAgentCancelPledge   = "AgentCancelPledge"
 	MethodNameAgentCancelPledgeV2 = "CancelDelegatedStaking"
 	VariableNamePledgeInfo        = "pledgeInfo"
