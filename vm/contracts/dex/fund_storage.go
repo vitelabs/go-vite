@@ -3,11 +3,14 @@ package dex
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -673,6 +676,47 @@ func DepositUserAccount(db vm_db.VmDb, address types.Address, token types.TokenT
 		userFund.Accounts = append(userFund.Accounts, updatedAcc)
 	}
 	SaveUserFund(db, address, userFund)
+	return
+}
+
+func GetUserFundsByPage(db abi.StorageDatabase, lastAddress types.Address, count int)(userFunds []*UserFund, err error) {
+	var iterator interfaces.StorageIterator
+	if iterator, err = db.NewStorageIterator(fundKeyPrefix); err != nil {
+		return
+	}
+	defer iterator.Release()
+
+	if lastAddress != types.ZERO_ADDRESS {
+		ok := iterator.Seek(GetUserFundKey(lastAddress))
+		if !ok {
+			err = fmt.Errorf("last address not valid for page userFunds")
+			return
+		}
+	}
+	userFunds = make([]*UserFund, 0, count)
+	for {
+		if !iterator.Next() {
+			if err = iterator.Error(); err != nil {
+				return
+			}
+			break
+		}
+		key := iterator.Key()
+		data := iterator.Value()
+		if len(data) > 0 {
+			fund := &UserFund{}
+			if err = fund.DeSerialize(data); err != nil {
+				return
+			} else {
+				fund.Address = make([]byte, types.AddressSize)
+				copy(fund.Address[:], key[len(fundKeyPrefix):])
+				userFunds = append(userFunds, fund)
+				if len(userFunds) == count {
+					return
+				}
+			}
+		}
+	}
 	return
 }
 

@@ -77,7 +77,7 @@ func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 	return nil, nil
 }
 
-func getPledgeInfo(db vm_db.VmDb, pledgeAddr types.Address, beneficialAddr types.Address, agent bool, agentAddr types.Address, bid uint8, currentIndex uint64) ([]byte, *abi.PledgeInfo) {
+func getPledgeInfo(db vm_db.VmDb, pledgeAddr types.Address, beneficialAddr types.Address, agent bool, agentAddr types.Address, bid uint8, currentIndex uint64) ([]byte, *types.PledgeInfo) {
 	iterator, err := db.NewStorageIterator(abi.GetPledgeKeyPrefix(pledgeAddr))
 	util.DealWithErr(err)
 	defer iterator.Release()
@@ -92,7 +92,7 @@ func getPledgeInfo(db vm_db.VmDb, pledgeAddr types.Address, beneficialAddr types
 		if !abi.IsPledgeKey(iterator.Key()) {
 			continue
 		}
-		pledgeInfo := new(abi.PledgeInfo)
+		pledgeInfo := new(types.PledgeInfo)
 		abi.ABIPledge.UnpackVariable(pledgeInfo, abi.VariableNamePledgeInfo, iterator.Value())
 		if pledgeInfo.BeneficialAddr == beneficialAddr && pledgeInfo.Agent == agent &&
 			pledgeInfo.AgentAddress == agentAddr && pledgeInfo.Bid == bid {
@@ -111,7 +111,7 @@ func getPledgeWithdrawHeight(vm vmEnvironment, height uint64) uint64 {
 	return vm.GlobalStatus().SnapshotBlock().Height + height
 }
 
-func pledgeNotDue(oldPledge *abi.PledgeInfo, vm vmEnvironment) bool {
+func pledgeNotDue(oldPledge *types.PledgeInfo, vm vmEnvironment) bool {
 	return oldPledge.WithdrawHeight > vm.GlobalStatus().SnapshotBlock().Height
 }
 

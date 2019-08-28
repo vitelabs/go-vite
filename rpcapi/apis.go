@@ -181,6 +181,13 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewUtilApi(vite),
 			Public:    true,
 		}
+	case "data":
+		return rpc.API{
+			Namespace: "data",
+			Version:   "1.0",
+			Service:   api.NewDataApi(vite),
+			Public:    true,
+		}
 	default:
 		return rpc.API{}
 	}

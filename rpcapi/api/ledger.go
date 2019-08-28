@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
@@ -175,6 +176,21 @@ func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *
 	}
 
 	return l.ledgerBlocksToRpcBlocks(blocks)
+}
+
+func (l *LedgerApi) GetSnapshotBlockBeforeTime(timestamp int64) (*SnapshotBlock, error) {
+	time := time.Unix(timestamp, 0)
+	sbHeader, err := l.chain.GetSnapshotHeaderBeforeTime(&time)
+	if err != nil || sbHeader == nil {
+		return nil, err
+	}
+
+	sb, err := l.chain.GetSnapshotBlockByHash(sbHeader.Hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return l.ledgerSnapshotBlockToRpcBlock(sb)
 }
 
 func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, error) {

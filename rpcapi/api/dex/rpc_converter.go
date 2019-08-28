@@ -255,6 +255,21 @@ func TokenBytesToString(token []byte) string {
 	return tk.String()
 }
 
+type SimpleAccountInfo struct {
+	Token     string `json:"token"`
+	Available string `json:"available"`
+	Locked    string `json:"locked"`
+}
+
+type SimpleUserFund struct {
+	Address  string               `json:"address"`
+	Accounts []*SimpleAccountInfo `json:"accounts"`
+}
+
+type UserFunds struct {
+	Funds []*SimpleUserFund `json:"funds"`
+}
+
 type RpcVxMineInfo struct {
 	HistoryMinedSum string           `json:"historyMinedSum"`
 	Total           string           `json:"total"`

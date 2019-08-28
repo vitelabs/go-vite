@@ -71,14 +71,6 @@ type ParamAgentCancelPledge struct {
 	Amount         *big.Int
 	Bid            uint8
 }
-type PledgeInfo struct {
-	Amount         *big.Int
-	WithdrawHeight uint64
-	BeneficialAddr types.Address
-	Agent          bool
-	AgentAddress   types.Address
-	Bid            uint8
-}
 
 func GetPledgeBeneficialKey(beneficial types.Address) []byte {
 	return beneficial.Bytes()
@@ -101,7 +93,7 @@ func GetIndexFromPledgeKey(key []byte) uint64 {
 	return new(big.Int).SetBytes(key[types.AddressSize:]).Uint64()
 }
 
-func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeInfo, *big.Int, error) {
+func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*types.PledgeInfo, *big.Int, error) {
 	if *db.Address() != types.AddressPledge {
 		return nil, nil, util.ErrAddressNotMatch
 	}
@@ -111,7 +103,7 @@ func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeI
 		return nil, nil, err
 	}
 	defer iterator.Release()
-	pledgeInfoList := make([]*PledgeInfo, 0)
+	pledgeInfoList := make([]*types.PledgeInfo, 0)
 	for {
 		if !iterator.Next() {
 			if iterator.Error() != nil {
@@ -122,7 +114,7 @@ func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeI
 		if !filterKeyValue(iterator.Key(), iterator.Value(), IsPledgeKey) {
 			continue
 		}
-		pledgeInfo := new(PledgeInfo)
+		pledgeInfo := new(types.PledgeInfo)
 		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err == nil &&
 			pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
 			pledgeInfoList = append(pledgeInfoList, pledgeInfo)
@@ -148,7 +140,7 @@ func GetPledgeBeneficialAmount(db StorageDatabase, beneficialAddr types.Address)
 	return amount.Amount, nil
 }
 
-func GetPledgeInfo(db StorageDatabase, pledgeAddr, beneficialAddr, agentAddr types.Address, agent bool, bid uint8) (*PledgeInfo, error) {
+func GetPledgeInfo(db StorageDatabase, pledgeAddr, beneficialAddr, agentAddr types.Address, agent bool, bid uint8) (*types.PledgeInfo, error) {
 	iterator, err := db.NewStorageIterator(GetPledgeKeyPrefix(pledgeAddr))
 	util.DealWithErr(err)
 	defer iterator.Release()
@@ -162,7 +154,7 @@ func GetPledgeInfo(db StorageDatabase, pledgeAddr, beneficialAddr, agentAddr typ
 		if !IsPledgeKey(iterator.Key()) {
 			continue
 		}
-		pledgeInfo := new(PledgeInfo)
+		pledgeInfo := new(types.PledgeInfo)
 		ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value())
 		if pledgeInfo.BeneficialAddr == beneficialAddr && pledgeInfo.Agent == agent &&
 			pledgeInfo.AgentAddress == agentAddr && pledgeInfo.Bid == bid {
@@ -170,4 +162,40 @@ func GetPledgeInfo(db StorageDatabase, pledgeAddr, beneficialAddr, agentAddr typ
 		}
 	}
 	return nil, nil
+}
+
+func GetPledgeListByPage(db StorageDatabase, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error) {
+	iterator, err := db.NewStorageIterator(nil)
+	util.DealWithErr(err)
+	defer iterator.Release()
+
+	if len(lastKey) > 0 {
+		ok := iterator.Seek(lastKey)
+		if !ok {
+			return nil, nil, nil
+		}
+	}
+	pledgeInfoList := make([]*types.PledgeInfo, 0, count)
+	for {
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, nil, iterator.Error()
+			}
+			break
+		}
+		if !IsPledgeKey(iterator.Key()) {
+			continue
+		}
+		pledgeInfo := new(types.PledgeInfo)
+		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err != nil {
+			continue
+		}
+		pledgeInfo.PledgeAddress = GetPledgeAddrFromPledgeKey(iterator.Key())
+		pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+		count = count - 1
+		if count == 0 {
+			break
+		}
+	}
+	return pledgeInfoList, iterator.Key(), nil
 }
