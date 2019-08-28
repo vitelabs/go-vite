@@ -67,16 +67,16 @@ func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, t
 }
 
 func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (block []*ledger.AccountBlock, err error) {
-	if _, err = SubUserFund(db, *address, ledger.ViteTokenId.Bytes(), NewMarketFeeAmount); err != nil {
+	if _, err = ReduceAccount(db, *address, ledger.ViteTokenId.Bytes(), NewMarketFeeAmount); err != nil {
 		DeleteMarketInfo(db, tradeToken, quoteToken)
 		AddErrEvent(db, err)
 		//WARN: when not enough fund, take receive as true, but not notify dexTrade
 		return nil, nil
 	}
-	userFee := &dexproto.UserFeeSettle{}
+	userFee := &dexproto.FeeSettle{}
 	userFee.Address = address.Bytes()
 	userFee.BaseFee = NewMarketFeeMineAmount.Bytes()
-	SettleFeesWithTokenId(db, reader, true, ledger.ViteTokenId, ViteTokenDecimals, ViteTokenType, []*dexproto.UserFeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
+	SettleFeesWithTokenId(db, reader, true, ledger.ViteTokenId, ViteTokenDecimals, ViteTokenType, []*dexproto.FeeSettle{userFee}, NewMarketFeeDonateAmount, nil)
 	marketInfo.MarketId = NewAndSaveMarketId(db)
 	SaveMarketInfo(db, marketInfo, tradeToken, quoteToken)
 	AddMarketEvent(db, marketInfo)
@@ -260,7 +260,7 @@ func PreCheckOrderParam(orderParam *ParamDexFundNewOrder, isStemFork bool) error
 
 func DoNewOrder(db vm_db.VmDb, param *ParamDexFundNewOrder, accountAddress, agent *types.Address, sendHash types.Hash) ([]*ledger.AccountBlock, error) {
 	var (
-		dexFund        *UserFund
+		dexFund        *Fund
 		tradeBlockData []byte
 		err            error
 		orderInfoBytes []byte
@@ -271,13 +271,13 @@ func DoNewOrder(db vm_db.VmDb, param *ParamDexFundNewOrder, accountAddress, agen
 	if marketInfo, err = RenderOrder(order, param, db, accountAddress, agent, sendHash); err != nil {
 		return nil, err
 	}
-	if dexFund, ok = GetUserFund(db, *accountAddress); !ok {
+	if dexFund, ok = GetFund(db, *accountAddress); !ok {
 		return nil, ExceedFundAvailableErr
 	}
 	if err = CheckAndLockFundForNewOrder(dexFund, order, marketInfo); err != nil {
 		return nil, err
 	}
-	SaveUserFund(db, *accountAddress, dexFund)
+	SaveFund(db, *accountAddress, dexFund)
 	if orderInfoBytes, err = order.Serialize(); err != nil {
 		panic(err)
 	}
@@ -356,20 +356,20 @@ func isAmountTooSmall(db vm_db.VmDb, amount []byte, marketInfo *MarketInfo) bool
 
 func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, db vm_db.VmDb) {
 	var vipReduceFeeRate int32 = 0
-	if _, ok := GetPledgeForSuperVip(db, address); ok {
+	if _, ok := GetStackedForSuperVIP(db, address); ok {
 		vipReduceFeeRate = BaseFeeRate
-	} else if _, ok := GetPledgeForVip(db, address); ok {
+	} else if _, ok := GetStackedForVIP(db, address); ok {
 		vipReduceFeeRate = VipReduceFeeRate
 	}
 	order.TakerFeeRate = BaseFeeRate - vipReduceFeeRate
-	order.TakerBrokerFeeRate = marketInfo.TakerBrokerFeeRate
+	order.TakerOperatorFeeRate = marketInfo.TakerOperatorFeeRate
 	order.MakerFeeRate = BaseFeeRate - vipReduceFeeRate
-	order.MakerBrokerFeeRate = marketInfo.MakerBrokerFeeRate
+	order.MakerOperatorFeeRate = marketInfo.MakerOperatorFeeRate
 	if _, err := GetInviterByInvitee(db, address); err == nil { // invited
 		order.TakerFeeRate = order.TakerFeeRate * 9 / 10
-		order.TakerBrokerFeeRate = order.TakerBrokerFeeRate * 9 / 10
+		order.TakerOperatorFeeRate = order.TakerOperatorFeeRate * 9 / 10
 		order.MakerFeeRate = order.MakerFeeRate * 9 / 10
-		order.MakerBrokerFeeRate = order.MakerBrokerFeeRate * 9 / 10
+		order.MakerOperatorFeeRate = order.MakerOperatorFeeRate * 9 / 10
 	}
 }
 
@@ -381,14 +381,14 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 		if len(fund.Address) != types.AddressSize {
 			return fmt.Errorf("invalid address format for settle")
 		}
-		if len(fund.FundSettles) == 0 {
+		if len(fund.AccountSettles) == 0 {
 			return fmt.Errorf("no user funds to settle")
 		}
 	}
 	return nil
 }
 
-func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *MarketInfo) (err error) {
+func CheckAndLockFundForNewOrder(dexFund *Fund, order *Order, marketInfo *MarketInfo) (err error) {
 	var (
 		lockToken, lockAmount []byte
 		lockTokenId           types.TokenTypeId
@@ -408,7 +408,7 @@ func CheckAndLockFundForNewOrder(dexFund *UserFund, order *Order, marketInfo *Ma
 	if lockTokenId, err = types.BytesToTokenTypeId(lockToken); err != nil {
 		panic(err)
 	}
-	if account, exists = GetAccountByTokeIdFromFund(dexFund, lockTokenId); !exists {
+	if account, exists = GetAccountByToken(dexFund, lockTokenId); !exists {
 		return ExceedFundAvailableErr
 	}
 	available := new(big.Int).SetBytes(account.Available)
@@ -474,8 +474,8 @@ func VerifyNewOrderPriceForRpc(data []byte) (valid bool) {
 }
 
 func MaxTotalFeeRate(order Order) int32 {
-	takerRate := order.TakerFeeRate + order.TakerBrokerFeeRate
-	makerRate := order.MakerFeeRate + order.MakerBrokerFeeRate
+	takerRate := order.TakerFeeRate + order.TakerOperatorFeeRate
+	makerRate := order.MakerFeeRate + order.MakerOperatorFeeRate
 	if takerRate > makerRate {
 		return takerRate
 	} else {
@@ -505,7 +505,7 @@ func IsStemFork(db vm_db.VmDb) bool {
 }
 
 func ValidBrokerFeeRate(feeRate int32) bool {
-	return feeRate >= 0 && feeRate <= MaxBrokerFeeRate
+	return feeRate >= 0 && feeRate <= MaxOperatorFeeRate
 }
 
 func checkPriceChar(price string) bool {

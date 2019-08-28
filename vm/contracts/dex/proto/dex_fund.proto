@@ -15,84 +15,84 @@ message Fund {
     repeated Account Accounts = 2;
 }
 
-message FundSettle {
-    bool isTradeToken = 1;
+message AccountSettle {
+    bool IsTradeToken = 1;
     bytes IncAvailable = 2;
     bytes ReduceLocked = 3;
     bytes ReleaseLocked = 4;
 }
 
-message UserFundSettle {
+message FundSettle {
     bytes Address = 1;
-    repeated FundSettle fundSettles = 2;
+    repeated AccountSettle AccountSettles = 2;
 }
 
-message UserFeeSettle {
+message FeeSettle {
     bytes Address = 1;
     bytes BaseFee = 2; // FeeSumAccount.BaseAmount, FeeSumAccount.InviterBonusAmount, UserFeeAccount.InviterBonusAmount
-    bytes BrokerFee = 3; // BrokerFeeAccount.Amount
+    bytes OperatorFee = 3; // OperatorFeeAccount.Amount
 }
 
 //must be same markets
 message SettleActions {
     bytes TradeToken = 1;
     bytes QuoteToken = 2;
-    repeated UserFundSettle fundActions = 3;
-    repeated UserFeeSettle feeActions = 4;
+    repeated FundSettle FundActions = 3;
+    repeated FeeSettle FeeActions = 4;
 }
 
-message FeeSumForDividend { // for dividend
+message FeesForDividend { // for dividend
     bytes Token = 1;
-    // rolled amount : 99% part of last period BaseAmount rolled to this period +
-    // new market fee +
-    // new inviter fee +
-    // trade baseFee[include markets allow mine and not allow mine]
+                          // rolled amount : 99% part of last period BaseAmount rolled to this period +
+                          // open new market fee +
+                          // create new inviter fee +
+                          // trade baseFee[include markets allow mine and not allow mine]
     bytes DividendPoolAmount = 2;
 }
 
-message FeeSumForMine { // for mine, sum amounts with same quoteTokenType
+message FeesForMine { // for mine, sum amounts with same quoteTokenType
     int32 QuoteTokenType = 1;
     bytes BaseAmount = 2; // normal trade fee
     bytes InviteBonusAmount = 3; // invitee trade fee
 }
 
-message FeeSumByPeriod {
-    repeated FeeSumForDividend feesForDividend = 1;
-    repeated FeeSumForMine feesForMine = 2;
+message DexFeesByPeriod {
+    repeated FeesForDividend FeesForDividend = 1;
+    repeated FeesForMine FeesForMine = 2;
     uint64 lastValidPeriod = 3;
-    bool FinishFeeDividend = 4;
-    bool FinishVxMine = 5;
+    bool FinishDividend = 4;
+    bool FinishMine = 5;
 }
 
-message UserFeeAccount { // for vx mine
+message FeeAccount { // for vx mine
     int32 QuoteTokenType = 1;
     bytes BaseAmount = 2;
     bytes InviteBonusAmount = 3;
 }
 
-message UserFeeByPeriod {
-    repeated UserFeeAccount userFees = 1;
+message FeeByPeriod {
+    repeated FeeAccount Fees = 1;
     uint64 Period = 2;
 }
 
 message UserFees {
-    repeated UserFeeByPeriod fees = 1;
+    repeated FeeByPeriod Fees = 1;
 }
 
-message BrokerMarketFee {
+message OperatorMarketFee {
     int32 MarketId = 1;
-    int32 TakerBrokerFeeRate = 2;
-    int32 MakerBrokerFeeRate = 3;
+    int32 TakerOperatorFeeRate = 2;
+    int32 MakerOperatorFeeRate = 3;
     bytes Amount = 4;
 }
 
-message BrokerFeeAccount {
+message OperatorFeeAccount {
     bytes Token = 1;
-    repeated BrokerMarketFee MarketFees  = 2;
+    repeated OperatorMarketFee MarketFees = 2;
 }
 
-message BrokerFeeSumByPeriod {
-    repeated BrokerFeeAccount brokerFees = 1;
+message OperatorFeesByPeriod {
+    repeated OperatorFeeAccount OperatorFees = 1;
 }
 
 message VxFundByPeriod {
@@ -101,21 +101,21 @@ message VxFundByPeriod {
 }
 
 message VxFunds {
-    repeated VxFundByPeriod funds = 1;
+    repeated VxFundByPeriod Funds = 1;
 }
 
-message PledgeVip {
+message StackedForVIP {
     int64 Timestamp = 1;
-    int32 PledgeTimes = 2; //sum pledge times in case duplicate pledge happen
+    int32 StackedTimes = 2; // stacked times in case duplicate stack happen
 }
 
-message PledgeForVxByPeriod {
+message StackedForVxByPeriod {
     uint64 Period = 1; // last snapshot height in period
     bytes Amount = 2;
 }
 
-message PledgesForVx {
-    repeated PledgeForVxByPeriod pledges = 1;
+message StackedForVxs {
+    repeated StackedForVxByPeriod Stacks = 1;
 }
 
 message VxSettleAction {
@@ -130,7 +130,7 @@ message VxSettleActions {
 }
 
 //event
-message PeriodWithBiz {
+message PeriodJobForBiz {
     uint64 Period = 1;
     int32  BizType = 2;
 }
@@ -152,18 +152,18 @@ message MinedVxForFee { // reused by trade fee and invitee fee
 }
 
 //event
-message MinedVxForPledge {
+message MinedVxForStake {
     bytes Address = 1;
-    bytes PledgeAmount = 2; // pledged vite amount
+    bytes StakedAmount = 2; // stacked vite amount
     bytes MinedAmount = 3; // mined vx amount
 }
 
 //event
-message BrokerFeeDividend {
+message OperatorFeeDividend {
     bytes Address = 1;
     int32 MarketId = 2;
-    int32 TakerBrokerFeeRate = 3;
-    int32 MakerBrokerFeeRate = 4;
+    int32 TakerOperatorFeeRate = 3;
+    int32 MakerOperatorFeeRate = 4;
     bytes Amount = 5; //depend on marketInfo.QuoteToken
 }
 
@@ -185,12 +185,12 @@ message InviteRelation {
 message SettleMakerMinedVx {
     uint64 PeriodId = 1;
     int32 Page = 2;
-    bool  finish = 3;
+    bool  Finish = 3;
 }
 
 //event
 message MarketAgentRelation {
     bytes Principal = 1;
     bytes Agent = 2;
-    int32 marketId = 3;
+    int32 MarketId = 3;
 }

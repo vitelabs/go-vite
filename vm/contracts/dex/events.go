@@ -13,12 +13,12 @@ const orderUpdateEventName = "orderUpdateEvent"
 const txEventName = "txEvent"
 const tokenEventName = "tokenEvent"
 const marketEventName = "marketEvent"
-const periodWithBizEventName = "periodWithBizEvent"
+const periodJobWithBizEventName = "periodWithBizEvent"
 const feeDividendForVxHolderEventName = "feeDividendForVxHolderEvent"
-const brokerFeeDividendEventName = "brokerFeeDividendEvent"
+const operatorFeeDividendEventName = "brokerFeeDividendEvent"
 const minedVxForTradeFeeEventName = "minedVxForTradeFeeEvent"
 const minedVxForInviteeFeeEventName = "minedVxForInviteeFeeEvent"
-const minedVxForPledgeEventName = "minedVxForPledgeEvent"
+const minedVxForStackEventName = "minedVxForPledgeEvent"
 const minedVxForOperationEventName = "minedVxForOperation"
 const inviteRelationEventName = "inviteRelationEvent"
 const settleMakerMinedVxEventName = "settleMakerMinedVxEvent"
@@ -52,16 +52,16 @@ type MarketEvent struct {
 	dexproto.MarketInfo
 }
 
-type PeriodWithBizEvent struct {
-	dexproto.PeriodWithBiz
+type PeriodJobWithBizEvent struct {
+	dexproto.PeriodJobForBiz
 }
 
 type FeeDividendEvent struct {
 	dexproto.FeeDividendForVxHolder
 }
 
-type BrokerFeeDividendEvent struct {
-	dexproto.BrokerFeeDividend
+type OperatorFeeDividendEvent struct {
+	dexproto.OperatorFeeDividend
 }
 
 type MinedVxForTradeFeeEvent struct {
@@ -72,8 +72,8 @@ type MinedVxForInviteeFeeEvent struct {
 	dexproto.MinedVxForFee
 }
 
-type MinedVxForPledgeEvent struct {
-	dexproto.MinedVxForPledge
+type MinedVxForStackEvent struct {
+	dexproto.MinedVxForStake
 }
 
 type MinedVxForOperationEvent struct {
@@ -190,18 +190,18 @@ func (me MarketEvent) FromBytes(data []byte) interface{} {
 	}
 }
 
-func (pb PeriodWithBizEvent) GetTopicId() types.Hash {
-	return fromNameToHash(periodWithBizEventName)
+func (pb PeriodJobWithBizEvent) GetTopicId() types.Hash {
+	return fromNameToHash(periodJobWithBizEventName)
 }
 
-func (pb PeriodWithBizEvent) toDataBytes() []byte {
-	data, _ := proto.Marshal(&pb.PeriodWithBiz)
+func (pb PeriodJobWithBizEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&pb.PeriodJobForBiz)
 	return data
 }
 
-func (pb PeriodWithBizEvent) FromBytes(data []byte) interface{} {
-	event := PeriodWithBizEvent{}
-	if err := proto.Unmarshal(data, &event.PeriodWithBiz); err != nil {
+func (pb PeriodJobWithBizEvent) FromBytes(data []byte) interface{} {
+	event := PeriodJobWithBizEvent{}
+	if err := proto.Unmarshal(data, &event.PeriodJobForBiz); err != nil {
 		return nil
 	} else {
 		return event
@@ -226,18 +226,18 @@ func (fde FeeDividendEvent) FromBytes(data []byte) interface{} {
 	}
 }
 
-func (bfd BrokerFeeDividendEvent) GetTopicId() types.Hash {
-	return fromNameToHash(brokerFeeDividendEventName)
+func (bfd OperatorFeeDividendEvent) GetTopicId() types.Hash {
+	return fromNameToHash(operatorFeeDividendEventName)
 }
 
-func (bfd BrokerFeeDividendEvent) toDataBytes() []byte {
-	data, _ := proto.Marshal(&bfd.BrokerFeeDividend)
+func (bfd OperatorFeeDividendEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&bfd.OperatorFeeDividend)
 	return data
 }
 
-func (bfd BrokerFeeDividendEvent) FromBytes(data []byte) interface{} {
-	event := BrokerFeeDividendEvent{}
-	if err := proto.Unmarshal(data, &event.BrokerFeeDividend); err != nil {
+func (bfd OperatorFeeDividendEvent) FromBytes(data []byte) interface{} {
+	event := OperatorFeeDividendEvent{}
+	if err := proto.Unmarshal(data, &event.OperatorFeeDividend); err != nil {
 		return nil
 	} else {
 		return event
@@ -280,18 +280,18 @@ func (mif MinedVxForInviteeFeeEvent) FromBytes(data []byte) interface{} {
 	}
 }
 
-func (mp MinedVxForPledgeEvent) GetTopicId() types.Hash {
-	return fromNameToHash(minedVxForPledgeEventName)
+func (mp MinedVxForStackEvent) GetTopicId() types.Hash {
+	return fromNameToHash(minedVxForStackEventName)
 }
 
-func (mp MinedVxForPledgeEvent) toDataBytes() []byte {
-	data, _ := proto.Marshal(&mp.MinedVxForPledge)
+func (mp MinedVxForStackEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&mp.MinedVxForStake)
 	return data
 }
 
-func (mp MinedVxForPledgeEvent) FromBytes(data []byte) interface{} {
-	event := MinedVxForPledgeEvent{}
-	if err := proto.Unmarshal(data, &event.MinedVxForPledge); err != nil {
+func (mp MinedVxForStackEvent) FromBytes(data []byte) interface{} {
+	event := MinedVxForStackEvent{}
+	if err := proto.Unmarshal(data, &event.MinedVxForStake); err != nil {
 		return nil
 	} else {
 		return event

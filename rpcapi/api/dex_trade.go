@@ -4,30 +4,12 @@ import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/log15"
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
-	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
-type DexTradeApi struct {
-	chain chain.Chain
-	log   log15.Logger
-}
-
-func NewDexTradeApi(vite *vite.Vite) *DexTradeApi {
-	return &DexTradeApi{
-		chain: vite.Chain(),
-		log:   log15.New("module", "rpc_api/dextrade_api"),
-	}
-}
-
-func (f DexTradeApi) String() string {
-	return "DexTradeApi"
-}
-
-func (f DexTradeApi) GetOrderById(orderIdStr string) (*RpcOrder, error) {
+func (f DexApi) GetOrderById(orderIdStr string) (*RpcOrder, error) {
 	orderId, err := hex.DecodeString(orderIdStr)
 	if err != nil {
 		return nil, err
@@ -39,7 +21,7 @@ func (f DexTradeApi) GetOrderById(orderIdStr string) (*RpcOrder, error) {
 	}
 }
 
-func (f DexTradeApi) GetOrderBySendHash(sendHash types.Hash) (*RpcOrder, error) {
+func (f DexApi) GetOrderBySendHash(sendHash types.Hash) (*RpcOrder, error) {
 	if db, err := getDb(f.chain, types.AddressDexTrade); err != nil {
 		return nil, err
 	} else {
@@ -51,7 +33,7 @@ func (f DexTradeApi) GetOrderBySendHash(sendHash types.Hash) (*RpcOrder, error) 
 	}
 }
 
-func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *OrdersRes, err error) {
+func (f DexApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *OrdersRes, err error) {
 	if fundDb, err := getDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
@@ -73,7 +55,7 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 	}
 }
 
-func (f DexTradeApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMarketInfo, err error) {
+func (f DexApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMarketInfo, err error) {
 	if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
 		return nil, err
 	} else {
@@ -85,7 +67,7 @@ func (f DexTradeApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMar
 	}
 }
 
-func (f DexTradeApi) GetTimestamp() (timestamp int64, err error) {
+func (f DexApi) GetTimestamp() (timestamp int64, err error) {
 	if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
 		return -1, err
 	} else {
@@ -123,8 +105,8 @@ type RpcOrder struct {
 	Price              string `json:"Price"`
 	TakerFeeRate       int32  `json:"TakerFeeRate"`
 	MakerFeeRate       int32  `json:"MakerFeeRate"`
-	TakerBrokerFeeRate int32  `json:"TakerBrokerFeeRate"`
-	MakerBrokerFeeRate int32  `json:"MakerBrokerFeeRate"`
+	TakerBrokerFeeRate int32  `json:"TakerOperatorFeeRate"`
+	MakerBrokerFeeRate int32  `json:"MakerOperatorFeeRate"`
 	Quantity           string `json:"Quantity"`
 	Amount             string `json:"Amount"`
 	LockedBuyFee       string `json:"LockedBuyFee,omitempty"`
@@ -160,8 +142,8 @@ func OrderToRpc(order *dex.Order) *RpcOrder {
 	rpcOrder.Price = dex.BytesToPrice(order.Price)
 	rpcOrder.TakerFeeRate = order.TakerFeeRate
 	rpcOrder.MakerFeeRate = order.MakerFeeRate
-	rpcOrder.TakerBrokerFeeRate = order.TakerBrokerFeeRate
-	rpcOrder.MakerBrokerFeeRate = order.MakerBrokerFeeRate
+	rpcOrder.TakerBrokerFeeRate = order.TakerOperatorFeeRate
+	rpcOrder.MakerBrokerFeeRate = order.MakerOperatorFeeRate
 	rpcOrder.Quantity = apidex.AmountBytesToString(order.Quantity)
 	rpcOrder.Amount = apidex.AmountBytesToString(order.Amount)
 	if len(order.LockedBuyFee) > 0 {
@@ -178,8 +160,8 @@ func OrderToRpc(order *dex.Order) *RpcOrder {
 	if len(order.ExecutedBaseFee) > 0 {
 		rpcOrder.ExecutedBaseFee = apidex.AmountBytesToString(order.ExecutedBaseFee)
 	}
-	if len(order.ExecutedBrokerFee) > 0 {
-		rpcOrder.ExecutedBrokerFee = apidex.AmountBytesToString(order.ExecutedBrokerFee)
+	if len(order.ExecutedOperatorFee) > 0 {
+		rpcOrder.ExecutedBrokerFee = apidex.AmountBytesToString(order.ExecutedOperatorFee)
 	}
 	if len(order.RefundToken) > 0 {
 		tk, _ := types.BytesToTokenTypeId(order.RefundToken)

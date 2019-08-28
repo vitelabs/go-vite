@@ -10,7 +10,7 @@ import (
 //Note: allow dividend from specify periodId, former periods will be divided at that period
 func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	var (
-		feeSumsMap map[uint64]*FeeSumByPeriod
+		feeSumsMap map[uint64]*DexFeesByPeriod
 		vxSumFunds *VxFunds
 		err        error
 		ok         bool
@@ -127,7 +127,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 			}
 			AddFeeDividendEvent(db, address, feeSumWtTk.Token, userVxAmount, userFeeDividend[feeSumWtTk.Token])
 		}
-		if err = BatchSaveUserFund(db, address, userFeeDividend); err != nil {
+		if err = UpdateFund(db, address, userFeeDividend); err != nil {
 			return err
 		}
 	}
@@ -135,7 +135,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 }
 
 func DoDivideBrokerFees(db vm_db.VmDb, periodId uint64) error {
-	iterator, err := db.NewStorageIterator(append(brokerFeeSumKeyPrefix, Uint64ToBytes(periodId)...))
+	iterator, err := db.NewStorageIterator(append(operatorFeesKeyPrefix, Uint64ToBytes(periodId)...))
 	if err != nil {
 		panic(err)
 	}
@@ -156,9 +156,9 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodId uint64) error {
 		if len(brokerFeeSumKey) != 32 {
 			panic(fmt.Errorf("invalid broker fee sum key type"))
 		}
-		DeleteBrokerFeeSumByKey(db, brokerFeeSumKey)
-		brokerFeeSum := &BrokerFeeSumByPeriod{}
-		if err = brokerFeeSum.DeSerialize(brokerFeeSumBytes); err != nil {
+		DeleteOperatorFeesByKey(db, brokerFeeSumKey)
+		operatorFeesByPeriod := &OperatorFeesByPeriod{}
+		if err = operatorFeesByPeriod.DeSerialize(brokerFeeSumBytes); err != nil {
 			panic(err)
 		}
 		addr, err := types.BytesToAddress(brokerFeeSumKey[11:])
@@ -166,7 +166,7 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodId uint64) error {
 			panic(err)
 		}
 		userFund := make(map[types.TokenTypeId]*big.Int)
-		for _, feeAcc := range brokerFeeSum.BrokerFees {
+		for _, feeAcc := range operatorFeesByPeriod.OperatorFees {
 			tokenId, err := types.BytesToTokenTypeId(feeAcc.Token)
 			if err != nil {
 				panic(err)
@@ -177,10 +177,10 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodId uint64) error {
 				} else {
 					userFund[tokenId] = new(big.Int).SetBytes(mkFee.Amount)
 				}
-				AddBrokerFeeDividendEvent(db, addr, mkFee)
+				AddOperatorFeeDividendEvent(db, addr, mkFee)
 			}
 		}
-		BatchSaveUserFund(db, addr, userFund)
+		UpdateFund(db, addr, userFund)
 	}
 	return nil
 }

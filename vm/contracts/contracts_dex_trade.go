@@ -215,7 +215,7 @@ func (md MethodDexTradeCancelOrderByHash) DoReceive(db vm_db.VmDb, block *ledger
 }
 
 func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
-	fundSettle := &dexproto.FundSettle{}
+	fundSettle := &dexproto.AccountSettle{}
 	switch order.Side {
 	case false: // buy
 		fundSettle.IsTradeToken = false
@@ -224,9 +224,9 @@ func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.A
 		fundSettle.IsTradeToken = true
 		fundSettle.ReleaseLocked = order.Quantity
 	}
-	userFundSettle := &dexproto.UserFundSettle{}
+	userFundSettle := &dexproto.FundSettle{}
 	userFundSettle.Address = order.Address
-	userFundSettle.FundSettles = append(userFundSettle.FundSettles, fundSettle)
+	userFundSettle.AccountSettles = append(userFundSettle.AccountSettles, fundSettle)
 	settleActions := &dexproto.SettleActions{}
 	settleActions.FundActions = append(settleActions.FundActions, userFundSettle)
 	settleActions.TradeToken = marketInfo.TradeToken
@@ -284,24 +284,24 @@ func handleCancelOrderById(db vm_db.VmDb, orderId []byte, method string, block, 
 	}
 }
 
-func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[bool]*dexproto.FundSettle, feeSettles map[types.Address]*dexproto.UserFeeSettle, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
+func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[bool]*dexproto.AccountSettle, feeSettles map[types.Address]*dexproto.FeeSettle, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
 	//fmt.Printf("fundSettles.size %d\n", len(fundSettles))
 	if len(fundSettles) == 0 && len(feeSettles) == 0 {
 		return nil, nil
 	}
 	settleActions := &dexproto.SettleActions{}
 	if len(fundSettles) > 0 {
-		fundActions := make([]*dexproto.UserFundSettle, 0, len(fundSettles))
+		fundActions := make([]*dexproto.FundSettle, 0, len(fundSettles))
 		for address, fundSettleMap := range fundSettles {
-			settles := make([]*dexproto.FundSettle, 0, len(fundSettleMap))
-			for _, fundAction := range fundSettleMap {
-				settles = append(settles, fundAction)
+			accountSettles := make([]*dexproto.AccountSettle, 0, len(fundSettleMap))
+			for _, accountSettle := range fundSettleMap {
+				accountSettles = append(accountSettles, accountSettle)
 			}
-			sort.Sort(dex.FundSettleSorter(settles))
+			sort.Sort(dex.FundSettleSorter(accountSettles))
 
-			userFundSettle := &dexproto.UserFundSettle{}
+			userFundSettle := &dexproto.FundSettle{}
 			userFundSettle.Address = address.Bytes()
-			userFundSettle.FundSettles = settles
+			userFundSettle.AccountSettles = accountSettles
 			fundActions = append(fundActions, userFundSettle)
 		}
 		//sort fundActions for stable marsh result
@@ -311,7 +311,7 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 	}
 	//every block will trigger exactly one market, fee token type should also be single
 	if len(feeSettles) > 0 {
-		feeActions := make([]*dexproto.UserFeeSettle, 0, len(feeSettles))
+		feeActions := make([]*dexproto.FeeSettle, 0, len(feeSettles))
 		for _, feeSettle := range feeSettles {
 			feeActions = append(feeActions, feeSettle)
 		}

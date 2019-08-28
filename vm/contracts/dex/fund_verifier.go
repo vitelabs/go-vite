@@ -76,7 +76,7 @@ func VerifyDexFundBalance(db vm_db.VmDb, reader *util.VMConsensusReader) *FundVe
 func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) (int, error) {
 	var (
 		userAccountValue []byte
-		userFund         *UserFund
+		userFund         *Fund
 		ok               bool
 	)
 	var count = 0
@@ -94,7 +94,7 @@ func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*b
 		} else {
 			break
 		}
-		userFund = &UserFund{}
+		userFund = &Fund{}
 		if err = userFund.DeSerialize(userAccountValue); err != nil {
 			return 0, err
 		}
@@ -111,7 +111,7 @@ func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*b
 func accumulateFeeDividendPool(db vm_db.VmDb, reader *util.VMConsensusReader, accumulateRes map[types.TokenTypeId]*big.Int) error {
 	var (
 		feeSumValue, feeSumKey []byte
-		feeSum                 *FeeSumByPeriod
+		feeSum                 *DexFeesByPeriod
 		ok                     bool
 		periodId               uint64
 	)
@@ -132,11 +132,11 @@ func accumulateFeeDividendPool(db vm_db.VmDb, reader *util.VMConsensusReader, ac
 		} else {
 			break
 		}
-		feeSum = &FeeSumByPeriod{}
+		feeSum = &DexFeesByPeriod{}
 		if err = feeSum.DeSerialize(feeSumValue); err != nil {
 			return err
 		}
-		if !feeSum.FinishFeeDividend {
+		if !feeSum.FinishDividend {
 			for _, fee := range feeSum.FeesForDividend {
 				tokenId, _ := types.BytesToTokenTypeId(fee.Token)
 				if currentPeriodId != periodId {
@@ -153,11 +153,11 @@ func accumulateFeeDividendPool(db vm_db.VmDb, reader *util.VMConsensusReader, ac
 
 func accumulateBrokerFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
 	var (
-		brokerFeeSumValue []byte
-		brokerFeeSum      *BrokerFeeSumByPeriod
-		ok                bool
+		brokerFeeSumValue    []byte
+		operatorFeesByPeriod *OperatorFeesByPeriod
+		ok                   bool
 	)
-	iterator, err := db.NewStorageIterator(brokerFeeSumKeyPrefix)
+	iterator, err := db.NewStorageIterator(operatorFeesKeyPrefix)
 	if err != nil {
 		return err
 	}
@@ -171,11 +171,11 @@ func accumulateBrokerFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenType
 		} else {
 			break
 		}
-		brokerFeeSum = &BrokerFeeSumByPeriod{}
-		if err = brokerFeeSum.DeSerialize(brokerFeeSumValue); err != nil {
+		operatorFeesByPeriod = &OperatorFeesByPeriod{}
+		if err = operatorFeesByPeriod.DeSerialize(brokerFeeSumValue); err != nil {
 			return err
 		}
-		for _, fee := range brokerFeeSum.BrokerFees {
+		for _, fee := range operatorFeesByPeriod.OperatorFees {
 			for _, brokerFee := range fee.MarketFees {
 				tokenId, _ := types.BytesToTokenTypeId(fee.Token)
 				accAccount(tokenId, brokerFee.Amount, accumulateRes)

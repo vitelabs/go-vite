@@ -11,13 +11,13 @@ import (
 	"math/big"
 )
 
-func HandlePledgeAction(db vm_db.VmDb, pledgeType uint8, actionType uint8, address types.Address, amount *big.Int, stakeHeight uint64) ([]*ledger.AccountBlock, error) {
+func HandleStackAction(db vm_db.VmDb, stackType uint8, actionType uint8, address types.Address, amount *big.Int, stakeHeight uint64) ([]*ledger.AccountBlock, error) {
 	var (
 		methodData []byte
 		err        error
 	)
-	if actionType == Pledge {
-		if methodData, err = pledgeRequest(db, address, pledgeType, amount, stakeHeight); err != nil {
+	if actionType == Stack {
+		if methodData, err = stackRequest(db, address, stackType, amount, stakeHeight); err != nil {
 			return []*ledger.AccountBlock{}, err
 		} else {
 			return []*ledger.AccountBlock{
@@ -32,16 +32,16 @@ func HandlePledgeAction(db vm_db.VmDb, pledgeType uint8, actionType uint8, addre
 			}, nil
 		}
 	} else {
-		return DoCancelPledge(db, address, pledgeType, amount)
+		return DoCancelStack(db, address, stackType, amount)
 	}
 }
 
-func DoCancelPledge(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]*ledger.AccountBlock, error) {
+func DoCancelStack(db vm_db.VmDb, address types.Address, stackType uint8, amount *big.Int) ([]*ledger.AccountBlock, error) {
 	var (
 		methodData []byte
 		err        error
 	)
-	if methodData, err = cancelPledgeRequest(db, address, pledgeType, amount); err != nil {
+	if methodData, err = cancelStackRequest(db, address, stackType, amount); err != nil {
 		return []*ledger.AccountBlock{}, err
 	} else {
 		return []*ledger.AccountBlock{
@@ -57,145 +57,145 @@ func DoCancelPledge(db vm_db.VmDb, address types.Address, pledgeType uint8, amou
 	}
 }
 
-func pledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int, stakeHeight uint64) ([]byte, error) {
-	if pledgeType == PledgeForVip {
-		if _, ok := GetPledgeForVip(db, address); ok {
-			return nil, PledgeForVipExistsErr
+func stackRequest(db vm_db.VmDb, address types.Address, stackType uint8, amount *big.Int, stakeHeight uint64) ([]byte, error) {
+	if stackType == StackForVIP {
+		if _, ok := GetStackedForVIP(db, address); ok {
+			return nil, StackForVIPExistsErr
 		}
-	} else if pledgeType == PledgeForSuperVip {
-		if _, ok := GetPledgeForSuperVip(db, address); ok {
-			return nil, PledgeForSuperVipExistsErr
+	} else if stackType == StackForSuperVIP {
+		if _, ok := GetStackedForSuperVIP(db, address); ok {
+			return nil, StackForSuperVIPExistsErr
 		}
 	}
-	if _, err := SubUserFund(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
+	if _, err := ReduceAccount(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err
 	} else {
-		if pledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, pledgeType, stakeHeight); err != nil {
+		if stackData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, stackType, stakeHeight); err != nil {
 			return nil, err
 		} else {
-			return pledgeData, err
+			return stackData, err
 		}
 	}
 }
 
-func cancelPledgeRequest(db vm_db.VmDb, address types.Address, pledgeType uint8, amount *big.Int) ([]byte, error) {
-	switch pledgeType {
-	case PledgeForVx:
-		available := GetPledgeForVx(db, address)
+func cancelStackRequest(db vm_db.VmDb, address types.Address, stackType uint8, amount *big.Int) ([]byte, error) {
+	switch stackType {
+	case StackForVx:
+		available := GetStackedForVx(db, address)
 		leave := new(big.Int).Sub(available, amount)
 		if leave.Sign() < 0 {
-			return nil, ExceedPledgeAvailableErr
-		} else if leave.Sign() > 0 && leave.Cmp(PledgeForVxMinAmount) < 0 {
-			return nil, PledgeAmountLeavedNotValidErr
+			return nil, ExceedStackedAvailableErr
+		} else if leave.Sign() > 0 && leave.Cmp(StackForVxMinAmount) < 0 {
+			return nil, StackedAmountLeavedNotValidErr
 		}
-	case PledgeForVip:
-		if _, ok := GetPledgeForVip(db, address); !ok {
-			return nil, PledgeForVipNotExistsErr
+	case StackForVIP:
+		if _, ok := GetStackedForVIP(db, address); !ok {
+			return nil, StackedForVIPNotExistsErr
 		}
-	case PledgeForSuperVip:
-		if _, ok := GetPledgeForSuperVip(db, address); !ok {
-			return nil, PledgeForSuperVipNotExistsErr
+	case StackForSuperVIP:
+		if _, ok := GetStackedForSuperVIP(db, address); !ok {
+			return nil, StackedForSuperVIPNotExistsErr
 		}
 	}
-	if cancelPledgeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, address, types.AddressDexFund, amount, uint8(pledgeType)); err != nil {
+	if cancelStackData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, address, types.AddressDexFund, amount, uint8(stackType)); err != nil {
 		return nil, err
 	} else {
-		return cancelPledgeData, err
+		return cancelStackData, err
 	}
 }
 
-func OnPledgeForVxSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
-	return doChangePledgedVxAmount(db, reader, address, amount, updatedAmount)
+func OnStackForVxSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+	return doChangeStackedForVxAmount(db, reader, address, amount, updatedAmount)
 }
 
-func OnCancelPledgeForVxSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
-	return doChangePledgedVxAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount)
+func OnCancelStackForVxSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+	return doChangeStackedForVxAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount)
 }
 
-func doChangePledgedVxAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int) error {
+func doChangeStackedForVxAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int) error {
 	var (
-		pledges          *PledgesForVx
+		stackedForVxs    *StackedForVxs
 		sumChange        *big.Int
 		periodId         uint64
-		originPledgesLen int
+		originStackedLen int
 		needUpdate       bool
 	)
-	pledges, _ = GetPledgesForVx(db, address)
+	stackedForVxs, _ = GetStackedForVxs(db, address)
 	periodId = GetCurrentPeriodId(db, reader)
-	originPledgesLen = len(pledges.Pledges)
-	if originPledgesLen == 0 { //need append new period
-		if IsValidPledgeAmountForVx(updatedAmount) {
-			pledgeForVxByPeriod := &dexproto.PledgeForVxByPeriod{Period: periodId, Amount: updatedAmount.Bytes()}
-			pledges.Pledges = append(pledges.Pledges, pledgeForVxByPeriod)
+	originStackedLen = len(stackedForVxs.Stacks)
+	if originStackedLen == 0 { //need append new period
+		if IsValidStackAmountForVx(updatedAmount) {
+			stackedForVxByPeriod := &dexproto.StackedForVxByPeriod{Period: periodId, Amount: updatedAmount.Bytes()}
+			stackedForVxs.Stacks = append(stackedForVxs.Stacks, stackedForVxByPeriod)
 			sumChange = updatedAmount
 			needUpdate = true
 		}
-	} else if pledges.Pledges[originPledgesLen-1].Period == periodId { //update current period
-		if IsValidPledgeAmountForVx(updatedAmount) {
-			if IsValidPledgeAmountBytesForVx(pledges.Pledges[originPledgesLen-1].Amount) {
+	} else if stackedForVxs.Stacks[originStackedLen-1].Period == periodId { //update current period
+		if IsValidStackAmountForVx(updatedAmount) {
+			if IsValidStackAmountBytesForVx(stackedForVxs.Stacks[originStackedLen-1].Amount) {
 				sumChange = amtChange
 			} else {
 				sumChange = updatedAmount
 			}
-			pledges.Pledges[originPledgesLen-1].Amount = updatedAmount.Bytes()
+			stackedForVxs.Stacks[originStackedLen-1].Amount = updatedAmount.Bytes()
 		} else {
-			if IsValidPledgeAmountBytesForVx(pledges.Pledges[originPledgesLen-1].Amount) {
-				sumChange = NegativeAmount(pledges.Pledges[originPledgesLen-1].Amount)
+			if IsValidStackAmountBytesForVx(stackedForVxs.Stacks[originStackedLen-1].Amount) {
+				sumChange = NegativeAmount(stackedForVxs.Stacks[originStackedLen-1].Amount)
 			}
-			if originPledgesLen > 1 { // in case originPledgesLen > 1, update last period to diff the condition of current period not changed ever from last saved period
-				pledges.Pledges[originPledgesLen-1].Amount = updatedAmount.Bytes()
-			} else { // clear Pledges in case only current period saved and not valid any more
-				pledges.Pledges = nil
+			if originStackedLen > 1 { // in case originStackedLen > 1, update last period to diff the condition of current period not changed ever from last saved period
+				stackedForVxs.Stacks[originStackedLen-1].Amount = updatedAmount.Bytes()
+			} else { // clear Stacks in case only current period saved and not valid any more
+				stackedForVxs.Stacks = nil
 			}
 		}
 		needUpdate = true
 	} else { // need save new status, whether new amt is valid or not, in order to diff last saved period
-		if IsValidPledgeAmountForVx(updatedAmount) {
-			if IsValidPledgeAmountBytesForVx(pledges.Pledges[originPledgesLen-1].Amount) {
+		if IsValidStackAmountForVx(updatedAmount) {
+			if IsValidStackAmountBytesForVx(stackedForVxs.Stacks[originStackedLen-1].Amount) {
 				sumChange = amtChange
 			} else {
 				sumChange = updatedAmount
 			}
-			pledgeForVxByPeriod := &dexproto.PledgeForVxByPeriod{Period: periodId, Amount: updatedAmount.Bytes()}
-			pledges.Pledges = append(pledges.Pledges, pledgeForVxByPeriod)
+			stackedForVxByPeriod := &dexproto.StackedForVxByPeriod{Period: periodId, Amount: updatedAmount.Bytes()}
+			stackedForVxs.Stacks = append(stackedForVxs.Stacks, stackedForVxByPeriod)
 			needUpdate = true
 		} else {
-			if IsValidPledgeAmountBytesForVx(pledges.Pledges[originPledgesLen-1].Amount) {
-				sumChange = NegativeAmount(pledges.Pledges[originPledgesLen-1].Amount)
-				pledgeForVxByPeriod := &dexproto.PledgeForVxByPeriod{Period: periodId, Amount: updatedAmount.Bytes()}
-				pledges.Pledges = append(pledges.Pledges, pledgeForVxByPeriod)
+			if IsValidStackAmountBytesForVx(stackedForVxs.Stacks[originStackedLen-1].Amount) {
+				sumChange = NegativeAmount(stackedForVxs.Stacks[originStackedLen-1].Amount)
+				stackedForVxByPeriod := &dexproto.StackedForVxByPeriod{Period: periodId, Amount: updatedAmount.Bytes()}
+				stackedForVxs.Stacks = append(stackedForVxs.Stacks, stackedForVxByPeriod)
 				needUpdate = true
 			}
 		}
 	}
-	//update pledgesSum
-	if len(pledges.Pledges) > 0 && needUpdate {
-		SavePledgesForVx(db, address, pledges)
-	} else if len(pledges.Pledges) == 0 && originPledgesLen > 0 {
-		DeletePledgesForVx(db, address)
+	//update StacksSum
+	if len(stackedForVxs.Stacks) > 0 && needUpdate {
+		SaveStackedForVxs(db, address, stackedForVxs)
+	} else if len(stackedForVxs.Stacks) == 0 && originStackedLen > 0 {
+		DeleteStackedForVxs(db, address)
 	}
 
 	if sumChange != nil && sumChange.Sign() != 0 {
-		pledgesForVxSum, _ := GetPledgesForVxSum(db)
-		sumsLen := len(pledgesForVxSum.Pledges)
+		dexStackedForVxs, _ := GetDexStackedForVxs(db)
+		sumsLen := len(dexStackedForVxs.Stacks)
 		if sumsLen == 0 {
 			if sumChange.Sign() > 0 {
-				pledgesForVxSum.Pledges = append(pledgesForVxSum.Pledges, &dexproto.PledgeForVxByPeriod{Period: periodId, Amount: sumChange.Bytes()})
+				dexStackedForVxs.Stacks = append(dexStackedForVxs.Stacks, &dexproto.StackedForVxByPeriod{Period: periodId, Amount: sumChange.Bytes()})
 			} else {
-				return fmt.Errorf("vxPledgesum initiation get negative value")
+				return fmt.Errorf("dexStackedForVxs initiation get negative value")
 			}
 		} else {
-			sumRes := new(big.Int).Add(new(big.Int).SetBytes(pledgesForVxSum.Pledges[sumsLen-1].Amount), sumChange)
+			sumRes := new(big.Int).Add(new(big.Int).SetBytes(dexStackedForVxs.Stacks[sumsLen-1].Amount), sumChange)
 			if sumRes.Sign() < 0 {
-				return fmt.Errorf("vxPledgesum updated res get negative value")
+				return fmt.Errorf("dexStackedForVxs updated res get negative value")
 			}
-			if pledgesForVxSum.Pledges[sumsLen-1].Period == periodId {
-				pledgesForVxSum.Pledges[sumsLen-1].Amount = sumRes.Bytes()
+			if dexStackedForVxs.Stacks[sumsLen-1].Period == periodId {
+				dexStackedForVxs.Stacks[sumsLen-1].Amount = sumRes.Bytes()
 			} else {
-				pledgesForVxSum.Pledges = append(pledgesForVxSum.Pledges, &dexproto.PledgeForVxByPeriod{Amount: sumRes.Bytes(), Period: periodId})
+				dexStackedForVxs.Stacks = append(dexStackedForVxs.Stacks, &dexproto.StackedForVxByPeriod{Amount: sumRes.Bytes(), Period: periodId})
 			}
 		}
-		SavePledgesForVxSum(db, pledgesForVxSum)
+		SaveDexStackedForVxs(db, dexStackedForVxs)
 	}
 	return nil
 }

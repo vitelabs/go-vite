@@ -28,7 +28,7 @@ var (
 	feeSumKeyPrefix     = []byte("fS:")     // feeSum:periodId
 	lastFeeSumPeriodKey = []byte("lFSPId:") //
 
-	brokerFeeSumKeyPrefix = []byte("bf:") // brokerFeeSum:periodId, 32 bytes prefix[3] + periodId[8]+ address[21]
+	operatorFeesKeyPrefix = []byte("bf:") // operatorFees:periodId, 32 bytes prefix[3] + periodId[8]+ address[21]
 
 	pendingNewMarketActionsKey          = []byte("pmkas:")
 	pendingSetQuoteActionsKey           = []byte("psqas:")
@@ -47,12 +47,12 @@ var (
 	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
-	pledgeForVipKeyPrefix      = []byte("pldVip:")   // pledgeForVip: types.Address
-	pledgeForSuperVipKeyPrefix = []byte("pldSpVip:") // pledgeForSuperVip: types.Address
+	stackedForVIPKeyPrefix      = []byte("pldVip:")   // stackedForVip: types.Address
+	stackedForSuperVIPKeyPrefix = []byte("pldSpVip:") // stackedForSuperVip: types.Address
 
-	pledgesForVxKeyPrefix = []byte("pldsVx:") // pledgesForVx: types.Address
-	pledgesForVxSumKey    = []byte("pldsVxS:")
-	pledgeForVxKeyPrefix  = []byte("pldVx:") // pledgeForVx: types.Address
+	stackedForVxsKeyPrefix = []byte("pldsVx:") // stackedForVxs: types.Address
+	stackedForVxsKey       = []byte("pldsVxS:")
+	stackedForVxKeyPrefix  = []byte("pldVx:") // stackedForVx: types.Address
 
 	tokenInfoKeyPrefix = []byte("tk:") // token:tokenId
 	vxMinePoolKey      = []byte("vxmPl:")
@@ -84,10 +84,10 @@ var (
 	NewMarketFeeBurnAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(5000))
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
-	PledgeForVxMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	PledgeForVipAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
-	PledgeForVxThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	PledgeForSuperVipAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000000))
+	StackForVxMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	StackForVIPAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	StackForVxThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	StackForSuperVIPAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000000))
 
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
@@ -100,7 +100,7 @@ var (
 	usdMineThreshold     = big.NewInt(20000)                                  // 0.02USD
 
 	RateSumForFeeMine                = "0.6"                                             // 15% * 4
-	RateForPledgeMine                = "0.2"                                             // 20%
+	RateForStackMine                 = "0.2"                                             // 20%
 	RateSumForMakerAndMaintainerMine = "0.2"                                             // 10% + 10%
 	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 
@@ -123,14 +123,14 @@ const (
 )
 
 const (
-	PledgeForVx = iota + 1
-	PledgeForVip
-	PledgeForSuperVip
+	StackForVx = iota + 1
+	StackForVIP
+	StackForSuperVIP
 )
 
 const (
-	Pledge = iota + 1
-	CancelPledge
+	Stack = iota + 1
+	CancelStack
 )
 
 //MethodNameDexFundOwnerConfig
@@ -173,9 +173,9 @@ const (
 
 const (
 	FeeDividendJob = iota + 1
-	BrokerFeeDividendJob
+	OperatorFeeDividendJob
 	MineVxForFeeJob
-	MineVxForPledgeJob
+	MineVxForStackJob
 	MineVxForMakerAndMaintainerJob
 )
 
@@ -229,34 +229,34 @@ type ParamDexFundNewMarket struct {
 	QuoteToken types.TokenTypeId
 }
 
-type ParamDexFundPledgeForVx struct {
-	ActionType uint8 // 1: pledge 2: cancel pledge
+type ParamDexFundStackForVx struct {
+	ActionType uint8 // 1: stack 2: cancel stack
 	Amount     *big.Int
 }
 
-type ParamDexFundPledgeForVip struct {
-	ActionType uint8 // 1: pledge 2: cancel pledge
+type ParamDexFundStackForVIP struct {
+	ActionType uint8 // 1: stack 2: cancel stack
 }
 
-type ParamDexFundPledge struct {
-	PledgeAddress types.Address
-	Beneficial    types.Address
-	Bid           uint8
+type ParamDexFundStack struct {
+	StackAddress types.Address
+	Beneficial   types.Address
+	Bid          uint8
 }
 
-type ParamDexFundCancelPledge struct {
-	PledgeAddress types.Address
-	Beneficial    types.Address
-	Amount        *big.Int
-	Bid           uint8
+type ParamDexFundCancelStack struct {
+	StackAddress types.Address
+	Beneficial   types.Address
+	Amount       *big.Int
+	Bid          uint8
 }
 
-type ParamDexFundPledgeCallBack struct {
-	PledgeAddress types.Address
-	Beneficial    types.Address
-	Amount        *big.Int
-	Bid           uint8
-	Success       bool
+type ParamDexFundStackCallBack struct {
+	StackAddress types.Address
+	Beneficial   types.Address
+	Amount       *big.Int
+	Bid          uint8
+	Success      bool
 }
 
 type ParamDexFundGetTokenInfoCallback struct {
@@ -318,7 +318,7 @@ type ParamDexFundConfigMarketsAgent struct {
 	QuoteTokens []types.TokenTypeId
 }
 
-type UserFund struct {
+type Fund struct {
 	dexproto.Fund
 }
 
@@ -327,11 +327,11 @@ type SerializableDex interface {
 	DeSerialize([]byte) error
 }
 
-func (df *UserFund) Serialize() (data []byte, err error) {
+func (df *Fund) Serialize() (data []byte, err error) {
 	return proto.Marshal(&df.Fund)
 }
 
-func (df *UserFund) DeSerialize(fundData []byte) (err error) {
+func (df *Fund) DeSerialize(fundData []byte) (err error) {
 	protoFund := dexproto.Fund{}
 	if err := proto.Unmarshal(fundData, &protoFund); err != nil {
 		return err
@@ -413,38 +413,38 @@ func (osn *OrderIdSerialNo) DeSerialize(data []byte) error {
 	}
 }
 
-type FeeSumByPeriod struct {
-	dexproto.FeeSumByPeriod
+type DexFeesByPeriod struct {
+	dexproto.DexFeesByPeriod
 }
 
-func (df *FeeSumByPeriod) Serialize() (data []byte, err error) {
-	return proto.Marshal(&df.FeeSumByPeriod)
+func (df *DexFeesByPeriod) Serialize() (data []byte, err error) {
+	return proto.Marshal(&df.DexFeesByPeriod)
 }
 
-func (df *FeeSumByPeriod) DeSerialize(feeSumData []byte) (err error) {
-	protoFeeSum := dexproto.FeeSumByPeriod{}
+func (df *DexFeesByPeriod) DeSerialize(feeSumData []byte) (err error) {
+	protoFeeSum := dexproto.DexFeesByPeriod{}
 	if err := proto.Unmarshal(feeSumData, &protoFeeSum); err != nil {
 		return err
 	} else {
-		df.FeeSumByPeriod = protoFeeSum
+		df.DexFeesByPeriod = protoFeeSum
 		return nil
 	}
 }
 
-type BrokerFeeSumByPeriod struct {
-	dexproto.BrokerFeeSumByPeriod
+type OperatorFeesByPeriod struct {
+	dexproto.OperatorFeesByPeriod
 }
 
-func (bfs *BrokerFeeSumByPeriod) Serialize() (data []byte, err error) {
-	return proto.Marshal(&bfs.BrokerFeeSumByPeriod)
+func (bfs *OperatorFeesByPeriod) Serialize() (data []byte, err error) {
+	return proto.Marshal(&bfs.OperatorFeesByPeriod)
 }
 
-func (bfs *BrokerFeeSumByPeriod) DeSerialize(data []byte) (err error) {
-	protoBrokerFeeSumByPeriod := dexproto.BrokerFeeSumByPeriod{}
-	if err := proto.Unmarshal(data, &protoBrokerFeeSumByPeriod); err != nil {
+func (bfs *OperatorFeesByPeriod) DeSerialize(data []byte) (err error) {
+	operatorFeesByPeriod := dexproto.OperatorFeesByPeriod{}
+	if err := proto.Unmarshal(data, &operatorFeesByPeriod); err != nil {
 		return err
 	} else {
-		bfs.BrokerFeeSumByPeriod = protoBrokerFeeSumByPeriod
+		bfs.OperatorFeesByPeriod = operatorFeesByPeriod
 		return nil
 	}
 }
@@ -486,79 +486,79 @@ func (pnm *PendingNewMarkets) DeSerialize(data []byte) error {
 }
 
 type PendingSetQuotes struct {
-	dexproto.PendingSetQuotes
+	dexproto.PendingSetQuoteTokenActions
 }
 
 func (psq *PendingSetQuotes) Serialize() (data []byte, err error) {
-	return proto.Marshal(&psq.PendingSetQuotes)
+	return proto.Marshal(&psq.PendingSetQuoteTokenActions)
 }
 
 func (psq *PendingSetQuotes) DeSerialize(data []byte) error {
-	pendingSetQuotes := dexproto.PendingSetQuotes{}
+	pendingSetQuotes := dexproto.PendingSetQuoteTokenActions{}
 	if err := proto.Unmarshal(data, &pendingSetQuotes); err != nil {
 		return err
 	} else {
-		psq.PendingSetQuotes = pendingSetQuotes
+		psq.PendingSetQuoteTokenActions = pendingSetQuotes
 		return nil
 	}
 }
 
-type PendingTransferTokenOwners struct {
-	dexproto.PendingTransferTokenOwners
+type PendingTransferTokenOwnerActions struct {
+	dexproto.PendingTransferTokenOwnerActions
 }
 
-func (psq *PendingTransferTokenOwners) Serialize() (data []byte, err error) {
-	return proto.Marshal(&psq.PendingTransferTokenOwners)
+func (psq *PendingTransferTokenOwnerActions) Serialize() (data []byte, err error) {
+	return proto.Marshal(&psq.PendingTransferTokenOwnerActions)
 }
 
-func (psq *PendingTransferTokenOwners) DeSerialize(data []byte) error {
-	pendingTransferTokenOwners := dexproto.PendingTransferTokenOwners{}
+func (psq *PendingTransferTokenOwnerActions) DeSerialize(data []byte) error {
+	pendingTransferTokenOwners := dexproto.PendingTransferTokenOwnerActions{}
 	if err := proto.Unmarshal(data, &pendingTransferTokenOwners); err != nil {
 		return err
 	} else {
-		psq.PendingTransferTokenOwners = pendingTransferTokenOwners
+		psq.PendingTransferTokenOwnerActions = pendingTransferTokenOwners
 		return nil
 	}
 }
 
-type PledgeVip struct {
-	dexproto.PledgeVip
+type StackedForVIP struct {
+	dexproto.StackedForVIP
 }
 
-func (pv *PledgeVip) Serialize() (data []byte, err error) {
-	return proto.Marshal(&pv.PledgeVip)
+func (pv *StackedForVIP) Serialize() (data []byte, err error) {
+	return proto.Marshal(&pv.StackedForVIP)
 }
 
-func (pv *PledgeVip) DeSerialize(data []byte) error {
-	pledgeVip := dexproto.PledgeVip{}
-	if err := proto.Unmarshal(data, &pledgeVip); err != nil {
+func (pv *StackedForVIP) DeSerialize(data []byte) error {
+	stackedForVIP := dexproto.StackedForVIP{}
+	if err := proto.Unmarshal(data, &stackedForVIP); err != nil {
 		return err
 	} else {
-		pv.PledgeVip = pledgeVip
+		pv.StackedForVIP = stackedForVIP
 		return nil
 	}
 }
 
-type PledgesForVx struct {
-	dexproto.PledgesForVx
+type StackedForVxs struct {
+	dexproto.StackedForVxs
 }
 
-func (psv *PledgesForVx) Serialize() (data []byte, err error) {
-	return proto.Marshal(&psv.PledgesForVx)
+func (psv *StackedForVxs) Serialize() (data []byte, err error) {
+	return proto.Marshal(&psv.StackedForVxs)
 }
 
-func (psv *PledgesForVx) DeSerialize(data []byte) error {
-	pledgesForVx := dexproto.PledgesForVx{}
-	if err := proto.Unmarshal(data, &pledgesForVx); err != nil {
+func (psv *StackedForVxs) DeSerialize(data []byte) error {
+	stackedForVxs := dexproto.StackedForVxs{}
+	if err := proto.Unmarshal(data, &stackedForVxs); err != nil {
 		return err
 	} else {
-		psv.PledgesForVx = pledgesForVx
+		psv.StackedForVxs = stackedForVxs
 		return nil
 	}
 }
 
-func GetAccountByTokeIdFromFund(dexFund *UserFund, token types.TokenTypeId) (account *dexproto.Account, exists bool) {
-	for _, a := range dexFund.Accounts {
+func GetAccountByToken(fund *Fund, token types.TokenTypeId) (account *dexproto.Account, exists bool) {
+	for _, a := range fund.Accounts {
 		if bytes.Equal(token.Bytes(), a.Token) {
 			return a, true
 		}
@@ -570,44 +570,44 @@ func GetAccountByTokeIdFromFund(dexFund *UserFund, token types.TokenTypeId) (acc
 	return account, false
 }
 
-func GetAccountFundInfo(dexFund *UserFund, tokenId *types.TokenTypeId) ([]*Account, error) {
-	if dexFund == nil || len(dexFund.Accounts) == 0 {
+func GetAccounts(fund *Fund, tokenId *types.TokenTypeId) ([]*Account, error) {
+	if fund == nil || len(fund.Accounts) == 0 {
 		return nil, errors.New("fund user doesn't exist.")
 	}
-	var dexAccount = make([]*Account, 0)
+	var accounts = make([]*Account, 0)
 	if tokenId != nil {
-		for _, v := range dexFund.Accounts {
+		for _, v := range fund.Accounts {
 			if bytes.Equal(tokenId.Bytes(), v.Token) {
 				var acc = &Account{}
 				acc.Deserialize(v)
-				dexAccount = append(dexAccount, acc)
+				accounts = append(accounts, acc)
 				break
 			}
 		}
 	} else {
-		for _, v := range dexFund.Accounts {
+		for _, v := range fund.Accounts {
 			var acc = &Account{}
 			acc.Deserialize(v)
-			dexAccount = append(dexAccount, acc)
+			accounts = append(accounts, acc)
 		}
 	}
-	return dexAccount, nil
+	return accounts, nil
 }
 
-func GetUserFund(db vm_db.VmDb, address types.Address) (dexFund *UserFund, ok bool) {
-	dexFund = &UserFund{}
-	ok = deserializeFromDb(db, GetUserFundKey(address), dexFund)
+func GetFund(db vm_db.VmDb, address types.Address) (fund *Fund, ok bool) {
+	fund = &Fund{}
+	ok = deserializeFromDb(db, GetFundKey(address), fund)
 	return
 }
 
-func SaveUserFund(db vm_db.VmDb, address types.Address, dexFund *UserFund) {
-	serializeToDb(db, GetUserFundKey(address), dexFund)
+func SaveFund(db vm_db.VmDb, address types.Address, dexFund *Fund) {
+	serializeToDb(db, GetFundKey(address), dexFund)
 }
 
-func SubUserFund(db vm_db.VmDb, address types.Address, tokenId []byte, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
-	if userFund, ok := GetUserFund(db, address); ok {
+func ReduceAccount(db vm_db.VmDb, address types.Address, tokenId []byte, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
+	if fund, ok := GetFund(db, address); ok {
 		var foundAcc bool
-		for _, acc := range userFund.Accounts {
+		for _, acc := range fund.Accounts {
 			if bytes.Equal(acc.Token, tokenId) {
 				foundAcc = true
 				available := new(big.Int).SetBytes(acc.Available)
@@ -622,7 +622,7 @@ func SubUserFund(db vm_db.VmDb, address types.Address, tokenId []byte, amount *b
 			}
 		}
 		if foundAcc {
-			SaveUserFund(db, address, userFund)
+			SaveFund(db, address, fund)
 		} else {
 			err = ExceedFundAvailableErr
 		}
@@ -632,31 +632,31 @@ func SubUserFund(db vm_db.VmDb, address types.Address, tokenId []byte, amount *b
 	return
 }
 
-func BatchSaveUserFund(db vm_db.VmDb, address types.Address, funds map[types.TokenTypeId]*big.Int) error {
-	userFund, _ := GetUserFund(db, address)
+func UpdateFund(db vm_db.VmDb, address types.Address, accounts map[types.TokenTypeId]*big.Int) error {
+	userFund, _ := GetFund(db, address)
 	for _, acc := range userFund.Accounts {
 		if tk, err := types.BytesToTokenTypeId(acc.Token); err != nil {
 			return err
 		} else {
-			if amt, ok := funds[tk]; ok {
+			if amt, ok := accounts[tk]; ok {
 				acc.Available = AddBigInt(acc.Available, amt.Bytes())
-				delete(funds, tk)
+				delete(accounts, tk)
 			}
 		}
 	}
-	amtWithTks := MapToAmountWithTokens(funds)
+	amtWithTks := MapToAmountWithTokens(accounts)
 	for _, amtWtTk := range amtWithTks {
 		acc := &dexproto.Account{}
 		acc.Token = amtWtTk.Token.Bytes()
 		acc.Available = amtWtTk.Amount.Bytes()
 		userFund.Accounts = append(userFund.Accounts, acc)
 	}
-	SaveUserFund(db, address, userFund)
+	SaveFund(db, address, userFund)
 	return nil
 }
 
-func DepositUserAccount(db vm_db.VmDb, address types.Address, token types.TokenTypeId, amount *big.Int) (updatedAcc *dexproto.Account) {
-	userFund, _ := GetUserFund(db, address)
+func DepositAccount(db vm_db.VmDb, address types.Address, token types.TokenTypeId, amount *big.Int) (updatedAcc *dexproto.Account) {
+	userFund, _ := GetFund(db, address)
 	var foundToken bool
 	for _, acc := range userFund.Accounts {
 		if bytes.Equal(acc.Token, token.Bytes()) {
@@ -672,37 +672,37 @@ func DepositUserAccount(db vm_db.VmDb, address types.Address, token types.TokenT
 		updatedAcc.Available = amount.Bytes()
 		userFund.Accounts = append(userFund.Accounts, updatedAcc)
 	}
-	SaveUserFund(db, address, userFund)
+	SaveFund(db, address, userFund)
 	return
 }
 
-func GetUserFundKey(address types.Address) []byte {
+func GetFundKey(address types.Address) []byte {
 	return append(fundKeyPrefix, address.Bytes()...)
 }
 
-func GetCurrentFeeSum(db vm_db.VmDb, reader util.ConsensusReader) (*FeeSumByPeriod, bool) {
+func GetCurrentFeeSum(db vm_db.VmDb, reader util.ConsensusReader) (*DexFeesByPeriod, bool) {
 	return getFeeSumByKey(db, GetFeeSumKeyByPeriodId(GetCurrentPeriodId(db, reader)))
 }
 
-func GetFeeSumByPeriodId(db vm_db.VmDb, periodId uint64) (*FeeSumByPeriod, bool) {
+func GetDexFeesByPeriodId(db vm_db.VmDb, periodId uint64) (*DexFeesByPeriod, bool) {
 	return getFeeSumByKey(db, GetFeeSumKeyByPeriodId(periodId))
 }
 
-func getFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*FeeSumByPeriod, bool) {
-	feeSum := &FeeSumByPeriod{}
+func getFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*DexFeesByPeriod, bool) {
+	feeSum := &DexFeesByPeriod{}
 	ok := deserializeFromDb(db, feeKey, feeSum)
 	return feeSum, ok
 }
 
 //get all feeSums that not divided yet
-func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) map[uint64]*FeeSumByPeriod {
+func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) map[uint64]*DexFeesByPeriod {
 	var (
-		dexFeeSums    = make(map[uint64]*FeeSumByPeriod)
-		dexFeeSum     *FeeSumByPeriod
+		dexFeeSums    = make(map[uint64]*DexFeesByPeriod)
+		dexFeeSum     *DexFeesByPeriod
 		ok, everFound bool
 	)
 	for {
-		if dexFeeSum, ok = GetFeeSumByPeriodId(db, periodId); !ok { // found first valid period
+		if dexFeeSum, ok = GetDexFeesByPeriodId(db, periodId); !ok { // found first valid period
 			if periodId > 0 && !everFound {
 				periodId--
 				continue
@@ -711,7 +711,7 @@ func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) map[uint64]*
 			}
 		} else {
 			everFound = true
-			if !dexFeeSum.FinishFeeDividend {
+			if !dexFeeSum.FinishDividend {
 				dexFeeSums[periodId] = dexFeeSum
 			} else {
 				return dexFeeSums
@@ -724,39 +724,39 @@ func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) map[uint64]*
 	}
 }
 
-func SaveFeeSumWithPeriodId(db vm_db.VmDb, periodId uint64, feeSum *FeeSumByPeriod) {
+func SaveFeeSumWithPeriodId(db vm_db.VmDb, periodId uint64, feeSum *DexFeesByPeriod) {
 	serializeToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 }
 
 //fee sum used both by fee dividend and mined vx dividend
-func MarkFeeSumAsFeeDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
-	if feeSum.FinishVxMine {
+func MarkFeeSumAsFeeDivided(db vm_db.VmDb, feeSum *DexFeesByPeriod, periodId uint64) {
+	if feeSum.FinishMine {
 		setValueToDb(db, GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
-		feeSum.FinishFeeDividend = true
+		feeSum.FinishDividend = true
 		serializeToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 	}
 }
 
-func RollAndGentNewFeeSumByPeriod(db vm_db.VmDb, periodId uint64) (rolledFeeSumByPeriod *FeeSumByPeriod) {
-	formerId := GetFeeSumLastPeriodIdForRoll(db)
-	rolledFeeSumByPeriod = &FeeSumByPeriod{}
+func RollAndGentNewFeeSumByPeriod(db vm_db.VmDb, periodId uint64) (rolledFeeSumByPeriod *DexFeesByPeriod) {
+	formerId := GetDexFeesLastPeriodIdForRoll(db)
+	rolledFeeSumByPeriod = &DexFeesByPeriod{}
 	if formerId > 0 {
-		if formerFeeSumByPeriod, ok := GetFeeSumByPeriodId(db, formerId); !ok { // lastPeriod has been deleted on fee dividend
+		if formerDexFeesByPeriod, ok := GetDexFeesByPeriodId(db, formerId); !ok { // lastPeriod has been deleted on fee dividend
 			panic(NoFeeSumFoundForValidPeriodErr)
 		} else {
 			rolledFeeSumByPeriod.LastValidPeriod = formerId
-			for _, feeForDividend := range formerFeeSumByPeriod.FeesForDividend {
-				rolledFee := &dexproto.FeeSumForDividend{}
-				rolledFee.Token = feeForDividend.Token
-				_, rolledAmount := splitDividendPool(feeForDividend)
+			for _, feesForDividend := range formerDexFeesByPeriod.FeesForDividend {
+				rolledFee := &dexproto.FeesForDividend{}
+				rolledFee.Token = feesForDividend.Token
+				_, rolledAmount := splitDividendPool(feesForDividend)
 				rolledFee.DividendPoolAmount = rolledAmount.Bytes()
 				rolledFeeSumByPeriod.FeesForDividend = append(rolledFeeSumByPeriod.FeesForDividend, rolledFee)
 			}
 		}
 	} else {
 		// On startup, save one empty dividendPool for vite to diff db storage empty for serialize result
-		rolledFee := &dexproto.FeeSumForDividend{}
+		rolledFee := &dexproto.FeesForDividend{}
 		rolledFee.Token = ledger.ViteTokenId.Bytes()
 		rolledFeeSumByPeriod.FeesForDividend = append(rolledFeeSumByPeriod.FeesForDividend, rolledFee)
 	}
@@ -764,11 +764,11 @@ func RollAndGentNewFeeSumByPeriod(db vm_db.VmDb, periodId uint64) (rolledFeeSumB
 	return
 }
 
-func MarkFeeSumAsMinedVxDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
-	if feeSum.FinishFeeDividend {
+func MarkFeeSumAsMinedVxDivided(db vm_db.VmDb, feeSum *DexFeesByPeriod, periodId uint64) {
+	if feeSum.FinishDividend {
 		setValueToDb(db, GetFeeSumKeyByPeriodId(periodId), nil)
 	} else {
-		feeSum.FinishVxMine = true
+		feeSum.FinishMine = true
 		serializeToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 	}
 	if feeSum.LastValidPeriod > 0 {
@@ -777,7 +777,7 @@ func MarkFeeSumAsMinedVxDivided(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId 
 }
 
 func markFormerFeeSumsAsMined(db vm_db.VmDb, periodId uint64) {
-	if feeSum, ok := GetFeeSumByPeriodId(db, periodId); ok {
+	if feeSum, ok := GetDexFeesByPeriodId(db, periodId); ok {
 		MarkFeeSumAsMinedVxDivided(db, feeSum, periodId)
 	}
 }
@@ -786,7 +786,7 @@ func GetFeeSumKeyByPeriodId(periodId uint64) []byte {
 	return append(feeSumKeyPrefix, Uint64ToBytes(periodId)...)
 }
 
-func GetFeeSumLastPeriodIdForRoll(db vm_db.VmDb) uint64 {
+func GetDexFeesLastPeriodIdForRoll(db vm_db.VmDb) uint64 {
 	if lastPeriodIdBytes := getValueFromDb(db, lastFeeSumPeriodKey); len(lastPeriodIdBytes) == 8 {
 		return BytesToUint64(lastPeriodIdBytes)
 	} else {
@@ -798,34 +798,34 @@ func SaveFeeSumLastPeriodIdForRoll(db vm_db.VmDb, periodId uint64) {
 	setValueToDb(db, lastFeeSumPeriodKey, Uint64ToBytes(periodId))
 }
 
-func SaveCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, broker []byte, brokerFeeSum *BrokerFeeSumByPeriod) {
-	serializeToDb(db, GetCurrentBrokerFeeSumKey(db, reader, broker), brokerFeeSum)
+func SaveCurrentOperatorFees(db vm_db.VmDb, reader util.ConsensusReader, operator []byte, operatorFeesByPeriod *OperatorFeesByPeriod) {
+	serializeToDb(db, GetCurrentOperatorFeesKey(db, reader, operator), operatorFeesByPeriod)
 }
 
-func GetCurrentBrokerFeeSum(db vm_db.VmDb, reader util.ConsensusReader, broker []byte) (*BrokerFeeSumByPeriod, bool) {
-	return getBrokerFeeSumByKey(db, GetCurrentBrokerFeeSumKey(db, reader, broker))
+func GetCurrentOperatorFees(db vm_db.VmDb, reader util.ConsensusReader, operator []byte) (*OperatorFeesByPeriod, bool) {
+	return getOperatorFeesByKey(db, GetCurrentOperatorFeesKey(db, reader, operator))
 }
 
-func GetBrokerFeeSumByPeriodId(db vm_db.VmDb, broker []byte, periodId uint64) (*BrokerFeeSumByPeriod, bool) {
-	return getBrokerFeeSumByKey(db, GetBrokerFeeSumKeyByPeriodIdAndAddress(periodId, broker))
+func GetOperatorFeesSumByPeriodId(db vm_db.VmDb, operator []byte, periodId uint64) (*OperatorFeesByPeriod, bool) {
+	return getOperatorFeesByKey(db, GetOperatorFeesKeyByPeriodIdAndAddress(periodId, operator))
 }
 
-func GetCurrentBrokerFeeSumKey(db vm_db.VmDb, reader util.ConsensusReader, broker []byte) []byte {
-	return GetBrokerFeeSumKeyByPeriodIdAndAddress(GetCurrentPeriodId(db, reader), broker)
+func GetCurrentOperatorFeesKey(db vm_db.VmDb, reader util.ConsensusReader, operator []byte) []byte {
+	return GetOperatorFeesKeyByPeriodIdAndAddress(GetCurrentPeriodId(db, reader), operator)
 }
 
-func DeleteBrokerFeeSumByKey(db vm_db.VmDb, key []byte) {
+func DeleteOperatorFeesByKey(db vm_db.VmDb, key []byte) {
 	setValueToDb(db, key, nil)
 }
 
-func getBrokerFeeSumByKey(db vm_db.VmDb, feeKey []byte) (*BrokerFeeSumByPeriod, bool) {
-	brokerFeeSum := &BrokerFeeSumByPeriod{}
-	ok := deserializeFromDb(db, feeKey, brokerFeeSum)
-	return brokerFeeSum, ok
+func getOperatorFeesByKey(db vm_db.VmDb, feeKey []byte) (*OperatorFeesByPeriod, bool) {
+	operatorFeesByPeriod := &OperatorFeesByPeriod{}
+	ok := deserializeFromDb(db, feeKey, operatorFeesByPeriod)
+	return operatorFeesByPeriod, ok
 }
 
-func GetBrokerFeeSumKeyByPeriodIdAndAddress(periodId uint64, address []byte) []byte {
-	return append(append(brokerFeeSumKeyPrefix, Uint64ToBytes(periodId)...), address...)
+func GetOperatorFeesKeyByPeriodIdAndAddress(periodId uint64, address []byte) []byte {
+	return append(append(operatorFeesKeyPrefix, Uint64ToBytes(periodId)...), address...)
 }
 
 func GetUserFees(db vm_db.VmDb, address []byte) (userFees *UserFees, ok bool) {
@@ -859,7 +859,7 @@ func TruncateUserFeesToPeriod(userFees *UserFees, periodId uint64) (truncated bo
 	return
 }
 
-func IsValidFeeForMine(userFee *dexproto.UserFeeAccount, mineThreshold *big.Int) bool {
+func IsValidFeeForMine(userFee *dexproto.FeeAccount, mineThreshold *big.Int) bool {
 	return new(big.Int).Add(new(big.Int).SetBytes(userFee.BaseAmount), new(big.Int).SetBytes(userFee.InviteBonusAmount)).Cmp(mineThreshold) >= 0
 }
 
@@ -1069,7 +1069,7 @@ func DeletePendingNewMarkets(db vm_db.VmDb) {
 }
 
 //handle case on duplicate callback for getTokenInfo
-func FilterPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId) (action *dexproto.SetQuoteAction, err error) {
+func FilterPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId) (action *dexproto.SetQuoteTokenAction, err error) {
 	if pendingSetQuotes, ok := GetPendingSetQuotes(db); !ok {
 		return nil, GetTokenInfoCallbackInnerConflictErr
 	} else {
@@ -1093,7 +1093,7 @@ func FilterPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId) (action *dex
 
 func AddToPendingSetQuotes(db vm_db.VmDb, token types.TokenTypeId, quoteType uint8) {
 	pendingSetQuotes, _ := GetPendingSetQuotes(db)
-	action := &dexproto.SetQuoteAction{}
+	action := &dexproto.SetQuoteTokenAction{}
 	action.Token = token.Bytes()
 	action.QuoteTokenType = int32(quoteType)
 	pendingSetQuotes.PendingActions = append(pendingSetQuotes.PendingActions, action)
@@ -1147,12 +1147,12 @@ func AddToPendingTransferTokenOwners(db vm_db.VmDb, token types.TokenTypeId, ori
 	SavePendingTransferTokenOwners(db, pendings)
 }
 
-func SavePendingTransferTokenOwners(db vm_db.VmDb, pendings *PendingTransferTokenOwners) {
+func SavePendingTransferTokenOwners(db vm_db.VmDb, pendings *PendingTransferTokenOwnerActions) {
 	serializeToDb(db, pendingTransferTokenOwnerActionsKey, pendings)
 }
 
-func GetPendingTransferTokenOwners(db vm_db.VmDb) (pendings *PendingTransferTokenOwners, ok bool) {
-	pendings = &PendingTransferTokenOwners{}
+func GetPendingTransferTokenOwners(db vm_db.VmDb) (pendings *PendingTransferTokenOwnerActions, ok bool) {
+	pendings = &PendingTransferTokenOwnerActions{}
 	ok = deserializeFromDb(db, pendingTransferTokenOwnerActionsKey, pendings)
 	return
 }
@@ -1408,128 +1408,128 @@ func SetTriggerAddress(db vm_db.VmDb, address types.Address) {
 	setValueToDb(db, triggerAddressKey, address.Bytes())
 }
 
-func GetPledgeForVx(db vm_db.VmDb, address types.Address) *big.Int {
-	if bs := getValueFromDb(db, GetPledgeForVxKey(address)); len(bs) > 0 {
+func GetStackedForVx(db vm_db.VmDb, address types.Address) *big.Int {
+	if bs := getValueFromDb(db, GetStackedForVxKey(address)); len(bs) > 0 {
 		return new(big.Int).SetBytes(bs)
 	} else {
 		return big.NewInt(0)
 	}
 }
 
-func SavePledgeForVx(db vm_db.VmDb, address types.Address, amount *big.Int) {
-	setValueToDb(db, GetPledgeForVxKey(address), amount.Bytes())
+func SaveStackedForVx(db vm_db.VmDb, address types.Address, amount *big.Int) {
+	setValueToDb(db, GetStackedForVxKey(address), amount.Bytes())
 }
 
-func DeletePledgeForVx(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, GetPledgeForVxKey(address), nil)
+func DeleteStackedForVx(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetStackedForVxKey(address), nil)
 }
 
-func GetPledgeForVxKey(address types.Address) []byte {
-	return append(pledgeForVxKeyPrefix, address.Bytes()...)
+func GetStackedForVxKey(address types.Address) []byte {
+	return append(stackedForVxKeyPrefix, address.Bytes()...)
 }
 
-func GetPledgeForVip(db vm_db.VmDb, address types.Address) (pledgeVip *PledgeVip, ok bool) {
-	pledgeVip = &PledgeVip{}
-	ok = deserializeFromDb(db, GetPledgeForVipKey(address), pledgeVip)
+func GetStackedForVIP(db vm_db.VmDb, address types.Address) (stackedForVIP *StackedForVIP, ok bool) {
+	stackedForVIP = &StackedForVIP{}
+	ok = deserializeFromDb(db, GetStackedForVIPKey(address), stackedForVIP)
 	return
 }
 
-func SavePledgeForVip(db vm_db.VmDb, address types.Address, pledgeVip *PledgeVip) {
-	serializeToDb(db, GetPledgeForVipKey(address), pledgeVip)
+func SaveStackedForVIP(db vm_db.VmDb, address types.Address, stackedForVIP *StackedForVIP) {
+	serializeToDb(db, GetStackedForVIPKey(address), stackedForVIP)
 }
 
-func DeletePledgeForVip(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, GetPledgeForVipKey(address), nil)
+func DeleteStackedForVIP(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetStackedForVIPKey(address), nil)
 }
 
-func GetPledgeForVipKey(address types.Address) []byte {
-	return append(pledgeForVipKeyPrefix, address.Bytes()...)
+func GetStackedForVIPKey(address types.Address) []byte {
+	return append(stackedForVIPKeyPrefix, address.Bytes()...)
 }
 
-func GetPledgeForSuperVip(db vm_db.VmDb, address types.Address) (pledgeVip *PledgeVip, ok bool) {
-	pledgeVip = &PledgeVip{}
-	ok = deserializeFromDb(db, GetPledgeForSuperVipKey(address), pledgeVip)
+func GetStackedForSuperVIP(db vm_db.VmDb, address types.Address) (stackedForVIP *StackedForVIP, ok bool) {
+	stackedForVIP = &StackedForVIP{}
+	ok = deserializeFromDb(db, GetStackedForSuperVIPKey(address), stackedForVIP)
 	return
 }
 
-func SavePledgeForSuperVip(db vm_db.VmDb, address types.Address, pledgeVip *PledgeVip) {
-	serializeToDb(db, GetPledgeForSuperVipKey(address), pledgeVip)
+func SaveStackedForSuperVIP(db vm_db.VmDb, address types.Address, stackedForVIP *StackedForVIP) {
+	serializeToDb(db, GetStackedForSuperVIPKey(address), stackedForVIP)
 }
 
-func DeletePledgeForSuperVip(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, GetPledgeForSuperVipKey(address), nil)
+func DeleteStackedForSuperVIP(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetStackedForSuperVIPKey(address), nil)
 }
 
-func GetPledgeForSuperVipKey(address types.Address) []byte {
-	return append(pledgeForSuperVipKeyPrefix, address.Bytes()...)
+func GetStackedForSuperVIPKey(address types.Address) []byte {
+	return append(stackedForSuperVIPKeyPrefix, address.Bytes()...)
 }
 
-func GetPledgesForVx(db vm_db.VmDb, address types.Address) (pledgesForVx *PledgesForVx, ok bool) {
-	pledgesForVx = &PledgesForVx{}
-	ok = deserializeFromDb(db, GetPledgesForVxKey(address), pledgesForVx)
+func GetStackedForVxs(db vm_db.VmDb, address types.Address) (stackedForVxs *StackedForVxs, ok bool) {
+	stackedForVxs = &StackedForVxs{}
+	ok = deserializeFromDb(db, GetStackedForVxsKey(address), stackedForVxs)
 	return
 }
 
-func SavePledgesForVx(db vm_db.VmDb, address types.Address, ps *PledgesForVx) {
-	serializeToDb(db, GetPledgesForVxKey(address), ps)
+func SaveStackedForVxs(db vm_db.VmDb, address types.Address, ps *StackedForVxs) {
+	serializeToDb(db, GetStackedForVxsKey(address), ps)
 }
 
-func DeletePledgesForVx(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, GetPledgesForVxKey(address), nil)
+func DeleteStackedForVxs(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetStackedForVxsKey(address), nil)
 }
 
-func GetPledgesForVxKey(address types.Address) []byte {
-	return append(pledgesForVxKeyPrefix, address.Bytes()...)
+func GetStackedForVxsKey(address types.Address) []byte {
+	return append(stackedForVxsKeyPrefix, address.Bytes()...)
 }
 
-func GetPledgesForVxSum(db vm_db.VmDb) (pledgesForVx *PledgesForVx, ok bool) {
-	pledgesForVx = &PledgesForVx{}
-	ok = deserializeFromDb(db, pledgesForVxSumKey, pledgesForVx)
+func GetDexStackedForVxs(db vm_db.VmDb) (stackedForVxs *StackedForVxs, ok bool) {
+	stackedForVxs = &StackedForVxs{}
+	ok = deserializeFromDb(db, stackedForVxsKey, stackedForVxs)
 	return
 }
 
-func SavePledgesForVxSum(db vm_db.VmDb, ps *PledgesForVx) {
-	serializeToDb(db, pledgesForVxSumKey, ps)
+func SaveDexStackedForVxs(db vm_db.VmDb, ps *StackedForVxs) {
+	serializeToDb(db, stackedForVxsKey, ps)
 }
 
-func IsValidPledgeAmountForVx(amount *big.Int) bool {
-	return amount.Cmp(PledgeForVxThreshold) >= 0
+func IsValidStackAmountForVx(amount *big.Int) bool {
+	return amount.Cmp(StackForVxThreshold) >= 0
 }
 
-func IsValidPledgeAmountBytesForVx(amount []byte) bool {
-	return new(big.Int).SetBytes(amount).Cmp(PledgeForVxThreshold) >= 0
+func IsValidStackAmountBytesForVx(amount []byte) bool {
+	return new(big.Int).SetBytes(amount).Cmp(StackForVxThreshold) >= 0
 }
 
-func MatchPledgeForVxByPeriod(pledgesForVx *PledgesForVx, periodId uint64, checkDelete bool) (bool, []byte, bool, bool) {
+func MatchStackedForVxByPeriod(stackedForVxs *StackedForVxs, periodId uint64, checkDelete bool) (bool, []byte, bool, bool) {
 	var (
-		pledgeAmtBytes         []byte
-		matchIndex             int
-		needUpdatePledgesForVx bool
+		stackedAmtBytes         []byte
+		matchIndex              int
+		needUpdateStackedForVxs bool
 	)
-	for i, pledge := range pledgesForVx.Pledges {
-		if periodId >= pledge.Period {
-			pledgeAmtBytes = pledge.Amount
+	for i, stack := range stackedForVxs.Stacks {
+		if periodId >= stack.Period {
+			stackedAmtBytes = stack.Amount
 			matchIndex = i
 		} else {
 			break
 		}
 	}
-	if len(pledgeAmtBytes) == 0 {
-		return false, nil, false, checkDelete && CheckUserPledgesForVxCanBeDelete(pledgesForVx)
+	if len(stackedAmtBytes) == 0 {
+		return false, nil, false, checkDelete && CheckStackedForVxsCanBeDelete(stackedForVxs)
 	}
 	if matchIndex > 0 { //remove obsolete items, but leave current matched item
-		pledgesForVx.Pledges = pledgesForVx.Pledges[matchIndex:]
-		needUpdatePledgesForVx = true
+		stackedForVxs.Stacks = stackedForVxs.Stacks[matchIndex:]
+		needUpdateStackedForVxs = true
 	}
-	if len(pledgesForVx.Pledges) > 1 && pledgesForVx.Pledges[1].Period == periodId+1 {
-		pledgesForVx.Pledges = pledgesForVx.Pledges[1:]
-		needUpdatePledgesForVx = true
+	if len(stackedForVxs.Stacks) > 1 && stackedForVxs.Stacks[1].Period == periodId+1 {
+		stackedForVxs.Stacks = stackedForVxs.Stacks[1:]
+		needUpdateStackedForVxs = true
 	}
-	return true, pledgeAmtBytes, needUpdatePledgesForVx, checkDelete && CheckUserPledgesForVxCanBeDelete(pledgesForVx)
+	return true, stackedAmtBytes, needUpdateStackedForVxs, checkDelete && CheckStackedForVxsCanBeDelete(stackedForVxs)
 }
 
-func CheckUserPledgesForVxCanBeDelete(pledgesForVx *PledgesForVx) bool {
-	return len(pledgesForVx.Pledges) == 1 && !IsValidPledgeAmountBytesForVx(pledgesForVx.Pledges[0].Amount)
+func CheckStackedForVxsCanBeDelete(stackedForVxs *StackedForVxs) bool {
+	return len(stackedForVxs.Stacks) == 1 && !IsValidStackAmountBytesForVx(stackedForVxs.Stacks[0].Amount)
 }
 
 func GetTimestampInt64(db vm_db.VmDb) int64 {

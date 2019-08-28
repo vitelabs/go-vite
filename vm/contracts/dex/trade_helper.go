@@ -19,7 +19,7 @@ type ParamDexCancelOrder struct {
 	OrderId []byte
 }
 
-func CleanExpireOrders(db vm_db.VmDb, orderIds []byte) (map[types.Address]map[bool]*dexproto.FundSettle, *MarketInfo, error) {
+func CleanExpireOrders(db vm_db.VmDb, orderIds []byte) (map[types.Address]map[bool]*dexproto.AccountSettle, *MarketInfo, error) {
 	var (
 		matcher       *Matcher
 		marketId      int32
@@ -121,7 +121,7 @@ func TryUpdateTimestamp(db vm_db.VmDb, timestamp int64, preHash types.Hash) {
 	}
 }
 
-type FundSettleSorter []*dexproto.FundSettle
+type FundSettleSorter []*dexproto.AccountSettle
 
 func (st FundSettleSorter) Len() int {
 	return len(st)
@@ -135,7 +135,7 @@ func (st FundSettleSorter) Less(i, j int) bool {
 	return st[i].IsTradeToken
 }
 
-type UserFundSettleSorter []*dexproto.UserFundSettle
+type UserFundSettleSorter []*dexproto.FundSettle
 
 func (st UserFundSettleSorter) Len() int {
 	return len(st)
@@ -154,7 +154,7 @@ func (st UserFundSettleSorter) Less(i, j int) bool {
 	}
 }
 
-type UserFeeSettleSorter []*dexproto.UserFeeSettle
+type UserFeeSettleSorter []*dexproto.FeeSettle
 
 func (st UserFeeSettleSorter) Len() int {
 	return len(st)

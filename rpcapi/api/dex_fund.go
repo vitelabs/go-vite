@@ -15,48 +15,48 @@ import (
 	"math/big"
 )
 
-type DexFundApi struct {
+type DexApi struct {
 	vite  *vite.Vite
 	chain chain.Chain
 	log   log15.Logger
 }
 
-func NewDexFundApi(vite *vite.Vite) *DexFundApi {
-	return &DexFundApi{
+func NewDexApi(vite *vite.Vite) *DexApi {
+	return &DexApi{
 		vite:  vite,
 		chain: vite.Chain(),
-		log:   log15.New("module", "rpc_api/dexfund_api"),
+		log:   log15.New("module", "rpc_api/dex_api"),
 	}
 }
 
-func (f DexFundApi) String() string {
-	return "DexFundApi"
+func (f DexApi) String() string {
+	return "DexApi"
 }
 
-type AccountFundInfo struct {
+type AccountBalanceInfo struct {
 	TokenInfo *RpcTokenInfo `json:"tokenInfo,omitempty"`
 	Available string        `json:"available"`
 	Locked    string        `json:"locked"`
 }
 
-func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenTypeId) (map[types.TokenTypeId]*AccountFundInfo, error) {
+func (f DexApi) GetAccountBalanceInfo(addr types.Address, tokenId *types.TokenTypeId) (map[types.TokenTypeId]*AccountBalanceInfo, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	dexFund, _ := dex.GetUserFund(db, addr)
-	fundInfo, err := dex.GetAccountFundInfo(dexFund, tokenId)
+	fund, _ := dex.GetFund(db, addr)
+	accounts, err := dex.GetAccounts(fund, tokenId)
 	if err != nil {
 		return nil, err
 	}
 
-	accFundInfo := make(map[types.TokenTypeId]*AccountFundInfo, 0)
-	for _, v := range fundInfo {
+	balanceInfo := make(map[types.TokenTypeId]*AccountBalanceInfo, 0)
+	for _, v := range accounts {
 		tokenInfo, err := f.chain.GetTokenInfoById(v.Token)
 		if err != nil {
 			return nil, err
 		}
-		info := &AccountFundInfo{TokenInfo: RawTokenInfoToRpc(tokenInfo, v.Token)}
+		info := &AccountBalanceInfo{TokenInfo: RawTokenInfoToRpc(tokenInfo, v.Token)}
 		a := "0"
 		if v.Available != nil {
 			a = v.Available.String()
@@ -68,12 +68,12 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 			l = v.Locked.String()
 		}
 		info.Locked = l
-		accFundInfo[v.Token] = info
+		balanceInfo[v.Token] = info
 	}
-	return accFundInfo, nil
+	return balanceInfo, nil
 }
 
-func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *types.TokenTypeId, status byte) (map[types.TokenTypeId]string, error) {
+func (f DexApi) GetAccountBalanceInfoByStatus(addr types.Address, tokenId *types.TokenTypeId, status byte) (map[types.TokenTypeId]string, error) {
 	if status != 0 && status != 1 && status != 2 {
 		return nil, errors.New("args's status error, 1 for available, 2 for locked, 0 for total")
 	}
@@ -82,13 +82,13 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 	if err != nil {
 		return nil, err
 	}
-	dexFund, _ := dex.GetUserFund(db, addr)
-	fundInfo, err := dex.GetAccountFundInfo(dexFund, tokenId)
+	fund, _ := dex.GetFund(db, addr)
+	fundInfo, err := dex.GetAccounts(fund, tokenId)
 	if err != nil {
 		return nil, err
 	}
 
-	fundInfoMap := make(map[types.TokenTypeId]string, 0)
+	balanceInfo := make(map[types.TokenTypeId]string, 0)
 	for _, v := range fundInfo {
 		amount := big.NewInt(0)
 		if a := v.Available; a != nil {
@@ -101,12 +101,12 @@ func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *type
 				amount.Add(amount, l)
 			}
 		}
-		fundInfoMap[v.Token] = amount.String()
+		balanceInfo[v.Token] = amount.String()
 	}
-	return fundInfoMap, nil
+	return balanceInfo, nil
 }
 
-func (f DexFundApi) GetOrderByUserBlockHash(blockHash types.Hash) (*RpcOrder, error) {
+func (f DexApi) GetOrderByUserBlockHash(blockHash types.Hash) (*RpcOrder, error) {
 	if block, err := f.chain.GetCompleteBlockByHash(blockHash); err != nil {
 		return nil, err
 	} else {
@@ -152,7 +152,7 @@ func (f DexFundApi) GetOrderByUserBlockHash(blockHash types.Hash) (*RpcOrder, er
 	}
 }
 
-func (f DexFundApi) GetTokenInfo(token types.TokenTypeId) (*apidex.RpcDexTokenInfo, error) {
+func (f DexApi) GetTokenInfo(token types.TokenTypeId) (*apidex.RpcDexTokenInfo, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (f DexFundApi) GetTokenInfo(token types.TokenTypeId) (*apidex.RpcDexTokenIn
 	}
 }
 
-func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*apidex.RpcMarketInfo, error) {
+func (f DexApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*apidex.RpcMarketInfo, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -176,7 +176,7 @@ func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*ap
 	}
 }
 
-func (f DexFundApi) GetCurrentDividendPools() (map[types.TokenTypeId]*apidex.DividendPoolInfo, error) {
+func (f DexApi) GetCurrentDividendPools() (map[types.TokenTypeId]*apidex.DividendPoolInfo, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -200,25 +200,25 @@ func (f DexFundApi) GetCurrentDividendPools() (map[types.TokenTypeId]*apidex.Div
 	return pools, nil
 }
 
-func (f DexFundApi) IsPledgeVip(address types.Address) (bool, error) {
+func (f DexApi) IsPledgeVip(address types.Address) (bool, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return false, err
 	}
-	_, ok := dex.GetPledgeForVip(db, address)
+	_, ok := dex.GetStackedForVIP(db, address)
 	return ok, nil
 }
 
-func (f DexFundApi) IsPledgeSuperVip(address types.Address) (bool, error) {
+func (f DexApi) IsPledgeSuperVip(address types.Address) (bool, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return false, err
 	}
-	_, ok := dex.GetPledgeForSuperVip(db, address)
+	_, ok := dex.GetStackedForSuperVIP(db, address)
 	return ok, nil
 }
 
-func (f DexFundApi) IsViteXStopped() (bool, error) {
+func (f DexApi) IsViteXStopped() (bool, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return false, err
@@ -226,7 +226,7 @@ func (f DexFundApi) IsViteXStopped() (bool, error) {
 	return dex.IsViteXStopped(db), nil
 }
 
-func (f DexFundApi) GetInviterCode(address types.Address) (uint32, error) {
+func (f DexApi) GetInviterCode(address types.Address) (uint32, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return 0, err
@@ -234,7 +234,7 @@ func (f DexFundApi) GetInviterCode(address types.Address) (uint32, error) {
 	return dex.GetCodeByInviter(db, address), nil
 }
 
-func (f DexFundApi) GetInviteeCode(address types.Address) (uint32, error) {
+func (f DexApi) GetInviteeCode(address types.Address) (uint32, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return 0, err
@@ -250,7 +250,7 @@ func (f DexFundApi) GetInviteeCode(address types.Address) (uint32, error) {
 	}
 }
 
-func (f DexFundApi) IsMarketGrantedToAgent(principal, agent types.Address, tradeToken, quoteToken types.TokenTypeId) (bool, error) {
+func (f DexApi) IsMarketGrantedToAgent(principal, agent types.Address, tradeToken, quoteToken types.TokenTypeId) (bool, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return false, err
@@ -262,7 +262,7 @@ func (f DexFundApi) IsMarketGrantedToAgent(principal, agent types.Address, trade
 	}
 }
 
-func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err error) {
+func (f DexApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -296,7 +296,7 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 	} else {
 		return
 	}
-	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateForPledgeMine); success {
+	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateForStackMine); success {
 		mineInfo.PledgeMine = amount.String()
 	} else {
 		return
@@ -307,7 +307,7 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 	return
 }
 
-func (f DexFundApi) GetCurrentFeesForMine() (fees map[int32]string, err error) {
+func (f DexApi) GetCurrentFeesForMine() (fees map[int32]string, err error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -323,19 +323,19 @@ func (f DexFundApi) GetCurrentFeesForMine() (fees map[int32]string, err error) {
 	}
 }
 
-func (f DexFundApi) GetCurrentPledgeForVxSum() (string, error) {
+func (f DexApi) GetCurrentPledgeForVxSum() (string, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return "0", err
 	}
-	if vxSums, ok := dex.GetPledgesForVxSum(db); !ok {
+	if vxSums, ok := dex.GetDexStackedForVxs(db); !ok {
 		return "0", nil
 	} else {
-		pledgesLen := len(vxSums.Pledges)
+		pledgesLen := len(vxSums.Stacks)
 		if pledgesLen == 0 {
 			return "0", nil
 		} else {
-			return new(big.Int).SetBytes(vxSums.Pledges[pledgesLen-1].Amount).String(), nil
+			return new(big.Int).SetBytes(vxSums.Stacks[pledgesLen-1].Amount).String(), nil
 		}
 	}
 }
@@ -346,7 +346,7 @@ type DexFundPrivateApi struct {
 	log   log15.Logger
 }
 
-func NewDexFundPrivateApi(vite *vite.Vite) *DexFundPrivateApi {
+func NewDexPrivateApi(vite *vite.Vite) *DexFundPrivateApi {
 	return &DexFundPrivateApi{
 		vite:  vite,
 		chain: vite.Chain(),
@@ -382,7 +382,7 @@ func (f DexFundPrivateApi) GetPeriodId() (uint64, error) {
 	return dex.GetCurrentPeriodId(db, getConsensusReader(f.vite)), nil
 }
 
-func (f DexFundPrivateApi) GetCurrentFeeSum() (*apidex.RpcFeeSumByPeriod, error) {
+func (f DexFundPrivateApi) GetCurrentFeeSum() (*apidex.RpcDexFeesByPeriod, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -394,36 +394,36 @@ func (f DexFundPrivateApi) GetCurrentFeeSum() (*apidex.RpcFeeSumByPeriod, error)
 	}
 }
 
-func (f DexFundPrivateApi) GetFeeSumByPeriod(periodId uint64) (*apidex.RpcFeeSumByPeriod, error) {
+func (f DexFundPrivateApi) GetFeeSumByPeriod(periodId uint64) (*apidex.RpcDexFeesByPeriod, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	if feeSum, ok := dex.GetFeeSumByPeriodId(db, periodId); !ok {
+	if feeSum, ok := dex.GetDexFeesByPeriodId(db, periodId); !ok {
 		return nil, nil
 	} else {
 		return apidex.FeeSumByPeriodToRpc(feeSum), nil
 	}
 }
 
-func (f DexFundPrivateApi) GetCurrentBrokerFeeSum(broker types.Address) (*apidex.RpcBrokerFeeSumByPeriod, error) {
+func (f DexFundPrivateApi) GetCurrentBrokerFeeSum(broker types.Address) (*apidex.RpcOperatorFeesByPeriod, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	if brokerFeeSum, ok := dex.GetCurrentBrokerFeeSum(db, getConsensusReader(f.vite), broker.Bytes()); !ok {
+	if brokerFeeSum, ok := dex.GetCurrentOperatorFees(db, getConsensusReader(f.vite), broker.Bytes()); !ok {
 		return nil, nil
 	} else {
 		return apidex.BrokerFeeSumByPeriodToRpc(brokerFeeSum), nil
 	}
 }
 
-func (f DexFundPrivateApi) GetBrokerFeeSumByPeriod(periodId uint64, broker types.Address) (*apidex.RpcBrokerFeeSumByPeriod, error) {
+func (f DexFundPrivateApi) GetBrokerFeeSumByPeriod(periodId uint64, broker types.Address) (*apidex.RpcOperatorFeesByPeriod, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	if brokerFeeSum, ok := dex.GetBrokerFeeSumByPeriodId(db, broker.Bytes(), periodId); !ok {
+	if brokerFeeSum, ok := dex.GetOperatorFeesSumByPeriodId(db, broker.Bytes(), periodId); !ok {
 		return nil, nil
 	} else {
 		return apidex.BrokerFeeSumByPeriodToRpc(brokerFeeSum), nil
@@ -475,12 +475,12 @@ func (f DexFundPrivateApi) GetVxMinePool() (string, error) {
 	return balance.String(), nil
 }
 
-func (f DexFundPrivateApi) GetPledgeForVip(address types.Address) (*dex.PledgeVip, error) {
+func (f DexFundPrivateApi) GetPledgeForVip(address types.Address) (*dex.StackedForVIP, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	if info, ok := dex.GetPledgeForVip(db, address); ok {
+	if info, ok := dex.GetStackedForVIP(db, address); ok {
 		return info, nil
 	} else {
 		return nil, nil
@@ -492,7 +492,7 @@ func (f DexFundPrivateApi) GetPledgeForVX(address types.Address) (string, error)
 	if err != nil {
 		return "", err
 	}
-	return dex.GetPledgeForVx(db, address).String(), nil
+	return dex.GetStackedForVx(db, address).String(), nil
 }
 
 func (f DexFundPrivateApi) GetPledgesForVx(address types.Address) (*apidex.RpcPledgesForVx, error) {
@@ -500,7 +500,7 @@ func (f DexFundPrivateApi) GetPledgesForVx(address types.Address) (*apidex.RpcPl
 	if err != nil {
 		return nil, err
 	}
-	if pledgesForVx, ok := dex.GetPledgesForVx(db, address); ok {
+	if pledgesForVx, ok := dex.GetStackedForVxs(db, address); ok {
 		return apidex.PledgesForVxToRpc(pledgesForVx), nil
 	} else {
 		return nil, nil
@@ -512,7 +512,7 @@ func (f DexFundPrivateApi) GetPledgesForVxSum() (*apidex.RpcPledgesForVx, error)
 	if err != nil {
 		return nil, err
 	}
-	if pledgesForVxSum, ok := dex.GetPledgesForVxSum(db); ok {
+	if pledgesForVxSum, ok := dex.GetDexStackedForVxs(db); ok {
 		return apidex.PledgesForVxToRpc(pledgesForVxSum), nil
 	} else {
 		return nil, nil

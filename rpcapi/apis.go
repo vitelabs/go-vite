@@ -96,26 +96,19 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewPledgeApi(vite),
 			Public:    true,
 		}
-	case "dexfund":
+	case "dex":
 		return rpc.API{
-			Namespace: "dexfund",
+			Namespace: "dex",
 			Version:   "1.0",
-			Service:   api.NewDexFundApi(vite),
+			Service:   api.NewDexApi(vite),
 			Public:    true,
 		}
-	case "private_dexfund":
+	case "private_dex":
 		return rpc.API{
-			Namespace: "dexfund",
+			Namespace: "dex",
 			Version:   "1.0",
-			Service:   api.NewDexFundPrivateApi(vite),
+			Service:   api.NewDexPrivateApi(vite),
 			Public:    false,
-		}
-	case "dextrade":
-		return rpc.API{
-			Namespace: "dextrade",
-			Version:   "1.0",
-			Service:   api.NewDexTradeApi(vite),
-			Public:    true,
 		}
 	case "consensusGroup":
 		return rpc.API{

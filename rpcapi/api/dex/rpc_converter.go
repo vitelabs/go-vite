@@ -13,21 +13,21 @@ type DividendPoolInfo struct {
 }
 
 type RpcMarketInfo struct {
-	MarketId           int32  `json:"marketId"`
-	MarketSymbol       string `json:"marketSymbol"`
-	TradeToken         string `json:"tradeToken"`
-	QuoteToken         string `json:"quoteToken"`
-	QuoteTokenType     int32  `json:"quoteTokenType"`
-	TradeTokenDecimals int32  `json:"tradeTokenDecimals,omitempty"`
-	QuoteTokenDecimals int32  `json:"quoteTokenDecimals"`
-	TakerBrokerFeeRate int32  `json:"takerBrokerFeeRate"`
-	MakerBrokerFeeRate int32  `json:"makerBrokerFeeRate"`
-	AllowMine          bool   `json:"allowMine"`
-	Valid              bool   `json:"valid"`
-	Owner              string `json:"owner"`
-	Creator            string `json:"creator"`
-	Stopped            bool   `json:"stopped"`
-	Timestamp          int64  `json:"timestamp"`
+	MarketId             int32  `json:"marketId"`
+	MarketSymbol         string `json:"marketSymbol"`
+	TradeToken           string `json:"tradeToken"`
+	QuoteToken           string `json:"quoteToken"`
+	QuoteTokenType       int32  `json:"quoteTokenType"`
+	TradeTokenDecimals   int32  `json:"tradeTokenDecimals,omitempty"`
+	QuoteTokenDecimals   int32  `json:"quoteTokenDecimals"`
+	TakerOperatorFeeRate int32  `json:"takerOperatorFeeRate"`
+	MakerOperatorFeeRate int32  `json:"makerOperatorFeeRate"`
+	AllowMine            bool   `json:"allowMine"`
+	Valid                bool   `json:"valid"`
+	Owner                string `json:"owner"`
+	Creator              string `json:"creator"`
+	Stopped              bool   `json:"stopped"`
+	Timestamp            int64  `json:"timestamp"`
 }
 
 func MarketInfoToRpc(mkInfo *dex.MarketInfo) *RpcMarketInfo {
@@ -38,21 +38,21 @@ func MarketInfoToRpc(mkInfo *dex.MarketInfo) *RpcMarketInfo {
 		owner, _ := types.BytesToAddress(mkInfo.Owner)
 		creator, _ := types.BytesToAddress(mkInfo.Creator)
 		rmk = &RpcMarketInfo{
-			MarketId:           mkInfo.MarketId,
-			MarketSymbol:       mkInfo.MarketSymbol,
-			TradeToken:         tradeToken.String(),
-			QuoteToken:         quoteToken.String(),
-			QuoteTokenType:     mkInfo.QuoteTokenType,
-			TradeTokenDecimals: mkInfo.TradeTokenDecimals,
-			QuoteTokenDecimals: mkInfo.QuoteTokenDecimals,
-			TakerBrokerFeeRate: mkInfo.TakerBrokerFeeRate,
-			MakerBrokerFeeRate: mkInfo.MakerBrokerFeeRate,
-			AllowMine:          mkInfo.AllowMine,
-			Valid:              mkInfo.Valid,
-			Owner:              owner.String(),
-			Creator:            creator.String(),
-			Stopped:            mkInfo.Stopped,
-			Timestamp:          mkInfo.Timestamp,
+			MarketId:             mkInfo.MarketId,
+			MarketSymbol:         mkInfo.MarketSymbol,
+			TradeToken:           tradeToken.String(),
+			QuoteToken:           quoteToken.String(),
+			QuoteTokenType:       mkInfo.QuoteTokenType,
+			TradeTokenDecimals:   mkInfo.TradeTokenDecimals,
+			QuoteTokenDecimals:   mkInfo.QuoteTokenDecimals,
+			TakerOperatorFeeRate: mkInfo.TakerOperatorFeeRate,
+			MakerOperatorFeeRate: mkInfo.MakerOperatorFeeRate,
+			AllowMine:            mkInfo.AllowMine,
+			Valid:                mkInfo.Valid,
+			Owner:                owner.String(),
+			Creator:              creator.String(),
+			Stopped:              mkInfo.Stopped,
+			Timestamp:            mkInfo.Timestamp,
 		}
 	}
 	return rmk
@@ -83,99 +83,99 @@ func TokenInfoToRpc(tinfo *dex.TokenInfo, tti types.TokenTypeId) *RpcDexTokenInf
 	return rt
 }
 
-type RpcFeeSumForDividend struct {
+type RpcFeesForDividend struct {
 	Token              string `json:"token"`
 	DividendPoolAmount string `json:"dividendPoolAmount"`
 }
 
-type RpcFeeSumForMine struct {
+type RpcFeesForMine struct {
 	QuoteTokenType    int32  `json:"quoteTokenType"`
 	BaseAmount        string `json:"baseAmount"`
 	InviteBonusAmount string `json:"inviteBonusAmount"`
 }
 
-type RpcFeeSumByPeriod struct {
-	FeesForDividend   []*RpcFeeSumForDividend `json:"feesForDividend"`
-	FeesForMine       []*RpcFeeSumForMine     `json:"feesForMine"`
-	LastValidPeriod   uint64                  `json:"lastValidPeriod"`
-	FinishFeeDividend bool                    `json:"finishFeeDividend"`
-	FinishVxMine      bool                    `json:"finishVxMine"`
+type RpcDexFeesByPeriod struct {
+	FeesForDividend []*RpcFeesForDividend `json:"feesForDividend"`
+	FeesForMine     []*RpcFeesForMine     `json:"feesForMine"`
+	LastValidPeriod uint64                `json:"lastValidPeriod"`
+	FinishDividend  bool                  `json:"finishFeeDividend"`
+	FinishMine      bool                  `json:"finishVxMine"`
 }
 
-func FeeSumByPeriodToRpc(feeSum *dex.FeeSumByPeriod) *RpcFeeSumByPeriod {
+func FeeSumByPeriodToRpc(feeSum *dex.DexFeesByPeriod) *RpcDexFeesByPeriod {
 	if feeSum == nil {
 		return nil
 	}
-	rpcFeeSum := &RpcFeeSumByPeriod{}
+	rpcDexFeesByPeriod := &RpcDexFeesByPeriod{}
 	for _, dividend := range feeSum.FeesForDividend {
-		rpcDividend := &RpcFeeSumForDividend{}
+		rpcDividend := &RpcFeesForDividend{}
 		rpcDividend.Token = TokenBytesToString(dividend.Token)
 		rpcDividend.DividendPoolAmount = AmountBytesToString(dividend.DividendPoolAmount)
-		rpcFeeSum.FeesForDividend = append(rpcFeeSum.FeesForDividend, rpcDividend)
+		rpcDexFeesByPeriod.FeesForDividend = append(rpcDexFeesByPeriod.FeesForDividend, rpcDividend)
 	}
 	for _, mine := range feeSum.FeesForMine {
-		rpcMine := &RpcFeeSumForMine{}
+		rpcMine := &RpcFeesForMine{}
 		rpcMine.QuoteTokenType = mine.QuoteTokenType
 		rpcMine.BaseAmount = AmountBytesToString(mine.BaseAmount)
 		rpcMine.InviteBonusAmount = AmountBytesToString(mine.InviteBonusAmount)
-		rpcFeeSum.FeesForMine = append(rpcFeeSum.FeesForMine, rpcMine)
+		rpcDexFeesByPeriod.FeesForMine = append(rpcDexFeesByPeriod.FeesForMine, rpcMine)
 	}
-	rpcFeeSum.LastValidPeriod = feeSum.LastValidPeriod
-	rpcFeeSum.FinishFeeDividend = feeSum.FinishFeeDividend
-	rpcFeeSum.FinishVxMine = feeSum.FinishVxMine
-	return rpcFeeSum
+	rpcDexFeesByPeriod.LastValidPeriod = feeSum.LastValidPeriod
+	rpcDexFeesByPeriod.FinishDividend = feeSum.FinishDividend
+	rpcDexFeesByPeriod.FinishMine = feeSum.FinishMine
+	return rpcDexFeesByPeriod
 }
 
-type RpcBrokerMarketFee struct {
-	MarketId           int32  `json:"marketId"`
-	TakerBrokerFeeRate int32  `json:"takerBrokerFeeRate"`
-	MakerBrokerFeeRate int32  `json:"makerBrokerFeeRate"`
-	Amount             string `json:"amount"`
+type RpcOperatorMarketFee struct {
+	MarketId             int32  `json:"marketId"`
+	TakerOperatorFeeRate int32  `json:"takerOperatorFeeRate"`
+	MakerOperatorFeeRate int32  `json:"makerOperatorFeeRate"`
+	Amount               string `json:"amount"`
 }
 
-type RpcBrokerFeeAccount struct {
-	Token      string                `json:"token"`
-	MarketFees []*RpcBrokerMarketFee `json:"marketFees"`
+type RpcOperatorFeeAccount struct {
+	Token      string                  `json:"token"`
+	MarketFees []*RpcOperatorMarketFee `json:"marketFees"`
 }
 
-type RpcBrokerFeeSumByPeriod struct {
-	BrokerFees []*RpcBrokerFeeAccount `json:"brokerFees"`
+type RpcOperatorFeesByPeriod struct {
+	OperatorFees []*RpcOperatorFeeAccount `json:"operatorFees"`
 }
 
-func BrokerFeeSumByPeriodToRpc(brokerFeeSum *dex.BrokerFeeSumByPeriod) *RpcBrokerFeeSumByPeriod {
-	if brokerFeeSum == nil {
+func BrokerFeeSumByPeriodToRpc(operatorFees *dex.OperatorFeesByPeriod) *RpcOperatorFeesByPeriod {
+	if operatorFees == nil {
 		return nil
 	}
-	rpcBrokerFeeSum := &RpcBrokerFeeSumByPeriod{}
-	for _, fee := range brokerFeeSum.BrokerFees {
-		rpcFee := &RpcBrokerFeeAccount{}
+	rpcOperatorFees := &RpcOperatorFeesByPeriod{}
+	for _, fee := range operatorFees.OperatorFees {
+		rpcFee := &RpcOperatorFeeAccount{}
 		rpcFee.Token = TokenBytesToString(fee.Token)
 		for _, acc := range fee.MarketFees {
-			rpcAcc := &RpcBrokerMarketFee{}
+			rpcAcc := &RpcOperatorMarketFee{}
 			rpcAcc.MarketId = acc.MarketId
-			rpcAcc.TakerBrokerFeeRate = acc.TakerBrokerFeeRate
-			rpcAcc.MakerBrokerFeeRate = acc.MakerBrokerFeeRate
+			rpcAcc.TakerOperatorFeeRate = acc.TakerOperatorFeeRate
+			rpcAcc.MakerOperatorFeeRate = acc.MakerOperatorFeeRate
 			rpcAcc.Amount = AmountBytesToString(acc.Amount)
 			rpcFee.MarketFees = append(rpcFee.MarketFees, rpcAcc)
 		}
-		rpcBrokerFeeSum.BrokerFees = append(rpcBrokerFeeSum.BrokerFees, rpcFee)
+		rpcOperatorFees.OperatorFees = append(rpcOperatorFees.OperatorFees, rpcFee)
 	}
-	return rpcBrokerFeeSum
+	return rpcOperatorFees
 }
 
-type RpcUserFeeAccount struct {
+type RpcFeeAccount struct {
 	QuoteTokenType    int32  `json:"quoteTokenType"`
 	BaseAmount        string `json:"baseAmount"`
 	InviteBonusAmount string `json:"inviteBonusAmount"`
 }
 
-type RpcUserFeeByPeriod struct {
-	UserFees []*RpcUserFeeAccount `json:"userFees"`
-	Period   uint64               `json:"period"`
+type RpcFeesByPeriod struct {
+	UserFees []*RpcFeeAccount `json:"userFees"`
+	Period   uint64           `json:"period"`
 }
 
 type RpcUserFees struct {
-	Fees []*RpcUserFeeByPeriod `json:"fees"`
+	Fees []*RpcFeesByPeriod `json:"fees"`
 }
 
 func UserFeesToRpc(userFees *dex.UserFees) *RpcUserFees {
@@ -184,9 +184,9 @@ func UserFeesToRpc(userFees *dex.UserFees) *RpcUserFees {
 	}
 	rpcUserFees := &RpcUserFees{}
 	for _, fee := range userFees.Fees {
-		rpcFee := &RpcUserFeeByPeriod{}
-		for _, acc := range fee.UserFees {
-			rpcAcc := &RpcUserFeeAccount{}
+		rpcFee := &RpcFeesByPeriod{}
+		for _, acc := range fee.Fees {
+			rpcAcc := &RpcFeeAccount{}
 			rpcAcc.QuoteTokenType = acc.QuoteTokenType
 			rpcAcc.BaseAmount = AmountBytesToString(acc.BaseAmount)
 			rpcAcc.InviteBonusAmount = AmountBytesToString(acc.InviteBonusAmount)
@@ -235,9 +235,9 @@ type RpcPledgesForVx struct {
 	Pledges []*RpcPledgeForVxByPeriod `json:"Pledges"`
 }
 
-func PledgesForVxToRpc(pledges *dex.PledgesForVx) *RpcPledgesForVx {
+func PledgesForVxToRpc(pledges *dex.StackedForVxs) *RpcPledgesForVx {
 	rpcPledges := &RpcPledgesForVx{}
-	for _, pledge := range pledges.Pledges {
+	for _, pledge := range pledges.Stacks {
 		rpcPledge := &RpcPledgeForVxByPeriod{}
 		rpcPledge.Period = pledge.Period
 		rpcPledge.Amount = AmountBytesToString(pledge.Amount)

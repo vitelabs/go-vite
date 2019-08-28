@@ -11,7 +11,7 @@ import (
 //Note: allow mine from specify periodId, former periods will be ignore
 func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int, fundLogger log15.Logger) (*big.Int, error) {
 	var (
-		feeSum                *FeeSumByPeriod
+		feeSum                *DexFeesByPeriod
 		feeSumMap             = make(map[int32]*big.Int) // quoteTokenType -> amount
 		dividedFeeMap         = make(map[int32]*big.Int)
 		toDivideVxLeaveAmtMap = make(map[int32]*big.Int)
@@ -22,7 +22,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 	if len(amtForMarkets) == 0 {
 		return nil, nil
 	}
-	if feeSum, ok = GetFeeSumByPeriodId(db, periodId); !ok {
+	if feeSum, ok = GetDexFeesByPeriodId(db, periodId); !ok {
 		return AccumulateAmountFromMap(amtForMarkets), nil
 	}
 	for _, feeSum := range feeSum.FeesForMine {
@@ -80,36 +80,36 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		if userFees.Fees[0].Period != periodId {
 			continue
 		}
-		if len(userFees.Fees[0].UserFees) > 0 {
+		if len(userFees.Fees[0].Fees) > 0 {
 			var vxMinedForBase = big.NewInt(0)
 			var vxMinedForInvite = big.NewInt(0)
-			for _, userFee := range userFees.Fees[0].UserFees {
-				if !IsValidFeeForMine(userFee, mineThresholdMap[userFee.QuoteTokenType]) {
+			for _, feeAccount := range userFees.Fees[0].Fees {
+				if !IsValidFeeForMine(feeAccount, mineThresholdMap[feeAccount.QuoteTokenType]) {
 					continue
 				}
-				if feeSumAmt, ok := feeSumMap[userFee.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
+				if feeSumAmt, ok := feeSumMap[feeAccount.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
 					// TODO change to continue after test
-					fundLogger.Error("DoMineVxForFee", "encounter err" , "user with valid userFee, but no valid feeSum",
-						"periodId", periodId, "address", address.String(), "quoteTokenType", userFee.QuoteTokenType,
-						"baseFee", new(big.Int).SetBytes(userFee.BaseAmount), "inviteFee", new(big.Int).SetBytes(userFee.InviteBonusAmount))
+					fundLogger.Error("DoMineVxForFee", "encounter err" , "user with valid feeAccount, but no valid feeSum",
+						"periodId", periodId, "address", address.String(), "quoteTokenType", feeAccount.QuoteTokenType,
+						"baseFee", new(big.Int).SetBytes(feeAccount.BaseAmount), "inviteFee", new(big.Int).SetBytes(feeAccount.InviteBonusAmount))
 					continue
 				} else {
 					var vxDividend, vxDividendForInvite *big.Int
 					var finished, finishedForInvite bool
-					if len(userFee.BaseAmount) > 0 {
-						vxDividend, finished = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.BaseAmount), dividedFeeMap[userFee.QuoteTokenType], amtForMarkets[userFee.QuoteTokenType], toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
+					if len(feeAccount.BaseAmount) > 0 {
+						vxDividend, finished = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(feeAccount.BaseAmount), dividedFeeMap[feeAccount.QuoteTokenType], amtForMarkets[feeAccount.QuoteTokenType], toDivideVxLeaveAmtMap[feeAccount.QuoteTokenType])
 						vxMinedForBase.Add(vxMinedForBase, vxDividend)
-						AddMinedVxForTradeFeeEvent(db, address, userFee.QuoteTokenType, userFee.BaseAmount, vxDividend)
+						AddMinedVxForTradeFeeEvent(db, address, feeAccount.QuoteTokenType, feeAccount.BaseAmount, vxDividend)
 					}
 					if finished {
-						delete(feeSumMap, userFee.QuoteTokenType)
+						delete(feeSumMap, feeAccount.QuoteTokenType)
 					} else {
-						if len(userFee.InviteBonusAmount) > 0 {
-							vxDividendForInvite, finishedForInvite = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(userFee.InviteBonusAmount), dividedFeeMap[userFee.QuoteTokenType], amtForMarkets[userFee.QuoteTokenType], toDivideVxLeaveAmtMap[userFee.QuoteTokenType])
+						if len(feeAccount.InviteBonusAmount) > 0 {
+							vxDividendForInvite, finishedForInvite = DivideByProportion(feeSumAmt, new(big.Int).SetBytes(feeAccount.InviteBonusAmount), dividedFeeMap[feeAccount.QuoteTokenType], amtForMarkets[feeAccount.QuoteTokenType], toDivideVxLeaveAmtMap[feeAccount.QuoteTokenType])
 							vxMinedForInvite.Add(vxMinedForInvite, vxDividendForInvite)
-							AddMinedVxForInviteeFeeEvent(db, address, userFee.QuoteTokenType, userFee.InviteBonusAmount, vxDividendForInvite)
+							AddMinedVxForInviteeFeeEvent(db, address, feeAccount.QuoteTokenType, feeAccount.InviteBonusAmount, vxDividendForInvite)
 							if finishedForInvite {
-								delete(feeSumMap, userFee.QuoteTokenType)
+								delete(feeSumMap, feeAccount.QuoteTokenType)
 							}
 						}
 					}
@@ -117,7 +117,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 			}
 			minedAmt := new(big.Int).Add(vxMinedForBase, vxMinedForInvite)
 			if minedAmt.Sign() > 0 {
-				updatedAcc := DepositUserAccount(db, address, VxTokenId, minedAmt)
+				updatedAcc := DepositAccount(db, address, VxTokenId, minedAmt)
 				if err = OnDepositVx(db, reader, address, minedAmt, updatedAcc); err != nil {
 					return nil, err
 				}
@@ -135,7 +135,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 
 func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForPledge *big.Int) (*big.Int, error) {
 	var (
-		pledgesForVxSum        *PledgesForVx
+		pledgesForVxSum        *StackedForVxs
 		dividedPledgeAmountSum = big.NewInt(0)
 		amtLeavedToMine        = new(big.Int).Set(amtForPledge)
 		ok                     bool
@@ -143,15 +143,15 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 	if amtForPledge == nil {
 		return nil, nil
 	}
-	if pledgesForVxSum, ok = GetPledgesForVxSum(db); !ok {
+	if pledgesForVxSum, ok = GetDexStackedForVxs(db); !ok {
 		return amtForPledge, nil
 	}
-	foundPledgesForVxSum, pledgeForVxSumAmtBytes, needUpdatePledgesForVxSum, _ := MatchPledgeForVxByPeriod(pledgesForVxSum, periodId, false)
+	foundPledgesForVxSum, pledgeForVxSumAmtBytes, needUpdatePledgesForVxSum, _ := MatchStackedForVxByPeriod(pledgesForVxSum, periodId, false)
 	if !foundPledgesForVxSum { // not found vxSumFunds
 		return amtForPledge, nil
 	}
 	if needUpdatePledgesForVxSum {
-		SavePledgesForVxSum(db, pledgesForVxSum)
+		SaveDexStackedForVxs(db, pledgesForVxSum)
 	}
 	pledgeForVxSumAmt := new(big.Int).SetBytes(pledgeForVxSumAmtBytes)
 	if pledgeForVxSumAmt.Sign() <= 0 {
@@ -162,7 +162,7 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 		pledgesForVxKey, pledgeForVxValue []byte
 	)
 
-	iterator, err := db.NewStorageIterator(pledgesForVxKeyPrefix)
+	iterator, err := db.NewStorageIterator(stackedForVxsKeyPrefix)
 	if err != nil {
 		panic(err)
 	}
@@ -179,36 +179,36 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 		if len(pledgeForVxValue) == 0 {
 			continue
 		}
-		addressBytes := pledgesForVxKey[len(pledgesForVxKeyPrefix):]
+		addressBytes := pledgesForVxKey[len(stackedForVxsKeyPrefix):]
 		address := types.Address{}
 		if err = address.SetBytes(addressBytes); err != nil {
 			panic(err)
 		}
-		pledgesForVx := &PledgesForVx{}
+		pledgesForVx := &StackedForVxs{}
 		if err = pledgesForVx.DeSerialize(pledgeForVxValue); err != nil {
 			panic(err)
 		}
-		foundPledgesForVx, pledgesForVxAmtBytes, needUpdatePledgesForVx, needDeletePledgesForVx := MatchPledgeForVxByPeriod(pledgesForVx, periodId, true)
+		foundPledgesForVx, pledgesForVxAmtBytes, needUpdatePledgesForVx, needDeletePledgesForVx := MatchStackedForVxByPeriod(pledgesForVx, periodId, true)
 		if !foundPledgesForVx {
 			continue
 		}
 		if needDeletePledgesForVx {
-			DeletePledgesForVx(db, address)
+			DeleteStackedForVxs(db, address)
 		} else if needUpdatePledgesForVx {
-			SavePledgesForVx(db, address, pledgesForVx)
+			SaveStackedForVxs(db, address, pledgesForVx)
 		}
 		pledgeAmt := new(big.Int).SetBytes(pledgesForVxAmtBytes)
-		if !IsValidPledgeAmountForVx(pledgeAmt) {
+		if !IsValidStackAmountForVx(pledgeAmt) {
 			continue
 		}
 		//fmt.Printf("tokenId %s, address %s, vxSumAmt %s, userVxAmount %s, dividedVxAmt %s, toDivideFeeAmt %s, toDivideLeaveAmt %s\n", tokenId.String(), address.String(), vxSumAmt.String(), userVxAmount.String(), dividedVxAmtMap[tokenId], toDivideFeeAmt.String(), toDivideLeaveAmt.String())
 		minedAmt, finished := DivideByProportion(pledgeForVxSumAmt, pledgeAmt, dividedPledgeAmountSum, amtForPledge, amtLeavedToMine)
 		if minedAmt.Sign() > 0 {
-			updatedAcc := DepositUserAccount(db, address, VxTokenId, minedAmt)
+			updatedAcc := DepositAccount(db, address, VxTokenId, minedAmt)
 			if err = OnDepositVx(db, reader, address, minedAmt, updatedAcc); err != nil {
 				return amtLeavedToMine, err
 			}
-			AddMinedVxForPledgeEvent(db, address, pledgeAmt, minedAmt)
+			AddMinedVxForStakeEvent(db, address, pledgeAmt, minedAmt)
 		}
 		if finished {
 			break
@@ -227,7 +227,7 @@ func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader ut
 	if amtForMakerAndMaintainer[MineForMaintainer].Sign() > 0 {
 		maintainer := GetMaintainer(db)
 		amtForMaintainer, _ := amtForMakerAndMaintainer[MineForMaintainer]
-		updatedAcc := DepositUserAccount(db, *maintainer, VxTokenId, amtForMaintainer)
+		updatedAcc := DepositAccount(db, *maintainer, VxTokenId, amtForMaintainer)
 		if err := OnDepositVx(db, reader, *maintainer, amtForMaintainer, updatedAcc); err != nil {
 			return err
 		}
