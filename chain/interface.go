@@ -1,6 +1,8 @@
 package chain
 
 import (
+	"github.com/olebedev/emitter"
+	"github.com/vitelabs/go-vite/common/fork"
 	"math/big"
 	"time"
 
@@ -54,6 +56,8 @@ type Chain interface {
 	 */
 	Register(listener EventListener)
 	UnRegister(listener EventListener)
+
+	Emitter() *emitter.Emitter
 
 	/*
 	 *	C(Create)
@@ -254,6 +258,8 @@ type Chain interface {
 
 	GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error)
 
+	CalVoteDetails(gid types.Gid, info *core.GroupInfo, snapshotBlock ledger.HashHeight) ([]*interfaces.VoteDetails, error)
+
 	// ====== Sync ledger ======
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
 
@@ -296,6 +302,8 @@ type Chain interface {
 	WriteGenesisCheckSum(hash types.Hash) error
 
 	QueryGenesisCheckSum() (*types.Hash, error)
+
+	IsForkActive(point fork.ForkPointItem) bool
 
 	// ====== Check ======
 	CheckRedo() error

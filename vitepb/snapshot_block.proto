@@ -19,5 +19,5 @@ message SnapshotBlock {
 
     bytes snapshotContent = 9;
 
-    uint64 version = 10;
+    uint32 version = 10;
 }

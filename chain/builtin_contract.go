@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
+	"sort"
 )
 
 // sb height
@@ -146,4 +150,57 @@ func (c *chain) GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error
 		return nil, cErr
 	}
 	return abi.GetTokenMap(sd)
+}
+
+type ByBalance []*interfaces.VoteDetails
+
+func (a ByBalance) Len() int      { return len(a) }
+func (a ByBalance) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByBalance) Less(i, j int) bool {
+
+	r := a[j].Balance.Cmp(a[i].Balance)
+	if r == 0 {
+		return a[i].Name < a[j].Name
+	}
+	return r < 0
+}
+
+func (c *chain) CalVoteDetails(gid types.Gid, info *core.GroupInfo, snapshotBlock ledger.HashHeight) ([]*interfaces.VoteDetails, error) {
+	// query register info
+	registerList, _ := c.GetRegisterList(snapshotBlock.Hash, gid)
+	// query vote info
+	votes, _ := c.GetVoteList(snapshotBlock.Hash, gid)
+
+	var registers []*interfaces.VoteDetails
+
+	// cal candidate
+	for _, v := range registerList {
+		registers = append(registers, c.genVoteDetails(snapshotBlock.Hash, v, votes, info.CountingTokenId))
+	}
+	sort.Sort(ByBalance(registers))
+	return registers, nil
+}
+
+func (c *chain) genVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *interfaces.VoteDetails {
+	var addrs []types.Address
+	for _, v := range infos {
+		if v.NodeName == registration.Name {
+			addrs = append(addrs, v.VoterAddr)
+		}
+	}
+	balanceMap, _ := c.GetConfirmedBalanceList(addrs, id, snapshotHash)
+	balanceTotal := big.NewInt(0)
+	for _, v := range balanceMap {
+		balanceTotal.Add(balanceTotal, v)
+	}
+	return &interfaces.VoteDetails{
+		Vote: core.Vote{
+			Name:    registration.Name,
+			Addr:    registration.NodeAddr,
+			Balance: balanceTotal,
+		},
+		CurrentAddr:  registration.NodeAddr,
+		RegisterList: registration.HisAddrList,
+		Addr:         balanceMap,
+	}
 }

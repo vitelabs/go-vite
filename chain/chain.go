@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/olebedev/emitter"
 	"github.com/vitelabs/go-vite/common/fork"
 
 	"github.com/vitelabs/go-vite/chain/plugins"
@@ -53,6 +54,8 @@ type chain struct {
 
 	em *eventManager
 
+	emitter *emitter.Emitter
+
 	cache *chain_cache.Cache
 
 	metaDB *leveldb.DB
@@ -72,6 +75,8 @@ type chain struct {
 	plugins *chain_plugins.Plugins
 
 	status uint32
+
+	forkActiveCheckPoint fork.ForkPointItem
 }
 
 /*
@@ -90,10 +95,22 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 		genesisCfg: genesisCfg,
 		dataDir:    dir,
 		chainDir:   path.Join(dir, "ledger"),
-		log:        log15.New("module", "chain"),
-		em:         newEventManager(),
-		chainCfg:   chainCfg,
+
+		log: log15.New("module", "chain"),
+
+		emitter:  emitter.New(10),
+		chainCfg: chainCfg,
 	}
+
+	forkActiveCheckPoint, ok := fork.GetForkPointMap()["CooperateFork"]
+	if !ok || forkActiveCheckPoint == nil {
+		panic("CooperateFork is not existed")
+	}
+
+	c.forkActiveCheckPoint = *forkActiveCheckPoint
+
+	c.em = newEventManager(c)
+	c.emitter.Use("*", emitter.Sync)
 
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
@@ -148,8 +165,8 @@ func (c *chain) Init() error {
 	c.log.Info("Complete initialization", "method", "Init")
 
 	// init fork
-	if !fork.IsInitChain() {
-		fork.SetChain(c)
+	if !fork.IsInitActiveChecker() {
+		fork.SetActiveChecker(c)
 	}
 
 	return nil

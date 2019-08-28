@@ -130,7 +130,7 @@ type SnapshotBlock struct {
 
 	SnapshotContent SnapshotContent `json:"snapshotContent"` // 6
 
-	Version uint64 `json:"version"`
+	Version uint32 `json:"version"`
 }
 
 func ComputeSeedHash(seed uint64, prevHash types.Hash, timestamp *time.Time) types.Hash {
@@ -168,7 +168,7 @@ func (sb *SnapshotBlock) hashSourceLength() int {
 	// Add version
 	if fork.IsCooperateFork(sb.Height) {
 		// append version
-		size += 8
+		size += 4
 	}
 
 	return size
@@ -217,8 +217,8 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	// Add version
 	if fork.IsCooperateFork(sb.Height) {
 		// append version
-		versionBytes := make([]byte, 8)
-		binary.BigEndian.PutUint64(versionBytes, sb.Version)
+		versionBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(versionBytes, sb.Version)
 		source = append(source, versionBytes...)
 	}
 

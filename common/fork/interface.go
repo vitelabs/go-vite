@@ -1,3 +1,5 @@
 package fork
 
-type Chain interface{}
+type ActiveChecker interface {
+	IsForkActive(point ForkPointItem) bool
+}
