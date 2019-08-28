@@ -193,7 +193,7 @@ type StakingInfo struct {
 	Bid              uint8         `json:"bid"`
 }
 
-func NewStakingInfo(info *abi.PledgeInfo, snapshotBlock *ledger.SnapshotBlock) *StakingInfo {
+func NewStakingInfo(info *types.PledgeInfo, snapshotBlock *ledger.SnapshotBlock) *StakingInfo {
 	return &StakingInfo{
 		*bigIntToString(info.Amount),
 		info.BeneficialAddr,
