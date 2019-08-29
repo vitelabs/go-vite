@@ -63,7 +63,6 @@ func SetForkPoints(points *config.ForkPoints) {
 	isInitForkPoint = true
 }
 
-// TODO register events
 func SetActiveChecker(ac ActiveChecker) {
 	activeChecker = ac
 }

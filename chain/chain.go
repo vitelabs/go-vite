@@ -153,6 +153,11 @@ func (c *chain) Init() error {
 		return err
 	}
 
+	// init fork
+	if !fork.IsInitActiveChecker() {
+		fork.SetActiveChecker(c)
+	}
+
 	// check fork points and rollback
 	if err := c.checkForkPointsAndRollback(); err != nil {
 		return err
@@ -164,11 +169,6 @@ func (c *chain) Init() error {
 		}
 	*/
 	c.log.Info("Complete initialization", "method", "Init")
-
-	// init fork
-	if !fork.IsInitActiveChecker() {
-		fork.SetActiveChecker(c)
-	}
 
 	return nil
 }

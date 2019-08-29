@@ -121,14 +121,16 @@ func (em *eventManager) TriggerInsertSbs(eventType byte, chunks []*ledger.Snapsh
 			}
 		}
 
-		em.chain.emitter.Emit("prepareInsertSnapshotBlocks", splitChunks(chunks))
+		snapshotBlocks, accountBlocksList := splitChunks(chunks)
+		em.chain.emitter.Emit("prepareInsertSnapshotBlocks", snapshotBlocks, accountBlocksList)
 
 	case InsertSbsEvent:
 		for _, listener := range em.listenerList {
 			listener.InsertSnapshotBlocks(chunks)
 		}
 
-		em.chain.emitter.Emit("insertSnapshotBlocks", splitChunks(chunks))
+		snapshotBlocks, accountBlocksList := splitChunks(chunks)
+		em.chain.emitter.Emit("insertSnapshotBlocks", snapshotBlocks, accountBlocksList)
 	}
 	return nil
 }
@@ -147,13 +149,16 @@ func (em *eventManager) TriggerDeleteSbs(eventType byte, chunks []*ledger.Snapsh
 				return err
 			}
 		}
-		em.chain.emitter.Emit("prepareDeleteSnapshotBlocks", splitChunks(chunks))
+
+		snapshotBlocks, accountBlocksList := splitChunks(chunks)
+		em.chain.emitter.Emit("prepareDeleteSnapshotBlocks", snapshotBlocks, accountBlocksList)
 	case deleteSbsEvent:
 		for _, listener := range em.listenerList {
 			listener.DeleteSnapshotBlocks(chunks)
 		}
-		em.chain.emitter.Emit("deleteSnapshotBlocks", splitChunks(chunks))
 
+		snapshotBlocks, accountBlocksList := splitChunks(chunks)
+		em.chain.emitter.Emit("deleteSnapshotBlocks", snapshotBlocks, accountBlocksList)
 	}
 	return nil
 }

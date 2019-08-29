@@ -19,10 +19,19 @@ func (c *chain) IsForkActive(point fork.ForkPointItem) bool {
 	return false
 }
 
-func (c *chain) checkIsActiveInCache(point fork.ForkPointItem) bool {
-	for i := 0; i < c.forkActiveCache.Len(); i++ {
+func (c *chain) initForkActive() error {
+	return nil
+}
 
-	}
+func (c *chain) checkNewForkPoint() {
+
+}
+
+func (c *chain) rollbackForkPoint() {
+
+}
+
+func (c *chain) checkIsActiveInCache(point fork.ForkPointItem) bool {
 	if c.forkActiveCache.Len() <= 0 {
 		return false
 	}
@@ -30,6 +39,15 @@ func (c *chain) checkIsActiveInCache(point fork.ForkPointItem) bool {
 		forkActivePoint := c.forkActiveCache[i]
 		return forkActivePoint.Height >= point.Height
 	})
+
+	if pointIndex < 0 || pointIndex >= c.forkActiveCache.Len() {
+		return false
+	}
+	searchedPoint := c.forkActiveCache[pointIndex]
+	if searchedPoint.Height == point.Height && searchedPoint.Version == point.Version {
+		return true
+	}
+	return false
 }
 
 func (c *chain) checkIsActive(point fork.ForkPointItem) bool {
@@ -44,6 +62,7 @@ func (c *chain) checkIsActive(point fork.ForkPointItem) bool {
 	if err != nil {
 		panic(fmt.Sprintf("GetSnapshotHeadersByHeight failed. SnapshotHeight is %d. Error is %s.", snapshotHeight, err))
 	}
+
 	if len(headers) <= 0 {
 		return false
 	}
