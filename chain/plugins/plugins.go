@@ -1,13 +1,10 @@
 package chain_plugins
 
 import (
-	"errors"
-	"fmt"
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
-	"os"
 	"path"
 	"sync"
 	"sync/atomic"
@@ -20,37 +17,49 @@ const (
 	start = 1
 )
 
+const (
+	PluginKeyFilterToken = "plugin_filter_token"
+	PluginKeyOnRoadInfo  = "plugin_onroad_info"
+)
+
 type Plugins struct {
 	dataDir string
 
-	log     log15.Logger
-	chain   Chain
-	store   *chain_db.Store
+	log   log15.Logger
+	chain Chain
+
 	plugins map[string]Plugin
 
 	writeStatus uint32
 	mu          sync.RWMutex
 }
 
-func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
-	var err error
+func NewPlugins(chainDir string, chain Chain, pluginsName []string) (*Plugins, error) {
 
 	dataDir := path.Join(chainDir, "plugins")
 
-	store, err := chain_db.NewStore(dataDir, "plugins")
-	if err != nil {
-		return nil, err
+	// default open PluginKeyOnRoadInfo
+	onroadInfoStore, onroadInfoErr := chain_db.NewStore(path.Join(dataDir, "onroad_info"), PluginKeyOnRoadInfo)
+	if onroadInfoErr != nil {
+		return nil, onroadInfoErr
 	}
+	plugins := map[string]Plugin{PluginKeyOnRoadInfo: newOnRoadInfo(onroadInfoStore, chain)}
 
-	plugins := map[string]Plugin{
-		"filterToken": newFilterToken(store, chain),
-		"onRoadInfo":  newOnRoadInfo(store, chain),
+	for _, v := range pluginsName {
+		switch v {
+		case PluginKeyFilterToken:
+			store, err := chain_db.NewStore(path.Join(dataDir, "filter_token"), PluginKeyFilterToken)
+			if err != nil {
+				return nil, err
+			}
+			plugins[PluginKeyFilterToken] = newFilterToken(store, chain)
+		default:
+		}
 	}
 
 	return &Plugins{
 		dataDir:     dataDir,
 		chain:       chain,
-		store:       store,
 		plugins:     plugins,
 		writeStatus: start,
 		log:         log15.New("module", "chain_plugins"),
@@ -79,107 +88,31 @@ func (p *Plugins) RebuildData() error {
 
 	p.log.Info("Start rebuild plugin data")
 
-	if err := p.store.Close(); err != nil {
-		return err
-	}
-
-	// remove data
-	os.RemoveAll(p.dataDir)
-
-	// set new store
-	store, err := chain_db.NewStore(p.dataDir, "plugins")
-	if err != nil {
-		return err
-	}
-
-	p.store = store
-
 	for _, plugin := range p.plugins {
-		plugin.SetStore(store)
-	}
-
-	// replace flusher store
-	flusher := p.chain.Flusher()
-	flusher.ReplaceStore(p.store.Id(), store)
-
-	// get latest snapshot block
-	latestSnapshot := p.chain.GetLatestSnapshotBlock()
-	if latestSnapshot == nil {
-		return errors.New("GetLatestSnapshotBlock fail")
-	}
-
-	p.log.Info(fmt.Sprintf("latestSnapshot[%v %v]", latestSnapshot.Hash, latestSnapshot.Height), "method", "RebuildData")
-
-	// build data
-	h := uint64(0)
-
-	for h < latestSnapshot.Height {
-		targetH := h + roundSize
-		if targetH > latestSnapshot.Height {
-			targetH = latestSnapshot.Height
-		}
-
-		chunks, err := p.chain.GetSubLedger(h, targetH)
-		if err != nil {
+		if err := plugin.RebuildData(p.chain.Flusher()); err != nil {
 			return err
 		}
-
-		p.log.Info(fmt.Sprintf("rebuild %d - %d", h+1, targetH), "method", "RebuildData")
-
-		for _, chunk := range chunks {
-
-			if chunk.SnapshotBlock != nil &&
-				chunk.SnapshotBlock.Height == h {
-				continue
-			}
-			// write ab
-			for _, ab := range chunk.AccountBlocks {
-
-				batch := p.store.NewBatch()
-
-				for _, plugin := range p.plugins {
-					if err := plugin.InsertAccountBlock(batch, ab); err != nil {
-						return err
-					}
-				}
-				p.store.WriteAccountBlock(batch, ab)
-			}
-
-			// write sb
-			batch := p.store.NewBatch()
-
-			for _, plugin := range p.plugins {
-				if err := plugin.InsertSnapshotBlock(batch, chunk.SnapshotBlock, chunk.AccountBlocks); err != nil {
-					pErr := errors.New(fmt.Sprintf("InsertSnapshotBlock fail, err:%v, sb[%v, %v,len=%v] ", err, chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash, len(chunk.AccountBlocks)))
-					p.log.Error(pErr.Error(), "method", "RebuildData")
-					return pErr
-				}
-			}
-
-			p.store.WriteSnapshot(batch, chunk.AccountBlocks)
-
-		}
-
-		// flush to disk
-		flusher.Flush()
-
-		h = targetH
 	}
-
 	// success
 	p.log.Info("Succeed rebuild plugin data")
 	return nil
 }
 
 func (p *Plugins) Close() error {
-	if err := p.store.Close(); err != nil {
-		return err
+	for _, v := range p.plugins {
+		if err := v.GetStore().Close(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (p *Plugins) Store() *chain_db.Store {
-	return p.store
+func (p *Plugins) Stores() []*chain_db.Store {
+	storeList := make([]*chain_db.Store, 0)
+	for _, v := range p.plugins {
+		storeList = append(storeList, v.GetStore())
+	}
+	return storeList
 }
 
 func (p *Plugins) GetPlugin(name string) Plugin {
@@ -196,14 +129,17 @@ func (p *Plugins) PrepareInsertAccountBlocks(vmBlocks []*vm_db.VmAccountBlock) e
 
 	// for recover
 	for _, vmBlock := range vmBlocks {
-		batch := p.store.NewBatch()
 
 		for _, plugin := range p.plugins {
+
+			batch := plugin.GetStore().NewBatch()
+
 			if err := plugin.InsertAccountBlock(batch, vmBlock.AccountBlock); err != nil {
 				return err
 			}
+			plugin.GetStore().WriteAccountBlock(batch, vmBlock.AccountBlock)
+
 		}
-		p.store.WriteAccountBlock(batch, vmBlock.AccountBlock)
 	}
 
 	return nil
@@ -213,16 +149,17 @@ func (p *Plugins) PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) er
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	for _, chunk := range chunks {
-		batch := p.store.NewBatch()
 
 		for _, plugin := range p.plugins {
+
+			batch := plugin.GetStore().NewBatch()
 
 			if err := plugin.InsertSnapshotBlock(batch, chunk.SnapshotBlock, chunk.AccountBlocks); err != nil {
 				return err
 			}
-		}
-		p.store.WriteSnapshot(batch, chunk.AccountBlocks)
 
+			plugin.GetStore().WriteSnapshot(batch, chunk.AccountBlocks)
+		}
 	}
 
 	return nil
@@ -232,14 +169,16 @@ func (p *Plugins) PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) erro
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	batch := p.store.NewBatch()
-
 	for _, plugin := range p.plugins {
+
+		batch := plugin.GetStore().NewBatch()
+
 		if err := plugin.DeleteAccountBlocks(batch, blocks); err != nil {
 			return err
 		}
+
+		plugin.GetStore().RollbackAccountBlocks(batch, blocks)
 	}
-	p.store.RollbackAccountBlocks(batch, blocks)
 
 	return nil
 }
@@ -248,16 +187,17 @@ func (p *Plugins) PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) er
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	batch := p.store.NewBatch()
-
 	for _, plugin := range p.plugins {
+
+		batch := plugin.GetStore().NewBatch()
 
 		if err := plugin.DeleteSnapshotBlocks(batch, chunks); err != nil {
 			return err
 		}
 
+		plugin.GetStore().RollbackSnapshot(batch)
+
 	}
-	p.store.RollbackSnapshot(batch)
 
 	return nil
 }
@@ -268,26 +208,23 @@ func (p *Plugins) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 
 	allUnconfirmedBlocks := p.chain.GetAllUnconfirmedBlocks()
 
-	rollbackBatch := p.store.NewBatch()
-
 	for _, plugin := range p.plugins {
+		rollbackBatch := plugin.GetStore().NewBatch()
+
 		if err := plugin.RemoveNewUnconfirmed(rollbackBatch, allUnconfirmedBlocks); err != nil {
 			return err
 		}
-	}
+		plugin.GetStore().RollbackSnapshot(rollbackBatch)
 
-	p.store.RollbackSnapshot(rollbackBatch)
-
-	for _, plugin := range p.plugins {
-		batch := p.store.NewBatch()
 		for _, unconfirmedBlock := range allUnconfirmedBlocks {
-			if err := plugin.InsertAccountBlock(rollbackBatch, unconfirmedBlock); err != nil {
+			batch := plugin.GetStore().NewBatch()
+			if err := plugin.InsertAccountBlock(batch, unconfirmedBlock); err != nil {
 				return err
 			}
-			p.store.WriteAccountBlock(batch, unconfirmedBlock)
+			plugin.GetStore().WriteAccountBlock(batch, unconfirmedBlock)
 		}
-
 	}
+
 	return nil
 }
 
