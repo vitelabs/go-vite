@@ -102,6 +102,8 @@ func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, che
 		if valid && checkConsensus {
 			if _, ok := invalidConsensusBlocks[block.Hash]; ok {
 				valid = false
+				c.log.Info(fmt.Sprintf("will delete block %s, height is %d, addr is %s, invalid consensus", block.Hash, block.Height, block.AccountAddress), "method",
+					"filterInvalidUnconfirmedBlocks")
 			}
 		}
 
@@ -120,6 +122,8 @@ func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, che
 				valid = false
 			} else if !enough {
 				valid = false
+				c.log.Info(fmt.Sprintf("will delete block %s, height is %d, addr is %s, quota is not enough.", block.Hash, block.Height, block.AccountAddress), "method",
+					"filterInvalidUnconfirmedBlocks")
 			}
 		}
 

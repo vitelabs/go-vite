@@ -18,8 +18,8 @@ import (
 )
 
 const filterCap = 100000
-const rt = 0.01
-const defaultBroadcastTTL = 16
+const rt = 0.0001
+const defaultBroadcastTTL = 32
 
 // A blockStore implementation can store blocks in queue,
 // when node is syncing, blocks from remote broadcaster can be stored.
