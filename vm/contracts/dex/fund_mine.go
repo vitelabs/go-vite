@@ -34,7 +34,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 		toDivideVxLeaveAmtMap[int32(i)] = new(big.Int).Set(amtForMarkets[int32(i)])
 	}
 
-	MarkFeeSumAsMinedVxDivided(db, feeSum, periodId)
+	MarkDexFeesFinishMine(db, feeSum, periodId)
 	var (
 		userFeesKey, userFeesBytes []byte
 	)
@@ -219,9 +219,9 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 
 func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader util.ConsensusReader, amtForMakerAndMaintainer map[int32]*big.Int) error {
 	if amtForMakerAndMaintainer[MineForMaker].Sign() > 0 {
-		makerMineProxy := GetMakerMineProxy(db)
+		makerMineProxy := GetMakerMiningAdmin(db)
 		amtForMaker, _ := amtForMakerAndMaintainer[MineForMaker]
-		SaveMakerProxyAmountByPeriodId(db, periodId, amtForMaker)
+		SaveMakerMiningPoolByPeriodId(db, periodId, amtForMaker)
 		AddMinedVxForOperationEvent(db, MineForMaker, *makerMineProxy, amtForMaker)
 	}
 	if amtForMakerAndMaintainer[MineForMaintainer].Sign() > 0 {

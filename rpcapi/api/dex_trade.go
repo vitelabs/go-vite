@@ -4,59 +4,74 @@ import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
+	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
-func (f DexApi) GetOrderById(orderIdStr string) (*RpcOrder, error) {
+type DexTradeApi struct {
+	vite  *vite.Vite
+	chain chain.Chain
+	log   log15.Logger
+}
+
+func NewDexTradeApi(vite *vite.Vite) *DexTradeApi {
+	return &DexTradeApi{
+		vite:  vite,
+		chain: vite.Chain(),
+		log:   log15.New("module", "rpc_api/dextrade_api"),
+	}
+}
+
+func (f DexTradeApi) GetOrderById(orderIdStr string) (*apidex.RpcOrder, error) {
 	orderId, err := hex.DecodeString(orderIdStr)
 	if err != nil {
 		return nil, err
 	}
-	if db, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+	if db, err := getVmDb(f.chain, types.AddressDexTrade); err != nil {
 		return nil, err
 	} else {
-		return innerGetOrderById(db, orderId)
+		return apidex.InnerGetOrderById(db, orderId)
 	}
 }
 
-func (f DexApi) GetOrderBySendHash(sendHash types.Hash) (*RpcOrder, error) {
-	if db, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+func (f DexTradeApi) GetOrderBySendHash(sendHash types.Hash) (*apidex.RpcOrder, error) {
+	if db, err := getVmDb(f.chain, types.AddressDexTrade); err != nil {
 		return nil, err
 	} else {
 		if orderId, ok := dex.GetOrderIdByHash(db, sendHash.Bytes()); !ok {
 			return nil, dex.OrderNotExistsErr
 		} else {
-			return innerGetOrderById(db, orderId)
+			return apidex.InnerGetOrderById(db, orderId)
 		}
 	}
 }
 
-func (f DexApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *OrdersRes, err error) {
-	if fundDb, err := getDb(f.chain, types.AddressDexFund); err != nil {
+func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *apidex.OrdersRes, err error) {
+	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
 		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
 			return nil, dex.TradeMarketNotExistsErr
 		} else {
-			if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+			if tradeDb, err := getVmDb(f.chain, types.AddressDexTrade); err != nil {
 				return nil, err
 			} else {
 				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
 				if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
-					ordersRes = &OrdersRes{OrdersToRpc(ods), size}
+					ordersRes = &apidex.OrdersRes{apidex.OrdersToRpc(ods), size}
 					return ordersRes, err
 				} else {
-					return &OrdersRes{OrdersToRpc(ods), size}, err
+					return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size}, err
 				}
 			}
 		}
 	}
 }
 
-func (f DexApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMarketInfo, err error) {
-	if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+func (f DexTradeApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMarketInfo, err error) {
+	if tradeDb, err := getVmDb(f.chain, types.AddressDexTrade); err != nil {
 		return nil, err
 	} else {
 		if marketInfo, ok := dex.GetMarketInfoById(tradeDb, marketId); ok {
@@ -67,129 +82,10 @@ func (f DexApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMarketIn
 	}
 }
 
-func (f DexApi) GetTimestamp() (timestamp int64, err error) {
-	if tradeDb, err := getDb(f.chain, types.AddressDexTrade); err != nil {
+func (f DexTradeApi) GetTimestamp() (timestamp int64, err error) {
+	if tradeDb, err := getVmDb(f.chain, types.AddressDexTrade); err != nil {
 		return -1, err
 	} else {
 		return dex.GetTradeTimestamp(tradeDb), nil
-	}
-}
-
-func innerGetOrderById(db vm_db.VmDb, orderId []byte) (*RpcOrder, error) {
-	matcher := dex.NewRawMatcher(db)
-	if order, err := matcher.GetOrderById(orderId); err != nil {
-		return nil, err
-	} else {
-		return OrderToRpc(order), nil
-	}
-}
-
-func getDb(c chain.Chain, address types.Address) (db vm_db.VmDb, err error) {
-	prevHash, err := getPrevBlockHash(c, address)
-	if err != nil {
-		return nil, err
-	}
-	if db, err := vm_db.NewVmDb(c, &address, &c.GetLatestSnapshotBlock().Hash, prevHash); err != nil {
-		return nil, err
-	} else {
-		return db, nil
-	}
-}
-
-type RpcOrder struct {
-	Id                   string `json:"Id"`
-	Address              string `json:"Address"`
-	MarketId             int32  `json:"MarketId"`
-	Side                 bool   `json:"Side"`
-	Type                 int32  `json:"Type"`
-	Price                string `json:"Price"`
-	TakerFeeRate         int32  `json:"TakerFeeRate"`
-	MakerFeeRate         int32  `json:"MakerFeeRate"`
-	TakerOperatorFeeRate int32  `json:"TakerOperatorFeeRate"`
-	MakerOperatorFeeRate int32  `json:"MakerOperatorFeeRate"`
-	Quantity             string `json:"Quantity"`
-	Amount               string `json:"Amount"`
-	LockedBuyFee         string `json:"LockedBuyFee,omitempty"`
-	Status               int32  `json:"Status"`
-	CancelReason         int32  `json:"CancelReason,omitempty"`
-	ExecutedQuantity     string `json:"ExecutedQuantity,omitempty"`
-	ExecutedAmount       string `json:"ExecutedAmount,omitempty"`
-	ExecutedBaseFee      string `json:"ExecutedBaseFee,omitempty"`
-	ExecutedOperatorFee  string `json:"ExecutedOperatorFee,omitempty"`
-	RefundToken          string `json:"RefundToken,omitempty"`
-	RefundQuantity       string `json:"RefundQuantity,omitempty"`
-	Timestamp            int64  `json:"Timestamp"`
-	Agent                string `json:"Agent,omitempty"`
-	SendHash             string `json:"SendHash,omitempty"`
-}
-
-type OrdersRes struct {
-	Orders []*RpcOrder `json:"orders,omitempty"`
-	Size   int         `json:"size"`
-}
-
-func OrderToRpc(order *dex.Order) *RpcOrder {
-	if order == nil {
-		return nil
-	}
-	address, _ := types.BytesToAddress(order.Address)
-	rpcOrder := &RpcOrder{}
-	rpcOrder.Id = hex.EncodeToString(order.Id)
-	rpcOrder.Address = address.String()
-	rpcOrder.MarketId = order.MarketId
-	rpcOrder.Side = order.Side
-	rpcOrder.Type = order.Type
-	rpcOrder.Price = dex.BytesToPrice(order.Price)
-	rpcOrder.TakerFeeRate = order.TakerFeeRate
-	rpcOrder.MakerFeeRate = order.MakerFeeRate
-	rpcOrder.TakerOperatorFeeRate = order.TakerOperatorFeeRate
-	rpcOrder.MakerOperatorFeeRate = order.MakerOperatorFeeRate
-	rpcOrder.Quantity = apidex.AmountBytesToString(order.Quantity)
-	rpcOrder.Amount = apidex.AmountBytesToString(order.Amount)
-	if len(order.LockedBuyFee) > 0 {
-		rpcOrder.LockedBuyFee = apidex.AmountBytesToString(order.LockedBuyFee)
-	}
-	rpcOrder.Status = order.Status
-	rpcOrder.CancelReason = order.CancelReason
-	if len(order.ExecutedQuantity) > 0 {
-		rpcOrder.ExecutedQuantity = apidex.AmountBytesToString(order.ExecutedQuantity)
-	}
-	if len(order.ExecutedAmount) > 0 {
-		rpcOrder.ExecutedAmount = apidex.AmountBytesToString(order.ExecutedAmount)
-	}
-	if len(order.ExecutedBaseFee) > 0 {
-		rpcOrder.ExecutedBaseFee = apidex.AmountBytesToString(order.ExecutedBaseFee)
-	}
-	if len(order.ExecutedOperatorFee) > 0 {
-		rpcOrder.ExecutedOperatorFee = apidex.AmountBytesToString(order.ExecutedOperatorFee)
-	}
-	if len(order.RefundToken) > 0 {
-		tk, _ := types.BytesToTokenTypeId(order.RefundToken)
-		rpcOrder.RefundToken = tk.String()
-	}
-	if len(order.RefundQuantity) > 0 {
-		rpcOrder.RefundQuantity = apidex.AmountBytesToString(order.RefundQuantity)
-	}
-	if len(order.Agent) > 0 {
-		agent, _ := types.BytesToAddress(order.Agent)
-		rpcOrder.Agent = agent.String()
-	}
-	if len(order.SendHash) > 0 {
-		sendHash, _ := types.BytesToHash(order.SendHash)
-		rpcOrder.SendHash = sendHash.String()
-	}
-	rpcOrder.Timestamp = order.Timestamp
-	return rpcOrder
-}
-
-func OrdersToRpc(orders []*dex.Order) []*RpcOrder {
-	if len(orders) == 0 {
-		return nil
-	} else {
-		rpcOrders := make([]*RpcOrder, len(orders))
-		for i := 0; i < len(orders); i++ {
-			rpcOrders[i] = OrderToRpc(orders[i])
-		}
-		return rpcOrders
 	}
 }

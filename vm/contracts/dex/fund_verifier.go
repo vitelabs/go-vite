@@ -116,7 +116,7 @@ func accumulateFeeDividendPool(db vm_db.VmDb, reader *util.VMConsensusReader, ac
 		periodId               uint64
 	)
 	currentPeriodId := GetCurrentPeriodId(db, reader)
-	iterator, err := db.NewStorageIterator(feeSumKeyPrefix)
+	iterator, err := db.NewStorageIterator(dexFeesKeyPrefix)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func accumulateFeeDividendPool(db vm_db.VmDb, reader *util.VMConsensusReader, ac
 			if len(feeSumValue) == 0 {
 				continue
 			}
-			periodId = BytesToUint64(feeSumKey[len(feeSumKeyPrefix):])
+			periodId = BytesToUint64(feeSumKey[len(dexFeesKeyPrefix):])
 		} else {
 			break
 		}
@@ -191,7 +191,7 @@ func accumulateVx(db vm_db.VmDb, vxAmount *big.Int) error {
 		ok       bool
 	)
 	vxAmount.Add(vxAmount, GetVxMinePool(db))
-	iterator, err := db.NewStorageIterator(makerMineProxyAmountByPeriodKey)
+	iterator, err := db.NewStorageIterator(makerMiningPoolByPeriodKey)
 	if err != nil {
 		return err
 	}

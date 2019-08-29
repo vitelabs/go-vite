@@ -301,7 +301,7 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, accou
 		marketInfo *MarketInfo
 		ok         bool
 	)
-	if IsViteXStopped(db) {
+	if IsDexStopped(db) {
 		return nil, ViteXStoppedErr
 	}
 	if marketInfo, ok = GetMarketInfo(db, param.TradeToken, param.QuoteToken); !ok || !marketInfo.Valid {
@@ -491,11 +491,6 @@ func IsDexFeeFork(db vm_db.VmDb) bool {
 	}
 }
 
-// only for unit test
-func SetFeeRate(baseRate int32) {
-	BaseFeeRate = baseRate
-}
-
 func IsStemFork(db vm_db.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
@@ -504,7 +499,15 @@ func IsStemFork(db vm_db.VmDb) bool {
 	}
 }
 
-func ValidBrokerFeeRate(feeRate int32) bool {
+func IsLeafFork(db vm_db.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return fork.IsLeafFork(latestSb.Height)
+	}
+}
+
+func ValidOperatorFeeRate(feeRate int32) bool {
 	return feeRate >= 0 && feeRate <= MaxOperatorFeeRate
 }
 

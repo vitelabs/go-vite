@@ -85,7 +85,7 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 	currentPeriodId := GetCurrentPeriodId(db, reader)
 	feeSumByPeriod, ok := GetDexFeesByPeriodId(db, currentPeriodId)
 	if !ok { // need roll period when current period feeSum not saved yet
-		feeSumByPeriod = RollAndGentNewFeeSumByPeriod(db, currentPeriodId)
+		feeSumByPeriod = RollAndGentNewDexFeesByPeriod(db, currentPeriodId)
 	}
 	if inviteRelations == nil {
 		inviteRelations = make(map[types.Address]*types.Address)
@@ -146,7 +146,7 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 			feeSumByPeriod.FeesForMine = append(feeSumByPeriod.FeesForMine, newFeesForMine(quoteTokenType, incBaseSumForMine, incInviteeSumForMine))
 		}
 	}
-	SaveFeeSumWithPeriodId(db, currentPeriodId, feeSumByPeriod)
+	SaveDexFeesByPeriodId(db, currentPeriodId, feeSumByPeriod)
 }
 
 //baseAmount + brokerAmount for vx mine,

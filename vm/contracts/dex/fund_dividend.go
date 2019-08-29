@@ -17,7 +17,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	)
 
 	//allow divide history fees that not divided yet
-	if feeSumsMap = GetNotDividedFeeSumsByPeriodId(db, periodId); len(feeSumsMap) == 0 { // no fee to divide
+	if feeSumsMap = GetNotFinishDividendDexFeesByPeriods(db, periodId); len(feeSumsMap) == 0 { // no fee to divide
 		return nil
 	}
 	if vxSumFunds, ok = GetVxSumFunds(db); !ok {
@@ -50,7 +50,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 				}
 			}
 		}
-		MarkFeeSumAsFeeDivided(db, fee, pId)
+		MarkDexFeesFinishDividend(db, fee, pId)
 	}
 
 	var (

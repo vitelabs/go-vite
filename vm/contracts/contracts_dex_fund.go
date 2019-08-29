@@ -788,17 +788,17 @@ func (md MethodDexFundDexAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.Acc
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigOwner) {
 			dex.SetOwner(db, param.Owner)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTimer) {
-			dex.SetTimerAddress(db, param.TimeOracle)
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTimeOracle) {
+			dex.SetTimeOracle(db, param.TimeOracle)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTrigger) {
-			dex.SetTriggerAddress(db, param.PeriodJobTrigger)
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigPeriodJobTrigger) {
+			dex.SetPeriodJobTrigger(db, param.PeriodJobTrigger)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStopViteX) {
-			dex.SaveViteXStopped(db, param.StopDex)
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStopDex) {
+			dex.SaveDexStopped(db, param.StopDex)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMakerMineProxy) {
-			dex.SaveMakerMineProxy(db, param.MakerMiningAdmin)
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMakerMiningAdmin) {
+			dex.SaveMakerMiningAdmin(db, param.MakerMiningAdmin)
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMaintainer) {
 			dex.SaveMaintainer(db, param.Maintainer)
@@ -943,14 +943,14 @@ func (md MethodDexFundMarketAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.
 			marketInfo.Owner = param.MarketOwner.Bytes()
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigTakerRate) {
-			if !dex.ValidBrokerFeeRate(param.TakerFeeRate) {
-				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidBrokerFeeRateErr, sendBlock)
+			if !dex.ValidOperatorFeeRate(param.TakerFeeRate) {
+				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidOperatorFeeRateErr, sendBlock)
 			}
 			marketInfo.TakerOperatorFeeRate = param.TakerFeeRate
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.MarketOwnerConfigMakerRate) {
-			if !dex.ValidBrokerFeeRate(param.MakerFeeRate) {
-				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidBrokerFeeRateErr, sendBlock)
+			if !dex.ValidOperatorFeeRate(param.MakerFeeRate) {
+				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidOperatorFeeRateErr, sendBlock)
 			}
 			marketInfo.MakerOperatorFeeRate = param.MakerFeeRate
 		}
@@ -1050,13 +1050,13 @@ func (md MethodDexFundNotifyTime) DoReceive(db vm_db.VmDb, block *ledger.Account
 		err             error
 		notifyTimeParam = new(dex.ParamDexFundNotifyTime)
 	)
-	if !dex.ValidTimerAddress(db, sendBlock.AccountAddress) {
+	if !dex.ValidTimeOracle(db, sendBlock.AccountAddress) {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidSourceAddressErr, sendBlock)
 	}
 	if err = cabi.ABIDexFund.UnpackMethod(notifyTimeParam, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
-	if err = dex.SetTimerTimestamp(db, notifyTimeParam.Timestamp, vm.ConsensusReader()); err != nil {
+	if err = dex.SetDexTimestamp(db, notifyTimeParam.Timestamp, vm.ConsensusReader()); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
 	return nil, nil
@@ -1228,7 +1228,7 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 		poolAmt *big.Int
 		finish  bool
 	)
-	if !dex.IsMakerMineProxy(db, sendBlock.AccountAddress) {
+	if !dex.IsMakerMiningAdmin(db, sendBlock.AccountAddress) {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidSourceAddressErr, sendBlock)
 	}
 	param := new(dex.ParamDexSerializedData)
@@ -1248,7 +1248,7 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 			return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidInputParamErr, sendBlock)
 		}
 	}
-	if poolAmt = dex.GetMakerProxyAmountByPeriodId(db, actions.Period); poolAmt.Sign() == 0 {
+	if poolAmt = dex.GetMakerMiningPoolByPeriodId(db, actions.Period); poolAmt.Sign() == 0 {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.ExceedFundAvailableErr, sendBlock)
 	}
 	for _, action := range actions.Actions {
@@ -1270,11 +1270,11 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 		}
 	}
 	if poolAmt.Sign() > 0 {
-		dex.SaveMakerProxyAmountByPeriodId(db, actions.Period, poolAmt)
+		dex.SaveMakerMiningPoolByPeriodId(db, actions.Period, poolAmt)
 		dex.SaveLastSettledMakerMinedVxPage(db, actions.Page)
 	} else {
 		finish = true
-		dex.DeleteMakerProxyAmountByPeriodId(db, actions.Period)
+		dex.DeleteMakerMiningPoolByPeriodId(db, actions.Period)
 		dex.SaveLastSettledMakerMinedVxPeriod(db, actions.Period)
 		dex.DeleteLastSettledMakerMinedVxPage(db)
 	}
