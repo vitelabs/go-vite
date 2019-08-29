@@ -1,464 +1,352 @@
 package vm
 
 import (
+	"bytes"
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/common/fork"
+	"encoding/json"
+	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/vm_db"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"strconv"
 	"testing"
 	"time"
 )
 
+type VMRunTestCase struct {
+	// global status
+	SbHeight uint64
+	SbTime   int64
+	SbHash   string
+	// block
+	BlockType        byte
+	SendBlockType    byte
+	SendBlockHash    string
+	FromAddress      types.Address
+	ToAddress        types.Address
+	Data             string
+	Amount           string
+	TokenId          types.TokenTypeId
+	Fee              string
+	Code             string
+	NeedGlobalStatus bool
+	// environment
+	PledgeBeneficialAmount string
+	PreStorage             map[string]string
+	PreBalanceMap          map[types.TokenTypeId]string
+	PreContractMetaMap     map[types.Address]*ledger.ContractMeta
+	ContractMetaMap        map[types.Address]*ledger.ContractMeta
+	// result
+	Err           string
+	IsRetry       bool
+	Success       bool
+	Quota         uint64
+	QuotaUsed     uint64
+	BlockData     *string
+	SendBlockList []*TestCaseSendBlock
+	LogList       []TestLog
+	Storage       map[string]string
+	BalanceMap    map[types.TokenTypeId]string
+}
+
 var (
-	testTokenId = types.TokenTypeId{'T', 'E', 'S', 'T', ' ', 'T', 'O', 'K', 'E', 'N'}
+	quotaInfoList = commonQuotaInfoList()
+	prevHash, _   = types.HexToHash("82a8ecfe0df3dea6256651ee3130747386d4d6ab61201ce0050a6fe394a0f595")
+	// testAddr,_ = types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
+	// testContractAddr,_ = types.HexToAddress("vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86")
 )
 
-type RunV2TestCase struct {
-	caseType string
-	// send create params
-	code         []byte
-	contractType uint8
-	confirmTimes uint8
-	seedCount    uint8
-	quotaRatio   uint8
-	gid          types.Gid
-	// latest snapshot block
-	snapshotHeight uint64
-	// block info
-	data    []byte
-	amount  *big.Int
-	tokenId *types.TokenTypeId
-	// quota
-	pledgeBeneficialAmount *big.Int
-	// balance and storage
-	balanceMap map[types.TokenTypeId]*big.Int
-	// return data
-	err         error
-	isRetry     bool
-	returnBlock *ledger.AccountBlock
-}
-
-func TestVM_RunSendCreate(t *testing.T) {
-	testCases := []RunV2TestCase{
-		{
-			caseType:               "quota_not_enough",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           2,
-			seedCount:              2,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: big.NewInt(0),
-			err:                    util.ErrOutOfQuota,
-		},
-		{
-			caseType:               "contract_type_error_before_hardfork",
-			contractType:           0,
-			confirmTimes:           2,
-			seedCount:              2,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         1,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidMethodParam,
-		},
-		{
-			caseType:               "confirm_time_error_before_hardfork",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           76,
-			seedCount:              2,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         1,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidConfirmTime,
-		},
-		{
-			caseType:               "confirm_time_error_with_code_before_hardfork",
-			code:                   []byte{0x43},
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           0,
-			seedCount:              0,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         1,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidConfirmTime,
-		},
-		{
-			caseType:               "quota_ratio_error_before_hardfork",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              1,
-			quotaRatio:             3,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         1,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidQuotaRatio,
-		},
-		{
-			caseType:               "gid_error_before_hardfork",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              1,
-			quotaRatio:             20,
-			gid:                    types.SNAPSHOT_GID,
-			snapshotHeight:         1,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidMethodParam,
-		},
-		{
-			caseType:               "data_length_error_before_hardfork",
-			snapshotHeight:         1,
-			data:                   []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2},
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidMethodParam,
-		},
-		{
-			caseType:               "contract_type_error_after_hardfork",
-			contractType:           0,
-			confirmTimes:           2,
-			seedCount:              2,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidMethodParam,
-		},
-		{
-			caseType:               "confirm_time_error_after_hardfork",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           76,
-			seedCount:              2,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidConfirmTime,
-		},
-		{
-			caseType:               "confirm_time_error_with_code_after_hardfork",
-			code:                   []byte{0x43},
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           0,
-			seedCount:              0,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidConfirmTime,
-		},
-		{
-			caseType:               "seed_count_error_after_hardfork",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              5,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidSeedCount,
-		},
-		{
-			caseType:               "seed_count_with_code_error_after_hardfork",
-			code:                   []byte{0x4a},
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              0,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidSeedCount,
-		},
-		{
-			caseType:               "quota_ratio_error_after_hardfork",
-			code:                   []byte{},
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              1,
-			quotaRatio:             3,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidQuotaRatio,
-		},
-		{
-			caseType:               "gid_error_after_hardfork",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              1,
-			quotaRatio:             20,
-			gid:                    types.SNAPSHOT_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidMethodParam,
-		},
-		{
-			caseType:               "data_length_error_after_hardfork",
-			snapshotHeight:         100,
-			data:                   []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3},
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInvalidMethodParam,
-		},
-		{
-			caseType:               "insufficient_balance",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              1,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInsufficientBalance,
-			balanceMap: map[types.TokenTypeId]*big.Int{
-				ledger.ViteTokenId: big.NewInt(1),
-			},
-		},
-		{
-			caseType:               "insufficient_balance_with_amount",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              1,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInsufficientBalance,
-			amount:                 big.NewInt(1),
-			balanceMap: map[types.TokenTypeId]*big.Int{
-				ledger.ViteTokenId: new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)),
-			},
-		},
-		{
-			caseType:               "insufficient_balance_with_different_token",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              1,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInsufficientBalance,
-			amount:                 big.NewInt(1),
-			tokenId:                &testTokenId,
-			balanceMap: map[types.TokenTypeId]*big.Int{
-				ledger.ViteTokenId: new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)),
-			},
-		},
-		{
-			caseType:               "insufficient_balance_with_different_token_2",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              1,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInsufficientBalance,
-			amount:                 big.NewInt(2),
-			tokenId:                &testTokenId,
-			balanceMap: map[types.TokenTypeId]*big.Int{
-				ledger.ViteTokenId: new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)),
-				testTokenId:        big.NewInt(1),
-			},
-		},
-		{
-			caseType:               "insufficient_balance_with_different_token_3",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              1,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			err:                    util.ErrInsufficientBalance,
-			amount:                 big.NewInt(1),
-			tokenId:                &testTokenId,
-			balanceMap: map[types.TokenTypeId]*big.Int{
-				ledger.ViteTokenId: new(big.Int).Mul(big.NewInt(9), big.NewInt(1e18)),
-				testTokenId:        big.NewInt(1),
-			},
-		},
-		{
-			caseType:               "normal",
-			contractType:           util.SolidityPPContractType,
-			confirmTimes:           4,
-			seedCount:              1,
-			quotaRatio:             20,
-			gid:                    types.DELEGATE_GID,
-			snapshotHeight:         100,
-			pledgeBeneficialAmount: new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
-			amount:                 big.NewInt(10),
-			balanceMap: map[types.TokenTypeId]*big.Int{
-				ledger.ViteTokenId: new(big.Int).Mul(big.NewInt(11), big.NewInt(1e18)),
-			},
-			returnBlock: &ledger.AccountBlock{
-				Quota:     21952,
-				QuotaUsed: 21952,
-				Fee:       new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18)),
-			},
-		},
+func TestVM_RunV2(t *testing.T) {
+	testDir := "./test/run_test/"
+	testFiles, ok := ioutil.ReadDir(testDir)
+	if ok != nil {
+		t.Fatalf("read dir failed, %v", ok)
 	}
-	runTest(testCases, t)
-}
+	for _, testFile := range testFiles {
+		if testFile.IsDir() {
+			continue
+		}
+		file, ok := os.Open(testDir + testFile.Name())
+		if ok != nil {
+			t.Fatalf("open test file failed, %v", ok)
+		}
+		testCaseMap := new(map[string]VMRunTestCase)
+		if ok := json.NewDecoder(file).Decode(testCaseMap); ok != nil {
+			t.Fatalf("decode test file %v failed, %v", testFile.Name(), ok)
+		}
+		for k, testCase := range *testCaseMap {
+			var currentTime time.Time
+			if testCase.SbTime > 0 {
+				currentTime = time.Unix(testCase.SbTime, 0)
+			} else {
+				currentTime = time.Now()
+			}
+			latestSnapshotBlock := &ledger.SnapshotBlock{
+				Height:    testCase.SbHeight,
+				Timestamp: &currentTime,
+			}
+			if len(testCase.SbHash) > 0 {
+				sbHash, parseErr := types.HexToHash(testCase.SbHash)
+				if parseErr != nil {
+					t.Fatal("invalid test case sbHash", "filename", testFile.Name(), "caseName", k, "sbHash", testCase.SbHash)
+				}
+				latestSnapshotBlock.Hash = sbHash
+			}
+			var ok bool
+			pledgeBeneficialAmount := big.NewInt(0)
+			if len(testCase.PledgeBeneficialAmount) > 0 {
+				pledgeBeneficialAmount, ok = new(big.Int).SetString(testCase.PledgeBeneficialAmount, 16)
+				if !ok {
+					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "pledgeBeneficialAmount", testCase.PledgeBeneficialAmount)
+				}
+			}
+			code, parseErr := hex.DecodeString(testCase.Code)
+			if parseErr != nil {
+				t.Fatal("invalid test case code", "filename", testFile.Name(), "caseName", k, "code", testCase.Code, "err", parseErr)
+			}
 
-func runTest(testCases []RunV2TestCase, t *testing.T) {
-	vm := NewVM(nil)
-	addr, _ := types.HexToAddress("vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a")
-	prevHash, _ := types.HexToHash("82a8ecfe0df3dea6256651ee3130747386d4d6ab61201ce0050a6fe394a0f595")
-	latestHeight := uint64(1)
-	latestSnapshotHash, _ := types.HexToHash("41257eb3d17c4cd860a704a9f3aada83a479a3e634879049892587c009be93a3")
+			var db *mockDB
+			var vmBlock *vm_db.VmAccountBlock
+			var isRetry bool
+			var err error
 
-	for _, testCase := range testCases {
-		var sendCreateData []byte
-		if len(testCase.data) > 0 {
-			sendCreateData = testCase.data
-		} else {
-			sendCreateData = util.GetCreateContractData(
-				testCase.code,
-				testCase.contractType,
-				testCase.confirmTimes,
-				testCase.seedCount,
-				testCase.quotaRatio,
-				testCase.gid,
-				testCase.snapshotHeight)
-		}
+			sendBlock := &ledger.AccountBlock{
+				Amount:  big.NewInt(0),
+				TokenId: testCase.TokenId,
+				Fee:     big.NewInt(0),
+			}
+			if len(testCase.Fee) > 0 {
+				sendBlock.Fee, ok = new(big.Int).SetString(testCase.Fee, 16)
+				if !ok {
+					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "fee", testCase.Fee)
+				}
+			}
+			if len(testCase.Amount) > 0 {
+				sendBlock.Amount, ok = new(big.Int).SetString(testCase.Amount, 16)
+				if !ok {
+					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "amount", testCase.Amount)
+				}
+			}
+			if len(testCase.Data) > 0 {
+				sendBlock.Data, parseErr = hex.DecodeString(testCase.Data)
+				if parseErr != nil {
+					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "data", testCase.Data)
+				}
+			}
 
-		prevAccountBlock := &ledger.AccountBlock{
-			BlockType:      ledger.BlockTypeReceive,
-			Height:         latestHeight,
-			Hash:           prevHash,
-			PrevHash:       types.ZERO_HASH,
-			AccountAddress: addr,
-		}
-		tokenId := ledger.ViteTokenId
-		if testCase.tokenId != nil {
-			tokenId = *testCase.tokenId
-		}
-		amount := big.NewInt(0)
-		if testCase.amount != nil {
-			amount = testCase.amount
-		}
-		sendCreateBlock := &ledger.AccountBlock{
-			BlockType:      ledger.BlockTypeSendCreate,
-			PrevHash:       prevHash,
-			Height:         latestHeight + 1,
-			AccountAddress: addr,
-			Amount:         amount,
-			TokenId:        tokenId,
-			Data:           sendCreateData,
-		}
+			if ledger.IsSendBlock(testCase.BlockType) {
+				prevBlock := &ledger.AccountBlock{
+					BlockType:      ledger.BlockTypeReceive,
+					Height:         1,
+					Hash:           prevHash,
+					PrevHash:       types.ZERO_HASH,
+					AccountAddress: testCase.FromAddress,
+				}
+				sendBlock.PrevHash = prevBlock.Hash
+				sendBlock.Height = prevBlock.Height + 1
+				sendBlock.BlockType = testCase.BlockType
+				sendBlock.AccountAddress = testCase.FromAddress
+				sendBlock.ToAddress = testCase.ToAddress
+				var newDbErr error
+				db, newDbErr = NewMockDB(&testCase.FromAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code)
+				if newDbErr != nil {
+					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
+				}
+				vm := NewVM(nil)
+				vmBlock, isRetry, err = vm.RunV2(db, sendBlock, nil, nil)
+			} else if ledger.IsReceiveBlock(testCase.BlockType) {
+				sendBlock.BlockType = testCase.SendBlockType
+				sendBlock.AccountAddress = testCase.FromAddress
+				sendBlock.ToAddress = testCase.ToAddress
+				if len(testCase.SendBlockHash) > 0 {
+					sendBlock.Hash, parseErr = types.HexToHash(testCase.SendBlockHash)
+					if parseErr != nil {
+						t.Fatal("invalid test case send block hash", "filename", testFile.Name(), "caseName", k, "hash", testCase.SendBlockHash)
+					}
+				}
+				var prevBlock, receiveBlock *ledger.AccountBlock
+				if testCase.SendBlockType == ledger.BlockTypeSendCreate {
+					receiveBlock = &ledger.AccountBlock{
+						BlockType:      testCase.BlockType,
+						PrevHash:       types.Hash{},
+						Height:         1,
+						AccountAddress: testCase.ToAddress,
+					}
+				} else {
+					prevBlock = &ledger.AccountBlock{
+						BlockType:      ledger.BlockTypeReceive,
+						Height:         1,
+						Hash:           prevHash,
+						PrevHash:       types.ZERO_HASH,
+						AccountAddress: testCase.ToAddress,
+					}
+					receiveBlock = &ledger.AccountBlock{
+						BlockType:      testCase.BlockType,
+						PrevHash:       prevBlock.Hash,
+						Height:         prevBlock.Height + 1,
+						AccountAddress: testCase.ToAddress,
+					}
+				}
+				var newDbErr error
+				db, newDbErr = NewMockDB(&testCase.ToAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code)
+				if newDbErr != nil {
+					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
+				}
+				vm := NewVM(nil)
+				var status util.GlobalStatus
+				if testCase.NeedGlobalStatus {
+					status = NewTestGlobalStatus(0, latestSnapshotBlock)
+				}
+				vmBlock, isRetry, err = vm.RunV2(db, receiveBlock, sendBlock, status)
+			} else {
+				t.Fatal("invalid test case block type", "filename", testFile.Name(), "caseName", k, "blockType", testCase.BlockType)
+			}
 
-		currentTime := time.Now()
-		latestSnapshotBlock := &ledger.SnapshotBlock{
-			Hash:      latestSnapshotHash,
-			PrevHash:  types.ZERO_HASH,
-			Height:    testCase.snapshotHeight,
-			Timestamp: &currentTime,
-		}
-
-		quotaInfoList := make([]types.QuotaInfo, 0, 75)
-		for i := 0; i < 75; i++ {
-			quotaInfoList = append(quotaInfoList, types.QuotaInfo{BlockCount: 0, QuotaTotal: 0, QuotaUsedTotal: 0})
-		}
-
-		db := NewMockDB(&addr, latestSnapshotBlock, prevAccountBlock, quotaInfoList, testCase.pledgeBeneficialAmount, testCase.balanceMap)
-
-		vmBlock, isRetry, err := vm.RunV2(db, sendCreateBlock, nil, nil)
-		if !errorEquals(err, testCase.err) {
-			t.Fatalf("name: %v, error not match, expected %v, but got %v", testCase.caseType, testCase.err, err)
-		}
-		if isRetry != testCase.isRetry {
-			t.Fatalf("name: %v, isRetry not match, expected %v, but got %v", testCase.caseType, testCase.isRetry, isRetry)
-		}
-		vmBlockNotNil := vmBlock != nil && vmBlock.AccountBlock != nil
-		expectedToAddr := util.NewContractAddress(sendCreateBlock.AccountAddress, sendCreateBlock.Height, sendCreateBlock.PrevHash)
-		if vmBlockNotNil && testCase.returnBlock == nil ||
-			!vmBlockNotNil && testCase.returnBlock != nil {
-			t.Fatalf("name: %v, return block not match, expected nil %v, but got nil %v", testCase.caseType, testCase.returnBlock == nil, !vmBlockNotNil)
-		} else if vmBlockNotNil && testCase.returnBlock != nil {
-			if vmBlock.AccountBlock.Fee.Cmp(testCase.returnBlock.Fee) != 0 {
-				t.Fatalf("name: %v, fee not match, expected %v, but %v", testCase.caseType, testCase.returnBlock.Fee, vmBlock.AccountBlock.Fee)
+			if !errorEquals(testCase.Err, err) {
+				t.Fatal("invalid test case run result, err", "filename", testFile.Name(), "caseName", k, "expected", testCase.Err, "got", err)
+			} else if testCase.IsRetry != isRetry {
+				t.Fatal("invalid test case run result, isRetry", "filename", testFile.Name(), "caseName", k, "expected", testCase.IsRetry, "got", isRetry)
 			}
-			if vmBlock.AccountBlock.Quota != testCase.returnBlock.Quota {
-				t.Fatalf("name: %v, quota not match, expected %v, but %v", testCase.caseType, testCase.returnBlock.Quota, vmBlock.AccountBlock.Quota)
-			}
-			if vmBlock.AccountBlock.QuotaUsed != testCase.returnBlock.QuotaUsed {
-				t.Fatalf("name: %v, quota used not match, expected %v, but %v", testCase.caseType, testCase.returnBlock.QuotaUsed, vmBlock.AccountBlock.QuotaUsed)
-			}
-			if vmBlock.AccountBlock.ToAddress != expectedToAddr {
-				t.Fatalf("name: %v, to address not match, expected %v, but %v", testCase.caseType, expectedToAddr, vmBlock.AccountBlock.ToAddress)
-			}
-		}
-		if vmBlockNotNil {
-			if amount.Sign() > 0 {
-				testCase.balanceMap[tokenId].Sub(testCase.balanceMap[tokenId], amount)
-			}
-			testCase.balanceMap[ledger.ViteTokenId].Sub(testCase.balanceMap[ledger.ViteTokenId], testCase.returnBlock.Fee)
-			if checkBalanceMapResult := checkBalanceMap(db.balanceMap, testCase.balanceMap); len(checkBalanceMapResult) > 0 {
-				t.Fatalf("name: %v, %v", testCase.caseType, checkBalanceMapResult)
-			}
-			got, _ := db.GetContractMetaInSnapshot(expectedToAddr, nil)
-			if got == nil {
-				t.Fatalf("name: %v, contract meta is nil", testCase.caseType)
-			}
-			if len(testCase.data) == 0 && (got.QuotaRatio != testCase.quotaRatio ||
-				got.SendConfirmedTimes != testCase.confirmTimes ||
-				got.Gid != testCase.gid ||
-				(fork.IsSeedFork(testCase.snapshotHeight) && got.SeedConfirmedTimes != testCase.seedCount)) {
-				t.Fatalf("name: %v, contract meta not match, expected [%v,%v,%v,%v], got [%v,%v,%v,%v]",
-					testCase.caseType,
-					got.QuotaRatio, got.SendConfirmedTimes, got.Gid, got.SeedConfirmedTimes,
-					testCase.quotaRatio, testCase.confirmTimes, testCase.gid, testCase.seedCount)
-			}
-			if len(testCase.data) > 0 &&
-				(got.QuotaRatio != util.GetQuotaRatioFromCreateContractData(testCase.data, testCase.snapshotHeight) ||
-					got.SendConfirmedTimes != util.GetConfirmTimeFromCreateContractData(testCase.data) ||
-					got.Gid != util.GetGidFromCreateContractData(testCase.data) ||
-					(fork.IsSeedFork(testCase.snapshotHeight) && got.SeedConfirmedTimes != util.GetSeedCountFromCreateContractData(testCase.data))) {
-				t.Fatalf("name: %v, contract meta not match, expected [%v,%v,%v,%v], got [%v]",
-					testCase.caseType,
-					got.QuotaRatio, got.SendConfirmedTimes, got.Gid, got.SeedConfirmedTimes,
-					hex.EncodeToString(testCase.data))
+			if testCase.Success {
+				balanceMapGot, _ := db.GetBalanceMap()
+				if vmBlock == nil {
+					t.Fatal("invalid test case run result, vmBlock", "filename", testFile.Name(), "caseName", k, "expected", "exist", "got", "nil")
+				} else if testCase.BlockType != vmBlock.AccountBlock.BlockType {
+					t.Fatal("invalid test case run result, blockType", "filename", testFile.Name(), "caseName", k, "expected", testCase.BlockType, "got", vmBlock.AccountBlock.BlockType)
+				} else if testCase.Quota != vmBlock.AccountBlock.Quota {
+					t.Fatal("invalid test case run result, quota", "filename", testFile.Name(), "caseName", k, "expected", testCase.Quota, "got", vmBlock.AccountBlock.Quota)
+				} else if testCase.QuotaUsed != vmBlock.AccountBlock.QuotaUsed {
+					t.Fatal("invalid test case run result, quotaUsed", "filename", testFile.Name(), "caseName", k, "expected", testCase.QuotaUsed, "got", vmBlock.AccountBlock.QuotaUsed)
+				} else if checkBalanceResult := checkBalanceMap(testCase.BalanceMap, balanceMapGot); len(checkBalanceResult) > 0 {
+					t.Fatal("invalid test case run result, balanceMap", "filename", testFile.Name(), "caseName", k, checkBalanceResult)
+				} else if checkStorageResult := checkStorageMap(testCase.Storage, db.getStorageMap()); len(checkStorageResult) > 0 {
+					t.Fatal("invalid test case run result, storageMap", "filename", testFile.Name(), "caseName", k, checkStorageResult)
+				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vmBlock.AccountBlock.SendBlockList); len(checkSendBlockListResult) > 0 {
+					t.Fatal("invalid test case run result, sendBlockList", "filename", testFile.Name(), "caseName", k, checkSendBlockListResult)
+				} else if checkLogListResult := checkLogList(testCase.LogList, db.logList); len(checkLogListResult) > 0 {
+					t.Fatal("invalid test case run result, logList", "filename", testFile.Name(), "caseName", k, checkLogListResult)
+				} else if expected := db.GetLogListHash(); expected != vmBlock.AccountBlock.LogHash {
+					t.Fatal("invalid test case run result, logHash", "filename", testFile.Name(), "caseName", k, "expected", expected, "got", vmBlock.AccountBlock.LogHash)
+				} else if checkContractMetaMapResult := checkContractMetaMap(testCase.ContractMetaMap, db.getContractMetaMap()); len(checkContractMetaMapResult) > 0 {
+					t.Fatal("invalid test case run result, contractMetaMap", "filename", testFile.Name(), "caseName", k, checkContractMetaMapResult)
+				} else if expected := db.GetLogListHash(); (vmBlock.AccountBlock.LogHash == nil && expected != nil) ||
+					(vmBlock.AccountBlock.LogHash != nil && expected == nil) ||
+					(vmBlock.AccountBlock.LogHash != nil && expected != nil && vmBlock.AccountBlock.LogHash != expected) {
+					t.Fatal("invalid test case run result, log hash", "filename", testFile.Name(), "caseName", k, "expected", expected, "got", vmBlock.AccountBlock.LogHash)
+				}
+				if types.IsContractAddr(vmBlock.AccountBlock.AccountAddress) {
+					if expected := append(db.GetReceiptHash().Bytes(), 0); err == nil && testCase.SendBlockType != ledger.BlockTypeSendRefund && !bytes.Equal(vmBlock.AccountBlock.Data, expected) {
+						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", bytesToString(expected), "got", bytesToString(vmBlock.AccountBlock.Data))
+					} else if err == nil && testCase.SendBlockType == ledger.BlockTypeSendRefund && len(vmBlock.AccountBlock.Data) > 0 {
+						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", "nil", "got", bytesToString(vmBlock.AccountBlock.Data))
+					} else if expected := append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, byte(1)); err != nil && err.Error() != util.ErrDepth.Error() && !bytes.Equal(vmBlock.AccountBlock.Data, expected) {
+						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", bytesToString(expected), "got", bytesToString(vmBlock.AccountBlock.Data))
+					} else if expected := append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, byte(2)); err != nil && err.Error() == util.ErrDepth.Error() && !bytes.Equal(vmBlock.AccountBlock.Data, expected) {
+						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", bytesToString(expected), "got", bytesToString(vmBlock.AccountBlock.Data))
+					}
+				} else if vmBlock.AccountBlock.IsReceiveBlock() {
+					if len(vmBlock.AccountBlock.Data) > 0 {
+						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", "nil", "got", bytesToString(vmBlock.AccountBlock.Data))
+					}
+				} else {
+					if testCase.BlockData == nil && !bytes.Equal(vmBlock.AccountBlock.Data, stringToBytes(testCase.Data)) {
+						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", testCase.Data, "got", bytesToString(vmBlock.AccountBlock.Data))
+					} else if testCase.BlockData != nil && !bytes.Equal(vmBlock.AccountBlock.Data, stringToBytes(*testCase.BlockData)) {
+						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", testCase.BlockData, "got", bytesToString(vmBlock.AccountBlock.Data))
+					}
+				}
+			} else if vmBlock != nil {
+				t.Fatal("invalid test case run result, vmBlock", "filename", testFile.Name(), "caseName", k, "expected", "nil", "got", vmBlock.AccountBlock)
 			}
 		}
 	}
 }
 
-func errorEquals(expected, got error) bool {
-	if (expected == nil && got != nil) || (expected != nil && got == nil) ||
-		(expected != nil && got != nil && expected.Error() != got.Error()) {
-		return false
+func commonQuotaInfoList() []types.QuotaInfo {
+	quotaInfoList := make([]types.QuotaInfo, 0, 75)
+	for i := 0; i < 75; i++ {
+		quotaInfoList = append(quotaInfoList, types.QuotaInfo{BlockCount: 0, QuotaTotal: 0, QuotaUsedTotal: 0})
 	}
-	return true
+	return quotaInfoList
 }
 
-func checkBalanceMap(got map[types.TokenTypeId]*big.Int, expected map[types.TokenTypeId]*big.Int) string {
+func errorEquals(expected string, got error) bool {
+	if (len(expected) == 0 && got == nil) || (len(expected) > 0 && got != nil && expected == got.Error()) {
+		return true
+	}
+	return false
+}
+
+func checkBalanceMap(expected map[types.TokenTypeId]string, got map[types.TokenTypeId]*big.Int) string {
 	gotCount := 0
 	for _, v := range got {
 		if v.Sign() > 0 {
 			gotCount = gotCount + 1
 		}
 	}
-	expectedCount := 0
-	for _, v := range expected {
-		if v.Sign() > 0 {
-			expectedCount = expectedCount + 1
-		}
-	}
+	expectedCount := len(expected)
 	if expectedCount != gotCount {
-		return "expected len " + strconv.Itoa(expectedCount) + ", got len" + strconv.Itoa(gotCount)
+		return "balanceMap len, expected " + strconv.Itoa(expectedCount) + ", got " + strconv.Itoa(gotCount)
 	}
 	for k, v := range got {
 		if v.Sign() == 0 {
 			continue
 		}
-		if expectedV := expected[k]; v.Cmp(expectedV) != 0 {
+		expectedV, ok := new(big.Int).SetString(expected[k], 16)
+		if !ok {
+			return k.String() + " token balance, expected" + expected[k] + ", got " + v.String()
+		}
+		if v.Cmp(expectedV) != 0 {
 			return k.String() + " token balance, expect " + expectedV.String() + ", got " + v.String()
+		}
+	}
+	return ""
+}
+
+func checkStorageMap(expected, got map[string]string) string {
+	gotCount := 0
+	for _, v := range got {
+		if len(v) > 0 {
+			gotCount = gotCount + 1
+		}
+	}
+	expectedCount := len(expected)
+	if expectedCount != gotCount {
+		return "storageMap len, expected " + strconv.Itoa(expectedCount) + ", got " + strconv.Itoa(gotCount)
+	}
+	for k, v := range got {
+		if len(v) == 0 {
+			continue
+		}
+		if expectedV, ok := expected[k]; !ok || expectedV != v {
+			return k + " storage, expect " + expectedV + ", got " + v
+		}
+	}
+	return ""
+}
+
+func checkContractMetaMap(expected, got map[types.Address]*ledger.ContractMeta) string {
+	gotCount := len(got)
+	expectedCount := len(expected)
+	if expectedCount != gotCount {
+		return "contract meta map len, expected " + strconv.Itoa(expectedCount) + ", got " + strconv.Itoa(gotCount)
+	}
+	for k, v := range got {
+		expectedV, ok := expected[k]
+		if !ok {
+			return "contract meta not exists, " + k.String()
+		}
+		if v.QuotaRatio != expectedV.QuotaRatio ||
+			v.Gid != expectedV.Gid ||
+			v.SendConfirmedTimes != expectedV.SendConfirmedTimes ||
+			v.SeedConfirmedTimes != expectedV.SeedConfirmedTimes {
+			return fmt.Sprintf("%v contract meta, expect [%v,%v,%v,%v] , got [%v,%v,%v,%v]", k.String(),
+				expectedV.Gid, expectedV.SendConfirmedTimes, expectedV.SeedConfirmedTimes, expectedV.QuotaRatio,
+				v.Gid, v.SendConfirmedTimes, v.SeedConfirmedTimes, v.QuotaRatio)
 		}
 	}
 	return ""

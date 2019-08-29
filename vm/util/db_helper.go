@@ -2,6 +2,7 @@ package util
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 )
 
@@ -10,6 +11,8 @@ type dbInterface interface {
 	SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int)
 	GetValue(key []byte) ([]byte, error)
 	SetValue(key []byte, value []byte) error
+
+	LatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 }
 
 func AddBalance(db dbInterface, id *types.TokenTypeId, amount *big.Int) {

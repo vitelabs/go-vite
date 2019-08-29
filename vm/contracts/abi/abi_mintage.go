@@ -15,13 +15,22 @@ import (
 const (
 	jsonMintage = `
 	[
-		{"type":"function","name":"Mint","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"}]},
-		{"type":"function","name":"Issue","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"amount","type":"uint256"},{"name":"beneficial","type":"address"}]},
+		{"type":"function","name":"Mint","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"isOwnerBurnOnly","type":"bool"}]},
+		{"type":"function","name":"IssueToken","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"isOwnerBurnOnly","type":"bool"}]},
+
+		{"type":"function","name":"Issue","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"amount","type":"uint256"},{"name":"receiverAddress","type":"address"}]},
+		{"type":"function","name":"ReIssueToken","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"amount","type":"uint256"},{"name":"receiverAddress","type":"address"}]},
+
 		{"type":"function","name":"Burn","inputs":[]},
-		{"type":"function","name":"TransferOwner","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"newOwner","type":"address"}]},
+
+		{"type":"function","name":"TransferOwner","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"newOwnerAddress","type":"address"}]},
+		{"type":"function","name":"TransferOwnership","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"newOwnerAddress","type":"address"}]},
+
 		{"type":"function","name":"ChangeTokenType","inputs":[{"name":"tokenId","type":"tokenId"}]},
+
 		{"type":"function","name":"GetTokenInfo","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"bid","type":"uint8"}]},
-		{"type":"callback","name":"GetTokenInfo","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"bid","type":"uint8"},{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"},{"name":"owner","type":"address"}]},
+		{"type":"callback","name":"GetTokenInfo","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"bid","type":"uint8"},{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"},{"name":"ownerAddress","type":"address"}]},
+
 		{"type":"variable","name":"tokenInfo","inputs":[{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"owner","type":"address"},{"name":"isReIssuable","type":"bool"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"},{"name":"index","type":"uint16"}]},
 		{"type":"variable","name":"tokenNameIndex","inputs":[{"name":"nextIndex","type":"uint16"}]},
 		{"type":"event","name":"mint","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]},
@@ -31,11 +40,13 @@ const (
 		{"type":"event","name":"changeTokenType","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}
 	]`
 
-	MethodNameCancelMintPledge = "CancelMintPledge"
 	MethodNameMint             = "Mint"
+	MethodNameMintV2           = "IssueToken"
 	MethodNameIssue            = "Issue"
+	MethodNameIssueV2          = "ReIssueToken"
 	MethodNameBurn             = "Burn"
 	MethodNameTransferOwner    = "TransferOwner"
+	MethodNameTransferOwnerV2  = "TransferOwnership"
 	MethodNameChangeTokenType  = "ChangeTokenType"
 	MethodNameGetTokenInfo     = "GetTokenInfo"
 	VariableNameTokenInfo      = "tokenInfo"
@@ -52,24 +63,24 @@ var (
 )
 
 type ParamMintage struct {
-	TokenName     string
-	TokenSymbol   string
-	TotalSupply   *big.Int
-	Decimals      uint8
-	MaxSupply     *big.Int
-	OwnerBurnOnly bool
-	IsReIssuable  bool
+	TokenName       string
+	TokenSymbol     string
+	TotalSupply     *big.Int
+	Decimals        uint8
+	MaxSupply       *big.Int
+	IsOwnerBurnOnly bool
+	IsReIssuable    bool
 }
 
 type ParamIssue struct {
-	TokenId    types.TokenTypeId
-	Amount     *big.Int
-	Beneficial types.Address
+	TokenId         types.TokenTypeId
+	Amount          *big.Int
+	ReceiverAddress types.Address
 }
 
 type ParamTransferOwner struct {
-	TokenId  types.TokenTypeId
-	NewOwner types.Address
+	TokenId         types.TokenTypeId
+	NewOwnerAddress types.Address
 }
 
 type ParamGetTokenInfo struct {

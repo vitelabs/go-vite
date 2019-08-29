@@ -701,7 +701,7 @@ func (m *MockStateDBInterface) EXPECT() *MockStateDBInterfaceMockRecorder {
 }
 
 // NewStorageIterator mocks base method
-func (m *MockStateDBInterface) NewStorageIterator(addr *types.Address, prefix []byte) interfaces.StorageIterator {
+func (m *MockStateDBInterface) NewStorageIterator(addr types.Address, prefix []byte) interfaces.StorageIterator {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewStorageIterator", addr, prefix)
 	ret0, _ := ret[0].(interfaces.StorageIterator)

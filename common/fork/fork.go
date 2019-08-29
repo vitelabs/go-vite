@@ -105,7 +105,7 @@ func IsSeedFork(snapshotHeight uint64) bool {
 /*
 IsDexFork checks whether current snapshot block height is over sprout hard fork.
 Vite pre-mainnet hard forks at snapshot block height 5442723.
-Contents:
+Features:
   1. Dynamic quota acquisition. Quota acquisition from staking will reduce
      when network traffic rate is too high.
   2. Adjustment of quota consumption for some built-in contract transactions
@@ -120,6 +120,12 @@ func IsDexFork(snapshotHeight uint64) bool {
 	return snapshotHeight >= dexForkPoint.Height
 }
 
+/*
+IsDexFeeFork checks whether current snapshot block height is over dex fee hard fork.
+Vite pre-mainnet hard forks at snapshot block height 8013367.
+Dex fee hard fork is an emergency hard fork to solve one wrongly placed order which
+has caused ViteX failed to display user balances.
+*/
 func IsDexFeeFork(snapshotHeight uint64) bool {
 	dexFeeForkPoint, ok := forkPointMap["DexFeeFork"]
 	if !ok {
@@ -128,6 +134,14 @@ func IsDexFeeFork(snapshotHeight uint64) bool {
 	return snapshotHeight >= dexFeeForkPoint.Height
 }
 
+/*
+IsStemFork checks whether current snapshot block height is over stem hard fork.
+Vite pre-mainnet hard forks at snapshot block height 8403110.
+Features:
+  1. Capability of placing/cancelling orders via delegation.
+  2. Super VIP membership. Stake and then enjoy zero trading fee!
+     (Additional operator fee cannot be exempted)
+*/
 func IsStemFork(snapshotHeight uint64) bool {
 	stemForkPoint, ok := forkPointMap["StemFork"]
 	if !ok {
@@ -142,6 +156,14 @@ func IsLeafFork(snapshotHeight uint64) bool {
 		panic("check leaf fork failed. LeafFork is not existed.")
 	}
 	return snapshotHeight >= leafForkPoint.Height
+}
+
+func GetLeafFork() uint64 {
+	leafForkPoint, ok := forkPointMap["LeafFork"]
+	if !ok {
+		panic("check leaf fork failed. LeafFork is not existed.")
+	}
+	return leafForkPoint.Height
 }
 
 func IsForkPoint(snapshotHeight uint64) bool {

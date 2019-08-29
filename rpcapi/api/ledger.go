@@ -7,6 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 	"strconv"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
@@ -193,6 +194,21 @@ func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.H
 // in token
 func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *types.Hash, tokenTypeId types.TokenTypeId, count uint64) ([]*AccountBlock, error) {
 	return l.GetAccountBlocks(addr, originBlockHash, &tokenTypeId, count)
+}
+
+func (l *LedgerApi) GetSnapshotBlockBeforeTime(timestamp int64) (*SnapshotBlock, error) {
+	time := time.Unix(timestamp, 0)
+	sbHeader, err := l.chain.GetSnapshotHeaderBeforeTime(&time)
+	if err != nil || sbHeader == nil {
+		return nil, err
+	}
+
+	sb, err := l.chain.GetSnapshotBlockByHash(sbHeader.Hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return l.ledgerSnapshotBlockToRpcBlock(sb)
 }
 
 func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, error) {
@@ -604,4 +620,161 @@ func parseHeight(height interface{}) (uint64, error) {
 	}
 	return heightUint64, nil
 
+}
+
+type Range struct {
+	FromHeight string `json:"fromHeight"`
+	ToHeight   string `json:"toHeight"`
+}
+
+func (r *Range) ToHeightRange() (*HeightRange, error) {
+	if r != nil {
+		fromHeight, err := StringToUint64(r.FromHeight)
+		if err != nil {
+			return nil, err
+		}
+		toHeight, err := StringToUint64(r.ToHeight)
+		if err != nil {
+			return nil, err
+		}
+		if toHeight < fromHeight && toHeight != 0 {
+			return nil, errors.New("to height < from height")
+		}
+		return &HeightRange{fromHeight, toHeight}, nil
+	}
+	return nil, nil
+}
+
+type HeightRange struct {
+	FromHeight uint64
+	ToHeight   uint64
+}
+type FilterParam struct {
+	AddrRange map[types.Address]HeightRange
+	Topics    [][]types.Hash
+}
+type VmLogFilterParam struct {
+	AddrRange map[string]*Range `json:"addressHeightRange"`
+	Topics    [][]types.Hash    `json:"topics"`
+}
+
+func ToFilterParam(rangeMap map[string]*Range, topics [][]types.Hash) (*FilterParam, error) {
+	var addrRange map[types.Address]HeightRange
+	if len(rangeMap) == 0 {
+		return nil, errors.New("addressHeightRange is nil")
+	}
+	addrRange = make(map[types.Address]HeightRange, len(rangeMap))
+	for hexAddr, r := range rangeMap {
+		hr, err := r.ToHeightRange()
+		if err != nil {
+			return nil, err
+		}
+		if hr == nil {
+			hr = &HeightRange{0, 0}
+		}
+		addr, err := types.HexToAddress(hexAddr)
+		if err != nil {
+			return nil, err
+		}
+		addrRange[addr] = *hr
+	}
+	target := &FilterParam{
+		AddrRange: addrRange,
+		Topics:    topics,
+	}
+	return target, nil
+}
+
+type Logs struct {
+	Log              *ledger.VmLog  `json:"log"`
+	AccountBlockHash types.Hash     `json:"accountBlockHash"`
+	AccountHeight    string         `json:"accountHeight"`
+	Addr             *types.Address `json:"addr"`
+	Address          *types.Address `json:"address"`
+	Removed          bool           `json:"removed"`
+}
+
+func (l *LedgerApi) GetVmLogsByFilter(param VmLogFilterParam) ([]*Logs, error) {
+	return GetLogs(l.chain, param.AddrRange, param.Topics)
+}
+func GetLogs(c chain.Chain, rangeMap map[string]*Range, topics [][]types.Hash) ([]*Logs, error) {
+	filterParam, err := ToFilterParam(rangeMap, topics)
+	if err != nil {
+		return nil, err
+	}
+	var logs []*Logs
+	for addr, hr := range filterParam.AddrRange {
+		startHeight := hr.FromHeight
+		endHeight := hr.ToHeight
+		acc, err := c.GetLatestAccountBlock(addr)
+		if err != nil {
+			return nil, err
+		}
+		if acc == nil {
+			continue
+		}
+		if startHeight == 0 {
+			startHeight = 1
+		}
+		if endHeight == 0 || endHeight > acc.Height {
+			endHeight = acc.Height
+		}
+		for {
+			offset, count, finish := getHeightPage(startHeight, endHeight, 100)
+			if count == 0 {
+				break
+			}
+			startHeight = offset + 1
+			blocks, err := c.GetAccountBlocksByHeight(addr, offset, count)
+			if err != nil {
+				return nil, err
+			}
+			for i := len(blocks); i > 0; i-- {
+				if blocks[i-1].LogHash != nil {
+					list, err := c.GetVmLogList(blocks[i-1].LogHash)
+					if err != nil {
+						return nil, err
+					}
+					for _, l := range list {
+						if FilterLog(filterParam, l) {
+							logs = append(logs, &Logs{l, blocks[i-1].Hash, Uint64ToString(blocks[i-1].Height), &addr, &addr, false})
+						}
+					}
+				}
+			}
+			if finish {
+				break
+			}
+		}
+	}
+	return logs, nil
+}
+
+func getHeightPage(start uint64, end uint64, count uint64) (uint64, uint64, bool) {
+	gap := end - start + 1
+	if gap <= count {
+		return end, gap, true
+	}
+	return start + count - 1, count, false
+}
+func FilterLog(filter *FilterParam, l *ledger.VmLog) bool {
+	if len(l.Topics) < len(filter.Topics) {
+		return false
+	}
+	for i, topicRange := range filter.Topics {
+		if len(topicRange) == 0 {
+			continue
+		}
+		flag := false
+		for _, topic := range topicRange {
+			if topic == l.Topics[i] {
+				flag = true
+				continue
+			}
+		}
+		if !flag {
+			return false
+		}
+	}
+	return true
 }
