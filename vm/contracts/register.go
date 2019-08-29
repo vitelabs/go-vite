@@ -16,6 +16,7 @@ import (
 )
 
 type MethodRegister struct {
+	MethodName string
 }
 
 func (p *MethodRegister) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
@@ -34,13 +35,13 @@ func (p *MethodRegister) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 // register to become a super node of a consensus group, lock 1 million ViteToken for 3 month
 func (p *MethodRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	param := new(abi.ParamRegister)
-	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameRegister, block.Data); err != nil {
+	if err := abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
 	if !checkRegisterAndVoteParam(param.Gid, param.Name) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, param.Gid, param.Name, param.ProducerAddress)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(p.MethodName, param.Gid, param.Name, param.ProducerAddress)
 	return nil
 }
 
@@ -59,7 +60,7 @@ func checkRegisterAndVoteParam(gid types.Gid, name string) bool {
 func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	// Check param by group info
 	param := new(abi.ParamRegister)
-	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameRegister, sendBlock.Data)
+	abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	snapshotBlock := vm.GlobalStatus().SnapshotBlock()
 	groupInfo, err := abi.GetConsensusGroup(db, param.Gid)
 	util.DealWithErr(err)
@@ -127,6 +128,7 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 }
 
 type MethodCancelRegister struct {
+	MethodName string
 }
 
 func (p *MethodCancelRegister) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
@@ -148,18 +150,18 @@ func (p *MethodCancelRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock)
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamCancelRegister)
-	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameCancelRegister, block.Data); err != nil {
+	if err := abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
 	if !checkRegisterAndVoteParam(param.Gid, param.Name) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, param.Gid, param.Name)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(p.MethodName, param.Gid, param.Name)
 	return nil
 }
 func (p *MethodCancelRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelRegister)
-	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameCancelRegister, sendBlock.Data)
+	abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	snapshotBlock := vm.GlobalStatus().SnapshotBlock()
 	old, err := abi.GetRegistration(db, param.Gid, param.Name)
 	util.DealWithErr(err)
@@ -201,6 +203,7 @@ func (p *MethodCancelRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlo
 }
 
 type MethodReward struct {
+	MethodName string
 }
 
 func (p *MethodReward) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
@@ -223,18 +226,18 @@ func (p *MethodReward) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamReward)
-	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameReward, block.Data); err != nil {
+	if err := abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
 	if !util.IsSnapshotGid(param.Gid) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, param.Gid, param.Name, param.ReceiverAddress)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(p.MethodName, param.Gid, param.Name, param.ReceiverAddress)
 	return nil
 }
 func (p *MethodReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamReward)
-	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameReward, sendBlock.Data)
+	abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	old, err := abi.GetRegistration(db, param.Gid, param.Name)
 	util.DealWithErr(err)
 	if old == nil || sendBlock.AccountAddress != old.PledgeAddr || old.RewardTime == -1 {
@@ -500,6 +503,7 @@ func calcRewardByDayDetail(detail *core.DayStats, name string, pledgeAmount *big
 }
 
 type MethodUpdateRegistration struct {
+	MethodName string
 }
 
 func (p *MethodUpdateRegistration) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
@@ -522,18 +526,18 @@ func (p *MethodUpdateRegistration) DoSend(db vm_db.VmDb, block *ledger.AccountBl
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamRegister)
-	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameUpdateRegistration, block.Data); err != nil {
+	if err := abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
 	if !checkRegisterAndVoteParam(param.Gid, param.Name) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, param.Gid, param.Name, param.ProducerAddress)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(p.MethodName, param.Gid, param.Name, param.ProducerAddress)
 	return nil
 }
 func (p *MethodUpdateRegistration) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamRegister)
-	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameUpdateRegistration, sendBlock.Data)
+	abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	old, err := abi.GetRegistration(db, param.Gid, param.Name)
 	util.DealWithErr(err)
 	if old == nil || !old.IsActive() ||

@@ -1,7 +1,6 @@
 package contracts
 
 import (
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -18,7 +17,9 @@ var (
 	NoBid          = uint8(0)
 )
 
-type MethodPledge struct{}
+type MethodPledge struct {
+	MethodName string
+}
 
 func (p *MethodPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
@@ -41,15 +42,15 @@ func (p *MethodPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 		return util.ErrInvalidMethodParam
 	}
 	beneficialAddr := new(types.Address)
-	if err := abi.ABIPledge.UnpackMethod(beneficialAddr, abi.MethodNamePledge, block.Data); err != nil {
+	if err := abi.ABIPledge.UnpackMethod(beneficialAddr, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNamePledge, *beneficialAddr)
+	block.Data, _ = abi.ABIPledge.PackMethod(p.MethodName, *beneficialAddr)
 	return nil
 }
 func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	beneficialAddr := new(types.Address)
-	abi.ABIPledge.UnpackMethod(beneficialAddr, abi.MethodNamePledge, sendBlock.Data)
+	abi.ABIPledge.UnpackMethod(beneficialAddr, p.MethodName, sendBlock.Data)
 	pledgeKey, oldPledge := getPledgeInfo(db, sendBlock.AccountAddress, *beneficialAddr, NoAgent, NoAgentAddress, NoBid, block.Height)
 	var amount *big.Int
 	if oldPledge != nil {
@@ -115,7 +116,9 @@ func pledgeNotDue(oldPledge *types.PledgeInfo, vm vmEnvironment) bool {
 	return oldPledge.WithdrawHeight > vm.GlobalStatus().SnapshotBlock().Height
 }
 
-type MethodCancelPledge struct{}
+type MethodCancelPledge struct {
+	MethodName string
+}
 
 func (p *MethodCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
@@ -137,19 +140,19 @@ func (p *MethodCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) e
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamCancelPledge)
-	if err := abi.ABIPledge.UnpackMethod(param, abi.MethodNameCancelPledge, block.Data); err != nil {
+	if err := abi.ABIPledge.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
 	if param.Amount.Cmp(pledgeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, param.Beneficiary, param.Amount)
+	block.Data, _ = abi.ABIPledge.PackMethod(p.MethodName, param.Beneficiary, param.Amount)
 	return nil
 }
 
 func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelPledge)
-	abi.ABIPledge.UnpackMethod(param, abi.MethodNameCancelPledge, sendBlock.Data)
+	abi.ABIPledge.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	pledgeKey, oldPledge := getPledgeInfo(db, sendBlock.AccountAddress, param.Beneficiary, NoAgent, NoAgentAddress, NoBid, block.Height)
 	if oldPledge == nil || pledgeNotDue(oldPledge, vm) || oldPledge.Amount.Cmp(param.Amount) < 0 {
 		return nil, util.ErrInvalidMethodParam
@@ -193,7 +196,9 @@ func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	}, nil
 }
 
-type MethodAgentPledge struct{}
+type MethodAgentPledge struct {
+	MethodName string
+}
 
 func (p *MethodAgentPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
@@ -201,14 +206,8 @@ func (p *MethodAgentPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error)
 
 func (p *MethodAgentPledge) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	param := new(abi.ParamAgentPledge)
-	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentPledge, sendBlock.Data)
-	var methodName string
-	if !fork.IsLeafFork(sbHeight) {
-		methodName = abi.MethodNameAgentPledge
-	} else {
-		methodName = abi.MethodNameAgentPledgeV2
-	}
-	callbackData, _ := abi.ABIPledge.PackCallback(methodName, param.StakingAddress, param.Beneficiary, sendBlock.Amount, param.Bid, false)
+	abi.ABIPledge.UnpackMethod(param, p.MethodName, sendBlock.Data)
+	callbackData, _ := abi.ABIPledge.PackCallback(p.MethodName, param.StakingAddress, param.Beneficiary, sendBlock.Amount, param.Bid, false)
 	return callbackData, true
 }
 
@@ -225,18 +224,18 @@ func (p *MethodAgentPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) er
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamAgentPledge)
-	if err := abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentPledge, block.Data); err != nil {
+	if err := abi.ABIPledge.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
 	if param.StakingHeight < nodeConfig.params.PledgeHeight || param.StakingHeight > PledgeHeightMax {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, param.StakingAddress, param.Beneficiary, param.Bid, param.StakingHeight)
+	block.Data, _ = abi.ABIPledge.PackMethod(p.MethodName, param.StakingAddress, param.Beneficiary, param.Bid, param.StakingHeight)
 	return nil
 }
 func (p *MethodAgentPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamAgentPledge)
-	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentPledge, sendBlock.Data)
+	abi.ABIPledge.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	pledgeKey, oldPledge := getPledgeInfo(db, param.StakingAddress, param.Beneficiary, Agent, sendBlock.AccountAddress, param.Bid, block.Height)
 	var amount *big.Int
 	oldWithdrawHeight := uint64(0)
@@ -264,13 +263,7 @@ func (p *MethodAgentPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock,
 	beneficialData, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, beneficialAmount)
 	util.SetValue(db, beneficialKey, beneficialData)
 
-	var callbackMethodName string
-	if !util.CheckFork(db, fork.IsLeafFork) {
-		callbackMethodName = abi.MethodNameAgentPledge
-	} else {
-		callbackMethodName = abi.MethodNameAgentPledgeV2
-	}
-	callbackData, _ := abi.ABIPledge.PackCallback(callbackMethodName, param.StakingAddress, param.Beneficiary, sendBlock.Amount, param.Bid, true)
+	callbackData, _ := abi.ABIPledge.PackCallback(p.MethodName, param.StakingAddress, param.Beneficiary, sendBlock.Amount, param.Bid, true)
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,
@@ -283,7 +276,9 @@ func (p *MethodAgentPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock,
 	}, nil
 }
 
-type MethodAgentCancelPledge struct{}
+type MethodAgentCancelPledge struct {
+	MethodName string
+}
 
 func (p *MethodAgentCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
@@ -291,14 +286,8 @@ func (p *MethodAgentCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, 
 
 func (p *MethodAgentCancelPledge) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	param := new(abi.ParamAgentCancelPledge)
-	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentCancelPledge, sendBlock.Data)
-	var methodName string
-	if !fork.IsLeafFork(sbHeight) {
-		methodName = abi.MethodNameAgentCancelPledge
-	} else {
-		methodName = abi.MethodNameAgentCancelPledgeV2
-	}
-	callbackData, _ := abi.ABIPledge.PackCallback(methodName, param.StakingAddress, param.Beneficiary, param.Amount, param.Bid, false)
+	abi.ABIPledge.UnpackMethod(param, p.MethodName, sendBlock.Data)
+	callbackData, _ := abi.ABIPledge.PackCallback(p.MethodName, param.StakingAddress, param.Beneficiary, param.Amount, param.Bid, false)
 	return callbackData, true
 }
 
@@ -315,19 +304,19 @@ func (p *MethodAgentCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamAgentCancelPledge)
-	if err := abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentCancelPledge, block.Data); err != nil {
+	if err := abi.ABIPledge.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
 	if param.Amount.Cmp(pledgeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, param.StakingAddress, param.Beneficiary, param.Amount, param.Bid)
+	block.Data, _ = abi.ABIPledge.PackMethod(p.MethodName, param.StakingAddress, param.Beneficiary, param.Amount, param.Bid)
 	return nil
 }
 
 func (p *MethodAgentCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamAgentCancelPledge)
-	abi.ABIPledge.UnpackMethod(param, abi.MethodNameAgentCancelPledge, sendBlock.Data)
+	abi.ABIPledge.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	pledgeKey, oldPledge := getPledgeInfo(db, param.StakingAddress, param.Beneficiary, Agent, sendBlock.AccountAddress, param.Bid, block.Height)
 	if oldPledge == nil || pledgeNotDue(oldPledge, vm) || oldPledge.Amount.Cmp(param.Amount) < 0 {
 		return nil, util.ErrInvalidMethodParam
@@ -360,13 +349,7 @@ func (p *MethodAgentCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.Account
 		util.SetValue(db, beneficialKey, pledgeBeneficial)
 	}
 
-	var callbackMethodName string
-	if !util.CheckFork(db, fork.IsLeafFork) {
-		callbackMethodName = abi.MethodNameAgentCancelPledge
-	} else {
-		callbackMethodName = abi.MethodNameAgentCancelPledgeV2
-	}
-	callbackData, _ := abi.ABIPledge.PackCallback(callbackMethodName, param.StakingAddress, param.Beneficiary, param.Amount, param.Bid, true)
+	callbackData, _ := abi.ABIPledge.PackCallback(p.MethodName, param.StakingAddress, param.Beneficiary, param.Amount, param.Bid, true)
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,

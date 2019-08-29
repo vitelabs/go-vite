@@ -18,6 +18,7 @@ import (
 var tradeLogger = log15.New("module", "dex_trade")
 
 type MethodDexTradeNewOrder struct {
+	MethodName string
 }
 
 func (md *MethodDexTradeNewOrder) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
@@ -69,6 +70,7 @@ func (md *MethodDexTradeNewOrder) DoReceive(db vm_db.VmDb, block *ledger.Account
 }
 
 type MethodDexTradeCancelOrder struct {
+	MethodName string
 }
 
 func (md *MethodDexTradeCancelOrder) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
@@ -99,6 +101,7 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vm_db.VmDb, block *ledger.Accou
 }
 
 type MethodDexTradeNotifyNewMarket struct {
+	MethodName string
 }
 
 func (md *MethodDexTradeNotifyNewMarket) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
@@ -138,6 +141,7 @@ func (md MethodDexTradeNotifyNewMarket) DoReceive(db vm_db.VmDb, block *ledger.A
 }
 
 type MethodDexTradeCleanExpireOrders struct {
+	MethodName string
 }
 
 func (md *MethodDexTradeCleanExpireOrders) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
@@ -181,6 +185,7 @@ func (md MethodDexTradeCleanExpireOrders) DoReceive(db vm_db.VmDb, block *ledger
 }
 
 type MethodDexTradeCancelOrderByHash struct {
+	MethodName string
 }
 
 func (md *MethodDexTradeCancelOrderByHash) GetFee(block *ledger.AccountBlock) (*big.Int, error) {

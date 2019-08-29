@@ -11,6 +11,7 @@ import (
 )
 
 type MethodVote struct {
+	MethodName string
 }
 
 func (p *MethodVote) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
@@ -35,19 +36,19 @@ func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamVote)
-	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameVote, block.Data); err != nil {
+	if err := abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
 	if !checkRegisterAndVoteParam(param.Gid, param.SuperNodeName) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameVote, param.Gid, param.SuperNodeName)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(p.MethodName, param.Gid, param.SuperNodeName)
 	return nil
 }
 
 func (p *MethodVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamVote)
-	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameVote, sendBlock.Data)
+	abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	consensusGroupInfo, err := abi.GetConsensusGroup(db, param.Gid)
 	util.DealWithErr(err)
 	if consensusGroupInfo == nil {
@@ -65,6 +66,7 @@ func (p *MethodVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBl
 }
 
 type MethodCancelVote struct {
+	MethodName string
 }
 
 func (p *MethodCancelVote) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
@@ -90,17 +92,17 @@ func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) err
 		return util.ErrInvalidMethodParam
 	}
 	gid := new(types.Gid)
-	err = abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelVote, block.Data)
+	err = abi.ABIConsensusGroup.UnpackMethod(gid, p.MethodName, block.Data)
 	if err != nil || util.IsDelegateGid(*gid) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelVote, *gid)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(p.MethodName, *gid)
 	return nil
 }
 
 func (p *MethodCancelVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	gid := new(types.Gid)
-	abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelVote, sendBlock.Data)
+	abi.ABIConsensusGroup.UnpackMethod(gid, p.MethodName, sendBlock.Data)
 	util.SetValue(db, abi.GetVoteKey(sendBlock.AccountAddress, *gid), nil)
 	return nil, nil
 }
