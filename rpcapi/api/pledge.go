@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -190,10 +191,11 @@ type StakingInfo struct {
 	ExpirationTime   int64         `json:"expirationTime"`
 	IsDelegated      bool          `json:"isDelegated"`
 	DelegateAddress  types.Address `json:"delegateAddress"`
+	SkatingAddress   types.Address `json:"stakingAddress"`
 	Bid              uint8         `json:"bid"`
 }
 
-func NewStakingInfo(info *types.PledgeInfo, snapshotBlock *ledger.SnapshotBlock) *StakingInfo {
+func NewStakingInfo(addr types.Address, info *types.PledgeInfo, snapshotBlock *ledger.SnapshotBlock) *StakingInfo {
 	return &StakingInfo{
 		*bigIntToString(info.Amount),
 		info.BeneficialAddr,
@@ -201,6 +203,7 @@ func NewStakingInfo(info *types.PledgeInfo, snapshotBlock *ledger.SnapshotBlock)
 		getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
 		info.Agent,
 		info.AgentAddress,
+		addr,
 		info.Bid}
 }
 
@@ -227,9 +230,34 @@ func (p *ContractApi) GetStakingList(addr types.Address, index int, count int) (
 		return nil, err
 	}
 	for i, info := range list[startHeight:endHeight] {
-		targetList[i] = NewStakingInfo(info, snapshotBlock)
+		targetList[i] = NewStakingInfo(addr, info, snapshotBlock)
 	}
 	return &StakingInfoList{*bigIntToString(amount), len(list), targetList}, nil
+}
+
+type GetStakingListByPageResult struct {
+	StakingInfoList []*StakingInfo `json:"list"`
+	LastKey         string         `json:"lastKey"`
+}
+
+func (p *ContractApi) GetSkatingListByPage(snapshotHash types.Hash, lastKey string, count uint64) (*GetStakingListByPageResult, error) {
+	lastKeyBytes, err := hex.DecodeString(lastKey)
+	if err != nil {
+		return nil, err
+	}
+	list, lastKeyBytes, err := p.chain.GetPledgeListByPage(snapshotHash, lastKeyBytes, count)
+	if err != nil {
+		return nil, err
+	}
+	targetList := make([]*StakingInfo, len(list))
+	snapshotBlock := p.chain.GetLatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	for i, info := range list {
+		targetList[i] = NewStakingInfo(info.PledgeAddress, info, snapshotBlock)
+	}
+	return &GetStakingListByPageResult{targetList, hex.EncodeToString(lastKeyBytes)}, nil
 }
 
 // Deprecated: use contract_getBeneficialStakingAmount instead
@@ -333,7 +361,7 @@ func (p *ContractApi) GetDelegatedStakingInfo(params StakeQueryParams) (*Staking
 	if info == nil {
 		return nil, nil
 	}
-	return NewStakingInfo(info, snapshotBlock), nil
+	return NewStakingInfo(params.PledgeAddr, info, snapshotBlock), nil
 }
 
 type QuotaCoefficientInfo struct {

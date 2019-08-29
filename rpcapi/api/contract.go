@@ -208,11 +208,14 @@ func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map
 }
 
 type ContractInfo struct {
-	Code        []byte    `json:"code"`
-	Gid         types.Gid `json:"gid"`
-	ConfirmTime uint8     `json:"confirmTime"`
-	SeedCount   uint8     `json:"seedCount"`
-	QuotaRatio  uint8     `json:"quotaRatio"`
+	Code            []byte    `json:"code"`
+	Gid             types.Gid `json:"gid"`
+	ConfirmTime     uint8     `json:"confirmTime"` // Deprecated: use responseLatency instead
+	ResponseLatency uint8     `json:"responseLatency"`
+	SeedCount       uint8     `json:"seedCount"` // Deprecated: use randomness instead
+	Randomness      uint8     `json:"randomness"`
+	QuotaRatio      uint8     `json:"quotaRatio"` // Deprecated: use quotaMultiplier instead
+	QuotaMultiplier uint8     `json:"quotaMultiplier"`
 }
 
 func (c *ContractApi) GetContractInfo(addr types.Address) (*ContractInfo, error) {
@@ -227,5 +230,14 @@ func (c *ContractApi) GetContractInfo(addr types.Address) (*ContractInfo, error)
 	if meta == nil {
 		return nil, nil
 	}
-	return &ContractInfo{Code: code, Gid: meta.Gid, ConfirmTime: meta.SendConfirmedTimes, SeedCount: meta.SeedConfirmedTimes, QuotaRatio: meta.QuotaRatio}, nil
+	return &ContractInfo{
+		Code:            code,
+		Gid:             meta.Gid,
+		ConfirmTime:     meta.SendConfirmedTimes,
+		ResponseLatency: meta.SendConfirmedTimes,
+		SeedCount:       meta.SeedConfirmedTimes,
+		Randomness:      meta.SeedConfirmedTimes,
+		QuotaRatio:      meta.QuotaRatio,
+		QuotaMultiplier: meta.QuotaRatio,
+	}, nil
 }
