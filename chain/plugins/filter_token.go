@@ -4,28 +4,127 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/db"
+	"github.com/vitelabs/go-vite/chain/flusher"
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
+	"os"
 )
 
 type FilterToken struct {
 	store *chain_db.Store
 	chain Chain
+
+	log log15.Logger
 }
 
 func newFilterToken(store *chain_db.Store, chain Chain) Plugin {
 	return &FilterToken{
 		store: store,
 		chain: chain,
+		log:   log15.New("plugin", "filter_token"),
 	}
+}
+
+func (ft *FilterToken) GetStore() *chain_db.Store {
+	return ft.store
 }
 
 func (ft *FilterToken) SetStore(store *chain_db.Store) {
 	ft.store = store
+}
+
+func (ft *FilterToken) RebuildData(flusher *chain_flusher.Flusher) error {
+	if err := ft.GetStore().Close(); err != nil {
+		return err
+	}
+
+	// remove data
+	os.RemoveAll(ft.GetStore().GetDbDir())
+
+	ft.log.Info("FilterToken RebuildData remove dbDir" + ft.GetStore().GetDbDir())
+
+	// set new store
+	store, err := chain_db.NewStore(ft.GetStore().GetDbDir(), PluginKeyFilterToken)
+	if err != nil {
+		return err
+	}
+
+	ft.store = store
+
+	ft.log.Info("FilterToken RebuildData new dbDir:" + ft.GetStore().GetDbDir())
+
+	flusher.ReplaceStore(ft.store.Id(), store)
+
+	// get latest snapshot block
+	latestSnapshot := ft.chain.GetLatestSnapshotBlock()
+	if latestSnapshot == nil {
+		return errors.New("GetLatestSnapshotBlock fail")
+	}
+
+	ft.log.Info(fmt.Sprintf("latestSnapshot[%v %v]", latestSnapshot.Hash, latestSnapshot.Height), "method", "RebuildData")
+
+	// build data
+	h := uint64(0)
+
+	for h < latestSnapshot.Height {
+		targetH := h + roundSize
+		if targetH > latestSnapshot.Height {
+			targetH = latestSnapshot.Height
+		}
+
+		chunks, err := ft.chain.GetSubLedger(h, targetH)
+		if err != nil {
+			return err
+		}
+
+		ft.log.Info(fmt.Sprintf("rebuild %d - %d", h+1, targetH), "method", "RebuildData")
+
+		for _, chunk := range chunks {
+
+			if chunk.SnapshotBlock != nil &&
+				chunk.SnapshotBlock.Height == h {
+				continue
+			}
+			// write ab
+			for _, ab := range chunk.AccountBlocks {
+
+				batch := ft.store.NewBatch()
+
+				if err := ft.InsertAccountBlock(batch, ab); err != nil {
+					return err
+				}
+
+				ft.store.WriteAccountBlock(batch, ab)
+			}
+
+			// write sb
+			batch := ft.store.NewBatch()
+
+			if err := ft.InsertSnapshotBlock(batch, chunk.SnapshotBlock, chunk.AccountBlocks); err != nil {
+				pErr := errors.New(fmt.Sprintf("InsertSnapshotBlock fail, err:%v, sb[%v, %v,len=%v] ", err, chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash, len(chunk.AccountBlocks)))
+				ft.log.Error(pErr.Error(), "method", "RebuildData")
+				return pErr
+			}
+
+			ft.store.WriteSnapshot(batch, chunk.AccountBlocks)
+
+		}
+
+		// flush to disk
+		flusher.Flush()
+
+		h = targetH
+
+	}
+
+	ft.log.Info("FilterToken RebuildData data success")
+
+	return nil
 }
 
 func (ft *FilterToken) InsertAccountBlock(batch *leveldb.Batch, accountBlock *ledger.AccountBlock) error {

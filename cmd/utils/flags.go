@@ -249,6 +249,16 @@ var (
 		Usage: "InfluxDB `host` tag attached to all measurements",
 		Value: "localhost",
 	}
+
+	// Plugins
+	PluginsOnRoadInfoFlag = cli.BoolFlag{
+		Name:  "onroadinfo",
+		Usage: "Reconstruct onoroad plugin",
+	}
+	PluginsFilterTokenFlag = cli.BoolFlag{
+		Name:  "filtertoken",
+		Usage: "Reconstruct filtertoken plugin",
+	}
 )
 
 // This allows the use of the existing configuration functionality.
