@@ -246,12 +246,12 @@ func (l *LedgerApi) GetBlockByHeight(addr types.Address, height interface{}) (*A
 }
 
 // new api
-func (l *LedgerApi) GetAccountBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
-	l.log.Info("GetAccountBlocksByAccAddr")
+func (l *LedgerApi) GetAccountBlocksByAddress(addr types.Address, index int, count int) ([]*AccountBlock, error) {
+	l.log.Info("GetAccountBlocksByAddress")
 
 	height, err := l.chain.GetLatestAccountHeight(addr)
 	if err != nil {
-		l.log.Error(fmt.Sprintf("GetLatestAccountHeight, addr is %s", addr), "err", err, "method", "GetAccountBlocksByAccAddr")
+		l.log.Error(fmt.Sprintf("GetLatestAccountHeight, addr is %s", addr), "err", err, "method", "GetAccountBlocksByAddress")
 		return nil, err
 	}
 
@@ -263,12 +263,12 @@ func (l *LedgerApi) GetAccountBlocksByAccAddr(addr types.Address, index int, cou
 	list, getErr := l.chain.GetAccountBlocksByHeight(addr, height-num, uint64(count))
 
 	if getErr != nil {
-		l.log.Info("GetBlocksByAccAddr", "err", getErr, "method", "GetAccountBlocksByAccAddr")
+		l.log.Info("GetBlocksByAccAddr", "err", getErr, "method", "GetAccountBlocksByAddress")
 		return nil, getErr
 	}
 
 	if blocks, err := l.ledgerBlocksToRpcBlocks(list); err != nil {
-		l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetAccountBlocksByAccAddr")
+		l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetAccountBlocksByAddress")
 		return nil, err
 	} else {
 		return blocks, nil
@@ -277,15 +277,15 @@ func (l *LedgerApi) GetAccountBlocksByAccAddr(addr types.Address, index int, cou
 
 // old api
 func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
-	return l.GetAccountBlocksByAccAddr(addr, index, count)
+	return l.GetAccountBlocksByAddress(addr, index, count)
 }
 
 // new api
-func (l *LedgerApi) GetAccountInfoByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
-	l.log.Info("GetAccountInfoByAccAddr")
+func (l *LedgerApi) GetAccountInfoByAddress(addr types.Address) (*RpcAccountInfo, error) {
+	l.log.Info("GetAccountInfoByAddress")
 	latestAccountBlock, err := l.chain.GetLatestAccountBlock(addr)
 	if err != nil {
-		l.log.Error("GetLatestAccountBlock failed, error is "+err.Error(), "method", "GetAccountInfoByAccAddr")
+		l.log.Error("GetLatestAccountBlock failed, error is "+err.Error(), "method", "GetAccountInfoByAddress")
 		return nil, err
 	}
 
@@ -296,7 +296,7 @@ func (l *LedgerApi) GetAccountInfoByAccAddr(addr types.Address) (*RpcAccountInfo
 
 	balanceMap, err := l.chain.GetBalanceMap(addr)
 	if err != nil {
-		l.log.Error("GetAccountBalance failed, error is "+err.Error(), "method", "GetAccountInfoByAccAddr")
+		l.log.Error("GetAccountBalance failed, error is "+err.Error(), "method", "GetAccountInfoByAddress")
 		return nil, err
 	}
 
@@ -324,7 +324,7 @@ func (l *LedgerApi) GetAccountInfoByAccAddr(addr types.Address) (*RpcAccountInfo
 
 // old api
 func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
-	return l.GetAccountInfoByAccAddr(addr)
+	return l.GetAccountInfoByAddress(addr)
 }
 
 func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*SnapshotBlock, error) {
