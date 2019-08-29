@@ -248,7 +248,7 @@ func calcPoWDifficulty(c chain.Chain, param CalcPoWDifficultyParam) (result *Cal
 	if param.ToAddr != nil {
 		block.ToAddress = *param.ToAddr
 	} else if param.BlockType == ledger.BlockTypeSendCall {
-		return nil, errors.New("toAddr is nil")
+		return nil, errors.New("toAddress is nil")
 	}
 	sb := c.GetLatestSnapshotBlock()
 	db, err := vm_db.NewVmDb(c, &param.SelfAddr, &sb.Hash, &param.PrevHash)
@@ -318,7 +318,7 @@ type CalcQuotaRequiredResult struct {
 func (t Tx) CalcQuotaRequired(param CalcQuotaRequiredParam) (*CalcQuotaRequiredResult, error) {
 	return calcQuotaRequired(t.vite.Chain(), param)
 }
-func (t LedgerApi) CalcQuotaRequired(param GetQuotaRequiredParam) (*CalcQuotaRequiredResult, error) {
+func (t LedgerApi) GetRequiredQuota(param GetQuotaRequiredParam) (*CalcQuotaRequiredResult, error) {
 	return calcQuotaRequired(t.chain,
 		CalcQuotaRequiredParam{param.SelfAddr, param.BlockType, param.ToAddr, param.Data})
 }
@@ -340,7 +340,7 @@ func calcQuotaRequired(c chain.Chain, param CalcQuotaRequiredParam) (*CalcQuotaR
 	if param.ToAddr != nil {
 		block.ToAddress = *param.ToAddr
 	} else if param.BlockType == ledger.BlockTypeSendCall {
-		return nil, errors.New("toAddr is nil")
+		return nil, errors.New("toAddress is nil")
 	}
 	sb := c.GetLatestSnapshotBlock()
 	db, err := vm_db.NewVmDb(c, &param.SelfAddr, &sb.Hash, &prevHash)

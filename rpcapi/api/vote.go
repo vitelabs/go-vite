@@ -129,7 +129,7 @@ type VoteDetail struct {
 	VoteMap         map[types.Address]*big.Int `json:"voteMap"`
 }
 
-func (v *ContractApi) GetVoteDetails(index *uint64) ([]*VoteDetail, error) {
+func (v *ContractApi) GetSBPVotingDetailsByIndex(index *uint64) ([]*VoteDetail, error) {
 	t := time.Now()
 	if index != nil {
 		_, etime := v.cs.SBPReader().GetDayTimeIndex().Index2Time(*index)

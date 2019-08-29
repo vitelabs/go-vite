@@ -18,6 +18,7 @@ import (
 
 type ContractApi struct {
 	chain chain.Chain
+	vite  *vite.Vite
 	cs    consensus.Consensus
 	log   log15.Logger
 }
@@ -25,6 +26,7 @@ type ContractApi struct {
 func NewContractApi(vite *vite.Vite) *ContractApi {
 	return &ContractApi{
 		chain: vite.Chain(),
+		vite:  vite,
 		cs:    vite.Consensus(),
 		log:   log15.New("module", "rpc_api/contract_api"),
 	}

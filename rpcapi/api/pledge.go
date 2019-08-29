@@ -240,7 +240,7 @@ type GetStakingListByPageResult struct {
 	LastKey         string         `json:"lastKey"`
 }
 
-func (p *ContractApi) GetSkatingListByPage(snapshotHash types.Hash, lastKey string, count uint64) (*GetStakingListByPageResult, error) {
+func (p *ContractApi) GetStakingListByPage(snapshotHash types.Hash, lastKey string, count uint64) (*GetStakingListByPageResult, error) {
 	lastKeyBytes, err := hex.DecodeString(lastKey)
 	if err != nil {
 		return nil, err
