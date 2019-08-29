@@ -77,6 +77,7 @@ type chain struct {
 	status uint32
 
 	forkActiveCheckPoint fork.ForkPointItem
+	forkActiveCache      fork.ForkPointList
 }
 
 /*

@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"math"
+	"sort"
 )
 
 func (c *chain) IsForkActive(point fork.ForkPointItem) bool {
@@ -15,6 +17,19 @@ func (c *chain) IsForkActive(point fork.ForkPointItem) bool {
 	}
 
 	return false
+}
+
+func (c *chain) checkIsActiveInCache(point fork.ForkPointItem) bool {
+	for i := 0; i < c.forkActiveCache.Len(); i++ {
+
+	}
+	if c.forkActiveCache.Len() <= 0 {
+		return false
+	}
+	pointIndex := sort.Search(c.forkActiveCache.Len(), func(i int) bool {
+		forkActivePoint := c.forkActiveCache[i]
+		return forkActivePoint.Height >= point.Height
+	})
 }
 
 func (c *chain) checkIsActive(point fork.ForkPointItem) bool {
@@ -72,8 +87,15 @@ func (c *chain) getTopProducersMap(snapshotHeight uint64, count int) map[types.A
 		return nil
 	}
 
-	// TODO group info
-	voteDetails, err := c.CalVoteDetails(types.SNAPSHOT_GID, nil, ledger.HashHeight{
+	snapshotConsensusGroupInfo, err := c.GetConsensusGroup(*snapshotHash, types.SNAPSHOT_GID)
+	if err != nil {
+		panic(fmt.Sprintf("GetConsensusGroup failed. Error: %s", err))
+	}
+	if snapshotConsensusGroupInfo == nil {
+		panic("snapshotConsensusGroupInfo can't be nil")
+	}
+
+	voteDetails, err := c.CalVoteDetails(types.SNAPSHOT_GID, core.NewGroupInfo(*c.genesisSnapshotBlock.Timestamp, *snapshotConsensusGroupInfo), ledger.HashHeight{
 		Hash:   *snapshotHash,
 		Height: snapshotHeight,
 	})

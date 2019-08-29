@@ -244,6 +244,8 @@ type Chain interface {
 
 	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)
 
+	GetConsensusGroup(snapshotHash types.Hash, gid types.Gid) (*types.ConsensusGroupInfo, error)
+
 	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
 
 	GetPledgeBeneficialAmount(addr types.Address) (*big.Int, error)
