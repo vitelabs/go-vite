@@ -47,12 +47,12 @@ var (
 	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
-	stackedForVIPKeyPrefix      = []byte("pldVip:")   // stackedForVip: types.Address
-	stackedForSuperVIPKeyPrefix = []byte("pldSpVip:") // stackedForSuperVip: types.Address
+	vipStakingKeyPrefix      = []byte("pldVip:")   // vipStaking: types.Address
+	superVIPStakingKeyPrefix = []byte("pldSpVip:") // superVIPStaking: types.Address
 
-	stackedForVxsKeyPrefix = []byte("pldsVx:") // stackedForVxs: types.Address
-	stackedForVxsKey       = []byte("pldsVxS:")
-	stackedForVxKeyPrefix  = []byte("pldVx:") // stackedForVx: types.Address
+	miningStakingsKeyPrefix     = []byte("pldsVx:")  // miningStakings: types.Address
+	dexMiningStakingsKey        = []byte("pldsVxS:") // dexMiningStakings
+	miningStakedAmountKeyPrefix = []byte("pldVx:")   // miningStakedAmount: types.Address
 
 	tokenInfoKeyPrefix = []byte("tk:") // token:tokenId
 	vxMinePoolKey      = []byte("vxmPl:")
@@ -84,10 +84,10 @@ var (
 	NewMarketFeeBurnAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(5000))
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
-	StackForVxMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	StackForVIPAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
-	StackForVxThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	StackForSuperVIPAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000000))
+	StakeForVxMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	StakeForVIPAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	StakeForVxThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	StakeForSuperVIPAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000000))
 
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
@@ -100,7 +100,7 @@ var (
 	usdMineThreshold     = big.NewInt(20000)                                  // 0.02USD
 
 	RateSumForFeeMine                = "0.6"                                             // 15% * 4
-	RateForStackMine                 = "0.2"                                             // 20%
+	RateForStakingMine               = "0.2"                                             // 20%
 	RateSumForMakerAndMaintainerMine = "0.2"                                             // 10% + 10%
 	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 
@@ -123,14 +123,14 @@ const (
 )
 
 const (
-	StackForVx = iota + 1
-	StackForVIP
-	StackForSuperVIP
+	StakeForVx = iota + 1
+	StakeForVIP
+	StakeForSuperVIP
 )
 
 const (
-	Stack = iota + 1
-	CancelStack
+	Stake = iota + 1
+	CancelStake
 )
 
 //MethodNameDexFundOwnerConfig
@@ -175,7 +175,7 @@ const (
 	FeeDividendJob = iota + 1
 	OperatorFeeDividendJob
 	MineVxForFeeJob
-	MineVxForStackJob
+	MineVxForStakingJob
 	MineVxForMakerAndMaintainerJob
 )
 
@@ -229,30 +229,30 @@ type ParamDexFundNewMarket struct {
 	QuoteToken types.TokenTypeId
 }
 
-type ParamDexFundStackForVx struct {
-	ActionType uint8 // 1: stack 2: cancel stack
+type ParamDexFundStakeForVx struct {
+	ActionType uint8 // 1: stake 2: cancel stake
 	Amount     *big.Int
 }
 
-type ParamDexFundStackForVIP struct {
-	ActionType uint8 // 1: stack 2: cancel stack
+type ParamDexFundStakeForVIP struct {
+	ActionType uint8 // 1: stake 2: cancel stake
 }
 
-type ParamDexFundStack struct {
-	StackAddress types.Address
+type ParamDexFundStake struct {
+	StakeAddress types.Address
 	Beneficial   types.Address
 	Bid          uint8
 }
 
-type ParamDexFundCancelStack struct {
-	StackAddress types.Address
+type ParamDexFundCancelStake struct {
+	StakeAddress types.Address
 	Beneficial   types.Address
 	Amount       *big.Int
 	Bid          uint8
 }
 
-type ParamDexFundStackCallBack struct {
-	StackAddress types.Address
+type ParamDexFundStakeCallBack struct {
+	StakeAddress types.Address
 	Beneficial   types.Address
 	Amount       *big.Int
 	Bid          uint8
@@ -521,38 +521,38 @@ func (psq *PendingTransferTokenOwnerActions) DeSerialize(data []byte) error {
 	}
 }
 
-type StackedForVIP struct {
-	dexproto.StackedForVIP
+type VIPStaking struct {
+	dexproto.VIPStaking
 }
 
-func (pv *StackedForVIP) Serialize() (data []byte, err error) {
-	return proto.Marshal(&pv.StackedForVIP)
+func (pv *VIPStaking) Serialize() (data []byte, err error) {
+	return proto.Marshal(&pv.VIPStaking)
 }
 
-func (pv *StackedForVIP) DeSerialize(data []byte) error {
-	stackedForVIP := dexproto.StackedForVIP{}
-	if err := proto.Unmarshal(data, &stackedForVIP); err != nil {
+func (pv *VIPStaking) DeSerialize(data []byte) error {
+	vipStaking := dexproto.VIPStaking{}
+	if err := proto.Unmarshal(data, &vipStaking); err != nil {
 		return err
 	} else {
-		pv.StackedForVIP = stackedForVIP
+		pv.VIPStaking = vipStaking
 		return nil
 	}
 }
 
-type StackedForVxs struct {
-	dexproto.StackedForVxs
+type MiningStakings struct {
+	dexproto.MiningStakings
 }
 
-func (psv *StackedForVxs) Serialize() (data []byte, err error) {
-	return proto.Marshal(&psv.StackedForVxs)
+func (psv *MiningStakings) Serialize() (data []byte, err error) {
+	return proto.Marshal(&psv.MiningStakings)
 }
 
-func (psv *StackedForVxs) DeSerialize(data []byte) error {
-	stackedForVxs := dexproto.StackedForVxs{}
-	if err := proto.Unmarshal(data, &stackedForVxs); err != nil {
+func (psv *MiningStakings) DeSerialize(data []byte) error {
+	miningStakings := dexproto.MiningStakings{}
+	if err := proto.Unmarshal(data, &miningStakings); err != nil {
 		return err
 	} else {
-		psv.StackedForVxs = stackedForVxs
+		psv.MiningStakings = miningStakings
 		return nil
 	}
 }
@@ -1408,128 +1408,128 @@ func SetTriggerAddress(db vm_db.VmDb, address types.Address) {
 	setValueToDb(db, triggerAddressKey, address.Bytes())
 }
 
-func GetStackedForVx(db vm_db.VmDb, address types.Address) *big.Int {
-	if bs := getValueFromDb(db, GetStackedForVxKey(address)); len(bs) > 0 {
+func GetMiningStakedAmount(db vm_db.VmDb, address types.Address) *big.Int {
+	if bs := getValueFromDb(db, GetMiningStakedAmountKey(address)); len(bs) > 0 {
 		return new(big.Int).SetBytes(bs)
 	} else {
 		return big.NewInt(0)
 	}
 }
 
-func SaveStackedForVx(db vm_db.VmDb, address types.Address, amount *big.Int) {
-	setValueToDb(db, GetStackedForVxKey(address), amount.Bytes())
+func SaveMiningStakedAmount(db vm_db.VmDb, address types.Address, amount *big.Int) {
+	setValueToDb(db, GetMiningStakedAmountKey(address), amount.Bytes())
 }
 
-func DeleteStackedForVx(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, GetStackedForVxKey(address), nil)
+func DeleteMiningStakedAmount(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetMiningStakedAmountKey(address), nil)
 }
 
-func GetStackedForVxKey(address types.Address) []byte {
-	return append(stackedForVxKeyPrefix, address.Bytes()...)
+func GetMiningStakedAmountKey(address types.Address) []byte {
+	return append(miningStakedAmountKeyPrefix, address.Bytes()...)
 }
 
-func GetStackedForVIP(db vm_db.VmDb, address types.Address) (stackedForVIP *StackedForVIP, ok bool) {
-	stackedForVIP = &StackedForVIP{}
-	ok = deserializeFromDb(db, GetStackedForVIPKey(address), stackedForVIP)
+func GetVIPStaking(db vm_db.VmDb, address types.Address) (vipStaking *VIPStaking, ok bool) {
+	vipStaking = &VIPStaking{}
+	ok = deserializeFromDb(db, GetVIPStakingKey(address), vipStaking)
 	return
 }
 
-func SaveStackedForVIP(db vm_db.VmDb, address types.Address, stackedForVIP *StackedForVIP) {
-	serializeToDb(db, GetStackedForVIPKey(address), stackedForVIP)
+func SaveVIPStaking(db vm_db.VmDb, address types.Address, vipStaking *VIPStaking) {
+	serializeToDb(db, GetVIPStakingKey(address), vipStaking)
 }
 
-func DeleteStackedForVIP(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, GetStackedForVIPKey(address), nil)
+func DeleteVIPStaking(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetVIPStakingKey(address), nil)
 }
 
-func GetStackedForVIPKey(address types.Address) []byte {
-	return append(stackedForVIPKeyPrefix, address.Bytes()...)
+func GetVIPStakingKey(address types.Address) []byte {
+	return append(vipStakingKeyPrefix, address.Bytes()...)
 }
 
-func GetStackedForSuperVIP(db vm_db.VmDb, address types.Address) (stackedForVIP *StackedForVIP, ok bool) {
-	stackedForVIP = &StackedForVIP{}
-	ok = deserializeFromDb(db, GetStackedForSuperVIPKey(address), stackedForVIP)
+func GetSuperVIPStaking(db vm_db.VmDb, address types.Address) (superVIPStaking *VIPStaking, ok bool) {
+	superVIPStaking = &VIPStaking{}
+	ok = deserializeFromDb(db, GetSuperVIPStakingKey(address), superVIPStaking)
 	return
 }
 
-func SaveStackedForSuperVIP(db vm_db.VmDb, address types.Address, stackedForVIP *StackedForVIP) {
-	serializeToDb(db, GetStackedForSuperVIPKey(address), stackedForVIP)
+func SaveSuperVIPStaking(db vm_db.VmDb, address types.Address, superVIPStaking *VIPStaking) {
+	serializeToDb(db, GetSuperVIPStakingKey(address), superVIPStaking)
 }
 
-func DeleteStackedForSuperVIP(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, GetStackedForSuperVIPKey(address), nil)
+func DeleteSuperVIPStaking(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetSuperVIPStakingKey(address), nil)
 }
 
-func GetStackedForSuperVIPKey(address types.Address) []byte {
-	return append(stackedForSuperVIPKeyPrefix, address.Bytes()...)
+func GetSuperVIPStakingKey(address types.Address) []byte {
+	return append(superVIPStakingKeyPrefix, address.Bytes()...)
 }
 
-func GetStackedForVxs(db vm_db.VmDb, address types.Address) (stackedForVxs *StackedForVxs, ok bool) {
-	stackedForVxs = &StackedForVxs{}
-	ok = deserializeFromDb(db, GetStackedForVxsKey(address), stackedForVxs)
+func GetMiningStakings(db vm_db.VmDb, address types.Address) (miningStakings *MiningStakings, ok bool) {
+	miningStakings = &MiningStakings{}
+	ok = deserializeFromDb(db, GetMiningStakingsKey(address), miningStakings)
 	return
 }
 
-func SaveStackedForVxs(db vm_db.VmDb, address types.Address, ps *StackedForVxs) {
-	serializeToDb(db, GetStackedForVxsKey(address), ps)
+func SaveMiningStakings(db vm_db.VmDb, address types.Address, ps *MiningStakings) {
+	serializeToDb(db, GetMiningStakingsKey(address), ps)
 }
 
-func DeleteStackedForVxs(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, GetStackedForVxsKey(address), nil)
+func DeleteMiningStakings(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetMiningStakingsKey(address), nil)
 }
 
-func GetStackedForVxsKey(address types.Address) []byte {
-	return append(stackedForVxsKeyPrefix, address.Bytes()...)
+func GetMiningStakingsKey(address types.Address) []byte {
+	return append(miningStakingsKeyPrefix, address.Bytes()...)
 }
 
-func GetDexStackedForVxs(db vm_db.VmDb) (stackedForVxs *StackedForVxs, ok bool) {
-	stackedForVxs = &StackedForVxs{}
-	ok = deserializeFromDb(db, stackedForVxsKey, stackedForVxs)
+func GetDexMiningStakings(db vm_db.VmDb) (dexMiningStakings *MiningStakings, ok bool) {
+	dexMiningStakings = &MiningStakings{}
+	ok = deserializeFromDb(db, dexMiningStakingsKey, dexMiningStakings)
 	return
 }
 
-func SaveDexStackedForVxs(db vm_db.VmDb, ps *StackedForVxs) {
-	serializeToDb(db, stackedForVxsKey, ps)
+func SaveDexMiningStakings(db vm_db.VmDb, ps *MiningStakings) {
+	serializeToDb(db, dexMiningStakingsKey, ps)
 }
 
-func IsValidStackAmountForVx(amount *big.Int) bool {
-	return amount.Cmp(StackForVxThreshold) >= 0
+func IsValidMiningStakeAmount(amount *big.Int) bool {
+	return amount.Cmp(StakeForVxThreshold) >= 0
 }
 
-func IsValidStackAmountBytesForVx(amount []byte) bool {
-	return new(big.Int).SetBytes(amount).Cmp(StackForVxThreshold) >= 0
+func IsValidMiningStakeAmountBytes(amount []byte) bool {
+	return new(big.Int).SetBytes(amount).Cmp(StakeForVxThreshold) >= 0
 }
 
-func MatchStackedForVxByPeriod(stackedForVxs *StackedForVxs, periodId uint64, checkDelete bool) (bool, []byte, bool, bool) {
+func MatchMiningStakingByPeriod(miningStakings *MiningStakings, periodId uint64, checkDelete bool) (bool, []byte, bool, bool) {
 	var (
-		stackedAmtBytes         []byte
-		matchIndex              int
-		needUpdateStackedForVxs bool
+		stakedAmtBytes           []byte
+		matchIndex               int
+		needUpdateMiningStakings bool
 	)
-	for i, stack := range stackedForVxs.Stacks {
-		if periodId >= stack.Period {
-			stackedAmtBytes = stack.Amount
+	for i, staking := range miningStakings.Stakings {
+		if periodId >= staking.Period {
+			stakedAmtBytes = staking.Amount
 			matchIndex = i
 		} else {
 			break
 		}
 	}
-	if len(stackedAmtBytes) == 0 {
-		return false, nil, false, checkDelete && CheckStackedForVxsCanBeDelete(stackedForVxs)
+	if len(stakedAmtBytes) == 0 {
+		return false, nil, false, checkDelete && CheckMiningStakingsCanBeDelete(miningStakings)
 	}
 	if matchIndex > 0 { //remove obsolete items, but leave current matched item
-		stackedForVxs.Stacks = stackedForVxs.Stacks[matchIndex:]
-		needUpdateStackedForVxs = true
+		miningStakings.Stakings = miningStakings.Stakings[matchIndex:]
+		needUpdateMiningStakings = true
 	}
-	if len(stackedForVxs.Stacks) > 1 && stackedForVxs.Stacks[1].Period == periodId+1 {
-		stackedForVxs.Stacks = stackedForVxs.Stacks[1:]
-		needUpdateStackedForVxs = true
+	if len(miningStakings.Stakings) > 1 && miningStakings.Stakings[1].Period == periodId+1 {
+		miningStakings.Stakings = miningStakings.Stakings[1:]
+		needUpdateMiningStakings = true
 	}
-	return true, stackedAmtBytes, needUpdateStackedForVxs, checkDelete && CheckStackedForVxsCanBeDelete(stackedForVxs)
+	return true, stakedAmtBytes, needUpdateMiningStakings, checkDelete && CheckMiningStakingsCanBeDelete(miningStakings)
 }
 
-func CheckStackedForVxsCanBeDelete(stackedForVxs *StackedForVxs) bool {
-	return len(stackedForVxs.Stacks) == 1 && !IsValidStackAmountBytesForVx(stackedForVxs.Stacks[0].Amount)
+func CheckMiningStakingsCanBeDelete(miningStakings *MiningStakings) bool {
+	return len(miningStakings.Stakings) == 1 && !IsValidMiningStakeAmountBytes(miningStakings.Stakings[0].Amount)
 }
 
 func GetTimestampInt64(db vm_db.VmDb) int64 {

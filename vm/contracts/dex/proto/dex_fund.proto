@@ -104,18 +104,18 @@ message VxFunds {
     repeated VxFundByPeriod Funds = 1;
 }
 
-message StackedForVIP {
+message VIPStaking {
     int64 Timestamp = 1;
-    int32 StackedTimes = 2; // stacked times in case duplicate stack happen
+    int32 StakedTimes = 2; // Staked times in case duplicate stake happen
 }
 
-message StackedForVxByPeriod {
+message MiningStakingByPeriod {
     uint64 Period = 1; // last snapshot height in period
     bytes Amount = 2;
 }
 
-message StackedForVxs {
-    repeated StackedForVxByPeriod Stacks = 1;
+message MiningStakings {
+    repeated MiningStakingByPeriod Stakings = 1;
 }
 
 message VxSettleAction {
@@ -152,9 +152,9 @@ message MinedVxForFee { // reused by trade fee and invitee fee
 }
 
 //event
-message MinedVxForStake {
+message MinedVxForStaking {
     bytes Address = 1;
-    bytes StakedAmount = 2; // stacked vite amount
+    bytes StakedAmount = 2; // Staked vite amount
     bytes MinedAmount = 3; // mined vx amount
 }
 

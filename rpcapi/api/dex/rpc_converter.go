@@ -142,7 +142,7 @@ type RpcOperatorFeesByPeriod struct {
 	OperatorFees []*RpcOperatorFeeAccount `json:"operatorFees"`
 }
 
-func BrokerFeeSumByPeriodToRpc(operatorFees *dex.OperatorFeesByPeriod) *RpcOperatorFeesByPeriod {
+func OperatorFeesByPeriodToRpc(operatorFees *dex.OperatorFeesByPeriod) *RpcOperatorFeesByPeriod {
 	if operatorFees == nil {
 		return nil
 	}
@@ -226,19 +226,19 @@ type RpcThresholdForTradeAndMine struct {
 	MineThreshold  string `json:"mineThreshold"`
 }
 
-type RpcPledgeForVxByPeriod struct {
+type RpcStackedForVxByPeriod struct {
 	Period uint64 `json:"period"`
 	Amount string `json:"amount"`
 }
 
 type RpcPledgesForVx struct {
-	Pledges []*RpcPledgeForVxByPeriod `json:"Pledges"`
+	Pledges []*RpcStackedForVxByPeriod `json:"Pledges"`
 }
 
-func PledgesForVxToRpc(pledges *dex.StackedForVxs) *RpcPledgesForVx {
+func PledgesForVxToRpc(miningStakings *dex.MiningStakings) *RpcPledgesForVx {
 	rpcPledges := &RpcPledgesForVx{}
-	for _, pledge := range pledges.Stacks {
-		rpcPledge := &RpcPledgeForVxByPeriod{}
+	for _, pledge := range miningStakings.Stakings {
+		rpcPledge := &RpcStackedForVxByPeriod{}
 		rpcPledge.Period = pledge.Period
 		rpcPledge.Amount = AmountBytesToString(pledge.Amount)
 		rpcPledges.Pledges = append(rpcPledges.Pledges, rpcPledge)

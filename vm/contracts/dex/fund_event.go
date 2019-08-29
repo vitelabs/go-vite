@@ -64,10 +64,10 @@ func AddMinedVxForInviteeFeeEvent(db vm_db.VmDb, address types.Address, quoteTok
 	doEmitEventLog(db, event)
 }
 
-func AddMinedVxForStakeEvent(db vm_db.VmDb, address types.Address, stackedAmt, minedAmt *big.Int) {
-	event := &MinedVxForStackEvent{}
+func AddMinedVxForStakingEvent(db vm_db.VmDb, address types.Address, stakedAmt, minedAmt *big.Int) {
+	event := &MinedVxForStackingEvent{}
 	event.Address = address.Bytes()
-	event.StakedAmount = stackedAmt.Bytes()
+	event.StakedAmount = stakedAmt.Bytes()
 	event.MinedAmount = minedAmt.Bytes()
 	doEmitEventLog(db, event)
 }

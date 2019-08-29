@@ -134,34 +134,34 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	return err
 }
 
-func DoDivideBrokerFees(db vm_db.VmDb, periodId uint64) error {
+func DoDivideOperatorFees(db vm_db.VmDb, periodId uint64) error {
 	iterator, err := db.NewStorageIterator(append(operatorFeesKeyPrefix, Uint64ToBytes(periodId)...))
 	if err != nil {
 		panic(err)
 	}
 	defer iterator.Release()
 	for {
-		var brokerFeeSumKey, brokerFeeSumBytes []byte
+		var operatorFeesKey, operatorFeesBytes []byte
 		if !iterator.Next() {
 			if iterator.Error() != nil {
 				panic(iterator.Error())
 			}
 			break
 		}
-		brokerFeeSumKey = iterator.Key() //3+8+21
-		brokerFeeSumBytes = iterator.Value()
-		if len(brokerFeeSumBytes) == 0 {
+		operatorFeesKey = iterator.Key() //3+8+21
+		operatorFeesBytes = iterator.Value()
+		if len(operatorFeesBytes) == 0 {
 			continue
 		}
-		if len(brokerFeeSumKey) != 32 {
-			panic(fmt.Errorf("invalid broker fee sum key type"))
+		if len(operatorFeesKey) != 32 {
+			panic(fmt.Errorf("invalid opearator fees key type"))
 		}
-		DeleteOperatorFeesByKey(db, brokerFeeSumKey)
+		DeleteOperatorFeesByKey(db, operatorFeesKey)
 		operatorFeesByPeriod := &OperatorFeesByPeriod{}
-		if err = operatorFeesByPeriod.DeSerialize(brokerFeeSumBytes); err != nil {
+		if err = operatorFeesByPeriod.DeSerialize(operatorFeesBytes); err != nil {
 			panic(err)
 		}
-		addr, err := types.BytesToAddress(brokerFeeSumKey[11:])
+		addr, err := types.BytesToAddress(operatorFeesKey[11:])
 		if err != nil {
 			panic(err)
 		}

@@ -205,7 +205,7 @@ func (f DexApi) IsPledgeVip(address types.Address) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	_, ok := dex.GetStackedForVIP(db, address)
+	_, ok := dex.GetVIPStaking(db, address)
 	return ok, nil
 }
 
@@ -214,7 +214,7 @@ func (f DexApi) IsPledgeSuperVip(address types.Address) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	_, ok := dex.GetStackedForSuperVIP(db, address)
+	_, ok := dex.GetSuperVIPStaking(db, address)
 	return ok, nil
 }
 
@@ -296,7 +296,7 @@ func (f DexApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err erro
 	} else {
 		return
 	}
-	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateForStackMine); success {
+	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateForStakingMine); success {
 		mineInfo.PledgeMine = amount.String()
 	} else {
 		return
@@ -328,14 +328,14 @@ func (f DexApi) GetCurrentPledgeForVxSum() (string, error) {
 	if err != nil {
 		return "0", err
 	}
-	if vxSums, ok := dex.GetDexStackedForVxs(db); !ok {
+	if vxSums, ok := dex.GetDexMiningStakings(db); !ok {
 		return "0", nil
 	} else {
-		pledgesLen := len(vxSums.Stacks)
+		pledgesLen := len(vxSums.Stakings)
 		if pledgesLen == 0 {
 			return "0", nil
 		} else {
-			return new(big.Int).SetBytes(vxSums.Stacks[pledgesLen-1].Amount).String(), nil
+			return new(big.Int).SetBytes(vxSums.Stakings[pledgesLen-1].Amount).String(), nil
 		}
 	}
 }
@@ -414,7 +414,7 @@ func (f DexFundPrivateApi) GetCurrentBrokerFeeSum(broker types.Address) (*apidex
 	if brokerFeeSum, ok := dex.GetCurrentOperatorFees(db, getConsensusReader(f.vite), broker.Bytes()); !ok {
 		return nil, nil
 	} else {
-		return apidex.BrokerFeeSumByPeriodToRpc(brokerFeeSum), nil
+		return apidex.OperatorFeesByPeriodToRpc(brokerFeeSum), nil
 	}
 }
 
@@ -426,7 +426,7 @@ func (f DexFundPrivateApi) GetBrokerFeeSumByPeriod(periodId uint64, broker types
 	if brokerFeeSum, ok := dex.GetOperatorFeesSumByPeriodId(db, broker.Bytes(), periodId); !ok {
 		return nil, nil
 	} else {
-		return apidex.BrokerFeeSumByPeriodToRpc(brokerFeeSum), nil
+		return apidex.OperatorFeesByPeriodToRpc(brokerFeeSum), nil
 	}
 }
 
@@ -475,12 +475,12 @@ func (f DexFundPrivateApi) GetVxMinePool() (string, error) {
 	return balance.String(), nil
 }
 
-func (f DexFundPrivateApi) GetPledgeForVip(address types.Address) (*dex.StackedForVIP, error) {
+func (f DexFundPrivateApi) GetPledgeForVip(address types.Address) (*dex.VIPStaking, error) {
 	db, err := getDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	if info, ok := dex.GetStackedForVIP(db, address); ok {
+	if info, ok := dex.GetVIPStaking(db, address); ok {
 		return info, nil
 	} else {
 		return nil, nil
@@ -492,7 +492,7 @@ func (f DexFundPrivateApi) GetPledgeForVX(address types.Address) (string, error)
 	if err != nil {
 		return "", err
 	}
-	return dex.GetStackedForVx(db, address).String(), nil
+	return dex.GetMiningStakedAmount(db, address).String(), nil
 }
 
 func (f DexFundPrivateApi) GetPledgesForVx(address types.Address) (*apidex.RpcPledgesForVx, error) {
@@ -500,7 +500,7 @@ func (f DexFundPrivateApi) GetPledgesForVx(address types.Address) (*apidex.RpcPl
 	if err != nil {
 		return nil, err
 	}
-	if pledgesForVx, ok := dex.GetStackedForVxs(db, address); ok {
+	if pledgesForVx, ok := dex.GetMiningStakings(db, address); ok {
 		return apidex.PledgesForVxToRpc(pledgesForVx), nil
 	} else {
 		return nil, nil
@@ -512,7 +512,7 @@ func (f DexFundPrivateApi) GetPledgesForVxSum() (*apidex.RpcPledgesForVx, error)
 	if err != nil {
 		return nil, err
 	}
-	if pledgesForVxSum, ok := dex.GetDexStackedForVxs(db); ok {
+	if pledgesForVxSum, ok := dex.GetDexMiningStakings(db); ok {
 		return apidex.PledgesForVxToRpc(pledgesForVxSum), nil
 	} else {
 		return nil, nil

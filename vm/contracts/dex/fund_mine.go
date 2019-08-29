@@ -133,36 +133,36 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 	return AccumulateAmountFromMap(toDivideVxLeaveAmtMap), nil
 }
 
-func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForPledge *big.Int) (*big.Int, error) {
+func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amountToMine *big.Int) (*big.Int, error) {
 	var (
-		pledgesForVxSum        *StackedForVxs
-		dividedPledgeAmountSum = big.NewInt(0)
-		amtLeavedToMine        = new(big.Int).Set(amtForPledge)
+		dexMiningStakings      *MiningStakings
+		dividedStakedAmountSum = big.NewInt(0)
+		amtLeavedToMine        = new(big.Int).Set(amountToMine)
 		ok                     bool
 	)
-	if amtForPledge == nil {
+	if amountToMine == nil {
 		return nil, nil
 	}
-	if pledgesForVxSum, ok = GetDexStackedForVxs(db); !ok {
-		return amtForPledge, nil
+	if dexMiningStakings, ok = GetDexMiningStakings(db); !ok {
+		return amountToMine, nil
 	}
-	foundPledgesForVxSum, pledgeForVxSumAmtBytes, needUpdatePledgesForVxSum, _ := MatchStackedForVxByPeriod(pledgesForVxSum, periodId, false)
-	if !foundPledgesForVxSum { // not found vxSumFunds
-		return amtForPledge, nil
+	foundDexMiningStaking, dexMiningStakedAmountBytes, needUpdateDexMiningStakings, _ := MatchMiningStakingByPeriod(dexMiningStakings, periodId, false)
+	if !foundDexMiningStaking { // not found vxSumFunds
+		return amountToMine, nil
 	}
-	if needUpdatePledgesForVxSum {
-		SaveDexStackedForVxs(db, pledgesForVxSum)
+	if needUpdateDexMiningStakings {
+		SaveDexMiningStakings(db, dexMiningStakings)
 	}
-	pledgeForVxSumAmt := new(big.Int).SetBytes(pledgeForVxSumAmtBytes)
-	if pledgeForVxSumAmt.Sign() <= 0 {
-		return amtForPledge, nil
+	dexMiningStakedAmount := new(big.Int).SetBytes(dexMiningStakedAmountBytes)
+	if dexMiningStakedAmount.Sign() <= 0 {
+		return amountToMine, nil
 	}
 
 	var (
-		pledgesForVxKey, pledgeForVxValue []byte
+		miningStakingsKey, miningStakingsValue []byte
 	)
 
-	iterator, err := db.NewStorageIterator(stackedForVxsKeyPrefix)
+	iterator, err := db.NewStorageIterator(miningStakingsKeyPrefix)
 	if err != nil {
 		panic(err)
 	}
@@ -174,41 +174,41 @@ func DoMineVxForPledge(db vm_db.VmDb, reader util.ConsensusReader, periodId uint
 			}
 			break
 		}
-		pledgesForVxKey = iterator.Key()
-		pledgeForVxValue = iterator.Value()
-		if len(pledgeForVxValue) == 0 {
+		miningStakingsKey = iterator.Key()
+		miningStakingsValue = iterator.Value()
+		if len(miningStakingsValue) == 0 {
 			continue
 		}
-		addressBytes := pledgesForVxKey[len(stackedForVxsKeyPrefix):]
+		addressBytes := miningStakingsKey[len(miningStakingsKeyPrefix):]
 		address := types.Address{}
 		if err = address.SetBytes(addressBytes); err != nil {
 			panic(err)
 		}
-		pledgesForVx := &StackedForVxs{}
-		if err = pledgesForVx.DeSerialize(pledgeForVxValue); err != nil {
+		miningStakings := &MiningStakings{}
+		if err = miningStakings.DeSerialize(miningStakingsValue); err != nil {
 			panic(err)
 		}
-		foundPledgesForVx, pledgesForVxAmtBytes, needUpdatePledgesForVx, needDeletePledgesForVx := MatchStackedForVxByPeriod(pledgesForVx, periodId, true)
-		if !foundPledgesForVx {
+		foundMiningStaking, miningStakedAmountBytes, needUpdateMiningStakings, needDeleteMiningStakings := MatchMiningStakingByPeriod(miningStakings, periodId, true)
+		if !foundMiningStaking {
 			continue
 		}
-		if needDeletePledgesForVx {
-			DeleteStackedForVxs(db, address)
-		} else if needUpdatePledgesForVx {
-			SaveStackedForVxs(db, address, pledgesForVx)
+		if needDeleteMiningStakings {
+			DeleteMiningStakings(db, address)
+		} else if needUpdateMiningStakings {
+			SaveMiningStakings(db, address, miningStakings)
 		}
-		pledgeAmt := new(big.Int).SetBytes(pledgesForVxAmtBytes)
-		if !IsValidStackAmountForVx(pledgeAmt) {
+		stakedAmt := new(big.Int).SetBytes(miningStakedAmountBytes)
+		if !IsValidMiningStakeAmount(stakedAmt) {
 			continue
 		}
 		//fmt.Printf("tokenId %s, address %s, vxSumAmt %s, userVxAmount %s, dividedVxAmt %s, toDivideFeeAmt %s, toDivideLeaveAmt %s\n", tokenId.String(), address.String(), vxSumAmt.String(), userVxAmount.String(), dividedVxAmtMap[tokenId], toDivideFeeAmt.String(), toDivideLeaveAmt.String())
-		minedAmt, finished := DivideByProportion(pledgeForVxSumAmt, pledgeAmt, dividedPledgeAmountSum, amtForPledge, amtLeavedToMine)
+		minedAmt, finished := DivideByProportion(dexMiningStakedAmount, stakedAmt, dividedStakedAmountSum, amountToMine, amtLeavedToMine)
 		if minedAmt.Sign() > 0 {
 			updatedAcc := DepositAccount(db, address, VxTokenId, minedAmt)
 			if err = OnDepositVx(db, reader, address, minedAmt, updatedAcc); err != nil {
 				return amtLeavedToMine, err
 			}
-			AddMinedVxForStakeEvent(db, address, pledgeAmt, minedAmt)
+			AddMinedVxForStakingEvent(db, address, stakedAmt, minedAmt)
 		}
 		if finished {
 			break

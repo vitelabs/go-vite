@@ -17,26 +17,26 @@ import (
 
 var tradeLogger = log15.New("module", "dex_trade")
 
-type MethodDexTradeNewOrder struct {
+type MethodDexTradePlace struct {
 }
 
-func (md *MethodDexTradeNewOrder) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexTradePlace) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeNewOrder) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexTradePlace) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (md *MethodDexTradeNewOrder) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+func (md *MethodDexTradePlace) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexTradeNewOrder) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+func (md *MethodDexTradePlace) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
-func (md *MethodDexTradeNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexTradePlace) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return dex.InvalidSourceAddressErr
 	}
@@ -44,7 +44,7 @@ func (md *MethodDexTradeNewOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 	return
 }
 
-func (md *MethodDexTradeNewOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md *MethodDexTradePlace) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err     error
 		blocks  []*ledger.AccountBlock
@@ -98,26 +98,26 @@ func (md MethodDexTradeCancelOrder) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	return handleCancelOrderById(db, param.OrderId, cabi.MethodNameDexTradeCancelOrder, block, sendBlock)
 }
 
-type MethodDexTradeNotifyNewMarket struct {
+type MethodDexTradeSyncNewMarket struct {
 }
 
-func (md *MethodDexTradeNotifyNewMarket) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexTradeSyncNewMarket) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeNotifyNewMarket) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexTradeSyncNewMarket) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (md *MethodDexTradeNotifyNewMarket) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+func (md *MethodDexTradeSyncNewMarket) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexTradeNotifyNewMarket) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+func (md *MethodDexTradeSyncNewMarket) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
-func (md *MethodDexTradeNotifyNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexTradeSyncNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return dex.InvalidSourceAddressErr
 	}
@@ -125,7 +125,7 @@ func (md *MethodDexTradeNotifyNewMarket) DoSend(db vm_db.VmDb, block *ledger.Acc
 	return
 }
 
-func (md MethodDexTradeNotifyNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexTradeSyncNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamDexSerializedData)
 	cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeNotifyNewMarket, sendBlock.Data)
 	marketInfo := &dex.MarketInfo{}
@@ -137,31 +137,31 @@ func (md MethodDexTradeNotifyNewMarket) DoReceive(db vm_db.VmDb, block *ledger.A
 	}
 }
 
-type MethodDexTradeCleanExpireOrders struct {
+type MethodDexTradeClearExpiredOrders struct {
 }
 
-func (md *MethodDexTradeCleanExpireOrders) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexTradeClearExpiredOrders) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeCleanExpireOrders) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexTradeClearExpiredOrders) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (md *MethodDexTradeCleanExpireOrders) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+func (md *MethodDexTradeClearExpiredOrders) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexTradeCleanExpireOrders) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+func (md *MethodDexTradeClearExpiredOrders) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
-func (md *MethodDexTradeCleanExpireOrders) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexTradeClearExpiredOrders) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
 	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexSerializedData), cabi.MethodNameDexTradeCleanExpireOrders, block.Data)
 	return
 }
 
-func (md MethodDexTradeCleanExpireOrders) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexTradeClearExpiredOrders) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamDexSerializedData)
 	cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradeCleanExpireOrders, sendBlock.Data)
 	if len(param.Data) == 0 || len(param.Data)%dex.OrderIdBytesLength != 0 || len(param.Data)/dex.OrderIdBytesLength > dex.CleanExpireOrdersMaxCount {
@@ -180,31 +180,31 @@ func (md MethodDexTradeCleanExpireOrders) DoReceive(db vm_db.VmDb, block *ledger
 	}
 }
 
-type MethodDexTradeCancelOrderByHash struct {
+type MethodDexTradeCancelOrderByTransactionHash struct {
 }
 
-func (md *MethodDexTradeCancelOrderByHash) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexTradeCancelOrderByTransactionHash) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexTradeCancelOrderByHash) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (md *MethodDexTradeCancelOrderByTransactionHash) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (md *MethodDexTradeCancelOrderByHash) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+func (md *MethodDexTradeCancelOrderByTransactionHash) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexTradeCancelOrderByHash) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+func (md *MethodDexTradeCancelOrderByTransactionHash) GetReceiveQuota(gasTable *util.GasTable) uint64 {
 	return 0
 }
 
-func (md *MethodDexTradeCancelOrderByHash) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexTradeCancelOrderByTransactionHash) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
 	err = cabi.ABIDexTrade.UnpackMethod(new(types.Hash), cabi.MethodNameDexTradeCancelOrderByHash, block.Data)
 	return
 }
 
-func (md MethodDexTradeCancelOrderByHash) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexTradeCancelOrderByTransactionHash) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	sendHash := new(types.Hash)
 	cabi.ABIDexTrade.UnpackMethod(sendHash, cabi.MethodNameDexTradeCancelOrderByHash, sendBlock.Data)
 	if orderId, ok := dex.GetOrderIdByHash(db, sendHash.Bytes()); !ok {
