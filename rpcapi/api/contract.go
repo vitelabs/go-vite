@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm"
@@ -17,12 +18,14 @@ import (
 
 type ContractApi struct {
 	chain chain.Chain
+	cs    consensus.Consensus
 	log   log15.Logger
 }
 
 func NewContractApi(vite *vite.Vite) *ContractApi {
 	return &ContractApi{
 		chain: vite.Chain(),
+		cs:    vite.Consensus(),
 		log:   log15.New("module", "rpc_api/contract_api"),
 	}
 }
@@ -31,6 +34,7 @@ func (c ContractApi) String() string {
 	return "ContractApi"
 }
 
+// Deprecated: use contract_createContractAddress instead
 func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
 	h, err := StringToUint64(heightStr)
 	if err != nil {
@@ -40,6 +44,16 @@ func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightS
 	return &addr, nil
 }
 
+func (c *ContractApi) CreateContractAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
+	h, err := StringToUint64(heightStr)
+	if err != nil {
+		return nil, err
+	}
+	addr := util.NewContractAddress(selfAddr, h, prevHash)
+	return &addr, nil
+}
+
+// Private
 func (c *ContractApi) GetCreateContractParams(abiStr string, params []string) ([]byte, error) {
 	if len(abiStr) > 0 && len(params) > 0 {
 		abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
@@ -68,6 +82,7 @@ type CreateContractDataParam struct {
 	Params      []byte    `json:"params"`
 }
 
+// Private
 func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]byte, error) {
 	code, err := hex.DecodeString(param.HexCode)
 	if err != nil {
@@ -76,7 +91,6 @@ func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]by
 	if !util.IsValidQuotaRatio(param.QuotaRatio) {
 		return nil, util.ErrInvalidQuotaRatio
 	}
-	sb := c.chain.GetLatestSnapshotBlock()
 	if len(param.Params) > 0 {
 		data := util.GetCreateContractData(
 			helper.JoinBytes(code, param.Params),
@@ -84,8 +98,7 @@ func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]by
 			param.ConfirmTime,
 			param.SeedCount,
 			param.QuotaRatio,
-			param.Gid,
-			sb.Height)
+			param.Gid)
 		return data, nil
 	} else {
 		data := util.GetCreateContractData(
@@ -94,12 +107,12 @@ func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]by
 			param.ConfirmTime,
 			param.SeedCount,
 			param.QuotaRatio,
-			param.Gid,
-			sb.Height)
+			param.Gid)
 		return data, nil
 	}
 }
 
+// Private
 func (c *ContractApi) GetCallContractData(abiStr string, methodName string, params []string) ([]byte, error) {
 	abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
 	if err != nil {
@@ -116,6 +129,7 @@ func (c *ContractApi) GetCallContractData(abiStr string, methodName string, para
 	return abiContract.PackMethod(methodName, arguments...)
 }
 
+// Private
 func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, params []string) ([]byte, error) {
 	abiContract, err := abi.JSONToABIContract(strings.NewReader(abiStr))
 	if err != nil {
@@ -133,13 +147,17 @@ func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, pa
 }
 
 type CallOffChainMethodParam struct {
-	SelfAddr          types.Address `json:"selfAddr"`
-	OffChainCode      string        `json:"offchainCode"`
-	OffChainCodeBytes []byte        `json:"offchainCodeBytes"`
-	Data              []byte        `json:"data"`
+	SelfAddr          types.Address  `json:"selfAddr"` // Deprecated: use address field instead
+	Addr              *types.Address `json:"address"`
+	OffChainCode      string         `json:"offchainCode"`
+	OffChainCodeBytes []byte         `json:"offchainCodeBytes"`
+	Data              []byte         `json:"data"`
 }
 
 func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
+	if param.Addr != nil {
+		param.SelfAddr = *param.Addr
+	}
 	prevHash, err := getPrevBlockHash(c.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
@@ -160,6 +178,7 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	return vm.NewVM(nil).OffChainReader(db, codeBytes, param.Data)
 }
 
+// Private
 func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {
 	var prefixBytes []byte
 	if len(prefix) > 0 {
@@ -189,11 +208,14 @@ func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map
 }
 
 type ContractInfo struct {
-	Code        []byte    `json:"code"`
-	Gid         types.Gid `json:"gid"`
-	ConfirmTime uint8     `json:"confirmTime"`
-	SeedCount   uint8     `json:"seedCount"`
-	QuotaRatio  uint8     `json:"quotaRatio"`
+	Code            []byte    `json:"code"`
+	Gid             types.Gid `json:"gid"`
+	ConfirmTime     uint8     `json:"confirmTime"` // Deprecated: use responseLatency instead
+	ResponseLatency uint8     `json:"responseLatency"`
+	SeedCount       uint8     `json:"seedCount"` // Deprecated: use randomness instead
+	Randomness      uint8     `json:"randomness"`
+	QuotaRatio      uint8     `json:"quotaRatio"` // Deprecated: use quotaMultiplier instead
+	QuotaMultiplier uint8     `json:"quotaMultiplier"`
 }
 
 func (c *ContractApi) GetContractInfo(addr types.Address) (*ContractInfo, error) {
@@ -208,5 +230,14 @@ func (c *ContractApi) GetContractInfo(addr types.Address) (*ContractInfo, error)
 	if meta == nil {
 		return nil, nil
 	}
-	return &ContractInfo{Code: code, Gid: meta.Gid, ConfirmTime: meta.SendConfirmedTimes, SeedCount: meta.SeedConfirmedTimes, QuotaRatio: meta.QuotaRatio}, nil
+	return &ContractInfo{
+		Code:            code,
+		Gid:             meta.Gid,
+		ConfirmTime:     meta.SendConfirmedTimes,
+		ResponseLatency: meta.SendConfirmedTimes,
+		SeedCount:       meta.SeedConfirmedTimes,
+		Randomness:      meta.SeedConfirmedTimes,
+		QuotaRatio:      meta.QuotaRatio,
+		QuotaMultiplier: meta.QuotaRatio,
+	}, nil
 }

@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 	"time"
 
@@ -253,6 +254,10 @@ type Chain interface {
 	GetTokenInfoById(tokenId types.TokenTypeId) (*types.TokenInfo, error)
 
 	GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error)
+
+	GetPledgeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error)
+
+	GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.Fund, error)
 
 	// ====== Sync ledger ======
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)

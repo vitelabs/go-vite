@@ -23,28 +23,18 @@ const (
 	SnapshotBlocksSubscription
 )
 
-type heightRange struct {
-	fromHeight uint64
-	toHeight   uint64
-}
-
-type filterParam struct {
-	addrRange map[types.Address]heightRange
-	topics    [][]types.Hash
-}
-
 type subscription struct {
 	id                       rpc.ID
 	typ                      FilterType
 	createTime               time.Time
 	installed                chan struct{}
 	err                      chan error
-	param                    *filterParam
+	param                    *api.FilterParam
 	addr                     types.Address
 	snapshotBlockCh          chan []*SnapshotBlock
 	accountBlockCh           chan []*AccountBlock
 	accountBlockWithHeightCh chan []*AccountBlockWithHeight
-	logsCh                   chan []*Logs
+	logsCh                   chan []*api.Logs
 	onroadMsgCh              chan []*OnroadMsg
 }
 
@@ -218,7 +208,7 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 	}
 	// handle logs
 	for _, f := range filters[LogsSubscription] {
-		var logs []*Logs
+		var logs []*api.Logs
 		for _, e := range acEvent {
 			if matchedLogs := filterLogs(e, f.param, removed); len(matchedLogs) > 0 {
 				logs = append(logs, matchedLogs...)
@@ -234,50 +224,28 @@ func appendOnroadMsg(onroadMsgs map[types.Address][]*OnroadMsg, toAddr types.Add
 	if _, ok := onroadMsgs[toAddr]; !ok {
 		onroadMsgs[toAddr] = make([]*OnroadMsg, 0)
 	}
-	onroadMsgs[toAddr] = append(onroadMsgs[toAddr], &OnroadMsg{Hash: hash, Closed: closed, Removed: removed})
+	onroadMsgs[toAddr] = append(onroadMsgs[toAddr], &OnroadMsg{Hash: hash, Closed: closed, Received: closed, Removed: removed})
 	return onroadMsgs
 }
 
-func filterLogs(e *AccountChainEvent, filter *filterParam, removed bool) []*Logs {
+func filterLogs(e *AccountChainEvent, filter *api.FilterParam, removed bool) []*api.Logs {
 	if len(e.Logs) == 0 {
 		return nil
 	}
-	var logs []*Logs
-	if filter.addrRange != nil {
-		if hr, ok := filter.addrRange[e.Addr]; !ok {
+	var logs []*api.Logs
+	if filter.AddrRange != nil {
+		if hr, ok := filter.AddrRange[e.Addr]; !ok {
 			return nil
-		} else if (hr.fromHeight > 0 && hr.fromHeight > e.Height) || (hr.toHeight > 0 && hr.toHeight < e.Height) {
+		} else if (hr.FromHeight > 0 && hr.FromHeight > e.Height) || (hr.ToHeight > 0 && hr.ToHeight < e.Height) {
 			return nil
 		}
 	}
 	for _, l := range e.Logs {
-		if filterLog(filter, l) {
-			logs = append(logs, &Logs{l, e.Hash, api.Uint64ToString(e.Height), &e.Addr, removed})
+		if api.FilterLog(filter, l) {
+			logs = append(logs, &api.Logs{l, e.Hash, api.Uint64ToString(e.Height), &e.Addr, removed})
 		}
 	}
 	return logs
-}
-
-func filterLog(filter *filterParam, l *ledger.VmLog) bool {
-	if len(l.Topics) < len(filter.topics) {
-		return false
-	}
-	for i, topicRange := range filter.topics {
-		if len(topicRange) == 0 {
-			continue
-		}
-		flag := false
-		for _, topic := range topicRange {
-			if topic == l.Topics[i] {
-				flag = true
-				continue
-			}
-		}
-		if !flag {
-			return false
-		}
-	}
-	return true
 }
 
 type RpcSubscription struct {
@@ -319,7 +287,7 @@ func (es *EventSystem) SubscribeAccountBlocks(ch chan []*AccountBlock) *RpcSubsc
 		snapshotBlockCh:          make(chan []*SnapshotBlock),
 		accountBlockCh:           ch,
 		accountBlockWithHeightCh: make(chan []*AccountBlockWithHeight),
-		logsCh:                   make(chan []*Logs),
+		logsCh:                   make(chan []*api.Logs),
 		onroadMsgCh:              make(chan []*OnroadMsg),
 	}
 	return es.subscribe(sub)
@@ -336,7 +304,7 @@ func (es *EventSystem) SubscribeAccountBlocksByAddr(addr types.Address, ch chan 
 		snapshotBlockCh:          make(chan []*SnapshotBlock),
 		accountBlockCh:           make(chan []*AccountBlock),
 		accountBlockWithHeightCh: ch,
-		logsCh:                   make(chan []*Logs),
+		logsCh:                   make(chan []*api.Logs),
 		onroadMsgCh:              make(chan []*OnroadMsg),
 	}
 	return es.subscribe(sub)
@@ -353,7 +321,7 @@ func (es *EventSystem) SubscribeOnroadBlocksByAddr(addr types.Address, ch chan [
 		snapshotBlockCh:          make(chan []*SnapshotBlock),
 		accountBlockCh:           make(chan []*AccountBlock),
 		accountBlockWithHeightCh: make(chan []*AccountBlockWithHeight),
-		logsCh:                   make(chan []*Logs),
+		logsCh:                   make(chan []*api.Logs),
 		onroadMsgCh:              ch,
 	}
 	return es.subscribe(sub)
@@ -369,13 +337,13 @@ func (es *EventSystem) SubscribeSnapshotBlocks(ch chan []*SnapshotBlock) *RpcSub
 		snapshotBlockCh:          ch,
 		accountBlockCh:           make(chan []*AccountBlock),
 		accountBlockWithHeightCh: make(chan []*AccountBlockWithHeight),
-		logsCh:                   make(chan []*Logs),
+		logsCh:                   make(chan []*api.Logs),
 		onroadMsgCh:              make(chan []*OnroadMsg),
 	}
 	return es.subscribe(sub)
 }
 
-func (es *EventSystem) SubscribeLogs(p *filterParam, ch chan []*Logs) *RpcSubscription {
+func (es *EventSystem) SubscribeLogs(p *api.FilterParam, ch chan []*api.Logs) *RpcSubscription {
 	sub := &subscription{
 		id:                       rpc.NewID(),
 		typ:                      LogsSubscription,

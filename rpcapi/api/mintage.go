@@ -35,6 +35,7 @@ type MintageParams struct {
 	OwnerBurnOnly bool
 }
 
+// Private
 func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
 	totalSupply, err := stringToBigInt(&param.TotalSupply)
 	if err != nil {
@@ -53,6 +54,7 @@ type IssueParams struct {
 	Beneficial types.Address
 }
 
+// Private
 func (m *MintageApi) GetIssueData(param IssueParams) ([]byte, error) {
 	amount, err := stringToBigInt(&param.Amount)
 	if err != nil {
@@ -60,6 +62,8 @@ func (m *MintageApi) GetIssueData(param IssueParams) ([]byte, error) {
 	}
 	return abi.ABIMintage.PackMethod(abi.MethodNameIssue, param.TokenId, amount, param.Beneficial)
 }
+
+// Private
 func (m *MintageApi) GetBurnData() ([]byte, error) {
 	return abi.ABIMintage.PackMethod(abi.MethodNameBurn)
 }
@@ -69,9 +73,12 @@ type TransferOwnerParams struct {
 	NewOwner types.Address
 }
 
+// Private
 func (m *MintageApi) GetTransferOwnerData(param TransferOwnerParams) ([]byte, error) {
 	return abi.ABIMintage.PackMethod(abi.MethodNameTransferOwner, param.TokenId, param.NewOwner)
 }
+
+// Private
 func (m *MintageApi) GetChangeTokenTypeData(tokenId types.TokenTypeId) ([]byte, error) {
 	return abi.ABIMintage.PackMethod(abi.MethodNameChangeTokenType, tokenId)
 }
@@ -92,6 +99,7 @@ func (a byName) Less(i, j int) bool {
 	return a[i].TokenName < a[j].TokenName
 }
 
+// Deprecated: use contract_getTokenInfoList instead
 func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, error) {
 	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
@@ -110,7 +118,26 @@ func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, err
 	start, end := getRange(index, count, listLen)
 	return &TokenInfoList{listLen, tokenList[start:end]}, nil
 }
+func (m *ContractApi) GetTokenInfoList(index int, count int) (*TokenInfoList, error) {
+	db, err := getVmDb(m.chain, types.AddressMintage)
+	if err != nil {
+		return nil, err
+	}
+	tokenMap, err := abi.GetTokenMap(db)
+	if err != nil {
+		return nil, err
+	}
+	listLen := len(tokenMap)
+	tokenList := make([]*RpcTokenInfo, 0)
+	for tokenId, tokenInfo := range tokenMap {
+		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
+	}
+	sort.Sort(byName(tokenList))
+	start, end := getRange(index, count, listLen)
+	return &TokenInfoList{listLen, tokenList[start:end]}, nil
+}
 
+// Deprecated: use contract_getTokenInfoById instead
 func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
 	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
@@ -125,8 +152,38 @@ func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo,
 	}
 	return nil, nil
 }
+func (m *ContractApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
+	db, err := getVmDb(m.chain, types.AddressMintage)
+	if err != nil {
+		return nil, err
+	}
+	tokenInfo, err := abi.GetTokenById(db, tokenId)
+	if err != nil {
+		return nil, err
+	}
+	if tokenInfo != nil {
+		return RawTokenInfoToRpc(tokenInfo, tokenId), nil
+	}
+	return nil, nil
+}
 
+// Deprecated: use contract_getTokenInfoListByOwner
 func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
+	db, err := getVmDb(m.chain, types.AddressMintage)
+	if err != nil {
+		return nil, err
+	}
+	tokenMap, err := abi.GetTokenMapByOwner(db, owner)
+	if err != nil {
+		return nil, err
+	}
+	tokenList := make([]*RpcTokenInfo, 0)
+	for tokenId, tokenInfo := range tokenMap {
+		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
+	}
+	return tokenList, nil
+}
+func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
 	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err

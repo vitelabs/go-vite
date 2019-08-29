@@ -47,7 +47,7 @@ func MarketInfoToRpc(mkInfo *dex.MarketInfo) *RpcMarketInfo {
 			QuoteTokenDecimals:   mkInfo.QuoteTokenDecimals,
 			TakerOperatorFeeRate: mkInfo.TakerOperatorFeeRate,
 			MakerOperatorFeeRate: mkInfo.MakerOperatorFeeRate,
-			AllowMine:            mkInfo.AllowMine,
+			AllowMine:            mkInfo.AllowMining,
 			Valid:                mkInfo.Valid,
 			Owner:                owner.String(),
 			Creator:              creator.String(),
@@ -253,6 +253,21 @@ func AmountBytesToString(amt []byte) string {
 func TokenBytesToString(token []byte) string {
 	tk, _ := types.BytesToTokenTypeId(token)
 	return tk.String()
+}
+
+type SimpleAccountInfo struct {
+	Token     string `json:"token"`
+	Available string `json:"available"`
+	Locked    string `json:"locked"`
+}
+
+type SimpleUserFund struct {
+	Address  string               `json:"address"`
+	Accounts []*SimpleAccountInfo `json:"accounts"`
+}
+
+type UserFunds struct {
+	Funds []*SimpleUserFund `json:"funds"`
 }
 
 type RpcVxMineInfo struct {

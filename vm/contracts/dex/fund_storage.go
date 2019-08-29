@@ -3,11 +3,14 @@ package dex
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -229,7 +232,7 @@ type ParamDexFundNewMarket struct {
 	QuoteToken types.TokenTypeId
 }
 
-type ParamDexFundStakeForVx struct {
+type ParamDexFundStakeForMining struct {
 	ActionType uint8 // 1: stake 2: cancel stake
 	Amount     *big.Int
 }
@@ -238,25 +241,12 @@ type ParamDexFundStakeForVIP struct {
 	ActionType uint8 // 1: stake 2: cancel stake
 }
 
-type ParamDexFundStake struct {
-	StakeAddress types.Address
-	Beneficial   types.Address
-	Bid          uint8
-}
-
-type ParamDexFundCancelStake struct {
-	StakeAddress types.Address
-	Beneficial   types.Address
-	Amount       *big.Int
-	Bid          uint8
-}
-
 type ParamDexFundStakeCallBack struct {
-	StakeAddress types.Address
-	Beneficial   types.Address
-	Amount       *big.Int
-	Bid          uint8
-	Success      bool
+	StakeAddr   types.Address
+	Beneficiary types.Address
+	Amount      *big.Int
+	Bid         uint8
+	Success     bool
 }
 
 type ParamDexFundGetTokenInfoCallback struct {
@@ -269,49 +259,49 @@ type ParamDexFundGetTokenInfoCallback struct {
 	Owner       types.Address
 }
 
-type ParamDexFundOwnerConfig struct {
-	OperationCode  uint8
-	Owner          types.Address // 1 owner
-	Timer          types.Address // 2 timerAddress
-	Trigger        types.Address // 4 maintainer
-	StopViteX      bool          // 8 stopViteX
-	MakerMineProxy types.Address // 16 maker mine proxy
-	Maintainer     types.Address // 32 maintainer
+type ParamDexFundDexAdminConfig struct {
+	OperationCode    uint8
+	Owner            types.Address // 1 owner
+	TimeOracle       types.Address // 2 timeOracle
+	PeriodJobTrigger types.Address // 4 periodJobTrigger
+	StopDex          bool          // 8 stopDex
+	MakerMiningAdmin types.Address // 16 maker mining admin
+	Maintainer       types.Address // 32 maintainer
 }
 
-type ParamDexFundOwnerConfigTrade struct {
-	OperationCode      uint8
-	TradeToken         types.TokenTypeId // 1 mineMarket
-	QuoteToken         types.TokenTypeId // 1 mineMarket
-	AllowMine          bool              // 1 mineMarket
-	NewQuoteToken      types.TokenTypeId // 2 new quote token
-	QuoteTokenType     uint8             // 2 new quote token
-	TokenType4TradeThr uint8             // 4 maintainer
-	TradeThreshold     *big.Int          // 4 maintainer
-	TokenType4MineThr  uint8             // 8 maintainer
-	MineThreshold      *big.Int          // 8 maintainer
+type ParamDexFundTradeAdminConfig struct {
+	OperationCode               uint8
+	TradeToken                  types.TokenTypeId // 1 mineMarket
+	QuoteToken                  types.TokenTypeId // 1 mineMarket
+	AllowMining                 bool              // 1 mineMarket
+	NewQuoteToken               types.TokenTypeId // 2 new quote token
+	QuoteTokenType              uint8             // 2 new quote token
+	TokenTypeForTradeThreshold  uint8             // 4 tradeThreshold
+	MinTradeThreshold           *big.Int          // 4 tradeThreshold
+	TokenTypeForMiningThreshold uint8             // 8 miningThreshold
+	MinMiningThreshold          *big.Int          // 8 miningThreshold
 }
 
 type ParamDexFundMarketOwnerConfig struct {
 	OperationCode uint8 // 1 owner, 2 takerRate, 4 makerRate, 8 stopMarket
 	TradeToken    types.TokenTypeId
 	QuoteToken    types.TokenTypeId
-	Owner         types.Address
+	MarketOwner   types.Address
 	TakerFeeRate  int32
 	MakerFeeRate  int32
 	StopMarket    bool
 }
 
-type ParamDexFundTransferTokenOwner struct {
-	Token types.TokenTypeId
-	Owner types.Address
+type ParamDexFundTransferTokenOwnership struct {
+	Token    types.TokenTypeId
+	NewOwner types.Address
 }
 
 type ParamDexFundNotifyTime struct {
 	Timestamp int64
 }
 
-type ParamDexFundConfigMarketsAgent struct {
+type ParamDexFundConfigMarketAgents struct {
 	ActionType  uint8 // 1: grant 2: revoke
 	Agent       types.Address
 	TradeTokens []types.TokenTypeId
@@ -673,6 +663,47 @@ func DepositAccount(db vm_db.VmDb, address types.Address, token types.TokenTypeI
 		userFund.Accounts = append(userFund.Accounts, updatedAcc)
 	}
 	SaveFund(db, address, userFund)
+	return
+}
+
+func GetUserFundsByPage(db abi.StorageDatabase, lastAddress types.Address, count int) (funds []*Fund, err error) {
+	var iterator interfaces.StorageIterator
+	if iterator, err = db.NewStorageIterator(fundKeyPrefix); err != nil {
+		return
+	}
+	defer iterator.Release()
+
+	if lastAddress != types.ZERO_ADDRESS {
+		ok := iterator.Seek(GetFundKey(lastAddress))
+		if !ok {
+			err = fmt.Errorf("last address not valid for page funds")
+			return
+		}
+	}
+	funds = make([]*Fund, 0, count)
+	for {
+		if !iterator.Next() {
+			if err = iterator.Error(); err != nil {
+				return
+			}
+			break
+		}
+		key := iterator.Key()
+		data := iterator.Value()
+		if len(data) > 0 {
+			fund := &Fund{}
+			if err = fund.DeSerialize(data); err != nil {
+				return
+			} else {
+				fund.Address = make([]byte, types.AddressSize)
+				copy(fund.Address[:], key[len(fundKeyPrefix):])
+				funds = append(funds, fund)
+				if len(funds) == count {
+					return
+				}
+			}
+		}
+	}
 	return
 }
 

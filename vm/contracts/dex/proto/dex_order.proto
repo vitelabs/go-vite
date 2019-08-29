@@ -72,7 +72,7 @@ message MarketInfo {
     int32 QuoteTokenDecimals = 7;
     int32 TakerOperatorFeeRate = 8; // rate/100,000
     int32 MakerOperatorFeeRate = 9; // rate/100,000
-    bool AllowMine = 10;
+    bool AllowMining = 10;
     bool Valid = 11; // false: pending for tradeToken validate
     bytes Owner = 12;
     bytes Creator = 13; //creator address

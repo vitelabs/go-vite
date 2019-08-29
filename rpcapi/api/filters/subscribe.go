@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi/api"
@@ -20,11 +19,11 @@ var (
 type filter struct {
 	typ              FilterType
 	deadline         *time.Timer
-	param            filterParam
+	param            api.FilterParam
 	s                *RpcSubscription
 	blocks           []*AccountBlock
 	blocksWithHeight []*AccountBlockWithHeight
-	logs             []*Logs
+	logs             []*api.Logs
 	snapshotBlocks   []*SnapshotBlock
 	onroadMsgs       []*OnroadMsg
 }
@@ -71,59 +70,9 @@ func (s *SubscribeApi) timeoutLoop() {
 	}
 }
 
-type Range struct {
-	FromHeight string `json:"fromHeight"`
-	ToHeight   string `json:"toHeight"`
-}
-
-func (r *Range) toHeightRange() (*heightRange, error) {
-	if r != nil {
-		fromHeight, err := api.StringToUint64(r.FromHeight)
-		if err != nil {
-			return nil, err
-		}
-		toHeight, err := api.StringToUint64(r.ToHeight)
-		if err != nil {
-			return nil, err
-		}
-		if toHeight < fromHeight && toHeight != 0 {
-			return nil, errors.New("to height < from height")
-		}
-		return &heightRange{fromHeight, toHeight}, nil
-	}
-	return nil, nil
-}
-
 type RpcFilterParam struct {
-	AddrRange map[string]*Range `json:"addrRange"`
-	Topics    [][]types.Hash    `json:"topics"`
-}
-
-func (p *RpcFilterParam) toFilterParam() (*filterParam, error) {
-	var addrRange map[types.Address]heightRange
-	if len(p.AddrRange) == 0 {
-		return nil, errors.New("addrRange is nil")
-	}
-	addrRange = make(map[types.Address]heightRange, len(p.AddrRange))
-	for hexAddr, r := range p.AddrRange {
-		hr, err := r.toHeightRange()
-		if err != nil {
-			return nil, err
-		}
-		if hr == nil {
-			hr = &heightRange{0, 0}
-		}
-		addr, err := types.HexToAddress(hexAddr)
-		if err != nil {
-			return nil, err
-		}
-		addrRange[addr] = *hr
-	}
-	target := &filterParam{
-		addrRange: addrRange,
-		topics:    p.Topics,
-	}
-	return target, nil
+	AddrRange map[string]*api.Range `json:"addrRange"`
+	Topics    [][]types.Hash        `json:"topics"`
 }
 
 type AccountBlock struct {
@@ -132,35 +81,35 @@ type AccountBlock struct {
 }
 
 type OnroadMsg struct {
-	Hash    types.Hash `json:"hash"`
-	Closed  bool       `json:"closed"`
-	Removed bool       `json:"removed"`
+	Hash     types.Hash `json:"hash"`
+	Closed   bool       `json:"closed"` // Deprecated: use received instead
+	Received bool       `json:"received"`
+	Removed  bool       `json:"removed"`
 }
 
 type AccountBlockWithHeight struct {
 	Hash      types.Hash `json:"hash"`
-	Height    uint64     `json:"height"`
+	Height    uint64     `json:"height"` // Deprecated
 	HeightStr string     `json:"heightStr"`
 	Removed   bool       `json:"removed"`
 }
 
 type SnapshotBlock struct {
 	Hash      types.Hash `json:"hash"`
-	Height    uint64     `json:"height"`
+	Height    uint64     `json:"height"` // Deprecated
 	HeightStr string     `json:"heightStr"`
 	Removed   bool       `json:"removed"`
 }
 
-type Logs struct {
-	Log              *ledger.VmLog  `json:"log"`
-	AccountBlockHash types.Hash     `json:"accountBlockHash"`
-	AccountHeight    string         `json:"accountHeight"`
-	Addr             *types.Address `json:"addr"`
-	Removed          bool           `json:"removed"`
-}
-
+// Deprecated: use subscribe_createSnapshotBlockFilter instead
 func (s *SubscribeApi) NewSnapshotBlocksFilter() (rpc.ID, error) {
-	s.log.Info("NewSnapshotBlocksFilter")
+	return s.createSnapshotBlockFilter()
+}
+func (s *SubscribeApi) CreateSnapshotBlockFilter() (rpc.ID, error) {
+	return s.createSnapshotBlockFilter()
+}
+func (s *SubscribeApi) createSnapshotBlockFilter() (rpc.ID, error) {
+	s.log.Info("createSnapshotBlockFilter")
 	var (
 		sbCh  = make(chan []*SnapshotBlock)
 		sbSub = s.eventSystem.SubscribeSnapshotBlocks(sbCh)
@@ -191,8 +140,15 @@ func (s *SubscribeApi) NewSnapshotBlocksFilter() (rpc.ID, error) {
 	return sbSub.ID, nil
 }
 
+// Deprecated: use subscribe_createAccountBlockFilter instead
 func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
-	s.log.Info("NewAccountBlocksFilter")
+	return s.createAccountBlockFilter()
+}
+func (s *SubscribeApi) CreateAccountBlockFilter() (rpc.ID, error) {
+	return s.createAccountBlockFilter()
+}
+func (s *SubscribeApi) createAccountBlockFilter() (rpc.ID, error) {
+	s.log.Info("createAccountBlockFilter")
 	var (
 		acCh  = make(chan []*AccountBlock)
 		acSub = s.eventSystem.SubscribeAccountBlocks(acCh)
@@ -223,8 +179,15 @@ func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
 	return acSub.ID, nil
 }
 
+// Deprecated: use subscribe_createAccountBlockFilterByAddress instead
 func (s *SubscribeApi) NewAccountBlocksByAddrFilter(addr types.Address) (rpc.ID, error) {
-	s.log.Info("NewAccountBlocksByAddrFilter")
+	return s.createAccountBlockFilterByAddress(addr)
+}
+func (s *SubscribeApi) CreateAccountBlockFilterByAddress(addr types.Address) (rpc.ID, error) {
+	return s.createAccountBlockFilterByAddress(addr)
+}
+func (s *SubscribeApi) createAccountBlockFilterByAddress(addr types.Address) (rpc.ID, error) {
+	s.log.Info("createAccountBlockFilterByAddress")
 	var (
 		acCh  = make(chan []*AccountBlockWithHeight)
 		acSub = s.eventSystem.SubscribeAccountBlocksByAddr(addr, acCh)
@@ -255,8 +218,15 @@ func (s *SubscribeApi) NewAccountBlocksByAddrFilter(addr types.Address) (rpc.ID,
 	return acSub.ID, nil
 }
 
+// Deprecated: use subscribe_createUnreceivedBlockFilterByAddress instead
 func (s *SubscribeApi) NewOnroadBlocksByAddrFilter(addr types.Address) (rpc.ID, error) {
-	s.log.Info("NewOnroadBlocksByAddrFilter")
+	return s.createUnreceivedBlockFilterByAddress(addr)
+}
+func (s *SubscribeApi) CreateUnreceivedBlockFilterByAddress(addr types.Address) (rpc.ID, error) {
+	return s.createUnreceivedBlockFilterByAddress(addr)
+}
+func (s *SubscribeApi) createUnreceivedBlockFilterByAddress(addr types.Address) (rpc.ID, error) {
+	s.log.Info("createUnreceivedBlockFilterByAddress")
 	var (
 		acCh  = make(chan []*OnroadMsg)
 		acSub = s.eventSystem.SubscribeOnroadBlocksByAddr(addr, acCh)
@@ -287,14 +257,21 @@ func (s *SubscribeApi) NewOnroadBlocksByAddrFilter(addr types.Address) (rpc.ID, 
 	return acSub.ID, nil
 }
 
+// Deprecated: use subscribe_createVmLogFilter instead
 func (s *SubscribeApi) NewLogsFilter(param RpcFilterParam) (rpc.ID, error) {
-	s.log.Info("NewLogsFilter")
-	p, err := param.toFilterParam()
+	return s.createVmLogFilter(param.AddrRange, param.Topics)
+}
+func (s *SubscribeApi) CreateVmLogFilter(param api.VmLogFilterParam) (rpc.ID, error) {
+	return s.createVmLogFilter(param.AddrRange, param.Topics)
+}
+func (s *SubscribeApi) createVmLogFilter(rangeMap map[string]*api.Range, topics [][]types.Hash) (rpc.ID, error) {
+	s.log.Info("createVmLogFilter")
+	p, err := api.ToFilterParam(rangeMap, topics)
 	if err != nil {
 		return "", err
 	}
 	var (
-		logsCh  = make(chan []*Logs)
+		logsCh  = make(chan []*api.Logs)
 		logsSub = s.eventSystem.SubscribeLogs(p, logsCh)
 	)
 
@@ -348,8 +325,8 @@ type AccountBlocksWithHeightMsg struct {
 }
 
 type LogsMsg struct {
-	Logs []*Logs `json:"result"`
-	Id   rpc.ID  `json:"subscription"`
+	Logs []*api.Logs `json:"result"`
+	Id   rpc.ID      `json:"subscription"`
 }
 
 type OnroadBlocksMsg struct {
@@ -362,8 +339,15 @@ type SnapshotBlocksMsg struct {
 	Id     rpc.ID           `json:"subscription"`
 }
 
+// Deprecated: use subscribe_getChangesByFilterId instead
 func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
-	s.log.Info("GetFilterChanges", "id", id)
+	return s.getChangesByFilterId(id)
+}
+func (s *SubscribeApi) GetChangesByFilterId(id rpc.ID) (interface{}, error) {
+	return s.getChangesByFilterId(id)
+}
+func (s *SubscribeApi) getChangesByFilterId(id rpc.ID) (interface{}, error) {
+	s.log.Info("getChangesByFilterId", "id", id)
 	s.filterMapMu.Lock()
 	defer s.filterMapMu.Unlock()
 
@@ -400,8 +384,15 @@ func (s *SubscribeApi) GetFilterChanges(id rpc.ID) (interface{}, error) {
 	return nil, errors.New("filter not found")
 }
 
+// Deprecated: use subscribe_createSnapshotBlockSubscription instead
 func (s *SubscribeApi) NewSnapshotBlocks(ctx context.Context) (*rpc.Subscription, error) {
-	s.log.Info("NewSnapshotBlocks")
+	return s.createSnapshotBlockSubscription(ctx)
+}
+func (s *SubscribeApi) CreateSnapshotBlockSubscription(ctx context.Context) (*rpc.Subscription, error) {
+	return s.createSnapshotBlockSubscription(ctx)
+}
+func (s *SubscribeApi) createSnapshotBlockSubscription(ctx context.Context) (*rpc.Subscription, error) {
+	s.log.Info("createSnapshotBlockSubscription")
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -428,8 +419,15 @@ func (s *SubscribeApi) NewSnapshotBlocks(ctx context.Context) (*rpc.Subscription
 	return rpcSub, nil
 }
 
+// Deprecated: use subscribe_createAccountBlockSubscription instead
 func (s *SubscribeApi) NewAccountBlocks(ctx context.Context) (*rpc.Subscription, error) {
-	s.log.Info("NewAccountBlocks")
+	return s.createAccountBlockSubscription(ctx)
+}
+func (s *SubscribeApi) CreateAccountBlockSubscription(ctx context.Context) (*rpc.Subscription, error) {
+	return s.createAccountBlockSubscription(ctx)
+}
+func (s *SubscribeApi) createAccountBlockSubscription(ctx context.Context) (*rpc.Subscription, error) {
+	s.log.Info("createAccountBlockSubscription")
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -456,8 +454,15 @@ func (s *SubscribeApi) NewAccountBlocks(ctx context.Context) (*rpc.Subscription,
 	return rpcSub, nil
 }
 
+// Deprecated: use subscribe_createAccountBlockSubscriptionByAddress instead
 func (s *SubscribeApi) NewAccountBlocksByAddr(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
-	s.log.Info("NewAccountBlocksByAddr")
+	return s.createAccountBlockSubscriptionByAddress(ctx, addr)
+}
+func (s *SubscribeApi) CreateAccountBlockSubscriptionByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
+	return s.createAccountBlockSubscriptionByAddress(ctx, addr)
+}
+func (s *SubscribeApi) createAccountBlockSubscriptionByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
+	s.log.Info("createAccountBlockSubscriptionByAddress")
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -484,8 +489,15 @@ func (s *SubscribeApi) NewAccountBlocksByAddr(ctx context.Context, addr types.Ad
 	return rpcSub, nil
 }
 
+// Deprecated: use subscribe_createUnreceivedBlockSubscriptionByAddress instead
 func (s *SubscribeApi) NewOnroadBlocksByAddr(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
-	s.log.Info("NewOnroadBlocks")
+	return s.createUnreceivedBlockSubscriptionByAddress(ctx, addr)
+}
+func (s *SubscribeApi) CreateUnreceivedBlockSubscriptionByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
+	return s.createUnreceivedBlockSubscriptionByAddress(ctx, addr)
+}
+func (s *SubscribeApi) createUnreceivedBlockSubscriptionByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
+	s.log.Info("createUnreceivedBlockSubscriptionByAddress")
 	notifier, supported := rpc.NotifierFromContext(ctx)
 	if !supported {
 		return &rpc.Subscription{}, rpc.ErrNotificationsUnsupported
@@ -512,9 +524,16 @@ func (s *SubscribeApi) NewOnroadBlocksByAddr(ctx context.Context, addr types.Add
 	return rpcSub, nil
 }
 
+// Deprevated: use subscribe_createVmLogSubscription instead
 func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.Subscription, error) {
-	s.log.Info("NewLogs")
-	p, err := param.toFilterParam()
+	return s.createVmLogSubscription(ctx, param.AddrRange, param.Topics)
+}
+func (s *SubscribeApi) CreateVmLogSubscription(ctx context.Context, param api.VmLogFilterParam) (*rpc.Subscription, error) {
+	return s.createVmLogSubscription(ctx, param.AddrRange, param.Topics)
+}
+func (s *SubscribeApi) createVmLogSubscription(ctx context.Context, rangeMap map[string]*api.Range, topics [][]types.Hash) (*rpc.Subscription, error) {
+	s.log.Info("createVmLogSubscription")
+	p, err := api.ToFilterParam(rangeMap, topics)
 	if err != nil {
 		return nil, err
 	}
@@ -526,7 +545,7 @@ func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.
 	rpcSub := notifier.CreateSubscription()
 
 	go func() {
-		logsMsg := make(chan []*Logs, 128)
+		logsMsg := make(chan []*api.Logs, 128)
 		sub := s.eventSystem.SubscribeLogs(p, logsMsg)
 
 		for {
@@ -545,65 +564,7 @@ func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.
 	return rpcSub, nil
 }
 
-var getAccountBlocksCount uint64 = 100
-
-func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
-	filterParam, err := param.toFilterParam()
-	if err != nil {
-		return nil, err
-	}
-	var logs []*Logs
-	for addr, hr := range filterParam.addrRange {
-		startHeight := hr.fromHeight
-		endHeight := hr.toHeight
-		acc, err := s.vite.Chain().GetLatestAccountBlock(addr)
-		if err != nil {
-			return nil, err
-		}
-		if acc == nil {
-			continue
-		}
-		if startHeight == 0 {
-			startHeight = 1
-		}
-		if endHeight == 0 || endHeight > acc.Height {
-			endHeight = acc.Height
-		}
-		for {
-			offset, count, finish := getHeightPage(startHeight, endHeight, getAccountBlocksCount)
-			if count == 0 {
-				break
-			}
-			startHeight = offset + 1
-			blocks, err := s.vite.Chain().GetAccountBlocksByHeight(addr, offset, count)
-			if err != nil {
-				return nil, err
-			}
-			for i := len(blocks); i > 0; i-- {
-				if blocks[i-1].LogHash != nil {
-					list, err := s.vite.Chain().GetVmLogList(blocks[i-1].LogHash)
-					if err != nil {
-						return nil, err
-					}
-					for _, l := range list {
-						if filterLog(filterParam, l) {
-							logs = append(logs, &Logs{l, blocks[i-1].Hash, api.Uint64ToString(blocks[i-1].Height), &addr, false})
-						}
-					}
-				}
-			}
-			if finish {
-				break
-			}
-		}
-	}
-	return logs, nil
-}
-
-func getHeightPage(start uint64, end uint64, count uint64) (uint64, uint64, bool) {
-	gap := end - start + 1
-	if gap <= count {
-		return end, gap, true
-	}
-	return start + count - 1, count, false
+// Deprecated: use ledger_getVmLogsByFilter instead
+func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*api.Logs, error) {
+	return api.GetLogs(s.vite.Chain(), param.AddrRange, param.Topics)
 }

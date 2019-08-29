@@ -16,7 +16,6 @@ const (
         {"type":"function","name":"DexFundPeriodJob", "inputs":[{"name":"periodId","type":"uint64"},{"name":"bizType","type":"uint8"}]},
         {"type":"function","name":"DexFundPledgeForVx", "inputs":[{"name":"actionType","type":"uint8"}, {"name":"amount","type":"uint256"}]},
         {"type":"function","name":"DexFundPledgeForVip", "inputs":[{"name":"actionType","type":"uint8"}]},
-        {"type":"function","name":"DexFundPledgeForSuperVip", "inputs":[{"name":"actionType","type":"uint8"}]},
         {"type":"function","name":"AgentPledgeCallback", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
         {"type":"function","name":"AgentCancelPledgeCallback", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
         {"type":"function","name":"GetTokenInfoCallback", "inputs":[{"name":"tokenId","type":"tokenId"},{"name":"bid","type":"uint8"},{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"},{"name":"owner","type":"address"}]},
@@ -29,6 +28,8 @@ const (
 		{"type":"function","name":"DexFundBindInviteCode", "inputs":[{"name":"code","type":"uint32"}]},
 		{"type":"function","name":"DexFundEndorseVx", "inputs":[]},
 		{"type":"function","name":"DexFundSettleMakerMinedVx", "inputs":[{"name":"data","type":"bytes"}]},
+
+        {"type":"function","name":"DexFundPledgeForSuperVip", "inputs":[{"name":"actionType","type":"uint8"}]},
 		{"type":"function","name":"DexFundConfigMarketsAgent", "inputs":[{"name":"actionType","type":"uint8"},{"name":"agent","type":"address"},{"name":"tradeTokens","type":"tokenId[]"},{"name":"quoteTokens","type":"tokenId[]"}]},
 		{"type":"function","name":"DexFundNewAgentOrder", "inputs":[{"name":"principal","type":"address"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"uint8"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}]},
 
@@ -40,23 +41,23 @@ const (
         {"type":"function","name":"TriggerPeriodJob", "inputs":[{"name":"periodId","type":"uint64"},{"name":"bizType","type":"uint8"}]},
         {"type":"function","name":"StakeForMining", "inputs":[{"name":"actionType","type":"uint8"}, {"name":"amount","type":"uint256"}]},
         {"type":"function","name":"StakeForVIP", "inputs":[{"name":"actionType","type":"uint8"}]},
-        {"type":"function","name":"StakeForSVIP", "inputs":[{"name":"actionType","type":"uint8"}]},
         {"type":"function","name":"DelegateStakingCallback", "inputs":[{"name":"stakingAddr","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
         {"type":"function","name":"CancelDelegatedStakingCallback", "inputs":[{"name":"stakingAddr","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
-        {"type":"function","name":"GetTokenInfoCallback", "inputs":[{"name":"tokenId","type":"tokenId"},{"name":"bid","type":"uint8"},{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"},{"name":"owner","type":"address"}]},
         {"type":"function","name":"DexAdminConfig", "inputs":[{"name":"operationCode","type":"uint8"},{"name":"owner","type":"address"},{"name":"timeOracle","type":"address"},{"name":"periodJobTrigger","type":"address"},{"name":"stopDex","type":"bool"},{"name":"makerMiningAdmin","type":"address"},{"name":"maintainer","type":"address"}]},
 		{"type":"function","name":"TradeAdminConfig", "inputs":[{"name":"operationCode","type":"uint8"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"},{"name":"allowMining","type":"bool"},{"name":"newQuoteToken","type":"tokenId"},{"name":"quoteTokenType","type":"uint8"},{"name":"tokenTypeForTradeThreshold","type":"uint8"},{"name":"minTradeThreshold","type":"uint256"},{"name":"tokenTypeForMiningThreshold","type":"uint8"},{"name":"minMiningThreshold","type":"uint256"}]},        
         {"type":"function","name":"MarketAdminConfig", "inputs":[{"name":"operationCode","type":"uint8"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"},{"name":"marketOwner","type":"address"},{"name":"takerFeeRate","type":"int32"},{"name":"makerFeeRate","type":"int32"},{"name":"stopMarket","type":"bool"}]},
 		{"type":"function","name":"TransferTokenOwnership", "inputs":[{"name":"token","type":"tokenId"}, {"name":"newOwner","type":"address"}]},
 		{"type":"function","name":"CreateNewInviter", "inputs":[]},
 		{"type":"function","name":"BindInviteCode", "inputs":[{"name":"code","type":"uint32"}]},
-		{"type":"function","name":"DexFundEndorseVx", "inputs":[]},
+		{"type":"function","name":"EndorseVx", "inputs":[]},
 		{"type":"function","name":"SettleMakerMinedVx", "inputs":[{"name":"data","type":"bytes"}]},
+
+        {"type":"function","name":"StakeForSVIP", "inputs":[{"name":"actionType","type":"uint8"}]},
 		{"type":"function","name":"ConfigMarketAgents", "inputs":[{"name":"actionType","type":"uint8"},{"name":"agent","type":"address"},{"name":"tradeTokens","type":"tokenId[]"},{"name":"quoteTokens","type":"tokenId[]"}]},		
         {"type":"function","name":"PlaceAgentOrder", "inputs":[{"name":"principal","type":"address"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"uint8"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}]}
-  
     ]`
 
+	// deprecated version
 	MethodNameDexFundUserDeposit          = "DexFundUserDeposit"
 	MethodNameDexFundUserWithdraw         = "DexFundUserWithdraw"
 	MethodNameDexFundNewMarket            = "DexFundNewMarket"
@@ -65,22 +66,26 @@ const (
 	MethodNameDexFundPeriodJob            = "DexFundPeriodJob"
 	MethodNameDexFundPledgeForVx          = "DexFundPledgeForVx"
 	MethodNameDexFundPledgeForVip         = "DexFundPledgeForVip"
-	MethodNameDexFundStakeForSuperVip     = "DexFundPledgeForSuperVip"
 	MethodNameDexFundPledgeCallback       = "AgentPledgeCallback"
 	MethodNameDexFundCancelPledgeCallback = "AgentCancelPledgeCallback"
-	MethodNameDexFundGetTokenInfoCallback = "GetTokenInfoCallback"  // Reuse
 	MethodNameDexFundOwnerConfig          = "DexFundOwnerConfig"
 	MethodNameDexFundOwnerConfigTrade     = "DexFundOwnerConfigTrade"
 	MethodNameDexFundMarketOwnerConfig    = "DexFundMarketOwnerConfig"
 	MethodNameDexFundTransferTokenOwner   = "DexFundTransferTokenOwner"
-	MethodNameDexFundNotifyTime           = "NotifyTime" // Reuse
 	MethodNameDexFundNewInviter           = "DexFundNewInviter"
 	MethodNameDexFundBindInviteCode       = "DexFundBindInviteCode"
 	MethodNameDexFundEndorseVxMinePool    = "DexFundEndorseVx"
 	MethodNameDexFundSettleMakerMinedVx   = "DexFundSettleMakerMinedVx"
-	MethodNameDexFundConfigMarketsAgent   = "DexFundConfigMarketsAgent"
-	MethodNameDexFundNewAgentOrder        = "DexFundNewAgentOrder"
 
+	MethodNameDexFundStakeForSuperVip   = "DexFundPledgeForSuperVip"
+	MethodNameDexFundConfigMarketsAgent = "DexFundConfigMarketsAgent"
+	MethodNameDexFundNewAgentOrder      = "DexFundNewAgentOrder"
+
+	// reused
+	MethodNameDexFundGetTokenInfoCallback = "GetTokenInfoCallback"
+	MethodNameDexFundNotifyTime           = "NotifyTime"
+
+	// new version
 	MethodNameDexFundDeposit                        = "Deposit"
 	MethodNameDexFundWithdraw                       = "Withdraw"
 	MethodNameDexFundOpenNewMarket                  = "OpenNewMarket"
@@ -89,7 +94,6 @@ const (
 	MethodNameDexFundTriggerPeriodJob               = "TriggerPeriodJob"
 	MethodNameDexFundStakeForMining                 = "StakeForMining"
 	MethodNameDexFundStakeForVIP                    = "StakeForVIP"
-	MethodNameDexFundStakeForSVIP                   = "StakeForSVIP"
 	MethodNameDexFundDelegateStakingCallback        = "DelegateStakingCallback"
 	MethodNameDexFundCancelDelegatedStakingCallback = "CancelDelegatedStakingCallback"
 	MethodNameDexFundDexAdminConfig                 = "DexAdminConfig"
@@ -100,8 +104,10 @@ const (
 	MethodNameDexFundBindInviteCodeV2               = "BindInviteCode"
 	MethodNameDexFundEndorseVxV2                    = "EndorseVx"
 	MethodNameDexFundSettleMakerMinedVxV2           = "SettleMakerMinedVx"
-	MethodNameDexFundConfigMarketAgents             = "ConfigMarketAgents"
-	MethodNameDexFundPlaceAgentOrder                = "PlaceAgentOrder"
+
+	MethodNameDexFundStakeForSVIP       = "StakeForSVIP"
+	MethodNameDexFundConfigMarketAgents = "ConfigMarketAgents"
+	MethodNameDexFundPlaceAgentOrder    = "PlaceAgentOrder"
 )
 
 var (
