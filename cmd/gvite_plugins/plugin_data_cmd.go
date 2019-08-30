@@ -14,7 +14,7 @@ var (
 		Name:     "pluginData",
 		Usage:    "pluginData",
 		Category: "PLUGIN DATA COMMANDS",
-		Flags:    configFlags,
+		Flags:    append(configFlags, pluginsFlags...),
 		Description: `
 recreate plugin data.
 `,
@@ -23,7 +23,7 @@ recreate plugin data.
 
 func pluginDataAction(ctx *cli.Context) error {
 	// Create and start the node based on the CLI flags
-	nodeManager, err := nodemanager.NewPluginDataNodeManager(ctx, nodemanager.FullNodeMaker{})
+	nodeManager, err := nodemanager. /**/ NewPluginDataNodeManager(ctx, nodemanager.FullNodeMaker{})
 	if err != nil {
 		log.Error(fmt.Sprintf("new Node error, %+v", err))
 		return err

@@ -35,6 +35,7 @@ type Config struct {
 	LedgerGcRetain uint64          `json:"LedgerGcRetain"`
 	LedgerGc       *bool           `json:"LedgerGc"`
 	OpenPlugins    *bool           `json:"OpenPlugins"`
+	PluginsList    []string        `json:"PluginsList"`
 	VmLogWhiteList []types.Address `json:"vmLogWhiteList"` // contract address white list which save VM logs
 	VmLogAll       *bool           `json:"vmLogAll"`       // save all VM logs, it will cost more disk space
 
@@ -252,6 +253,7 @@ func (c *Config) makeChainConfig() *config.Chain {
 		LedgerGcRetain: c.LedgerGcRetain,
 		LedgerGc:       ledgerGc,
 		OpenPlugins:    openPlugins,
+		PluginsList:    c.PluginsList,
 		VmLogWhiteList: c.VmLogWhiteList,
 		VmLogAll:       vmLogAll,
 	}

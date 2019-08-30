@@ -167,7 +167,7 @@ func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *
 		return nil, err
 	}
 
-	plugin := plugins.GetPlugin("filterToken").(*chain_plugins.FilterToken)
+	plugin := plugins.GetPlugin(chain_plugins.PluginKeyFilterToken).(*chain_plugins.FilterToken)
 
 	blocks, err := plugin.GetBlocks(addr, tokenTypeId, originBlockHash, count)
 	if err != nil {
