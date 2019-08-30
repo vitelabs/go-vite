@@ -275,7 +275,7 @@ func (c *chain) newDbAndRecover() error {
 	// init plugins
 	if c.chainCfg.OpenPlugins {
 		var err error
-		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c, c.chainCfg.PluginsList); err != nil {
+		if c.plugins, err = chain_plugins.NewPlugins(c.chainDir, c); err != nil {
 			cErr := errors.New(fmt.Sprintf("chain_plugins.NewPlugins failed. Error: %s", err))
 			c.log.Error(cErr.Error(), "method", "newDbAndRecover")
 			return cErr

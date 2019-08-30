@@ -23,8 +23,6 @@ const (
 )
 
 type Plugins struct {
-	dataDir string
-
 	log   log15.Logger
 	chain Chain
 
@@ -34,31 +32,22 @@ type Plugins struct {
 	mu          sync.RWMutex
 }
 
-func NewPlugins(chainDir string, chain Chain, pluginsName []string) (*Plugins, error) {
-
-	dataDir := path.Join(chainDir, "plugins")
+func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 
 	// default open PluginKeyOnRoadInfo
-	onroadInfoStore, onroadInfoErr := chain_db.NewStore(path.Join(dataDir, "onroad_info"), PluginKeyOnRoadInfo)
+	onroadInfoStore, onroadInfoErr := chain_db.NewStore(path.Join(chainDir, PluginKeyOnRoadInfo), PluginKeyOnRoadInfo)
 	if onroadInfoErr != nil {
 		return nil, onroadInfoErr
 	}
 	plugins := map[string]Plugin{PluginKeyOnRoadInfo: newOnRoadInfo(onroadInfoStore, chain)}
 
-	for _, v := range pluginsName {
-		switch v {
-		case PluginKeyFilterToken:
-			store, err := chain_db.NewStore(path.Join(dataDir, "filter_token"), PluginKeyFilterToken)
-			if err != nil {
-				return nil, err
-			}
-			plugins[PluginKeyFilterToken] = newFilterToken(store, chain)
-		default:
-		}
+	store, err := chain_db.NewStore(path.Join(chainDir, "plugins"), "plugins")
+	if err != nil {
+		return nil, err
 	}
+	plugins[PluginKeyFilterToken] = newFilterToken(store, chain)
 
 	return &Plugins{
-		dataDir:     dataDir,
 		chain:       chain,
 		plugins:     plugins,
 		writeStatus: start,
