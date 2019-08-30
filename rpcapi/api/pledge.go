@@ -260,16 +260,8 @@ func (p *ContractApi) GetStakingListByPage(snapshotHash types.Hash, lastKey stri
 	return &GetStakingListByPageResult{targetList, hex.EncodeToString(lastKeyBytes)}, nil
 }
 
-// Deprecated: use contract_getBeneficialStakingAmount instead
+// Deprecated: use contract_getQuota instead
 func (p *PledgeApi) GetPledgeBeneficialAmount(addr types.Address) (string, error) {
-	amount, err := p.chain.GetPledgeBeneficialAmount(addr)
-	if err != nil {
-		return "", err
-	}
-	return *bigIntToString(amount), nil
-}
-
-func (p *ContractApi) GetBeneficialStakingAmount(addr types.Address) (string, error) {
 	amount, err := p.chain.GetPledgeBeneficialAmount(addr)
 	if err != nil {
 		return "", err
