@@ -23,8 +23,6 @@ const (
 )
 
 type Plugins struct {
-	dataDir string
-
 	log   log15.Logger
 	chain Chain
 
@@ -36,10 +34,8 @@ type Plugins struct {
 
 func NewPlugins(chainDir string, chain Chain, pluginsName []string) (*Plugins, error) {
 
-	dataDir := path.Join(chainDir, "plugins")
-
 	// default open PluginKeyOnRoadInfo
-	onroadInfoStore, onroadInfoErr := chain_db.NewStore(path.Join(dataDir, "onroad_info"), PluginKeyOnRoadInfo)
+	onroadInfoStore, onroadInfoErr := chain_db.NewStore(path.Join(chainDir, PluginKeyOnRoadInfo), PluginKeyOnRoadInfo)
 	if onroadInfoErr != nil {
 		return nil, onroadInfoErr
 	}
@@ -48,7 +44,7 @@ func NewPlugins(chainDir string, chain Chain, pluginsName []string) (*Plugins, e
 	for _, v := range pluginsName {
 		switch v {
 		case PluginKeyFilterToken:
-			store, err := chain_db.NewStore(path.Join(dataDir, "filter_token"), PluginKeyFilterToken)
+			store, err := chain_db.NewStore(path.Join(chainDir, "plugins"), PluginKeyFilterToken)
 			if err != nil {
 				return nil, err
 			}
@@ -58,7 +54,6 @@ func NewPlugins(chainDir string, chain Chain, pluginsName []string) (*Plugins, e
 	}
 
 	return &Plugins{
-		dataDir:     dataDir,
 		chain:       chain,
 		plugins:     plugins,
 		writeStatus: start,
