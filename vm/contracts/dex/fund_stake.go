@@ -84,12 +84,12 @@ func stakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, amount 
 
 func cancelStakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, amount *big.Int) ([]byte, error) {
 	switch stakeType {
-	case StakeForVx:
+	case StakeForMining:
 		available := GetMiningStakedAmount(db, address)
 		leave := new(big.Int).Sub(available, amount)
 		if leave.Sign() < 0 {
 			return nil, ExceedStakedAvailableErr
-		} else if leave.Sign() > 0 && leave.Cmp(StakeForVxMinAmount) < 0 {
+		} else if leave.Sign() > 0 && leave.Cmp(StakeForMiningMinAmount) < 0 {
 			return nil, StakingAmountLeavedNotValidErr
 		}
 	case StakeForVIP:

@@ -242,7 +242,7 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 		return
 	}
 	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateForStakingMine); success {
-		mineInfo.StakingMine = amount.String()
+		mineInfo.PledgeMine = amount.String()
 	} else {
 		return
 	}

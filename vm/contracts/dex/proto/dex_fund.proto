@@ -41,24 +41,24 @@ message SettleActions {
     repeated FeeSettle FeeActions = 4;
 }
 
-message FeesForDividend { // for dividend
+message FeeForDividend { // for dividend
     bytes Token = 1;
-                          // rolled amount : 99% part of last period BaseAmount rolled to this period +
-                          // open new market fee +
-                          // create new inviter fee +
-                          // trade baseFee[include markets allow mine and not allow mine]
+                         // rolled amount : 99% part of last period BaseAmount rolled to this period +
+                         // open new market fee +
+                         // create new inviter fee +
+                         // trade baseFee[include markets allow mine and not allow mine]
     bytes DividendPoolAmount = 2;
 }
 
-message FeesForMine { // for mine, sum amounts with same quoteTokenType
+message FeeForMine { // for mine, sum amounts with same quoteTokenType
     int32 QuoteTokenType = 1;
     bytes BaseAmount = 2; // normal trade fee
     bytes InviteBonusAmount = 3; // invitee trade fee
 }
 
 message DexFeesByPeriod {
-    repeated FeesForDividend FeesForDividend = 1;
-    repeated FeesForMine FeesForMine = 2;
+    repeated FeeForDividend FeesForDividend = 1;
+    repeated FeeForMine FeesForMine = 2;
     uint64 lastValidPeriod = 3;
     bool FinishDividend = 4;
     bool FinishMine = 5;
@@ -70,13 +70,13 @@ message FeeAccount { // for vx mine
     bytes InviteBonusAmount = 3;
 }
 
-message FeeByPeriod {
+message FeesByPeriod {
     repeated FeeAccount Fees = 1;
     uint64 Period = 2;
 }
 
 message UserFees {
-    repeated FeeByPeriod Fees = 1;
+    repeated FeesByPeriod Fees = 1;
 }
 
 message OperatorMarketFee {
@@ -133,7 +133,7 @@ message VxSettleActions {
 message PeriodJobForBiz {
     uint64 Period = 1;
     int32  BizType = 2;
-}
+}rpc_converter.go
 
 //event
 message FeeDividendForVxHolder {

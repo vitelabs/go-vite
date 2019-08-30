@@ -41,7 +41,7 @@ func (md *MethodDexTradePlaceOrder) DoSend(db vm_db.VmDb, block *ledger.AccountB
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return dex.InvalidSourceAddressErr
 	}
-	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexSerializedData), md.MethodName, block.Data)
+	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamSerializedData), md.MethodName, block.Data)
 	return
 }
 
@@ -51,7 +51,7 @@ func (md *MethodDexTradePlaceOrder) DoReceive(db vm_db.VmDb, block *ledger.Accou
 		blocks  []*ledger.AccountBlock
 		matcher *dex.Matcher
 	)
-	param := new(dex.ParamDexSerializedData)
+	param := new(dex.ParamSerializedData)
 	cabi.ABIDexTrade.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	order := &dex.Order{}
 	if err = order.DeSerialize(param.Data); err != nil {
@@ -61,10 +61,10 @@ func (md *MethodDexTradePlaceOrder) DoReceive(db vm_db.VmDb, block *ledger.Accou
 		return handleDexReceiveErr(tradeLogger, md.MethodName, err, sendBlock)
 	}
 	if err = matcher.MatchOrder(order, block.PrevHash); err != nil {
-		return OnNewOrderFailed(order, matcher.MarketInfo)
+		return OnPlaceOrderFailed(db, order, matcher.MarketInfo)
 	}
-	if blocks, err = handleSettleActions(block, matcher.GetFundSettles(), matcher.GetFees(), matcher.MarketInfo); err != nil {
-		return OnNewOrderFailed(order, matcher.MarketInfo)
+	if blocks, err = handleSettleActions(db, block, matcher.GetFundSettles(), matcher.GetFees(), matcher.MarketInfo); err != nil {
+		return OnPlaceOrderFailed(db, order, matcher.MarketInfo)
 	}
 	return blocks, err
 }
@@ -124,12 +124,12 @@ func (md *MethodDexTradeSyncNewMarket) DoSend(db vm_db.VmDb, block *ledger.Accou
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return dex.InvalidSourceAddressErr
 	}
-	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexSerializedData), md.MethodName, block.Data)
+	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamSerializedData), md.MethodName, block.Data)
 	return
 }
 
 func (md MethodDexTradeSyncNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	param := new(dex.ParamDexSerializedData)
+	param := new(dex.ParamSerializedData)
 	cabi.ABIDexTrade.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	marketInfo := &dex.MarketInfo{}
 	if err := marketInfo.DeSerialize(param.Data); err != nil {
@@ -161,12 +161,12 @@ func (md *MethodDexTradeClearExpiredOrders) GetReceiveQuota(gasTable *util.GasTa
 }
 
 func (md *MethodDexTradeClearExpiredOrders) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
-	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexSerializedData), md.MethodName, block.Data)
+	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamSerializedData), md.MethodName, block.Data)
 	return
 }
 
 func (md MethodDexTradeClearExpiredOrders) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	param := new(dex.ParamDexSerializedData)
+	param := new(dex.ParamSerializedData)
 	cabi.ABIDexTrade.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if len(param.Data) == 0 || len(param.Data)%dex.OrderIdBytesLength != 0 || len(param.Data)/dex.OrderIdBytesLength > dex.CleanExpireOrdersMaxCount {
 		return handleDexReceiveErr(tradeLogger, md.MethodName, dex.InvalidInputParamErr, sendBlock)
@@ -174,7 +174,7 @@ func (md MethodDexTradeClearExpiredOrders) DoReceive(db vm_db.VmDb, block *ledge
 	if fundSettles, markerInfo, err := dex.CleanExpireOrders(db, param.Data); err != nil {
 		return handleDexReceiveErr(tradeLogger, md.MethodName, err, sendBlock)
 	} else if len(fundSettles) > 0 {
-		if appendBlocks, err := handleSettleActions(block, fundSettles, nil, markerInfo); err != nil {
+		if appendBlocks, err := handleSettleActions(db, block, fundSettles, nil, markerInfo); err != nil {
 			return handleDexReceiveErr(tradeLogger, md.MethodName, err, sendBlock)
 		} else {
 			return appendBlocks, nil
@@ -219,21 +219,21 @@ func (md MethodDexTradeCancelOrderByTransactionHash) DoReceive(db vm_db.VmDb, bl
 	}
 }
 
-func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
-	fundSettle := &dexproto.AccountSettle{}
+func OnPlaceOrderFailed(db vm_db.VmDb, order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
+	accountSettle := &dexproto.AccountSettle{}
 	switch order.Side {
 	case false: // buy
-		fundSettle.IsTradeToken = false
-		fundSettle.ReleaseLocked = dex.AddBigInt(order.Amount, order.LockedBuyFee)
+		accountSettle.IsTradeToken = false
+		accountSettle.ReleaseLocked = dex.AddBigInt(order.Amount, order.LockedBuyFee)
 	case true: // sell
-		fundSettle.IsTradeToken = true
-		fundSettle.ReleaseLocked = order.Quantity
+		accountSettle.IsTradeToken = true
+		accountSettle.ReleaseLocked = order.Quantity
 	}
-	userFundSettle := &dexproto.FundSettle{}
-	userFundSettle.Address = order.Address
-	userFundSettle.AccountSettles = append(userFundSettle.AccountSettles, fundSettle)
+	fundSettle := &dexproto.FundSettle{}
+	fundSettle.Address = order.Address
+	fundSettle.AccountSettles = append(fundSettle.AccountSettles, accountSettle)
 	settleActions := &dexproto.SettleActions{}
-	settleActions.FundActions = append(settleActions.FundActions, userFundSettle)
+	settleActions.FundActions = append(settleActions.FundActions, fundSettle)
 	settleActions.TradeToken = marketInfo.TradeToken
 	settleActions.QuoteToken = marketInfo.QuoteToken
 	var (
@@ -243,7 +243,11 @@ func OnNewOrderFailed(order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.A
 	if settleData, newErr = proto.Marshal(settleActions); newErr != nil {
 		panic(newErr)
 	}
-	if dexSettleBlockData, newErr = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundSettleOrders, settleData); newErr != nil {
+	var settleMethod = cabi.MethodNameDexFundSettleOrdersV2
+	if !dex.IsLeafFork(db) {
+		settleMethod = cabi.MethodNameDexFundSettleOrders
+	}
+	if dexSettleBlockData, newErr = cabi.ABIDexFund.PackMethod(settleMethod, settleData); newErr != nil {
 		panic(newErr)
 	}
 	return []*ledger.AccountBlock{
@@ -282,14 +286,14 @@ func handleCancelOrderById(db vm_db.VmDb, orderId []byte, method string, block, 
 		return handleDexReceiveErr(tradeLogger, method, dex.CancelOrderInvalidStatusErr, sendBlock)
 	}
 	matcher.CancelOrderById(order)
-	if appendBlocks, err = handleSettleActions(block, matcher.GetFundSettles(), nil, matcher.MarketInfo); err != nil {
+	if appendBlocks, err = handleSettleActions(db, block, matcher.GetFundSettles(), nil, matcher.MarketInfo); err != nil {
 		return handleDexReceiveErr(tradeLogger, method, err, sendBlock)
 	} else {
 		return appendBlocks, nil
 	}
 }
 
-func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Address]map[bool]*dexproto.AccountSettle, feeSettles map[types.Address]*dexproto.FeeSettle, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
+func handleSettleActions(db vm_db.VmDb, block *ledger.AccountBlock, fundSettles map[types.Address]map[bool]*dexproto.AccountSettle, feeSettles map[types.Address]*dexproto.FeeSettle, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
 	//fmt.Printf("fundSettles.size %d\n", len(fundSettles))
 	if len(fundSettles) == 0 && len(feeSettles) == 0 {
 		return nil, nil
@@ -297,12 +301,12 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 	settleActions := &dexproto.SettleActions{}
 	if len(fundSettles) > 0 {
 		fundActions := make([]*dexproto.FundSettle, 0, len(fundSettles))
-		for address, fundSettleMap := range fundSettles {
-			accountSettles := make([]*dexproto.AccountSettle, 0, len(fundSettleMap))
-			for _, accountSettle := range fundSettleMap {
+		for address, accountSettleMap := range fundSettles {
+			accountSettles := make([]*dexproto.AccountSettle, 0, len(accountSettleMap))
+			for _, accountSettle := range accountSettleMap {
 				accountSettles = append(accountSettles, accountSettle)
 			}
-			sort.Sort(dex.FundSettleSorter(accountSettles))
+			sort.Sort(dex.AccountSettleSorter(accountSettles))
 
 			userFundSettle := &dexproto.FundSettle{}
 			userFundSettle.Address = address.Bytes()
@@ -310,7 +314,7 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 			fundActions = append(fundActions, userFundSettle)
 		}
 		//sort fundActions for stable marsh result
-		sort.Sort(dex.UserFundSettleSorter(fundActions))
+		sort.Sort(dex.FundSettleSorter(fundActions))
 		//fmt.Printf("fundActions.size %d\n", len(fundActions))
 		settleActions.FundActions = fundActions
 	}
@@ -320,7 +324,7 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 		for _, feeSettle := range feeSettles {
 			feeActions = append(feeActions, feeSettle)
 		}
-		sort.Sort(dex.UserFeeSettleSorter(feeActions))
+		sort.Sort(dex.FeeSettleSorter(feeActions))
 		settleActions.FeeActions = feeActions
 	}
 	settleActions.TradeToken = marketInfo.TradeToken
@@ -332,7 +336,11 @@ func handleSettleActions(block *ledger.AccountBlock, fundSettles map[types.Addre
 	if settleData, err = proto.Marshal(settleActions); err != nil {
 		panic(err)
 	}
-	if dexSettleBlockData, err = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundSettleOrders, settleData); err != nil {
+	var settleMethod = cabi.MethodNameDexFundSettleOrdersV2
+	if !dex.IsLeafFork(db) {
+		settleMethod = cabi.MethodNameDexFundSettleOrders
+	}
+	if dexSettleBlockData, err = cabi.ABIDexFund.PackMethod(settleMethod, settleData); err != nil {
 		panic(err)
 	}
 	return []*ledger.AccountBlock{

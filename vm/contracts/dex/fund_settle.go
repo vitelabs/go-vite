@@ -38,7 +38,7 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.F
 			if CmpToBigZero(accountSettle.ReduceLocked) != 0 {
 				if account.Locked, _, exceed = SafeSubBigInt(account.Locked, accountSettle.ReduceLocked); exceed {
 					if IsDexFeeFork(db) {
-						fundLogger.Error(cabi.MethodNameDexFundSettleOrders+" DoSettleFund exceed for reduceLocked", "locked", new(big.Int).SetBytes(account.Locked).String(), "reduceLocked", new(big.Int).SetBytes(accountSettle.ReduceLocked).String())
+						fundLogger.Error(cabi.MethodNameDexFundSettleOrdersV2+" DoSettleFund exceed for reduceLocked", "locked", new(big.Int).SetBytes(account.Locked).String(), "reduceLocked", new(big.Int).SetBytes(accountSettle.ReduceLocked).String())
 					} else {
 						panic(ExceedFundLockedErr)
 					}
@@ -47,7 +47,7 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.F
 			if CmpToBigZero(accountSettle.ReleaseLocked) != 0 {
 				if account.Locked, actualSub, exceed = SafeSubBigInt(account.Locked, accountSettle.ReleaseLocked); exceed {
 					if IsDexFeeFork(db) {
-						fundLogger.Error(cabi.MethodNameDexFundSettleOrders+" DoSettleFund exceed for releaseLocked", "locked", new(big.Int).SetBytes(account.Locked).String(), "releaseLocked", new(big.Int).SetBytes(accountSettle.ReleaseLocked).String())
+						fundLogger.Error(cabi.MethodNameDexFundSettleOrdersV2+" DoSettleFund exceed for releaseLocked", "locked", new(big.Int).SetBytes(account.Locked).String(), "releaseLocked", new(big.Int).SetBytes(accountSettle.ReleaseLocked).String())
 					} else {
 						panic(ExceedFundLockedErr)
 					}
@@ -73,12 +73,12 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.F
 	return nil
 }
 
-func SettleFees(db vm_db.VmDb, reader util.ConsensusReader, allowMine bool, feeToken []byte, feeTokenDecimals, quoteTokenType int32, feeActions []*dexproto.FeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) {
+func SettleFees(db vm_db.VmDb, reader util.ConsensusReader, allowMining bool, feeToken []byte, feeTokenDecimals, quoteTokenType int32, feeActions []*dexproto.FeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) {
 	tokenId, _ := types.BytesToTokenTypeId(feeToken)
-	SettleFeesWithTokenId(db, reader, allowMine, tokenId, feeTokenDecimals, quoteTokenType, feeActions, feeForDividend, inviteRelations)
+	SettleFeesWithTokenId(db, reader, allowMining, tokenId, feeTokenDecimals, quoteTokenType, feeActions, feeForDividend, inviteRelations)
 }
 
-func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine bool, tokenId types.TokenTypeId, feeTokenDecimals, quoteTokenType int32, feeActions []*dexproto.FeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) {
+func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMining bool, tokenId types.TokenTypeId, feeTokenDecimals, quoteTokenType int32, feeActions []*dexproto.FeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) {
 	if len(feeActions) == 0 && feeForDividend == nil {
 		return
 	}
@@ -94,13 +94,13 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMine
 	var needIncSumForMine bool
 	var incBaseSumForMine, incInviteeSumForMine []byte
 	var mineThreshold *big.Int
-	if allowMine {
+	if allowMining {
 		mineThreshold = GetMineThreshold(db, quoteTokenType)
 	}
 
 	for _, feeAction := range feeActions {
 		incBaseSumForDividend = AddBigInt(incBaseSumForDividend, feeAction.BaseFee)
-		if allowMine {
+		if allowMining {
 			var needAddSum bool
 			var addBaseSum, addInviteeSum []byte
 			inviteRelations, needAddSum, addBaseSum, addInviteeSum = settleUserFees(db, currentPeriodId, feeTokenDecimals, quoteTokenType, mineThreshold, feeAction, inviteRelations)
@@ -197,7 +197,7 @@ func innerSettleUserFee(db vm_db.VmDb, periodId uint64, mineThreshold *big.Int, 
 			needAddSum = IsValidFeeForMine(uf, mineThreshold)
 		}
 	} else {
-		userFeeByPeriodId := &dexproto.FeeByPeriod{}
+		userFeeByPeriodId := &dexproto.FeesByPeriod{}
 		userFeeByPeriodId.Period = periodId
 		uf1 := newFeeAccount(quoteTokenType, addBaseSumNormalAmt, addInviteeSumNormalAmt)
 		userFeeByPeriodId.Fees = []*dexproto.FeeAccount{uf1}
@@ -273,7 +273,7 @@ func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fund
 	return doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
 }
 
-func splitDividendPool(dividend *dexproto.FeesForDividend) (toDividendAmt, rolledAmount *big.Int) {
+func splitDividendPool(dividend *dexproto.FeeForDividend) (toDividendAmt, rolledAmount *big.Int) {
 	toDividendAmt = new(big.Int).SetBytes(CalculateAmountForRate(dividend.DividendPoolAmount, PerPeriodDividendRate)) // %1
 	rolledAmount = new(big.Int).Sub(new(big.Int).SetBytes(dividend.DividendPoolAmount), toDividendAmt)                // 99%
 	return
@@ -403,8 +403,8 @@ func newFeeAccount(quoteTokenType int32, baseAmount, inviteBonusAmount []byte) *
 	return account
 }
 
-func newFeesForDividend(token, initAmount []byte, dividendAmt *big.Int) *dexproto.FeesForDividend {
-	account := &dexproto.FeesForDividend{}
+func newFeesForDividend(token, initAmount []byte, dividendAmt *big.Int) *dexproto.FeeForDividend {
+	account := &dexproto.FeeForDividend{}
 	account.Token = token
 	account.DividendPoolAmount = initAmount
 	if dividendAmt != nil {
@@ -413,8 +413,8 @@ func newFeesForDividend(token, initAmount []byte, dividendAmt *big.Int) *dexprot
 	return account
 }
 
-func newFeesForMine(quoteTokenType int32, baseAmount, inviteBonusAmount []byte) *dexproto.FeesForMine {
-	account := &dexproto.FeesForMine{}
+func newFeesForMine(quoteTokenType int32, baseAmount, inviteBonusAmount []byte) *dexproto.FeeForMine {
+	account := &dexproto.FeeForMine{}
 	account.QuoteTokenType = quoteTokenType
 	account.BaseAmount = baseAmount
 	account.InviteBonusAmount = inviteBonusAmount

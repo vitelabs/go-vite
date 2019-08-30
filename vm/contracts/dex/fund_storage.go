@@ -87,10 +87,10 @@ var (
 	NewMarketFeeBurnAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(5000))
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
-	StakeForVxMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	StakeForVIPAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
-	StakeForVxThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
-	StakeForSuperVIPAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(1000000))
+	StakeForMiningMinAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	StakeForVIPAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
+	StakeForMiningThreshold = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
+	StakeForSuperVIPAmount  = new(big.Int).Mul(commonTokenPow, big.NewInt(1000000))
 
 	viteMinAmount    = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 	ethMinAmount     = new(big.Int).Div(commonTokenPow, big.NewInt(100)) // 0.01 ETH
@@ -126,7 +126,7 @@ const (
 )
 
 const (
-	StakeForVx = iota + 1
+	StakeForMining = iota + 1
 	StakeForVIP
 	StakeForSuperVIP
 )
@@ -136,23 +136,23 @@ const (
 	CancelStake
 )
 
-//MethodNameDexFundOwnerConfig
+//MethodNameDexFundDexAdminConfig
 const (
-	OwnerConfigOwner            = 1
-	OwnerConfigTimeOracle       = 2
-	OwnerConfigPeriodJobTrigger = 4
-	OwnerConfigStopDex          = 8
-	OwnerConfigMakerMiningAdmin = 16
-	OwnerConfigMaintainer       = 32
+	AdminConfigOwner            = 1
+	AdminConfigTimeOracle       = 2
+	AdminConfigPeriodJobTrigger = 4
+	AdminConfigStopDex          = 8
+	AdminConfigMakerMiningAdmin = 16
+	AdminConfigMaintainer       = 32
 )
 
-//MethodNameDexFundOwnerConfigTrade
+//MethodNameDexFundTradeAdminConfig
 const (
-	OwnerConfigMineMarket      = 1
-	OwnerConfigNewQuoteToken   = 2
-	OwnerConfigTradeThreshold  = 4
-	OwnerConfigMineThreshold   = 8
-	OwnerConfigStartNormalMine = 16
+	TradeAdminConfigMineMarket      = 1
+	TradeAdminConfigNewQuoteToken   = 2
+	TradeAdminConfigTradeThreshold  = 4
+	TradeAdminConfigMineThreshold   = 8
+	TradeAdminConfigStartNormalMine = 16
 )
 
 const (
@@ -199,12 +199,12 @@ type QuoteTokenTypeInfo struct {
 	DefaultMineThreshold  *big.Int
 }
 
-type ParamDexFundWithDraw struct {
+type ParamWithdraw struct {
 	Token  types.TokenTypeId
 	Amount *big.Int
 }
 
-type ParamDexFundNewOrder struct {
+type ParamPlaceOrder struct {
 	TradeToken types.TokenTypeId
 	QuoteToken types.TokenTypeId
 	Side       bool
@@ -213,35 +213,35 @@ type ParamDexFundNewOrder struct {
 	Quantity   *big.Int
 }
 
-type ParamDexFundNewAgentOrder struct {
+type ParamPlaceAgentOrder struct {
 	Principal types.Address
-	ParamDexFundNewOrder
+	ParamPlaceOrder
 }
 
-type ParamDexPeriodJob struct {
+type ParamTriggerPeriodJob struct {
 	PeriodId uint64
 	BizType  uint8
 }
 
-type ParamDexSerializedData struct {
+type ParamSerializedData struct {
 	Data []byte
 }
 
-type ParamDexFundNewMarket struct {
+type ParamOpenNewMarket struct {
 	TradeToken types.TokenTypeId
 	QuoteToken types.TokenTypeId
 }
 
-type ParamDexFundStakeForMining struct {
+type ParamStakeForMining struct {
 	ActionType uint8 // 1: stake 2: cancel stake
 	Amount     *big.Int
 }
 
-type ParamDexFundStakeForVIP struct {
+type ParamStakeForVIP struct {
 	ActionType uint8 // 1: stake 2: cancel stake
 }
 
-type ParamDexFundStakeCallBack struct {
+type ParamDelegateStakingCallBack struct {
 	StakingAddress types.Address
 	Beneficiary    types.Address
 	Amount         *big.Int
@@ -249,7 +249,7 @@ type ParamDexFundStakeCallBack struct {
 	Success        bool
 }
 
-type ParamDexFundGetTokenInfoCallback struct {
+type ParamGetTokenInfoCallback struct {
 	TokenId     types.TokenTypeId
 	Bid         uint8
 	Exist       bool
@@ -259,7 +259,7 @@ type ParamDexFundGetTokenInfoCallback struct {
 	Owner       types.Address
 }
 
-type ParamDexFundDexAdminConfig struct {
+type ParamDexAdminConfig struct {
 	OperationCode    uint8
 	Owner            types.Address // 1 owner
 	TimeOracle       types.Address // 2 timeOracle
@@ -269,7 +269,7 @@ type ParamDexFundDexAdminConfig struct {
 	Maintainer       types.Address // 32 maintainer
 }
 
-type ParamDexFundTradeAdminConfig struct {
+type ParamTradeAdminConfig struct {
 	OperationCode               uint8
 	TradeToken                  types.TokenTypeId // 1 mineMarket
 	QuoteToken                  types.TokenTypeId // 1 mineMarket
@@ -282,7 +282,7 @@ type ParamDexFundTradeAdminConfig struct {
 	MinMiningThreshold          *big.Int          // 8 miningThreshold
 }
 
-type ParamDexFundMarketOwnerConfig struct {
+type ParamMarketAdminConfig struct {
 	OperationCode uint8 // 1 owner, 2 takerRate, 4 makerRate, 8 stopMarket
 	TradeToken    types.TokenTypeId
 	QuoteToken    types.TokenTypeId
@@ -292,16 +292,16 @@ type ParamDexFundMarketOwnerConfig struct {
 	StopMarket    bool
 }
 
-type ParamDexFundTransferTokenOwnership struct {
+type ParamTransferTokenOwnership struct {
 	Token    types.TokenTypeId
 	NewOwner types.Address
 }
 
-type ParamDexFundNotifyTime struct {
+type ParamNotifyTime struct {
 	Timestamp int64
 }
 
-type ParamDexFundConfigMarketAgents struct {
+type ParamConfigMarketAgents struct {
 	ActionType  uint8 // 1: grant 2: revoke
 	Agent       types.Address
 	TradeTokens []types.TokenTypeId
@@ -590,8 +590,8 @@ func GetFund(db vm_db.VmDb, address types.Address) (fund *Fund, ok bool) {
 	return
 }
 
-func SaveFund(db vm_db.VmDb, address types.Address, dexFund *Fund) {
-	serializeToDb(db, GetFundKey(address), dexFund)
+func SaveFund(db vm_db.VmDb, address types.Address, fund *Fund) {
+	serializeToDb(db, GetFundKey(address), fund)
 }
 
 func ReduceAccount(db vm_db.VmDb, address types.Address, tokenId []byte, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
@@ -726,7 +726,7 @@ func getDexFeesByKey(db vm_db.VmDb, feeKey []byte) (*DexFeesByPeriod, bool) {
 }
 
 //get all dexFeeses that not divided yet
-func GetNotFinishDividendDexFeesByPeriods(db vm_db.VmDb, periodId uint64) map[uint64]*DexFeesByPeriod {
+func GetNotFinishDividendDexFeesByPeriodMap(db vm_db.VmDb, periodId uint64) map[uint64]*DexFeesByPeriod {
 	var (
 		dexFeesByPeriods  = make(map[uint64]*DexFeesByPeriod)
 		dexFeesByPeriod  *DexFeesByPeriod
@@ -778,7 +778,7 @@ func RollAndGentNewDexFeesByPeriod(db vm_db.VmDb, periodId uint64) (rolledDexFee
 		} else {
 			rolledDexFeesByPeriod.LastValidPeriod = formerId
 			for _, feesForDividend := range formerDexFeesByPeriod.FeesForDividend {
-				rolledFee := &dexproto.FeesForDividend{}
+				rolledFee := &dexproto.FeeForDividend{}
 				rolledFee.Token = feesForDividend.Token
 				_, rolledAmount := splitDividendPool(feesForDividend)
 				rolledFee.DividendPoolAmount = rolledAmount.Bytes()
@@ -787,7 +787,7 @@ func RollAndGentNewDexFeesByPeriod(db vm_db.VmDb, periodId uint64) (rolledDexFee
 		}
 	} else {
 		// On startup, save one empty dividendPool for vite to diff db storage empty for serialize result
-		rolledFee := &dexproto.FeesForDividend{}
+		rolledFee := &dexproto.FeeForDividend{}
 		rolledFee.Token = ledger.ViteTokenId.Bytes()
 		rolledDexFeesByPeriod.FeesForDividend = append(rolledDexFeesByPeriod.FeesForDividend, rolledFee)
 	}
@@ -1524,11 +1524,11 @@ func SaveDexMiningStakings(db vm_db.VmDb, ps *MiningStakings) {
 }
 
 func IsValidMiningStakeAmount(amount *big.Int) bool {
-	return amount.Cmp(StakeForVxThreshold) >= 0
+	return amount.Cmp(StakeForMiningThreshold) >= 0
 }
 
 func IsValidMiningStakeAmountBytes(amount []byte) bool {
-	return new(big.Int).SetBytes(amount).Cmp(StakeForVxThreshold) >= 0
+	return new(big.Int).SetBytes(amount).Cmp(StakeForMiningThreshold) >= 0
 }
 
 func MatchMiningStakingByPeriod(miningStakings *MiningStakings, periodId uint64, checkDelete bool) (bool, []byte, bool, bool) {

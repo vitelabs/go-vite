@@ -17,8 +17,6 @@ import (
 
 var fundLogger = log15.New("module", "dex_fund")
 
-var method BuiltinContractMethod = &MethodDexFundDeposit{}
-
 type MethodDexFundDeposit struct {
 	MethodName string
 }
@@ -79,7 +77,7 @@ func (md *MethodDexFundWithdraw) GetReceiveQuota(gasTable *util.GasTable) uint64
 
 func (md *MethodDexFundWithdraw) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var err error
-	param := new(dex.ParamDexFundWithDraw)
+	param := new(dex.ParamWithdraw)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	}
@@ -90,7 +88,7 @@ func (md *MethodDexFundWithdraw) DoSend(db vm_db.VmDb, block *ledger.AccountBloc
 }
 
 func (md *MethodDexFundWithdraw) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	param := new(dex.ParamDexFundWithDraw)
+	param := new(dex.ParamWithdraw)
 	var (
 		acc *dexproto.Account
 		err error
@@ -136,12 +134,12 @@ func (md *MethodDexFundOpenNewMarket) GetSendQuota(data []byte, gasTable *util.G
 }
 
 func (md *MethodDexFundOpenNewMarket) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundNewMarketGas
+	return gasTable.DexFundOpenNewMarketGas
 }
 
 func (md *MethodDexFundOpenNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var err error
-	param := new(dex.ParamDexFundNewMarket)
+	param := new(dex.ParamOpenNewMarket)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	}
@@ -153,7 +151,7 @@ func (md *MethodDexFundOpenNewMarket) DoSend(db vm_db.VmDb, block *ledger.Accoun
 
 func (md MethodDexFundOpenNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var err error
-	param := new(dex.ParamDexFundNewMarket)
+	param := new(dex.ParamOpenNewMarket)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return nil, err
 	}
@@ -206,11 +204,11 @@ func (md *MethodDexFundPlaceOrder) GetSendQuota(data []byte, gasTable *util.GasT
 }
 
 func (md *MethodDexFundPlaceOrder) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundNewOrderGas
+	return gasTable.DexFundPlaceOrderGas
 }
 
 func (md *MethodDexFundPlaceOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
-	param := new(dex.ParamDexFundNewOrder)
+	param := new(dex.ParamPlaceOrder)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	}
@@ -218,9 +216,9 @@ func (md *MethodDexFundPlaceOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBl
 }
 
 func (md *MethodDexFundPlaceOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	param := new(dex.ParamDexFundNewOrder)
+	param := new(dex.ParamPlaceOrder)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
-	if blocks, err := dex.DoNewOrder(db, param, &sendBlock.AccountAddress, nil, sendBlock.Hash); err != nil {
+	if blocks, err := dex.DoPlaceOrder(db, param, &sendBlock.AccountAddress, nil, sendBlock.Hash); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	} else {
 		return blocks, nil
@@ -252,7 +250,7 @@ func (md *MethodDexFundSettleOrders) DoSend(db vm_db.VmDb, block *ledger.Account
 	if block.AccountAddress != types.AddressDexTrade {
 		return dex.InvalidSourceAddressErr
 	}
-	param := new(dex.ParamDexSerializedData)
+	param := new(dex.ParamSerializedData)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	}
@@ -267,7 +265,7 @@ func (md *MethodDexFundSettleOrders) DoSend(db vm_db.VmDb, block *ledger.Account
 }
 
 func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	param := new(dex.ParamDexSerializedData)
+	param := new(dex.ParamSerializedData)
 	var err error
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
@@ -309,11 +307,11 @@ func (md *MethodDexFundTriggerPeriodJob) GetSendQuota(data []byte, gasTable *uti
 }
 
 func (md *MethodDexFundTriggerPeriodJob) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundPeriodJobGas
+	return gasTable.DexFundTriggerPeriodJobGas
 }
 
 func (md *MethodDexFundTriggerPeriodJob) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexPeriodJob), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamTriggerPeriodJob), md.MethodName, block.Data)
 }
 
 func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -323,7 +321,7 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 	if !dex.ValidTriggerAddress(db, sendBlock.AccountAddress) {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidSourceAddressErr, sendBlock)
 	}
-	param := new(dex.ParamDexPeriodJob)
+	param := new(dex.ParamTriggerPeriodJob)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
@@ -339,7 +337,7 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 		case dex.FeeDividendJob:
 			err = dex.DoFeesDividend(db, param.PeriodId)
 		case dex.OperatorFeeDividendJob:
-			err = dex.DoDivideOperatorFees(db, param.PeriodId)
+			err = dex.DoOperatorFeesDividend(db, param.PeriodId)
 		}
 		if err != nil {
 			return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
@@ -404,18 +402,18 @@ func (md *MethodDexFundStakeForMining) GetSendQuota(data []byte, gasTable *util.
 }
 
 func (md *MethodDexFundStakeForMining) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundStakingForMiningGas
+	return gasTable.DexFundStakeForMiningGas
 }
 
 func (md *MethodDexFundStakeForMining) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var (
 		err   error
-		param = new(dex.ParamDexFundStakeForMining)
+		param = new(dex.ParamStakeForMining)
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	} else {
-		if param.Amount.Cmp(dex.StakeForVxMinAmount) < 0 {
+		if param.Amount.Cmp(dex.StakeForMiningMinAmount) < 0 {
 			return dex.InvalidStakeAmountErr
 		}
 		if param.ActionType != dex.Stake && param.ActionType != dex.CancelStake {
@@ -426,9 +424,9 @@ func (md *MethodDexFundStakeForMining) DoSend(db vm_db.VmDb, block *ledger.Accou
 }
 
 func (md MethodDexFundStakeForMining) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var param = new(dex.ParamDexFundStakeForMining)
+	var param = new(dex.ParamStakeForMining)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
-	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForVx, param.ActionType, sendBlock.AccountAddress, param.Amount, nodeConfig.params.PledgeHeight); err != nil {
+	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForMining, param.ActionType, sendBlock.AccountAddress, param.Amount, nodeConfig.params.PledgeHeight); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	} else {
 		return appendBlocks, nil
@@ -458,7 +456,7 @@ func (md *MethodDexFundStakeForVIP) GetReceiveQuota(gasTable *util.GasTable) uin
 func (md *MethodDexFundStakeForVIP) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var (
 		err   error
-		param = new(dex.ParamDexFundStakeForVIP)
+		param = new(dex.ParamStakeForVIP)
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
@@ -470,7 +468,7 @@ func (md *MethodDexFundStakeForVIP) DoSend(db vm_db.VmDb, block *ledger.AccountB
 }
 
 func (md MethodDexFundStakeForVIP) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var param = new(dex.ParamDexFundStakeForVIP)
+	var param = new(dex.ParamStakeForVIP)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForVIP, param.ActionType, sendBlock.AccountAddress, dex.StakeForVIPAmount, nodeConfig.params.DexVipStakeHeight); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
@@ -496,13 +494,13 @@ func (md *MethodDexFundStakeForSVIP) GetSendQuota(data []byte, gasTable *util.Ga
 }
 
 func (md *MethodDexFundStakeForSVIP) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundStakeForSuperVipGas
+	return gasTable.DexFundStakeForSuperVIPGas
 }
 
 func (md *MethodDexFundStakeForSVIP) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var (
 		err   error
-		param = new(dex.ParamDexFundStakeForVIP)
+		param = new(dex.ParamStakeForVIP)
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
@@ -514,7 +512,7 @@ func (md *MethodDexFundStakeForSVIP) DoSend(db vm_db.VmDb, block *ledger.Account
 }
 
 func (md MethodDexFundStakeForSVIP) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var param = new(dex.ParamDexFundStakeForVIP)
+	var param = new(dex.ParamStakeForVIP)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForSuperVIP, param.ActionType, sendBlock.AccountAddress, dex.StakeForSuperVIPAmount, nodeConfig.params.DexSuperVipStakeHeight); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
@@ -540,22 +538,22 @@ func (md *MethodDexFundDelegateStakingCallback) GetSendQuota(data []byte, gasTab
 }
 
 func (md *MethodDexFundDelegateStakingCallback) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundStakingCallbackGas
+	return gasTable.DexFundDelegateStakingCallbackGas
 }
 
 func (md *MethodDexFundDelegateStakingCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.AccountAddress != types.AddressPledge {
 		return dex.InvalidSourceAddressErr
 	}
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundStakeCallBack), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateStakingCallBack), md.MethodName, block.Data)
 }
 
 func (md MethodDexFundDelegateStakingCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var callbackParam = new(dex.ParamDexFundStakeCallBack)
+	var callbackParam = new(dex.ParamDelegateStakingCallBack)
 	cabi.ABIDexFund.UnpackMethod(callbackParam, md.MethodName, sendBlock.Data)
 	if callbackParam.Success {
 		switch callbackParam.Bid {
-		case dex.StakeForVx:
+		case dex.StakeForMining:
 			stakedAmount := dex.GetMiningStakedAmount(db, callbackParam.StakingAddress)
 			stakedAmount.Add(stakedAmount, callbackParam.Amount)
 			dex.SaveMiningStakedAmount(db, callbackParam.StakingAddress, stakedAmount)
@@ -574,20 +572,20 @@ func (md MethodDexFundDelegateStakingCallback) DoReceive(db vm_db.VmDb, block *l
 				dex.SaveVIPStaking(db, callbackParam.StakingAddress, vipStaking)
 			}
 		case dex.StakeForSuperVIP:
-			if superVIPStaing, ok := dex.GetSuperVIPStaking(db, callbackParam.StakingAddress); ok { //duplicate staking for super vip
-				superVIPStaing.StakedTimes = superVIPStaing.StakedTimes + 1
-				dex.SaveSuperVIPStaking(db, callbackParam.StakingAddress, superVIPStaing)
+			if superVIPStaking, ok := dex.GetSuperVIPStaking(db, callbackParam.StakingAddress); ok { //duplicate staking for super vip
+				superVIPStaking.StakedTimes = superVIPStaking.StakedTimes + 1
+				dex.SaveSuperVIPStaking(db, callbackParam.StakingAddress, superVIPStaking)
 				// duplicate staking for vip, cancel stake
 				return dex.DoCancelStake(db, callbackParam.StakingAddress, callbackParam.Bid, callbackParam.Amount)
 			} else {
-				superVIPStaing.Timestamp = dex.GetTimestampInt64(db)
-				superVIPStaing.StakedTimes = 1
-				dex.SaveSuperVIPStaking(db, callbackParam.StakingAddress, superVIPStaing)
+				superVIPStaking.Timestamp = dex.GetTimestampInt64(db)
+				superVIPStaking.StakedTimes = 1
+				dex.SaveSuperVIPStaking(db, callbackParam.StakingAddress, superVIPStaking)
 			}
 		}
 	} else {
 		switch callbackParam.Bid {
-		case dex.StakeForVx:
+		case dex.StakeForMining:
 			if callbackParam.Amount.Cmp(sendBlock.Amount) != 0 {
 				panic(dex.InvalidAmountForStakeCallbackErr)
 			}
@@ -622,22 +620,22 @@ func (md *MethodDexFundCancelDelegatedStakingCallback) GetSendQuota(data []byte,
 }
 
 func (md *MethodDexFundCancelDelegatedStakingCallback) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundCancelStakeCallbackGas
+	return gasTable.DexFundCancelDelegatedStakingCallbackGas
 }
 
 func (md *MethodDexFundCancelDelegatedStakingCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.AccountAddress != types.AddressPledge {
 		return dex.InvalidSourceAddressErr
 	}
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundStakeCallBack), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateStakingCallBack), md.MethodName, block.Data)
 }
 
 func (md MethodDexFundCancelDelegatedStakingCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var param = new(dex.ParamDexFundStakeCallBack)
+	var param = new(dex.ParamDelegateStakingCallBack)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if param.Success {
 		switch param.Bid {
-		case dex.StakeForVx:
+		case dex.StakeForMining:
 			if param.Amount.Cmp(sendBlock.Amount) != 0 {
 				panic(dex.InvalidAmountForStakeCallbackErr)
 			}
@@ -671,12 +669,12 @@ func (md MethodDexFundCancelDelegatedStakingCallback) DoReceive(db vm_db.VmDb, b
 			if dex.StakeForSuperVIPAmount.Cmp(sendBlock.Amount) != 0 {
 				panic(dex.InvalidAmountForStakeCallbackErr)
 			}
-			if superVIPStaing, ok := dex.GetSuperVIPStaking(db, param.StakingAddress); ok {
-				superVIPStaing.StakedTimes = superVIPStaing.StakedTimes - 1
-				if superVIPStaing.StakedTimes == 0 {
+			if superVIPStaking, ok := dex.GetSuperVIPStaking(db, param.StakingAddress); ok {
+				superVIPStaking.StakedTimes = superVIPStaking.StakedTimes - 1
+				if superVIPStaking.StakedTimes == 0 {
 					dex.DeleteSuperVIPStaking(db, param.StakingAddress)
 				} else {
-					dex.SaveSuperVIPStaking(db, param.StakingAddress, superVIPStaing)
+					dex.SaveSuperVIPStaking(db, param.StakingAddress, superVIPStaking)
 				}
 			} else {
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.SuperVIPStakingNotExistsErr, sendBlock)
@@ -711,11 +709,11 @@ func (md *MethodDexFundGetTokenInfoCallback) DoSend(db vm_db.VmDb, block *ledger
 	if block.AccountAddress != types.AddressMintage {
 		return dex.InvalidSourceAddressErr
 	}
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundGetTokenInfoCallback), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamGetTokenInfoCallback), md.MethodName, block.Data)
 }
 
 func (md MethodDexFundGetTokenInfoCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var callbackParam = new(dex.ParamDexFundGetTokenInfoCallback)
+	var callbackParam = new(dex.ParamGetTokenInfoCallback)
 	cabi.ABIDexFund.UnpackMethod(callbackParam, md.MethodName, sendBlock.Data)
 	switch callbackParam.Bid {
 	case dex.GetTokenForNewMarket:
@@ -771,36 +769,36 @@ func (md *MethodDexFundDexAdminConfig) GetSendQuota(data []byte, gasTable *util.
 }
 
 func (md *MethodDexFundDexAdminConfig) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundOwnerConfigGas
+	return gasTable.DexFundAdminConfigGas
 }
 
 func (md *MethodDexFundDexAdminConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundDexAdminConfig), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexAdminConfig), md.MethodName, block.Data)
 }
 
 func (md MethodDexFundDexAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var err error
-	var param = new(dex.ParamDexFundDexAdminConfig)
+	var param = new(dex.ParamDexAdminConfig)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
 	if dex.IsOwner(db, sendBlock.AccountAddress) {
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigOwner) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.AdminConfigOwner) {
 			dex.SetOwner(db, param.Owner)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTimeOracle) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.AdminConfigTimeOracle) {
 			dex.SetTimeOracle(db, param.TimeOracle)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigPeriodJobTrigger) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.AdminConfigPeriodJobTrigger) {
 			dex.SetPeriodJobTrigger(db, param.PeriodJobTrigger)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStopDex) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.AdminConfigStopDex) {
 			dex.SaveDexStopped(db, param.StopDex)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMakerMiningAdmin) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.AdminConfigMakerMiningAdmin) {
 			dex.SaveMakerMiningAdmin(db, param.MakerMiningAdmin)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMaintainer) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.AdminConfigMaintainer) {
 			dex.SaveMaintainer(db, param.Maintainer)
 		}
 	} else {
@@ -826,21 +824,21 @@ func (md *MethodDexFundTradeAdminConfig) GetSendQuota(data []byte, gasTable *uti
 }
 
 func (md *MethodDexFundTradeAdminConfig) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundOwnerConfigTradeGas
+	return gasTable.DexFundTradeAdminConfigGas
 }
 
 func (md *MethodDexFundTradeAdminConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundTradeAdminConfig), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamTradeAdminConfig), md.MethodName, block.Data)
 }
 
 func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var err error
-	var param = new(dex.ParamDexFundTradeAdminConfig)
+	var param = new(dex.ParamTradeAdminConfig)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
 	if dex.IsOwner(db, sendBlock.AccountAddress) {
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMineMarket) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigMineMarket) {
 			if marketInfo, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok && marketInfo.Valid {
 				if param.AllowMining != marketInfo.AllowMining {
 					marketInfo.AllowMining = param.AllowMining
@@ -857,7 +855,7 @@ func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.A
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketNotExistsErr, sendBlock)
 			}
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigNewQuoteToken) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigNewQuoteToken) {
 			if param.QuoteTokenType < dex.ViteTokenType || param.QuoteTokenType > dex.UsdTokenType {
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidQuoteTokenTypeErr, sendBlock)
 			}
@@ -883,13 +881,13 @@ func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.A
 				}
 			}
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigTradeThreshold) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigTradeThreshold) {
 			dex.SaveTradeThreshold(db, param.TokenTypeForTradeThreshold, param.MinTradeThreshold)
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigMineThreshold) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigMineThreshold) {
 			dex.SaveMineThreshold(db, param.TokenTypeForMiningThreshold, param.MinMiningThreshold)
 		}
-		if dex.IsStemFork(db) && dex.IsOperationValidWithMask(param.OperationCode, dex.OwnerConfigStartNormalMine) {
+		if dex.IsStemFork(db) && dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigStartNormalMine) {
 			dex.StartNormalMine(db)
 		}
 	} else {
@@ -915,11 +913,11 @@ func (md *MethodDexFundMarketAdminConfig) GetSendQuota(data []byte, gasTable *ut
 }
 
 func (md *MethodDexFundMarketAdminConfig) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundMarketOwnerConfigGas
+	return gasTable.DexFundMarketAdminConfigGas
 }
 
 func (md *MethodDexFundMarketAdminConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundMarketOwnerConfig), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamMarketAdminConfig), md.MethodName, block.Data)
 }
 
 func (md MethodDexFundMarketAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -928,7 +926,7 @@ func (md MethodDexFundMarketAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.
 		marketInfo *dex.MarketInfo
 		ok         bool
 	)
-	var param = new(dex.ParamDexFundMarketOwnerConfig)
+	var param = new(dex.ParamMarketAdminConfig)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
@@ -982,17 +980,17 @@ func (md *MethodDexFundTransferTokenOwnership) GetSendQuota(data []byte, gasTabl
 }
 
 func (md *MethodDexFundTransferTokenOwnership) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundTransferTokenOwnerGas
+	return gasTable.DexFundTransferTokenOwnershipGas
 }
 
 func (md *MethodDexFundTransferTokenOwnership) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundTransferTokenOwnership), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamTransferTokenOwnership), md.MethodName, block.Data)
 }
 
 func (md MethodDexFundTransferTokenOwnership) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err   error
-		param = new(dex.ParamDexFundTransferTokenOwnership)
+		param = new(dex.ParamTransferTokenOwnership)
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
@@ -1042,13 +1040,13 @@ func (md *MethodDexFundNotifyTime) GetReceiveQuota(gasTable *util.GasTable) uint
 }
 
 func (md *MethodDexFundNotifyTime) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexFundNotifyTime), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamNotifyTime), md.MethodName, block.Data)
 }
 
 func (md MethodDexFundNotifyTime) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err             error
-		notifyTimeParam = new(dex.ParamDexFundNotifyTime)
+		notifyTimeParam = new(dex.ParamNotifyTime)
 	)
 	if !dex.ValidTimeOracle(db, sendBlock.AccountAddress) {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidSourceAddressErr, sendBlock)
@@ -1079,7 +1077,7 @@ func (md *MethodDexFundCreateNewInviter) GetSendQuota(data []byte, gasTable *uti
 }
 
 func (md *MethodDexFundCreateNewInviter) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundNewInviterGas
+	return gasTable.DexFundCreateNewInviterGas
 }
 
 func (md *MethodDexFundCreateNewInviter) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -1172,7 +1170,7 @@ func (md *MethodDexFundEndorseVx) GetSendQuota(data []byte, gasTable *util.GasTa
 }
 
 func (md *MethodDexFundEndorseVx) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundEndorseVxMinePoolGas
+	return gasTable.DexFundEndorseVxGas
 }
 
 func (md *MethodDexFundEndorseVx) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -1211,7 +1209,7 @@ func (md *MethodDexFundSettleMakerMinedVx) GetReceiveQuota(gasTable *util.GasTab
 
 func (md *MethodDexFundSettleMakerMinedVx) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	var err error
-	param := new(dex.ParamDexSerializedData)
+	param := new(dex.ParamSerializedData)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	}
@@ -1231,7 +1229,7 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 	if !dex.IsMakerMiningAdmin(db, sendBlock.AccountAddress) {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidSourceAddressErr, sendBlock)
 	}
-	param := new(dex.ParamDexSerializedData)
+	param := new(dex.ParamSerializedData)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
@@ -1299,11 +1297,11 @@ func (md *MethodDexFundConfigMarketAgents) GetSendQuota(data []byte, gasTable *u
 }
 
 func (md *MethodDexFundConfigMarketAgents) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundConfigMarketsAgentGas
+	return gasTable.DexFundConfigMarketAgentsGas
 }
 
 func (md *MethodDexFundConfigMarketAgents) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	var param = new(dex.ParamDexFundConfigMarketAgents)
+	var param = new(dex.ParamConfigMarketAgents)
 	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	} else if param.ActionType != dex.GrantAgent && param.ActionType != dex.RevokeAgent || len(param.TradeTokens) == 0 || len(param.TradeTokens) != len(param.QuoteTokens) || block.AccountAddress == param.Agent {
@@ -1314,7 +1312,7 @@ func (md *MethodDexFundConfigMarketAgents) DoSend(db vm_db.VmDb, block *ledger.A
 
 func (md MethodDexFundConfigMarketAgents) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
-		param = new(dex.ParamDexFundConfigMarketAgents)
+		param = new(dex.ParamConfigMarketAgents)
 		err   error
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
@@ -1358,26 +1356,26 @@ func (md *MethodDexFundPlaceAgentOrder) GetSendQuota(data []byte, gasTable *util
 }
 
 func (md *MethodDexFundPlaceAgentOrder) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundNewAgentOrderGas
+	return gasTable.DexFunPlaceAgentOrderGas
 }
 
 func (md *MethodDexFundPlaceAgentOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	param := new(dex.ParamDexFundNewAgentOrder)
+	param := new(dex.ParamPlaceAgentOrder)
 	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	}
-	return dex.PreCheckOrderParam(&param.ParamDexFundNewOrder, true)
+	return dex.PreCheckOrderParam(&param.ParamPlaceOrder, true)
 }
 
 func (md MethodDexFundPlaceAgentOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
-		param = new(dex.ParamDexFundNewAgentOrder)
+		param = new(dex.ParamPlaceAgentOrder)
 		err   error
 	)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
-	if blocks, err := dex.DoNewOrder(db, &param.ParamDexFundNewOrder, &param.Principal, &sendBlock.AccountAddress, sendBlock.Hash); err != nil {
+	if blocks, err := dex.DoPlaceOrder(db, &param.ParamPlaceOrder, &param.Principal, &sendBlock.AccountAddress, sendBlock.Hash); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	} else {
 		return blocks, nil

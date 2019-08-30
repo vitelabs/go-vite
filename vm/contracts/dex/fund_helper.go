@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-func CheckMarketParam(marketParam *ParamDexFundNewMarket) (err error) {
+func CheckMarketParam(marketParam *ParamOpenNewMarket) (err error) {
 	if marketParam.TradeToken == marketParam.QuoteToken {
 		return TradeMarketInvalidTokenPairErr
 	}
@@ -85,7 +85,12 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 		panic(err)
 	} else {
 		var syncNewMarketBlock, newMarketFeeBurnBlock *ledger.AccountBlock
-		if syncData, err = cabi.ABIDexTrade.PackMethod(cabi.MethodNameDexTradeNotifyNewMarket, marketBytes); err != nil {
+
+		var syncNewMarketMethod = cabi.MethodNameDexTradeSyncNewMarket
+		if !IsLeafFork(db) {
+			syncNewMarketMethod = cabi.MethodNameDexTradeNotifyNewMarket
+		}
+		if syncData, err = cabi.ABIDexTrade.PackMethod(syncNewMarketMethod, marketBytes); err != nil {
 			panic(err)
 		} else {
 			syncNewMarketBlock = &ledger.AccountBlock{
@@ -113,7 +118,7 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	}
 }
 
-func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo *MarketInfo) (data []byte, err error) {
+func OnNewMarketPending(db vm_db.VmDb, param *ParamOpenNewMarket, marketInfo *MarketInfo) (data []byte, err error) {
 	SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
 	if err = AddToPendingNewMarkets(db, param.TradeToken, param.QuoteToken); err != nil {
 		return
@@ -125,7 +130,7 @@ func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo 
 	}
 }
 
-func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamDexFundGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
+func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
 	tradeTokenInfo := newTokenInfoFromCallback(db, tokenInfoRes)
 	SaveTokenInfo(db, tradeTokenId, tradeTokenInfo)
 	AddTokenEvent(db, tradeTokenInfo)
@@ -194,7 +199,7 @@ func OnSetQuoteTokenPending(db vm_db.VmDb, token types.TokenTypeId, quoteTokenTy
 	}
 }
 
-func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamDexFundGetTokenInfoCallback) error {
+func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamGetTokenInfoCallback) error {
 	if action, err := FilterPendingSetQuotes(db, tokenInfoRes.TokenId); err != nil {
 		return err
 	} else {
@@ -220,7 +225,7 @@ func OnTransferTokenOwnerPending(db vm_db.VmDb, token types.TokenTypeId, origin,
 	}
 }
 
-func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, param *ParamDexFundGetTokenInfoCallback) error {
+func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, param *ParamGetTokenInfoCallback) error {
 	if action, err := FilterPendingTransferTokenOwners(db, param.TokenId); err != nil {
 		return err
 	} else {
@@ -242,7 +247,7 @@ func OnTransferOwnerGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTy
 	return
 }
 
-func PreCheckOrderParam(orderParam *ParamDexFundNewOrder, isStemFork bool) error {
+func PreCheckOrderParam(orderParam *ParamPlaceOrder, isStemFork bool) error {
 	if orderParam.Quantity.Sign() <= 0 {
 		return InvalidOrderQuantityErr
 	}
@@ -258,7 +263,7 @@ func PreCheckOrderParam(orderParam *ParamDexFundNewOrder, isStemFork bool) error
 	return nil
 }
 
-func DoNewOrder(db vm_db.VmDb, param *ParamDexFundNewOrder, accountAddress, agent *types.Address, sendHash types.Hash) ([]*ledger.AccountBlock, error) {
+func DoPlaceOrder(db vm_db.VmDb, param *ParamPlaceOrder, accountAddress, agent *types.Address, sendHash types.Hash) ([]*ledger.AccountBlock, error) {
 	var (
 		dexFund        *Fund
 		tradeBlockData []byte
@@ -281,7 +286,11 @@ func DoNewOrder(db vm_db.VmDb, param *ParamDexFundNewOrder, accountAddress, agen
 	if orderInfoBytes, err = order.Serialize(); err != nil {
 		panic(err)
 	}
-	if tradeBlockData, err = cabi.ABIDexTrade.PackMethod(cabi.MethodNameDexTradeNewOrder, orderInfoBytes); err != nil {
+	var placeOrderMethod = cabi.MethodNameDexTradePlaceOrder
+	if !IsLeafFork(db) {
+		placeOrderMethod = cabi.MethodNameDexTradeNewOrder
+	}
+	if tradeBlockData, err = cabi.ABIDexTrade.PackMethod(placeOrderMethod, orderInfoBytes); err != nil {
 		panic(err)
 	}
 	return []*ledger.AccountBlock{
@@ -296,7 +305,7 @@ func DoNewOrder(db vm_db.VmDb, param *ParamDexFundNewOrder, accountAddress, agen
 	}, nil
 }
 
-func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, accountAddress, agent *types.Address, sendHash types.Hash) (*MarketInfo, error) {
+func RenderOrder(order *Order, param *ParamPlaceOrder, db vm_db.VmDb, accountAddress, agent *types.Address, sendHash types.Hash) (*MarketInfo, error) {
 	var (
 		marketInfo *MarketInfo
 		ok         bool
@@ -422,7 +431,7 @@ func CheckAndLockFundForNewOrder(dexFund *Fund, order *Order, marketInfo *Market
 	return
 }
 
-func newTokenInfoFromCallback(db vm_db.VmDb, param *ParamDexFundGetTokenInfoCallback) *TokenInfo {
+func newTokenInfoFromCallback(db vm_db.VmDb, param *ParamGetTokenInfoCallback) *TokenInfo {
 	tokenInfo := &TokenInfo{}
 	tokenInfo.TokenId = param.TokenId.Bytes()
 	tokenInfo.Decimals = int32(param.Decimals)
@@ -463,7 +472,7 @@ func VerifyNewOrderPriceForRpc(data []byte) (valid bool) {
 		return
 	}
 	if bytes.Equal(data[:4], newOrderMethodId) {
-		param := new(ParamDexFundNewOrder)
+		param := new(ParamPlaceOrder)
 		if err := abi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, data); err == nil {
 			return ValidPrice(param.Price, true)
 		} else {

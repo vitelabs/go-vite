@@ -312,7 +312,7 @@ type RpcVxMineInfo struct {
 	Total           string           `json:"total"`
 	FeeMineTotal    string           `json:"feeMineTotal"`
 	FeeMineDetail   map[int32]string `json:"feeMineDetail"`
-	StakingMine     string           `json:"pledgeMine"`
+	PledgeMine      string           `json:"pledgeMine"`
 	MakerMine       string           `json:"makerMine"`
 }
 

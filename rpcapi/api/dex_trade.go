@@ -24,6 +24,10 @@ func NewDexTradeApi(vite *vite.Vite) *DexTradeApi {
 	}
 }
 
+func (f DexTradeApi) String() string {
+	return "DexTradeApi"
+}
+
 func (f DexTradeApi) GetOrderById(orderIdStr string) (*apidex.RpcOrder, error) {
 	orderId, err := hex.DecodeString(orderIdStr)
 	if err != nil {
