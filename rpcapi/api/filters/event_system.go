@@ -242,7 +242,7 @@ func filterLogs(e *AccountChainEvent, filter *api.FilterParam, removed bool) []*
 	}
 	for _, l := range e.Logs {
 		if api.FilterLog(filter, l) {
-			logs = append(logs, &api.Logs{l, e.Hash, api.Uint64ToString(e.Height), &e.Addr, removed})
+			logs = append(logs, &api.Logs{l, e.Hash, api.Uint64ToString(e.Height), &e.Addr, &e.Addr, removed})
 		}
 	}
 	return logs

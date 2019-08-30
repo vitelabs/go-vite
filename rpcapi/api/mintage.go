@@ -3,20 +3,24 @@ package api
 import (
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm_db"
 	"sort"
 )
 
 type MintageApi struct {
 	chain chain.Chain
+	vite  *vite.Vite
 	log   log15.Logger
 }
 
 func NewMintageApi(vite *vite.Vite) *MintageApi {
 	return &MintageApi{
 		chain: vite.Chain(),
+		vite:  vite,
 		log:   log15.New("module", "rpc_api/mintage_api"),
 	}
 }
@@ -181,7 +185,7 @@ func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenIn
 	for tokenId, tokenInfo := range tokenMap {
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
 	}
-	return tokenList, nil
+	return checkGenesisToken(db, owner, m.vite.Config().MintageInfo.TokenInfoMap, tokenList)
 }
 func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
 	db, err := getVmDb(m.chain, types.AddressMintage)
@@ -195,6 +199,20 @@ func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenI
 	tokenList := make([]*RpcTokenInfo, 0)
 	for tokenId, tokenInfo := range tokenMap {
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
+	}
+	return checkGenesisToken(db, owner, m.vite.Config().MintageInfo.TokenInfoMap, tokenList)
+}
+
+func checkGenesisToken(db vm_db.VmDb, owner types.Address, genesisTokenInfoMap map[string]config.TokenInfo, tokenList []*RpcTokenInfo) ([]*RpcTokenInfo, error) {
+	for tidStr, _ := range genesisTokenInfoMap {
+		tid, _ := types.HexToTokenTypeId(tidStr)
+		info, err := abi.GetTokenById(db, tid)
+		if err != nil {
+			return nil, err
+		}
+		if info != nil && info.Owner == owner {
+			tokenList = append(tokenList, RawTokenInfoToRpc(info, tid))
+		}
 	}
 	return tokenList, nil
 }

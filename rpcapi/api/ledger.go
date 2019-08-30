@@ -529,7 +529,7 @@ type VmLogFilterParam struct {
 func ToFilterParam(rangeMap map[string]*Range, topics [][]types.Hash) (*FilterParam, error) {
 	var addrRange map[types.Address]HeightRange
 	if len(rangeMap) == 0 {
-		return nil, errors.New("addrRange is nil")
+		return nil, errors.New("addressHeightRange is nil")
 	}
 	addrRange = make(map[types.Address]HeightRange, len(rangeMap))
 	for hexAddr, r := range rangeMap {
@@ -558,6 +558,7 @@ type Logs struct {
 	AccountBlockHash types.Hash     `json:"accountBlockHash"`
 	AccountHeight    string         `json:"accountHeight"`
 	Addr             *types.Address `json:"addr"`
+	Address          *types.Address `json:"address"`
 	Removed          bool           `json:"removed"`
 }
 
@@ -604,7 +605,7 @@ func GetLogs(c chain.Chain, rangeMap map[string]*Range, topics [][]types.Hash) (
 					}
 					for _, l := range list {
 						if FilterLog(filterParam, l) {
-							logs = append(logs, &Logs{l, blocks[i-1].Hash, Uint64ToString(blocks[i-1].Height), &addr, false})
+							logs = append(logs, &Logs{l, blocks[i-1].Hash, Uint64ToString(blocks[i-1].Height), &addr, &addr, false})
 						}
 					}
 				}

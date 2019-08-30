@@ -2,6 +2,7 @@ package abi
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -56,7 +57,7 @@ func TestDeleteTokenId(t *testing.T) {
 	}
 }
 
-func TestABIContract_MethodById(t *testing.T) {
+func TestABIContract_EventById(t *testing.T) {
 	for _, e := range ABIMintage.Events {
 		data := e.Id().Bytes()
 		result := "{"
@@ -65,5 +66,17 @@ func TestABIContract_MethodById(t *testing.T) {
 		}
 		result = result[:len(result)-1] + "}"
 		fmt.Printf("%v: %v\n", e.Name, result)
+	}
+}
+
+func TestABIContract_MethodById(t *testing.T) {
+	for _, m := range ABIConsensusGroup.Methods {
+		fmt.Printf("%v: %v\n", m.Sig(), hex.EncodeToString(m.Id()))
+	}
+}
+
+func TestABIContract_CallbackById(t *testing.T) {
+	for _, m := range ABIPledge.Callbacks {
+		fmt.Printf("%v: %v\n", m.Sig(), hex.EncodeToString(m.Id()))
 	}
 }
