@@ -54,7 +54,7 @@ func StartNode(node *node.Node) error {
 		for i := 10; i > 0; i-- {
 			<-c
 			if i > 1 {
-				log.Warn("Already shutdown, interrupt more to panic.", "times", i-1)
+				log.Warn("Please DO NOT interrupt the shutting down process, otherwise may cause panic.", "times", i-1)
 			}
 		}
 	}()
@@ -77,9 +77,6 @@ func StopNode(node *node.Node) {
 
 	if err := node.Stop(); err != nil {
 		log.Error(fmt.Sprintf("Failed to stop node, %v", err))
-	} else {
-		fmt.Println("Node stopped successfully!!!")
 	}
 
 }
-
