@@ -72,7 +72,7 @@ type MinedVxForInviteeFeeEvent struct {
 	dexproto.MinedVxForFee
 }
 
-type MinedVxForStackingEvent struct {
+type MinedVxForStakingEvent struct {
 	dexproto.MinedVxForStaking
 }
 
@@ -280,17 +280,17 @@ func (mif MinedVxForInviteeFeeEvent) FromBytes(data []byte) interface{} {
 	}
 }
 
-func (mp MinedVxForStackingEvent) GetTopicId() types.Hash {
+func (mp MinedVxForStakingEvent) GetTopicId() types.Hash {
 	return fromNameToHash(minedVxForStakingEventName)
 }
 
-func (mp MinedVxForStackingEvent) toDataBytes() []byte {
+func (mp MinedVxForStakingEvent) toDataBytes() []byte {
 	data, _ := proto.Marshal(&mp.MinedVxForStaking)
 	return data
 }
 
-func (mp MinedVxForStackingEvent) FromBytes(data []byte) interface{} {
-	event := MinedVxForStackingEvent{}
+func (mp MinedVxForStakingEvent) FromBytes(data []byte) interface{} {
+	event := MinedVxForStakingEvent{}
 	if err := proto.Unmarshal(data, &event.MinedVxForStaking); err != nil {
 		return nil
 	} else {

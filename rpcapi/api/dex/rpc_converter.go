@@ -148,27 +148,27 @@ type RpcDexFeesByPeriod struct {
 	FinishMine      bool                  `json:"finishMine"`
 }
 
-func FeeSumByPeriodToRpc(feeSum *dex.DexFeesByPeriod) *RpcDexFeesByPeriod {
-	if feeSum == nil {
+func DexFeesByPeriodToRpc(dexFeesByPeriod *dex.DexFeesByPeriod) *RpcDexFeesByPeriod {
+	if dexFeesByPeriod == nil {
 		return nil
 	}
 	rpcDexFeesByPeriod := &RpcDexFeesByPeriod{}
-	for _, dividend := range feeSum.FeesForDividend {
+	for _, dividend := range dexFeesByPeriod.FeesForDividend {
 		rpcDividend := &RpcFeesForDividend{}
 		rpcDividend.Token = TokenBytesToString(dividend.Token)
 		rpcDividend.DividendPoolAmount = AmountBytesToString(dividend.DividendPoolAmount)
 		rpcDexFeesByPeriod.FeesForDividend = append(rpcDexFeesByPeriod.FeesForDividend, rpcDividend)
 	}
-	for _, mine := range feeSum.FeesForMine {
+	for _, mine := range dexFeesByPeriod.FeesForMine {
 		rpcMine := &RpcFeesForMine{}
 		rpcMine.QuoteTokenType = mine.QuoteTokenType
 		rpcMine.BaseAmount = AmountBytesToString(mine.BaseAmount)
 		rpcMine.InviteBonusAmount = AmountBytesToString(mine.InviteBonusAmount)
 		rpcDexFeesByPeriod.FeesForMine = append(rpcDexFeesByPeriod.FeesForMine, rpcMine)
 	}
-	rpcDexFeesByPeriod.LastValidPeriod = feeSum.LastValidPeriod
-	rpcDexFeesByPeriod.FinishDividend = feeSum.FinishDividend
-	rpcDexFeesByPeriod.FinishMine = feeSum.FinishMine
+	rpcDexFeesByPeriod.LastValidPeriod = dexFeesByPeriod.LastValidPeriod
+	rpcDexFeesByPeriod.FinishDividend = dexFeesByPeriod.FinishDividend
+	rpcDexFeesByPeriod.FinishMine = dexFeesByPeriod.FinishMine
 	return rpcDexFeesByPeriod
 }
 

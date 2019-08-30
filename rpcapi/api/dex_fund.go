@@ -127,11 +127,11 @@ func (f DexFundApi) GetCurrentDividendPools() (map[types.TokenTypeId]*apidex.Div
 		return nil, err
 	}
 	var pools map[types.TokenTypeId]*apidex.DividendPoolInfo
-	if feeSumByPeriod, ok := dex.GetCurrentDexFees(db, apidex.GetConsensusReader(f.vite)); !ok {
+	if dexFeesByPeriod, ok := dex.GetCurrentDexFees(db, apidex.GetConsensusReader(f.vite)); !ok {
 		return nil, nil
 	} else {
 		pools = make(map[types.TokenTypeId]*apidex.DividendPoolInfo)
-		for _, pool := range feeSumByPeriod.FeesForDividend {
+		for _, pool := range dexFeesByPeriod.FeesForDividend {
 			tk, _ := types.BytesToTokenTypeId(pool.Token)
 			if tokenInfo, ok := dex.GetTokenInfo(db, tk); !ok {
 				return nil, dex.InvalidTokenErr
@@ -257,11 +257,11 @@ func (f DexFundApi) GetCurrentFeesForMine() (fees map[int32]string, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if feeSum, ok := dex.GetCurrentDexFees(db, apidex.GetConsensusReader(f.vite)); !ok {
+	if dexFeesByPeriod, ok := dex.GetCurrentDexFees(db, apidex.GetConsensusReader(f.vite)); !ok {
 		return
 	} else {
-		fees = make(map[int32]string, len(feeSum.FeesForMine))
-		for _, feeForMine := range feeSum.FeesForMine {
+		fees = make(map[int32]string, len(dexFeesByPeriod.FeesForMine))
+		for _, feeForMine := range dexFeesByPeriod.FeesForMine {
 			fees[feeForMine.QuoteTokenType] = new(big.Int).Add(new(big.Int).SetBytes(feeForMine.BaseAmount), new(big.Int).SetBytes(feeForMine.InviteBonusAmount)).String()
 		}
 		return
@@ -273,14 +273,14 @@ func (f DexFundApi) GetCurrentPledgeForVxSum() (string, error) {
 	if err != nil {
 		return "0", err
 	}
-	if vxSums, ok := dex.GetDexMiningStakings(db); !ok {
+	if miningStakings, ok := dex.GetDexMiningStakings(db); !ok {
 		return "0", nil
 	} else {
-		pledgesLen := len(vxSums.Stakings)
+		pledgesLen := len(miningStakings.Stakings)
 		if pledgesLen == 0 {
 			return "0", nil
 		} else {
-			return new(big.Int).SetBytes(vxSums.Stakings[pledgesLen-1].Amount).String(), nil
+			return new(big.Int).SetBytes(miningStakings.Stakings[pledgesLen-1].Amount).String(), nil
 		}
 	}
 }

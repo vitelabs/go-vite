@@ -242,11 +242,11 @@ type ParamDexFundStakeForVIP struct {
 }
 
 type ParamDexFundStakeCallBack struct {
-	StakeAddr   types.Address
-	Beneficiary types.Address
-	Amount      *big.Int
-	Bid         uint8
-	Success     bool
+	StakingAddress types.Address
+	Beneficiary    types.Address
+	Amount         *big.Int
+	Bid            uint8
+	Success        bool
 }
 
 type ParamDexFundGetTokenInfoCallback struct {

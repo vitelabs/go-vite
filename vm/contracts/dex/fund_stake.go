@@ -70,7 +70,11 @@ func stakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, amount 
 	if _, err := ReduceAccount(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err
 	} else {
-		if stakeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
+		var stakeMethod = abi.MethodNameAgentPledgeV2
+		if  !IsLeafFork(db) {
+			stakeMethod = abi.MethodNameAgentPledge
+		}
+		if stakeData, err := abi.ABIPledge.PackMethod(stakeMethod, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
 			return nil, err
 		} else {
 			return stakeData, err
@@ -97,7 +101,11 @@ func cancelStakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, a
 			return nil, SuperVIPStakingNotExistsErr
 		}
 	}
-	if cancelStakeData, err := abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, address, types.AddressDexFund, amount, uint8(stakeType)); err != nil {
+	var cancelStakeMethod = abi.MethodNameAgentCancelPledgeV2
+	if  !IsLeafFork(db) {
+		cancelStakeMethod = abi.MethodNameAgentCancelPledge
+	}
+	if cancelStakeData, err := abi.ABIPledge.PackMethod(cancelStakeMethod, address, types.AddressDexFund, amount, uint8(stakeType)); err != nil {
 		return nil, err
 	} else {
 		return cancelStakeData, err

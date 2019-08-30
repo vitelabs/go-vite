@@ -134,11 +134,11 @@ func (f DexApi) GetDividendPoolsInfo() (map[types.TokenTypeId]*apidex.DividendPo
 		return nil, err
 	}
 	var pools map[types.TokenTypeId]*apidex.DividendPoolInfo
-	if feeSumByPeriod, ok := dex.GetCurrentDexFees(db, apidex.GetConsensusReader(f.vite)); !ok {
+	if dexFeesByPeriod, ok := dex.GetCurrentDexFees(db, apidex.GetConsensusReader(f.vite)); !ok {
 		return nil, nil
 	} else {
 		pools = make(map[types.TokenTypeId]*apidex.DividendPoolInfo)
-		for _, pool := range feeSumByPeriod.FeesForDividend {
+		for _, pool := range dexFeesByPeriod.FeesForDividend {
 			tk, _ := types.BytesToTokenTypeId(pool.Token)
 			if tokenInfo, ok := dex.GetTokenInfo(db, tk); !ok {
 				return nil, dex.InvalidTokenErr
@@ -264,11 +264,11 @@ func (f DexApi) GetCurrentFeesValidForMining() (fees map[int32]string, err error
 	if err != nil {
 		return nil, err
 	}
-	if feeSum, ok := dex.GetCurrentDexFees(db, apidex.GetConsensusReader(f.vite)); !ok {
+	if dexFeesByPeriod, ok := dex.GetCurrentDexFees(db, apidex.GetConsensusReader(f.vite)); !ok {
 		return
 	} else {
-		fees = make(map[int32]string, len(feeSum.FeesForMine))
-		for _, feeForMine := range feeSum.FeesForMine {
+		fees = make(map[int32]string, len(dexFeesByPeriod.FeesForMine))
+		for _, feeForMine := range dexFeesByPeriod.FeesForMine {
 			fees[feeForMine.QuoteTokenType] = new(big.Int).Add(new(big.Int).SetBytes(feeForMine.BaseAmount), new(big.Int).SetBytes(feeForMine.InviteBonusAmount)).String()
 		}
 		return
@@ -280,14 +280,14 @@ func (f DexApi) GetCurrentStakingValidForMining() (string, error) {
 	if err != nil {
 		return "0", err
 	}
-	if vxSums, ok := dex.GetDexMiningStakings(db); !ok {
+	if miningStakings, ok := dex.GetDexMiningStakings(db); !ok {
 		return "0", nil
 	} else {
-		pledgesLen := len(vxSums.Stakings)
-		if pledgesLen == 0 {
+		stakingsLen := len(miningStakings.Stakings)
+		if stakingsLen == 0 {
 			return "0", nil
 		} else {
-			return new(big.Int).SetBytes(vxSums.Stakings[pledgesLen-1].Amount).String(), nil
+			return new(big.Int).SetBytes(miningStakings.Stakings[stakingsLen-1].Amount).String(), nil
 		}
 	}
 }
@@ -385,10 +385,10 @@ func (f DexPrivateApi) GetCurrentDexFees() (*apidex.RpcDexFeesByPeriod, error) {
 	if err != nil {
 		return nil, err
 	}
-	if feeSum, ok := dex.GetCurrentDexFees(db, apidex.GetConsensusReader(f.vite)); !ok {
+	if dexFeesByPeriod, ok := dex.GetCurrentDexFees(db, apidex.GetConsensusReader(f.vite)); !ok {
 		return nil, nil
 	} else {
-		return apidex.FeeSumByPeriodToRpc(feeSum), nil
+		return apidex.DexFeesByPeriodToRpc(dexFeesByPeriod), nil
 	}
 }
 
@@ -397,34 +397,34 @@ func (f DexPrivateApi) GetDexFeesByPeriod(periodId uint64) (*apidex.RpcDexFeesBy
 	if err != nil {
 		return nil, err
 	}
-	if feeSum, ok := dex.GetDexFeesByPeriodId(db, periodId); !ok {
+	if dexFeesByPeriod, ok := dex.GetDexFeesByPeriodId(db, periodId); !ok {
 		return nil, nil
 	} else {
-		return apidex.FeeSumByPeriodToRpc(feeSum), nil
+		return apidex.DexFeesByPeriodToRpc(dexFeesByPeriod), nil
 	}
 }
 
-func (f DexPrivateApi) GetCurrentOperatorFees(broker types.Address) (*apidex.RpcOperatorFeesByPeriod, error) {
+func (f DexPrivateApi) GetCurrentOperatorFees(operator types.Address) (*apidex.RpcOperatorFeesByPeriod, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	if brokerFeeSum, ok := dex.GetCurrentOperatorFees(db, apidex.GetConsensusReader(f.vite), broker.Bytes()); !ok {
+	if operatorFeesByPeriod, ok := dex.GetCurrentOperatorFees(db, apidex.GetConsensusReader(f.vite), operator.Bytes()); !ok {
 		return nil, nil
 	} else {
-		return apidex.OperatorFeesByPeriodToRpc(brokerFeeSum), nil
+		return apidex.OperatorFeesByPeriodToRpc(operatorFeesByPeriod), nil
 	}
 }
 
-func (f DexPrivateApi) GetOperatorFeesByPeriod(periodId uint64, broker types.Address) (*apidex.RpcOperatorFeesByPeriod, error) {
+func (f DexPrivateApi) GetOperatorFeesByPeriod(periodId uint64, operator types.Address) (*apidex.RpcOperatorFeesByPeriod, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	if brokerFeeSum, ok := dex.GetOperatorFeesByPeriodId(db, broker.Bytes(), periodId); !ok {
+	if operatorFeesByPeriod, ok := dex.GetOperatorFeesByPeriodId(db, operator.Bytes(), periodId); !ok {
 		return nil, nil
 	} else {
-		return apidex.OperatorFeesByPeriodToRpc(brokerFeeSum), nil
+		return apidex.OperatorFeesByPeriodToRpc(operatorFeesByPeriod), nil
 	}
 }
 
@@ -498,8 +498,8 @@ func (f DexPrivateApi) GetAllMiningStakingInfoByAddress(address types.Address) (
 	if err != nil {
 		return nil, err
 	}
-	if pledgesForVx, ok := dex.GetMiningStakings(db, address); ok {
-		return apidex.MiningStakingsToRpc(pledgesForVx), nil
+	if miningStakings, ok := dex.GetMiningStakings(db, address); ok {
+		return apidex.MiningStakingsToRpc(miningStakings), nil
 	} else {
 		return nil, nil
 	}
@@ -510,8 +510,8 @@ func (f DexPrivateApi) GetAllMiningStakingInfo() (*apidex.RpcMiningStakings, err
 	if err != nil {
 		return nil, err
 	}
-	if pledgesForVxSum, ok := dex.GetDexMiningStakings(db); ok {
-		return apidex.MiningStakingsToRpc(pledgesForVxSum), nil
+	if miningStakings, ok := dex.GetDexMiningStakings(db); ok {
+		return apidex.MiningStakingsToRpc(miningStakings), nil
 	} else {
 		return nil, nil
 	}

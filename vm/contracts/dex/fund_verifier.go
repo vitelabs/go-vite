@@ -31,7 +31,7 @@ func VerifyDexFundBalance(db vm_db.VmDb, reader *util.VMConsensusReader) *FundVe
 	count, _ := accumulateUserAccount(db, userAmountMap)
 	allBalanceMatched := true
 	accumulateFeeDividendPool(db, reader, feeAmountMap)
-	accumulateBrokerFeeAccount(db, feeAmountMap)
+	accumulateOperatorFeeAccount(db, feeAmountMap)
 	accumulateVx(db, vxAmount)
 	var (
 		foundVx, ok, balanceMatched bool
@@ -110,10 +110,10 @@ func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*b
 
 func accumulateFeeDividendPool(db vm_db.VmDb, reader *util.VMConsensusReader, accumulateRes map[types.TokenTypeId]*big.Int) error {
 	var (
-		feeSumValue, feeSumKey []byte
-		feeSum                 *DexFeesByPeriod
-		ok                     bool
-		periodId               uint64
+		dexFeesBytes, dexFeesKey []byte
+		dexFeesByPeriod          *DexFeesByPeriod
+		ok                       bool
+		periodId                 uint64
 	)
 	currentPeriodId := GetCurrentPeriodId(db, reader)
 	iterator, err := db.NewStorageIterator(dexFeesKeyPrefix)
@@ -123,21 +123,21 @@ func accumulateFeeDividendPool(db vm_db.VmDb, reader *util.VMConsensusReader, ac
 	defer iterator.Release()
 	for {
 		if ok = iterator.Next(); ok {
-			feeSumKey = iterator.Key()
-			feeSumValue = iterator.Value()
-			if len(feeSumValue) == 0 {
+			dexFeesKey = iterator.Key()
+			dexFeesBytes = iterator.Value()
+			if len(dexFeesBytes) == 0 {
 				continue
 			}
-			periodId = BytesToUint64(feeSumKey[len(dexFeesKeyPrefix):])
+			periodId = BytesToUint64(dexFeesKey[len(dexFeesKeyPrefix):])
 		} else {
 			break
 		}
-		feeSum = &DexFeesByPeriod{}
-		if err = feeSum.DeSerialize(feeSumValue); err != nil {
+		dexFeesByPeriod = &DexFeesByPeriod{}
+		if err = dexFeesByPeriod.DeSerialize(dexFeesBytes); err != nil {
 			return err
 		}
-		if !feeSum.FinishDividend {
-			for _, fee := range feeSum.FeesForDividend {
+		if !dexFeesByPeriod.FinishDividend {
+			for _, fee := range dexFeesByPeriod.FeesForDividend {
 				tokenId, _ := types.BytesToTokenTypeId(fee.Token)
 				if currentPeriodId != periodId {
 					toDividend, _ := splitDividendPool(fee)
@@ -151,9 +151,9 @@ func accumulateFeeDividendPool(db vm_db.VmDb, reader *util.VMConsensusReader, ac
 	return nil
 }
 
-func accumulateBrokerFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
+func accumulateOperatorFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
 	var (
-		brokerFeeSumValue    []byte
+		operatorFeesBytes    []byte
 		operatorFeesByPeriod *OperatorFeesByPeriod
 		ok                   bool
 	)
@@ -164,21 +164,21 @@ func accumulateBrokerFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenType
 	defer iterator.Release()
 	for {
 		if ok = iterator.Next(); ok {
-			brokerFeeSumValue = iterator.Value()
-			if len(brokerFeeSumValue) == 0 {
+			operatorFeesBytes = iterator.Value()
+			if len(operatorFeesBytes) == 0 {
 				continue
 			}
 		} else {
 			break
 		}
 		operatorFeesByPeriod = &OperatorFeesByPeriod{}
-		if err = operatorFeesByPeriod.DeSerialize(brokerFeeSumValue); err != nil {
+		if err = operatorFeesByPeriod.DeSerialize(operatorFeesBytes); err != nil {
 			return err
 		}
 		for _, fee := range operatorFeesByPeriod.OperatorFees {
-			for _, brokerFee := range fee.MarketFees {
-				tokenId, _ := types.BytesToTokenTypeId(fee.Token)
-				accAccount(tokenId, brokerFee.Amount, accumulateRes)
+			tokenId, _ := types.BytesToTokenTypeId(fee.Token)
+			for _, marketFee := range fee.MarketFees {
+				accAccount(tokenId, marketFee.Amount, accumulateRes)
 			}
 		}
 	}

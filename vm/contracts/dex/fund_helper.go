@@ -302,7 +302,7 @@ func RenderOrder(order *Order, param *ParamDexFundNewOrder, db vm_db.VmDb, accou
 		ok         bool
 	)
 	if IsDexStopped(db) {
-		return nil, ViteXStoppedErr
+		return nil, DexStoppedErr
 	}
 	if marketInfo, ok = GetMarketInfo(db, param.TradeToken, param.QuoteToken); !ok || !marketInfo.Valid {
 		return nil, TradeMarketNotExistsErr

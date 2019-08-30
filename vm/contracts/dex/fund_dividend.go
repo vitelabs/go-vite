@@ -8,16 +8,16 @@ import (
 )
 
 //Note: allow dividend from specify periodId, former periods will be divided at that period
-func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
+func DoFeesDividend(db vm_db.VmDb, periodId uint64) error {
 	var (
-		feeSumsMap map[uint64]*DexFeesByPeriod
-		vxSumFunds *VxFunds
-		err        error
-		ok         bool
+		dexFeesByPeriods map[uint64]*DexFeesByPeriod
+		vxSumFunds       *VxFunds
+		err              error
+		ok               bool
 	)
 
 	//allow divide history fees that not divided yet
-	if feeSumsMap = GetNotFinishDividendDexFeesByPeriods(db, periodId); len(feeSumsMap) == 0 { // no fee to divide
+	if dexFeesByPeriods = GetNotFinishDividendDexFeesByPeriods(db, periodId); len(dexFeesByPeriods) == 0 { // no fee to divide
 		return nil
 	}
 	if vxSumFunds, ok = GetVxSumFunds(db); !ok {
@@ -37,7 +37,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	}
 	// sum fees from multi period not divided
 	feeSumMap := make(map[types.TokenTypeId]*big.Int)
-	for pId, fee := range feeSumsMap {
+	for pId, fee := range dexFeesByPeriods {
 		for _, feeAccount := range fee.FeesForDividend {
 			if tokenId, err := types.BytesToTokenTypeId(feeAccount.Token); err != nil {
 				return err

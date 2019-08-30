@@ -205,11 +205,11 @@ type GasTable struct {
 	DexFundNewOrderGas             uint64
 	DexFundSettleOrdersGas         uint64
 	DexFundPeriodJobGas            uint64
-	DexFundPledgeForVxGas          uint64
-	DexFundPledgeForVipGas         uint64
-	DexFundPledgeForSuperVipGas    uint64
-	DexFundPledgeCallbackGas       uint64
-	DexFundCancelPledgeCallbackGas uint64
+	DexFundStakingForMiningGas     uint64
+	DexFundStakeForVipGas          uint64
+	DexFundStakeForSuperVipGas     uint64
+	DexFundStakingCallbackGas      uint64
+	DexFundCancelStakeCallbackGas  uint64
 	DexFundGetTokenInfoCallbackGas uint64
 	DexFundOwnerConfigGas          uint64
 	DexFundOwnerConfigTradeGas     uint64
@@ -439,10 +439,10 @@ func newViteGasTable() GasTable {
 		DexFundNewOrderGas:             25200,
 		DexFundSettleOrdersGas:         21000,
 		DexFundPeriodJobGas:            8400,
-		DexFundPledgeForVxGas:          31500,
-		DexFundPledgeForVipGas:         31500,
-		DexFundPledgeCallbackGas:       12600,
-		DexFundCancelPledgeCallbackGas: 16800,
+		DexFundStakingForMiningGas:     31500,
+		DexFundStakeForVipGas:          31500,
+		DexFundStakingCallbackGas:      12600,
+		DexFundCancelStakeCallbackGas:  16800,
 		DexFundGetTokenInfoCallbackGas: 10500,
 		DexFundOwnerConfigGas:          16800,
 		DexFundOwnerConfigTradeGas:     10500,
@@ -458,7 +458,7 @@ func newViteGasTable() GasTable {
 
 func newDexAgentGasTable() GasTable {
 	gt := newViteGasTable()
-	gt.DexFundPledgeForSuperVipGas = 33600
+	gt.DexFundStakeForSuperVipGas = 33600
 	gt.DexFundConfigMarketsAgentGas = 8400
 	gt.DexFundNewAgentOrderGas = 25200
 	return gt

@@ -11,7 +11,7 @@ import (
 //Note: allow mine from specify periodId, former periods will be ignore
 func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int, fundLogger log15.Logger) (*big.Int, error) {
 	var (
-		feeSum                *DexFeesByPeriod
+		dexFeesByPeriod                *DexFeesByPeriod
 		feeSumMap             = make(map[int32]*big.Int) // quoteTokenType -> amount
 		dividedFeeMap         = make(map[int32]*big.Int)
 		toDivideVxLeaveAmtMap = make(map[int32]*big.Int)
@@ -22,19 +22,19 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 	if len(amtForMarkets) == 0 {
 		return nil, nil
 	}
-	if feeSum, ok = GetDexFeesByPeriodId(db, periodId); !ok {
+	if dexFeesByPeriod, ok = GetDexFeesByPeriodId(db, periodId); !ok {
 		return AccumulateAmountFromMap(amtForMarkets), nil
 	}
-	for _, feeSum := range feeSum.FeesForMine {
-		feeSumMap[feeSum.QuoteTokenType] = new(big.Int).SetBytes(AddBigInt(feeSum.BaseAmount, feeSum.InviteBonusAmount))
-		dividedFeeMap[feeSum.QuoteTokenType] = big.NewInt(0)
+	for _, feeForMine := range dexFeesByPeriod.FeesForMine {
+		feeSumMap[feeForMine.QuoteTokenType] = new(big.Int).SetBytes(AddBigInt(feeForMine.BaseAmount, feeForMine.InviteBonusAmount))
+		dividedFeeMap[feeForMine.QuoteTokenType] = big.NewInt(0)
 	}
 	for i := ViteTokenType; i <= UsdTokenType; i++ {
 		mineThresholdMap[int32(i)] = GetMineThreshold(db, int32(i))
 		toDivideVxLeaveAmtMap[int32(i)] = new(big.Int).Set(amtForMarkets[int32(i)])
 	}
 
-	MarkDexFeesFinishMine(db, feeSum, periodId)
+	MarkDexFeesFinishMine(db, dexFeesByPeriod, periodId)
 	var (
 		userFeesKey, userFeesBytes []byte
 	)

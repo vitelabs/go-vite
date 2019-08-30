@@ -13,15 +13,6 @@ func GetConsensusReader(vite *vite.Vite) *util.VMConsensusReader {
 	return util.NewVmConsensusReader(vite.Consensus().SBPReader())
 }
 
-func InnerGetOrderById(db vm_db.VmDb, orderId []byte) (*RpcOrder, error) {
-	matcher := dex.NewRawMatcher(db)
-	if order, err := matcher.GetOrderById(orderId); err != nil {
-		return nil, err
-	} else {
-		return OrderToRpc(order), nil
-	}
-}
-
 func AmountBytesToString(amt []byte) string {
 	return new(big.Int).SetBytes(amt).String()
 }
@@ -29,4 +20,13 @@ func AmountBytesToString(amt []byte) string {
 func TokenBytesToString(token []byte) string {
 	tk, _ := types.BytesToTokenTypeId(token)
 	return tk.String()
+}
+
+func InnerGetOrderById(db vm_db.VmDb, orderId []byte) (*RpcOrder, error) {
+	matcher := dex.NewRawMatcher(db)
+	if order, err := matcher.GetOrderById(orderId); err != nil {
+		return nil, err
+	} else {
+		return OrderToRpc(order), nil
+	}
 }
