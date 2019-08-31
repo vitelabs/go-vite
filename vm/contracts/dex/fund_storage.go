@@ -3,11 +3,14 @@ package dex
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -676,12 +679,53 @@ func DepositUserAccount(db vm_db.VmDb, address types.Address, token types.TokenT
 	return
 }
 
+func GetUserFundsByPage(db abi.StorageDatabase, lastAddress types.Address, count int)(userFunds []*UserFund, err error) {
+	var iterator interfaces.StorageIterator
+	if iterator, err = db.NewStorageIterator(fundKeyPrefix); err != nil {
+		return
+	}
+	defer iterator.Release()
+
+	if lastAddress != types.ZERO_ADDRESS {
+		ok := iterator.Seek(GetUserFundKey(lastAddress))
+		if !ok {
+			err = fmt.Errorf("last address not valid for page userFunds")
+			return
+		}
+	}
+	userFunds = make([]*UserFund, 0, count)
+	for {
+		if !iterator.Next() {
+			if err = iterator.Error(); err != nil {
+				return
+			}
+			break
+		}
+		key := iterator.Key()
+		data := iterator.Value()
+		if len(data) > 0 {
+			fund := &UserFund{}
+			if err = fund.DeSerialize(data); err != nil {
+				return
+			} else {
+				fund.Address = make([]byte, types.AddressSize)
+				copy(fund.Address[:], key[len(fundKeyPrefix):])
+				userFunds = append(userFunds, fund)
+				if len(userFunds) == count {
+					return
+				}
+			}
+		}
+	}
+	return
+}
+
 func GetUserFundKey(address types.Address) []byte {
 	return append(fundKeyPrefix, address.Bytes()...)
 }
 
 func GetCurrentFeeSum(db vm_db.VmDb, reader util.ConsensusReader) (*FeeSumByPeriod, bool) {
-	return getFeeSumByKey(db, GetFeeSumCurrentKey(db, reader))
+	return getFeeSumByKey(db, GetFeeSumKeyByPeriodId(GetCurrentPeriodId(db, reader)))
 }
 
 func GetFeeSumByPeriodId(db vm_db.VmDb, periodId uint64) (*FeeSumByPeriod, bool) {
@@ -724,11 +768,7 @@ func GetNotDividedFeeSumsByPeriodId(db vm_db.VmDb, periodId uint64) map[uint64]*
 	}
 }
 
-func SaveCurrentFeeSum(db vm_db.VmDb, reader util.ConsensusReader, feeSum *FeeSumByPeriod) {
-	serializeToDb(db, GetFeeSumCurrentKey(db, reader), feeSum)
-}
-
-func SaveFeeSumWithPeriodId(db vm_db.VmDb, feeSum *FeeSumByPeriod, periodId uint64) {
+func SaveFeeSumWithPeriodId(db vm_db.VmDb, periodId uint64, feeSum *FeeSumByPeriod) {
 	serializeToDb(db, GetFeeSumKeyByPeriodId(periodId), feeSum)
 }
 
@@ -788,10 +828,6 @@ func markFormerFeeSumsAsMined(db vm_db.VmDb, periodId uint64) {
 
 func GetFeeSumKeyByPeriodId(periodId uint64) []byte {
 	return append(feeSumKeyPrefix, Uint64ToBytes(periodId)...)
-}
-
-func GetFeeSumCurrentKey(db vm_db.VmDb, reader util.ConsensusReader) []byte {
-	return GetFeeSumKeyByPeriodId(GetCurrentPeriodId(db, reader))
 }
 
 func GetFeeSumLastPeriodIdForRoll(db vm_db.VmDb) uint64 {
@@ -1034,14 +1070,18 @@ func FilterPendingNewMarkets(db vm_db.VmDb, tradeToken types.TokenTypeId) (quote
 	}
 }
 
-func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) {
+func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTypeId) error {
 	pendingNewMarkets, _ := GetPendingNewMarkets(db)
 	var foundTradeToken bool
 	for _, action := range pendingNewMarkets.PendingActions {
 		if bytes.Equal(action.TradeToken, tradeToken.Bytes()) {
 			for _, qt := range action.QuoteTokens {
 				if bytes.Equal(qt, quoteToken.Bytes()) {
-					panic(PendingNewMarketInnerConflictErr)
+					if IsStemFork(db) {
+						return PendingNewMarketInnerConflictErr
+					} else {
+						panic(PendingNewMarketInnerConflictErr)
+					}
 				}
 			}
 			foundTradeToken = true
@@ -1055,6 +1095,7 @@ func AddToPendingNewMarkets(db vm_db.VmDb, tradeToken, quoteToken types.TokenTyp
 		pendingNewMarkets.PendingActions = append(pendingNewMarkets.PendingActions, action)
 	}
 	SavePendingNewMarkets(db, pendingNewMarkets)
+	return nil
 }
 
 func GetPendingNewMarkets(db vm_db.VmDb) (pendingNewMarkets *PendingNewMarkets, ok bool) {
@@ -1561,7 +1602,7 @@ func SetTimerTimestamp(db vm_db.VmDb, timestamp int64, reader util.ConsensusRead
 
 func doRollPeriod(db vm_db.VmDb, newPeriodId uint64) {
 	newFeeSum := RollAndGentNewFeeSumByPeriod(db, newPeriodId)
-	SaveFeeSumWithPeriodId(db, newFeeSum, newPeriodId)
+	SaveFeeSumWithPeriodId(db, newPeriodId, newFeeSum)
 }
 
 func GetTimerTimestamp(db vm_db.VmDb) int64 {

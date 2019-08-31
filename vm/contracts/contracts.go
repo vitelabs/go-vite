@@ -41,7 +41,7 @@ type BuiltinContractMethod interface {
 	// receive block quota
 	GetReceiveQuota(gasTable *util.GasTable) uint64
 	// refund data at receive error
-	GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool)
+	GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool)
 }
 
 type builtinContract struct {
@@ -53,35 +53,36 @@ var (
 	simpleContracts   = newSimpleContracts()
 	dexContracts      = newDexContracts()
 	dexAgentContracts = newDexAgentContracts()
+	leafContracts     = newLeafContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
 	return map[types.Address]*builtinContract{
 		types.AddressPledge: {
 			map[string]BuiltinContractMethod{
-				cabi.MethodNamePledge:       &MethodPledge{},
-				cabi.MethodNameCancelPledge: &MethodCancelPledge{},
+				cabi.MethodNamePledge:       &MethodPledge{cabi.MethodNamePledge},
+				cabi.MethodNameCancelPledge: &MethodCancelPledge{cabi.MethodNameCancelPledge},
 			},
 			cabi.ABIPledge,
 		},
 		types.AddressConsensusGroup: {
 			map[string]BuiltinContractMethod{
-				cabi.MethodNameRegister:           &MethodRegister{},
-				cabi.MethodNameCancelRegister:     &MethodCancelRegister{},
-				cabi.MethodNameReward:             &MethodReward{},
-				cabi.MethodNameUpdateRegistration: &MethodUpdateRegistration{},
-				cabi.MethodNameVote:               &MethodVote{},
-				cabi.MethodNameCancelVote:         &MethodCancelVote{},
+				cabi.MethodNameRegister:           &MethodRegister{cabi.MethodNameRegister},
+				cabi.MethodNameCancelRegister:     &MethodCancelRegister{cabi.MethodNameCancelRegister},
+				cabi.MethodNameReward:             &MethodReward{cabi.MethodNameReward},
+				cabi.MethodNameUpdateRegistration: &MethodUpdateRegistration{cabi.MethodNameUpdateRegistration},
+				cabi.MethodNameVote:               &MethodVote{cabi.MethodNameVote},
+				cabi.MethodNameCancelVote:         &MethodCancelVote{cabi.MethodNameCancelVote},
 			},
 			cabi.ABIConsensusGroup,
 		},
 		types.AddressMintage: {
 			map[string]BuiltinContractMethod{
-				cabi.MethodNameMint:            &MethodMint{},
-				cabi.MethodNameIssue:           &MethodIssue{},
-				cabi.MethodNameBurn:            &MethodBurn{},
-				cabi.MethodNameTransferOwner:   &MethodTransferOwner{},
-				cabi.MethodNameChangeTokenType: &MethodChangeTokenType{},
+				cabi.MethodNameMint:            &MethodMint{cabi.MethodNameMint},
+				cabi.MethodNameIssue:           &MethodIssue{cabi.MethodNameIssue},
+				cabi.MethodNameBurn:            &MethodBurn{cabi.MethodNameBurn},
+				cabi.MethodNameTransferOwner:   &MethodTransferOwner{cabi.MethodNameTransferOwner},
+				cabi.MethodNameChangeTokenType: &MethodChangeTokenType{cabi.MethodNameChangeTokenType},
 			},
 			cabi.ABIMintage,
 		},
@@ -89,40 +90,40 @@ func newSimpleContracts() map[types.Address]*builtinContract {
 }
 func newDexContracts() map[types.Address]*builtinContract {
 	contracts := newSimpleContracts()
-	contracts[types.AddressPledge].m[cabi.MethodNameAgentPledge] = &MethodAgentPledge{}
-	contracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledge] = &MethodAgentCancelPledge{}
-	contracts[types.AddressMintage].m[cabi.MethodNameGetTokenInfo] = &MethodGetTokenInfo{}
+	contracts[types.AddressPledge].m[cabi.MethodNameAgentPledge] = &MethodAgentPledge{cabi.MethodNameAgentPledge}
+	contracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledge] = &MethodAgentCancelPledge{cabi.MethodNameAgentCancelPledge}
+	contracts[types.AddressMintage].m[cabi.MethodNameGetTokenInfo] = &MethodGetTokenInfo{cabi.MethodNameGetTokenInfo}
 	contracts[types.AddressDexFund] = &builtinContract{
 		map[string]BuiltinContractMethod{
-			cabi.MethodNameDexFundUserDeposit:          &MethodDexFundUserDeposit{},
-			cabi.MethodNameDexFundUserWithdraw:         &MethodDexFundUserWithdraw{},
-			cabi.MethodNameDexFundNewMarket:            &MethodDexFundNewMarket{},
-			cabi.MethodNameDexFundNewOrder:             &MethodDexFundNewOrder{},
-			cabi.MethodNameDexFundSettleOrders:         &MethodDexFundSettleOrders{},
-			cabi.MethodNameDexFundPeriodJob:            &MethodDexFundPeriodJob{},
-			cabi.MethodNameDexFundPledgeForVx:          &MethodDexFundPledgeForVx{},
-			cabi.MethodNameDexFundPledgeForVip:         &MethodDexFundPledgeForVip{},
-			cabi.MethodNameDexFundPledgeCallback:       &MethodDexFundPledgeCallback{},
-			cabi.MethodNameDexFundCancelPledgeCallback: &MethodDexFundCancelPledgeCallback{},
-			cabi.MethodNameDexFundGetTokenInfoCallback: &MethodDexFundGetTokenInfoCallback{},
-			cabi.MethodNameDexFundOwnerConfig:          &MethodDexFundOwnerConfig{},
-			cabi.MethodNameDexFundOwnerConfigTrade:     &MethodDexFundOwnerConfigTrade{},
-			cabi.MethodNameDexFundMarketOwnerConfig:    &MethodDexFundMarketOwnerConfig{},
-			cabi.MethodNameDexFundTransferTokenOwner:   &MethodDexFundTransferTokenOwner{},
-			cabi.MethodNameDexFundNotifyTime:           &MethodDexFundNotifyTime{},
-			cabi.MethodNameDexFundNewInviter:           &MethodDexFundNewInviter{},
-			cabi.MethodNameDexFundBindInviteCode:       &MethodDexFundBindInviteCode{},
-			cabi.MethodNameDexFundEndorseVxMinePool:    &MethodDexFundEndorseVxMinePool{},
-			cabi.MethodNameDexFundSettleMakerMinedVx:   &MethodDexFundSettleMakerMinedVx{},
+			cabi.MethodNameDexFundUserDeposit:          &MethodDexFundUserDeposit{cabi.MethodNameDexFundUserDeposit},
+			cabi.MethodNameDexFundUserWithdraw:         &MethodDexFundUserWithdraw{cabi.MethodNameDexFundUserWithdraw},
+			cabi.MethodNameDexFundNewMarket:            &MethodDexFundNewMarket{cabi.MethodNameDexFundNewMarket},
+			cabi.MethodNameDexFundNewOrder:             &MethodDexFundNewOrder{cabi.MethodNameDexFundNewOrder},
+			cabi.MethodNameDexFundSettleOrders:         &MethodDexFundSettleOrders{cabi.MethodNameDexFundSettleOrders},
+			cabi.MethodNameDexFundPeriodJob:            &MethodDexFundPeriodJob{cabi.MethodNameDexFundPeriodJob},
+			cabi.MethodNameDexFundPledgeForVx:          &MethodDexFundPledgeForVx{cabi.MethodNameDexFundPledgeForVx},
+			cabi.MethodNameDexFundPledgeForVip:         &MethodDexFundPledgeForVip{cabi.MethodNameDexFundPledgeForVip},
+			cabi.MethodNameDexFundPledgeCallback:       &MethodDexFundPledgeCallback{cabi.MethodNameDexFundPledgeCallback},
+			cabi.MethodNameDexFundCancelPledgeCallback: &MethodDexFundCancelPledgeCallback{cabi.MethodNameDexFundCancelPledgeCallback},
+			cabi.MethodNameDexFundGetTokenInfoCallback: &MethodDexFundGetTokenInfoCallback{cabi.MethodNameDexFundGetTokenInfoCallback},
+			cabi.MethodNameDexFundOwnerConfig:          &MethodDexFundOwnerConfig{cabi.MethodNameDexFundOwnerConfig},
+			cabi.MethodNameDexFundOwnerConfigTrade:     &MethodDexFundOwnerConfigTrade{cabi.MethodNameDexFundOwnerConfigTrade},
+			cabi.MethodNameDexFundMarketOwnerConfig:    &MethodDexFundMarketOwnerConfig{cabi.MethodNameDexFundMarketOwnerConfig},
+			cabi.MethodNameDexFundTransferTokenOwner:   &MethodDexFundTransferTokenOwner{cabi.MethodNameDexFundTransferTokenOwner},
+			cabi.MethodNameDexFundNotifyTime:           &MethodDexFundNotifyTime{cabi.MethodNameDexFundNotifyTime},
+			cabi.MethodNameDexFundNewInviter:           &MethodDexFundNewInviter{cabi.MethodNameDexFundNewInviter},
+			cabi.MethodNameDexFundBindInviteCode:       &MethodDexFundBindInviteCode{cabi.MethodNameDexFundBindInviteCode},
+			cabi.MethodNameDexFundEndorseVxMinePool:    &MethodDexFundEndorseVxMinePool{cabi.MethodNameDexFundEndorseVxMinePool},
+			cabi.MethodNameDexFundSettleMakerMinedVx:   &MethodDexFundSettleMakerMinedVx{cabi.MethodNameDexFundSettleMakerMinedVx},
 		},
 		cabi.ABIDexFund,
 	}
 	contracts[types.AddressDexTrade] = &builtinContract{
 		map[string]BuiltinContractMethod{
-			cabi.MethodNameDexTradeNewOrder:          &MethodDexTradeNewOrder{},
-			cabi.MethodNameDexTradeCancelOrder:       &MethodDexTradeCancelOrder{},
-			cabi.MethodNameDexTradeNotifyNewMarket:   &MethodDexTradeNotifyNewMarket{},
-			cabi.MethodNameDexTradeCleanExpireOrders: &MethodDexTradeCleanExpireOrders{},
+			cabi.MethodNameDexTradeNewOrder:          &MethodDexTradeNewOrder{cabi.MethodNameDexTradeNewOrder},
+			cabi.MethodNameDexTradeCancelOrder:       &MethodDexTradeCancelOrder{cabi.MethodNameDexTradeCancelOrder},
+			cabi.MethodNameDexTradeNotifyNewMarket:   &MethodDexTradeNotifyNewMarket{cabi.MethodNameDexTradeNotifyNewMarket},
+			cabi.MethodNameDexTradeCleanExpireOrders: &MethodDexTradeCleanExpireOrders{cabi.MethodNameDexTradeCleanExpireOrders},
 		},
 		cabi.ABIDexTrade,
 	}
@@ -131,16 +132,36 @@ func newDexContracts() map[types.Address]*builtinContract {
 
 func newDexAgentContracts() map[types.Address]*builtinContract {
 	contracts := newDexContracts()
-	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundPledgeForSuperVip] = &MethodDexFundPledgeForSuperVip{}
-	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundConfigMarketsAgent] = &MethodDexFundConfigMarketsAgent{}
-	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundNewAgentOrder] = &MethodDexFundNewAgentOrder{}
-	contracts[types.AddressDexTrade].m[cabi.MethodNameDexTradeCancelOrderByHash] = &MethodDexTradeCancelOrderByHash{}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundPledgeForSuperVip] = &MethodDexFundPledgeForSuperVip{cabi.MethodNameDexFundPledgeForSuperVip}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundConfigMarketsAgent] = &MethodDexFundConfigMarketsAgent{cabi.MethodNameDexFundConfigMarketsAgent}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundNewAgentOrder] = &MethodDexFundNewAgentOrder{cabi.MethodNameDexFundNewAgentOrder}
+	contracts[types.AddressDexTrade].m[cabi.MethodNameDexTradeCancelOrderByHash] = &MethodDexTradeCancelOrderByHash{cabi.MethodNameDexTradeCancelOrderByHash}
+	return contracts
+}
+
+func newLeafContracts() map[types.Address]*builtinContract {
+	contracts := newDexAgentContracts()
+
+	contracts[types.AddressPledge].m[cabi.MethodNamePledgeV2] = &MethodPledge{cabi.MethodNamePledgeV2}
+	contracts[types.AddressPledge].m[cabi.MethodNameCancelPledgeV2] = &MethodCancelPledge{cabi.MethodNameCancelPledgeV2}
+	contracts[types.AddressPledge].m[cabi.MethodNameAgentPledgeV2] = &MethodAgentPledge{cabi.MethodNameAgentPledgeV2}
+	contracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledgeV2] = &MethodAgentCancelPledge{cabi.MethodNameAgentCancelPledgeV2}
+
+	contracts[types.AddressConsensusGroup].m[cabi.MethodNameCancelRegisterV2] = &MethodCancelRegister{cabi.MethodNameCancelRegisterV2}
+	contracts[types.AddressConsensusGroup].m[cabi.MethodNameRewardV2] = &MethodReward{cabi.MethodNameRewardV2}
+	contracts[types.AddressConsensusGroup].m[cabi.MethodNameCancelVoteV2] = &MethodCancelVote{cabi.MethodNameCancelVoteV2}
+
+	contracts[types.AddressMintage].m[cabi.MethodNameMintV2] = &MethodMint{cabi.MethodNameMintV2}
+	contracts[types.AddressMintage].m[cabi.MethodNameIssueV2] = &MethodIssue{cabi.MethodNameIssueV2}
+	contracts[types.AddressMintage].m[cabi.MethodNameTransferOwnerV2] = &MethodTransferOwner{cabi.MethodNameTransferOwnerV2}
 	return contracts
 }
 
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if fork.IsStemFork(sbHeight) {
+	if fork.IsLeafFork(sbHeight) {
+		contractsMap = leafContracts
+	} else if fork.IsStemFork(sbHeight) {
 		contractsMap = dexAgentContracts
 	} else if fork.IsDexFork(sbHeight) {
 		contractsMap = dexContracts

@@ -113,13 +113,15 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	}
 }
 
-func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo *MarketInfo) []byte {
+func OnNewMarketPending(db vm_db.VmDb, param *ParamDexFundNewMarket, marketInfo *MarketInfo) (data []byte, err error) {
 	SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
-	AddToPendingNewMarkets(db, param.TradeToken, param.QuoteToken)
-	if data, err := abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, param.TradeToken, uint8(GetTokenForNewMarket)); err != nil {
+	if err = AddToPendingNewMarkets(db, param.TradeToken, param.QuoteToken); err != nil {
+		return
+	}
+	if data, err = abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, param.TradeToken, uint8(GetTokenForNewMarket)); err != nil {
 		panic(err)
 	} else {
-		return data
+		return
 	}
 }
 
@@ -478,6 +480,14 @@ func MaxTotalFeeRate(order Order) int32 {
 		return takerRate
 	} else {
 		return makerRate
+	}
+}
+
+func IsDexFeeFork(db vm_db.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return fork.IsDexFeeFork(latestSb.Height)
 	}
 }
 

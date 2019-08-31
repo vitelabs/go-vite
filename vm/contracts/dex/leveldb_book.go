@@ -14,7 +14,9 @@ type levelDbBook struct {
 
 func getMakerBook(db vm_db.VmDb, marketId int32, side bool) (book *levelDbBook, err error) {
 	book = &levelDbBook{db: db, marketId: marketId, side: side}
-	book.iterator, err = db.NewStorageIterator(getBookPrefix(book))
+	if book.iterator, err = db.NewStorageIterator(getBookPrefix(book)); err != nil {
+		panic(err)
+	}
 	return
 }
 

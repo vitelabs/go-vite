@@ -12,22 +12,39 @@ import (
 const (
 	jsonPledge = `
 	[
-		{"type":"function","name":"Pledge", "inputs":[{"name":"beneficial","type":"address"}]},
-		{"type":"function","name":"CancelPledge","inputs":[{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"}]},
-		{"type":"function","name":"AgentPledge", "inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakeHeight","type":"uint64"}]},
-		{"type":"function","name":"AgentCancelPledge","inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
-		{"type":"callback","name":"AgentPledge","inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
-		{"type":"callback","name":"AgentCancelPledge","inputs":[{"name":"pledgeAddress","type":"address"},{"name":"beneficial","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"function","name":"Pledge", "inputs":[{"name":"beneficiary","type":"address"}]},
+		{"type":"function","name":"Stake", "inputs":[{"name":"beneficiary","type":"address"}]},
+
+		{"type":"function","name":"CancelPledge","inputs":[{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"}]},
+		{"type":"function","name":"CancelStaking","inputs":[{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"}]},
+
+		{"type":"function","name":"AgentPledge", "inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakingHeight","type":"uint64"}]},
+		{"type":"function","name":"DelegateStaking", "inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakingHeight","type":"uint64"}]},
+		
+		{"type":"function","name":"AgentCancelPledge","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
+		{"type":"function","name":"CancelDelegatedStaking","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
+
+		{"type":"callback","name":"AgentPledge","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"DelegateStaking","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+
+		{"type":"callback","name":"AgentCancelPledge","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"CancelDelegatedStaking","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+
 		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"beneficialAddr","type":"address"},{"name":"agent","type":"bool"},{"name":"agentAddress","type":"address"},{"name":"bid","type":"uint8"}]},
+
 		{"type":"variable","name":"pledgeBeneficial","inputs":[{"name":"amount","type":"uint256"}]}
 	]`
 
-	MethodNamePledge             = "Pledge"
-	MethodNameCancelPledge       = "CancelPledge"
-	MethodNameAgentPledge        = "AgentPledge"
-	MethodNameAgentCancelPledge  = "AgentCancelPledge"
-	VariableNamePledgeInfo       = "pledgeInfo"
-	VariableNamePledgeBeneficial = "pledgeBeneficial"
+	MethodNamePledge              = "Pledge"
+	MethodNamePledgeV2            = "Stake"
+	MethodNameCancelPledge        = "CancelPledge"
+	MethodNameCancelPledgeV2      = "CancelStaking"
+	MethodNameAgentPledge         = "AgentPledge"
+	MethodNameAgentPledgeV2       = "DelegateStaking"
+	MethodNameAgentCancelPledge   = "AgentCancelPledge"
+	MethodNameAgentCancelPledgeV2 = "CancelDelegatedStaking"
+	VariableNamePledgeInfo        = "pledgeInfo"
+	VariableNamePledgeBeneficial  = "pledgeBeneficial"
 )
 
 var (
@@ -39,27 +56,19 @@ type VariablePledgeBeneficial struct {
 	Amount *big.Int
 }
 type ParamCancelPledge struct {
-	Beneficial types.Address
-	Amount     *big.Int
+	Beneficiary types.Address
+	Amount      *big.Int
 }
 type ParamAgentPledge struct {
-	PledgeAddress types.Address
-	Beneficial    types.Address
-	Bid           uint8
-	StakeHeight   uint64
+	StakingAddress types.Address
+	Beneficiary    types.Address
+	Bid            uint8
+	StakingHeight  uint64
 }
 type ParamAgentCancelPledge struct {
-	PledgeAddress types.Address
-	Beneficial    types.Address
-	Amount        *big.Int
-	Bid           uint8
-}
-type PledgeInfo struct {
+	StakingAddress types.Address
+	Beneficiary    types.Address
 	Amount         *big.Int
-	WithdrawHeight uint64
-	BeneficialAddr types.Address
-	Agent          bool
-	AgentAddress   types.Address
 	Bid            uint8
 }
 
@@ -84,7 +93,7 @@ func GetIndexFromPledgeKey(key []byte) uint64 {
 	return new(big.Int).SetBytes(key[types.AddressSize:]).Uint64()
 }
 
-func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeInfo, *big.Int, error) {
+func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*types.PledgeInfo, *big.Int, error) {
 	if *db.Address() != types.AddressPledge {
 		return nil, nil, util.ErrAddressNotMatch
 	}
@@ -94,7 +103,7 @@ func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeI
 		return nil, nil, err
 	}
 	defer iterator.Release()
-	pledgeInfoList := make([]*PledgeInfo, 0)
+	pledgeInfoList := make([]*types.PledgeInfo, 0)
 	for {
 		if !iterator.Next() {
 			if iterator.Error() != nil {
@@ -105,7 +114,7 @@ func GetPledgeInfoList(db StorageDatabase, pledgeAddr types.Address) ([]*PledgeI
 		if !filterKeyValue(iterator.Key(), iterator.Value(), IsPledgeKey) {
 			continue
 		}
-		pledgeInfo := new(PledgeInfo)
+		pledgeInfo := new(types.PledgeInfo)
 		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err == nil &&
 			pledgeInfo.Amount != nil && pledgeInfo.Amount.Sign() > 0 {
 			pledgeInfoList = append(pledgeInfoList, pledgeInfo)
@@ -131,7 +140,7 @@ func GetPledgeBeneficialAmount(db StorageDatabase, beneficialAddr types.Address)
 	return amount.Amount, nil
 }
 
-func GetPledgeInfo(db StorageDatabase, pledgeAddr, beneficialAddr, agentAddr types.Address, agent bool, bid uint8) (*PledgeInfo, error) {
+func GetPledgeInfo(db StorageDatabase, pledgeAddr, beneficialAddr, agentAddr types.Address, agent bool, bid uint8) (*types.PledgeInfo, error) {
 	iterator, err := db.NewStorageIterator(GetPledgeKeyPrefix(pledgeAddr))
 	util.DealWithErr(err)
 	defer iterator.Release()
@@ -145,7 +154,7 @@ func GetPledgeInfo(db StorageDatabase, pledgeAddr, beneficialAddr, agentAddr typ
 		if !IsPledgeKey(iterator.Key()) {
 			continue
 		}
-		pledgeInfo := new(PledgeInfo)
+		pledgeInfo := new(types.PledgeInfo)
 		ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value())
 		if pledgeInfo.BeneficialAddr == beneficialAddr && pledgeInfo.Agent == agent &&
 			pledgeInfo.AgentAddress == agentAddr && pledgeInfo.Bid == bid {
@@ -153,4 +162,40 @@ func GetPledgeInfo(db StorageDatabase, pledgeAddr, beneficialAddr, agentAddr typ
 		}
 	}
 	return nil, nil
+}
+
+func GetPledgeListByPage(db StorageDatabase, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error) {
+	iterator, err := db.NewStorageIterator(nil)
+	util.DealWithErr(err)
+	defer iterator.Release()
+
+	if len(lastKey) > 0 {
+		ok := iterator.Seek(lastKey)
+		if !ok {
+			return nil, nil, nil
+		}
+	}
+	pledgeInfoList := make([]*types.PledgeInfo, 0, count)
+	for {
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, nil, iterator.Error()
+			}
+			break
+		}
+		if !IsPledgeKey(iterator.Key()) {
+			continue
+		}
+		pledgeInfo := new(types.PledgeInfo)
+		if err := ABIPledge.UnpackVariable(pledgeInfo, VariableNamePledgeInfo, iterator.Value()); err != nil {
+			continue
+		}
+		pledgeInfo.PledgeAddress = GetPledgeAddrFromPledgeKey(iterator.Key())
+		pledgeInfoList = append(pledgeInfoList, pledgeInfo)
+		count = count - 1
+		if count == 0 {
+			break
+		}
+	}
+	return pledgeInfoList, iterator.Key(), nil
 }

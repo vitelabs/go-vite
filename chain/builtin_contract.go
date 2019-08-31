@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -146,4 +147,25 @@ func (c *chain) GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error
 		return nil, cErr
 	}
 	return abi.GetTokenMap(sd)
+}
+
+func (c *chain) GetPledgeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressPledge)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
+		c.log.Error(cErr.Error(), "method", "GetPledgeAmountByPage")
+
+		return nil, nil, cErr
+	}
+	return abi.GetPledgeListByPage(sd, lastKey, count)
+}
+
+func (c *chain) GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.UserFund, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
+		c.log.Error(cErr.Error(), "method", "GetPledgeAmountByPage")
+		return nil, cErr
+	}
+	return dex.GetUserFundsByPage(sd, lastAddress, count)
 }
