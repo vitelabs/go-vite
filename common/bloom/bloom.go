@@ -27,7 +27,7 @@ import (
 // Filter implements a classic thread-safe Bloom filter. A Bloom filter has a non-zero
 // probability of false positives and a zero probability of false negatives.
 type Filter struct {
-	buckets []*Buckets  // filter data
+	buckets [2]*Buckets // filter data
 	hash    hash.Hash64 // hash function (kernel for all k functions)
 	m       uint        // filter size
 	k       uint        // number of hash functions
@@ -38,16 +38,13 @@ type Filter struct {
 // specified target false-positive rate.
 func New(n uint, fpRate float64) *Filter {
 	m := OptimalM(n, fpRate)
-	_m := m / 2
 	return &Filter{
-		buckets: []*Buckets{
-			NewBuckets(_m, 1),
-			NewBuckets(_m, 1),
-			NewBuckets(_m, 1),
-			NewBuckets(_m, 1),
+		buckets: [2]*Buckets{
+			NewBuckets(m, 1),
+			NewBuckets(m, 1),
 		},
 		hash: fnv.New64(),
-		m:    _m,
+		m:    m,
 		k:    OptimalK(fpRate),
 	}
 }
@@ -109,9 +106,7 @@ func (b *Filter) addHashUnlocked(lower, upper uint32) {
 	if b.buckets[0].FullRatio() > 0.8 {
 		temp := b.buckets[0]
 		b.buckets[0] = b.buckets[1]
-		b.buckets[1] = b.buckets[2]
-		b.buckets[2] = b.buckets[3]
-		b.buckets[3] = temp
+		b.buckets[1] = temp
 
 		b.buckets[0].Reset()
 	}

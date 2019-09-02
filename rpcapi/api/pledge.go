@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -9,7 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
-	"math"
 	"sort"
 )
 

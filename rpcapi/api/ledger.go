@@ -2,6 +2,9 @@ package api
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common/math"
+	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 	"strconv"
 	"time"
@@ -18,6 +21,7 @@ import (
 
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
 	api := &LedgerApi{
+		vite:  vite,
 		chain: vite.Chain(),
 		//signer:        vite.Signer(),
 		log: log15.New("module", "rpc_api/ledger_api"),
@@ -35,6 +39,7 @@ type GcStatus struct {
 }
 
 type LedgerApi struct {
+	vite  *vite.Vite
 	chain chain.Chain
 	log   log15.Logger
 }
@@ -96,10 +101,11 @@ func (l *LedgerApi) GetRawBlockByHash(blockHash types.Hash) (*ledger.AccountBloc
 	return l.chain.GetAccountBlockByHash(blockHash)
 }
 
-func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
+// new api
+func (l *LedgerApi) GetAccountBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
 	block, getError := l.chain.GetAccountBlockByHash(blockHash)
 	if getError != nil {
-		l.log.Error("GetAccountBlockByHash failed, error is "+getError.Error(), "method", "GetBlockByHash")
+		l.log.Error("GetAccountBlockByHash failed, error is "+getError.Error(), "method", "GetAccountBlockByHash")
 
 		return nil, getError
 	}
@@ -108,6 +114,11 @@ func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) 
 	}
 
 	return l.ledgerBlockToRpcBlock(block)
+}
+
+// old api
+func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
+	return l.GetAccountBlockByHash(blockHash)
 }
 
 func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
@@ -125,57 +136,64 @@ func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock,
 	return l.ledgerBlockToRpcBlock(block)
 }
 
-func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
-	l.log.Info("GetBlocksByHash")
+// new api
+func (l *LedgerApi) GetAccountBlocks(addr types.Address, originBlockHash *types.Hash, tokenTypeId *types.TokenTypeId, count uint64) ([]*AccountBlock, error) {
+	if tokenTypeId == nil {
+		if originBlockHash == nil {
+			block, err := l.chain.GetLatestAccountBlock(addr)
+			if err != nil {
+				return nil, err
+			}
+			if block != nil {
+				originBlockHash = &block.Hash
+			}
+		}
 
-	if originBlockHash == nil {
-		block, err := l.chain.GetLatestAccountBlock(addr)
+		if originBlockHash == nil {
+			return nil, nil
+		}
+
+		list, getError := l.chain.GetAccountBlocks(*originBlockHash, count)
+		if getError != nil {
+			return nil, getError
+		}
+
+		if blocks, err := l.ledgerBlocksToRpcBlocks(list); err != nil {
+			l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetAccountBlocks")
+			return nil, err
+		} else {
+			return blocks, nil
+		}
+	} else {
+		if count == 0 {
+			return nil, nil
+		}
+		plugins := l.chain.Plugins()
+		if plugins == nil {
+			err := errors.New("config.OpenPlugins is false, api can't work")
+			return nil, err
+		}
+
+		plugin := plugins.GetPlugin("filterToken").(*chain_plugins.FilterToken)
+
+		blocks, err := plugin.GetBlocks(addr, *tokenTypeId, originBlockHash, count)
 		if err != nil {
 			return nil, err
 		}
-		if block != nil {
-			originBlockHash = &block.Hash
-		}
-	}
 
-	if originBlockHash == nil {
-		return nil, nil
+		return l.ledgerBlocksToRpcBlocks(blocks)
 	}
+}
 
-	list, getError := l.chain.GetAccountBlocks(*originBlockHash, count)
-	if getError != nil {
-		return nil, getError
-	}
-
-	if blocks, err := l.ledgerBlocksToRpcBlocks(list); err != nil {
-		l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetBlocksByHash")
-		return nil, err
-	} else {
-		return blocks, nil
-	}
+// old api
+func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
+	return l.GetAccountBlocks(addr, originBlockHash, nil, count)
 
 }
 
 // in token
 func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *types.Hash, tokenTypeId types.TokenTypeId, count uint64) ([]*AccountBlock, error) {
-	l.log.Info("GetBlocksByHashInToken")
-	if count == 0 {
-		return nil, nil
-	}
-	plugins := l.chain.Plugins()
-	if plugins == nil {
-		err := errors.New("config.OpenPlugins is false, api can't work")
-		return nil, err
-	}
-
-	plugin := plugins.GetPlugin("filterToken").(*chain_plugins.FilterToken)
-
-	blocks, err := plugin.GetBlocks(addr, tokenTypeId, originBlockHash, count)
-	if err != nil {
-		return nil, err
-	}
-
-	return l.ledgerBlocksToRpcBlocks(blocks)
+	return l.GetAccountBlocks(addr, originBlockHash, &tokenTypeId, count)
 }
 
 func (l *LedgerApi) GetSnapshotBlockBeforeTime(timestamp int64) (*SnapshotBlock, error) {
@@ -219,7 +237,8 @@ func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height interface{}, co
 	return l.ledgerBlocksToRpcBlocks(accountBlocks)
 }
 
-func (l *LedgerApi) GetBlockByHeight(addr types.Address, height interface{}) (*AccountBlock, error) {
+// new api
+func (l *LedgerApi) GetAccountBlockByHeight(addr types.Address, height interface{}) (*AccountBlock, error) {
 	heightUint64, err := parseHeight(height)
 	if err != nil {
 		return nil, err
@@ -227,7 +246,7 @@ func (l *LedgerApi) GetBlockByHeight(addr types.Address, height interface{}) (*A
 
 	accountBlock, err := l.chain.GetAccountBlockByHeight(addr, heightUint64)
 	if err != nil {
-		l.log.Error("GetAccountBlockByHeight failed, error is "+err.Error(), "method", "GetBlockByHeight")
+		l.log.Error("GetAccountBlockByHeight failed, error is "+err.Error(), "method", "GetAccountBlockByHeight")
 		return nil, err
 	}
 
@@ -237,12 +256,18 @@ func (l *LedgerApi) GetBlockByHeight(addr types.Address, height interface{}) (*A
 	return l.ledgerBlockToRpcBlock(accountBlock)
 }
 
-func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
-	l.log.Info("GetBlocksByAccAddr")
+// old api
+func (l *LedgerApi) GetBlockByHeight(addr types.Address, height interface{}) (*AccountBlock, error) {
+	return l.GetAccountBlockByHeight(addr, height)
+}
+
+// new api
+func (l *LedgerApi) GetAccountBlocksByAddress(addr types.Address, index int, count int) ([]*AccountBlock, error) {
+	l.log.Info("GetAccountBlocksByAddress")
 
 	height, err := l.chain.GetLatestAccountHeight(addr)
 	if err != nil {
-		l.log.Error(fmt.Sprintf("GetLatestAccountHeight, addr is %s", addr), "err", err)
+		l.log.Error(fmt.Sprintf("GetLatestAccountHeight, addr is %s", addr), "err", err, "method", "GetAccountBlocksByAddress")
 		return nil, err
 	}
 
@@ -254,24 +279,29 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int)
 	list, getErr := l.chain.GetAccountBlocksByHeight(addr, height-num, uint64(count))
 
 	if getErr != nil {
-		l.log.Info("GetBlocksByAccAddr", "err", getErr)
+		l.log.Info("GetBlocksByAccAddr", "err", getErr, "method", "GetAccountBlocksByAddress")
 		return nil, getErr
 	}
 
 	if blocks, err := l.ledgerBlocksToRpcBlocks(list); err != nil {
-		l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetBlocksByAccAddr")
+		l.log.Error("GetConfirmTimes failed, error is "+err.Error(), "method", "GetAccountBlocksByAddress")
 		return nil, err
 	} else {
 		return blocks, nil
 	}
 }
 
-func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
-	l.log.Info("GetAccountByAccAddr")
+// old api
+func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
+	return l.GetAccountBlocksByAddress(addr, index, count)
+}
 
+// new api
+func (l *LedgerApi) GetAccountInfoByAddress(addr types.Address) (*RpcAccountInfo, error) {
+	l.log.Info("GetAccountInfoByAddress")
 	latestAccountBlock, err := l.chain.GetLatestAccountBlock(addr)
 	if err != nil {
-		l.log.Error("GetLatestAccountBlock failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
+		l.log.Error("GetLatestAccountBlock failed, error is "+err.Error(), "method", "GetAccountInfoByAddress")
 		return nil, err
 	}
 
@@ -282,7 +312,7 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 
 	balanceMap, err := l.chain.GetBalanceMap(addr)
 	if err != nil {
-		l.log.Error("GetAccountBalance failed, error is "+err.Error(), "method", "GetAccountByAccAddr")
+		l.log.Error("GetAccountBalance failed, error is "+err.Error(), "method", "GetAccountInfoByAddress")
 		return nil, err
 	}
 
@@ -306,6 +336,11 @@ func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, er
 	}
 
 	return rpcAccount, nil
+}
+
+// old api
+func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
+	return l.GetAccountInfoByAddress(addr)
 }
 
 func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*SnapshotBlock, error) {
@@ -375,9 +410,15 @@ func (l *LedgerApi) GetSnapshotChainHeight() string {
 	return strconv.FormatUint(l.chain.GetLatestSnapshotBlock().Height, 10)
 }
 
-func (l *LedgerApi) GetLatestSnapshotChainHash() *types.Hash {
-	l.log.Info("GetLatestSnapshotChainHash")
+// new api
+func (l *LedgerApi) GetLatestSnapshotHash() *types.Hash {
+	l.log.Info("GetLatestSnapshotHash")
 	return &l.chain.GetLatestSnapshotBlock().Hash
+}
+
+// old api
+func (l *LedgerApi) GetLatestSnapshotChainHash() *types.Hash {
+	return l.GetLatestSnapshotHash()
 }
 
 func (l *LedgerApi) GetLatestSnapshotBlock() (*SnapshotBlock, error) {
@@ -385,11 +426,12 @@ func (l *LedgerApi) GetLatestSnapshotBlock() (*SnapshotBlock, error) {
 	return l.ledgerSnapshotBlockToRpcBlock(block)
 }
 
-func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
-	l.log.Info("GetLatestBlock")
+// new api
+func (l *LedgerApi) GetLatestAccountBlock(addr types.Address) (*AccountBlock, error) {
+	l.log.Info("GetLatestAccountBlock")
 	block, getError := l.chain.GetLatestAccountBlock(addr)
 	if getError != nil {
-		l.log.Error("GetLatestAccountBlock failed, error is "+getError.Error(), "method", "GetLatestBlock")
+		l.log.Error("GetLatestAccountBlock failed, error is "+getError.Error(), "method", "GetLatestAccountBlock")
 		return nil, getError
 	}
 
@@ -400,7 +442,13 @@ func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 	return l.ledgerBlockToRpcBlock(block)
 }
 
-func (l *LedgerApi) GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error) {
+// old api
+func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
+	return l.GetLatestAccountBlock(addr)
+}
+
+// new api
+func (l *LedgerApi) GetVmLogs(blockHash types.Hash) (ledger.VmLogList, error) {
 	block, err := l.chain.GetAccountBlockByHash(blockHash)
 	if block == nil {
 		if err != nil {
@@ -410,6 +458,90 @@ func (l *LedgerApi) GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error)
 	}
 
 	return l.chain.GetVmLogList(block.LogHash)
+}
+
+// old api
+func (l *LedgerApi) GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error) {
+	return l.GetVmLogs(blockHash)
+}
+
+// new api
+func (l *LedgerApi) SendRawTransaction(block *AccountBlock) error {
+
+	if block == nil {
+		return errors.New("empty block")
+	}
+	if !checkTxToAddressAvailable(block.ToAddress) {
+		return errors.New("ToAddress is invalid")
+	}
+	lb, err := block.RpcToLedgerBlock()
+	if err != nil {
+		return err
+	}
+	if err := checkTokenIdValid(l.chain, &lb.TokenId); err != nil {
+		return err
+	}
+	latestSb := l.chain.GetLatestSnapshotBlock()
+	if latestSb == nil {
+		return errors.New("failed to get latest snapshotBlock")
+	}
+	if err := checkSnapshotValid(latestSb); err != nil {
+		return err
+	}
+	if lb.ToAddress == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(lb.Data) {
+		return dex.InvalidOrderPriceErr
+	}
+
+	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(l.chain, l.vite.Consensus()))
+	err = v.VerifyNetAb(lb)
+	if err != nil {
+		return err
+	}
+	result, err := v.VerifyRPCAccBlock(lb, latestSb)
+	if err != nil {
+		return err
+	}
+
+	if result != nil {
+		return l.vite.Pool().AddDirectAccountBlock(result.AccountBlock.AccountAddress, result)
+	} else {
+		return errors.New("generator gen an empty block")
+	}
+}
+
+// new api
+func (l *LedgerApi) GetUnreceivedBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
+	if count > math.MaxUint16+1 {
+		return nil, errors.New(fmt.Sprintf("maximum number per page allowed is %d", math.MaxUint16+1))
+	}
+
+	blockList, err := l.chain.GetOnRoadBlocksByAddr(address, int(index), int(count))
+	if err != nil {
+		return nil, err
+	}
+	a := make([]*AccountBlock, len(blockList))
+	sum := 0
+	for k, v := range blockList {
+		if v != nil {
+			accountBlock, e := ledgerToRpcBlock(l.chain, v)
+			if e != nil {
+				return nil, e
+			}
+			a[k] = accountBlock
+			sum++
+		}
+	}
+	return a[:sum], nil
+}
+
+// new api
+func (l *LedgerApi) GetUnreceivedTransactionSummaryByAddress(address types.Address) (*RpcAccountInfo, error) {
+	info, e := l.chain.GetAccountOnRoadInfo(address)
+	if e != nil || info == nil {
+		return nil, e
+	}
+	r := onroadInfoToRpcAccountInfo(l.chain, info)
+	return r, nil
 }
 
 func (l *LedgerApi) GetSeed(snapshotHash types.Hash, fromHash types.Hash) (uint64, error) {
