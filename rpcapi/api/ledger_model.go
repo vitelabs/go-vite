@@ -219,7 +219,7 @@ func (block *AccountBlock) ComputeHash() (*types.Hash, error) {
 
 func (block *AccountBlock) addExtraInfo(chain chain.Chain) error {
 
-	// TokenInfo
+	// RpcTokenInfo
 	if block.TokenId != types.ZERO_TOKENID {
 		token, _ := chain.GetTokenInfoById(block.TokenId)
 		block.TokenInfo = RawTokenInfoToRpc(token, block.TokenId)
@@ -385,22 +385,43 @@ type RpcAccountInfo struct {
 
 type RpcTokenBalanceInfo struct {
 	TokenInfo   *RpcTokenInfo `json:"tokenInfo,omitempty"`
-	TotalAmount string        `json:"totalAmount"`      // big int
-	Number      *string       `json:"number,omitempty"` // uint64
+	TotalAmount string        `json:"totalAmount"`
+	Number      *string       `json:"number,omitempty"`
+}
+
+type AccountInfo struct {
+	Address        types.Address                      `json:"address"`
+	BlockCount     string                             `json:"blockCount"`
+	BalanceInfoMap map[types.TokenTypeId]*BalanceInfo `json:"balanceInfo,omitempty"`
+}
+
+type BalanceInfo struct {
+	TokenInfo        *RpcTokenInfo `json:"tokenInfo,omitempty"`
+	Balance          string        `json:"balance"`                    // big int
+	TransactionCount *string       `json:"transactionCount,omitempty"` // uint64
 }
 
 type RpcTokenInfo struct {
-	TokenName       string            `json:"tokenName"`
-	TokenSymbol     string            `json:"tokenSymbol"`
-	TotalSupply     *string           `json:"totalSupply,omitempty"` // *big.Int
-	Decimals        uint8             `json:"decimals"`
-	Owner           types.Address     `json:"owner"`
-	TokenId         types.TokenTypeId `json:"tokenId"`
-	MaxSupply       *string           `json:"maxSupply"`     // *big.Int
-	OwnerBurnOnly   bool              `json:"ownerBurnOnly"` // Deprecated: use isOwnerBurnOnly field instead
-	IsOwnerBurnOnly bool              `json:"isOwnerBurnOnly"`
-	IsReIssuable    bool              `json:"isReIssuable"`
-	Index           uint16            `json:"index"`
+	TokenName     string            `json:"tokenName"`
+	TokenSymbol   string            `json:"tokenSymbol"`
+	TotalSupply   *string           `json:"totalSupply,omitempty"` // *big.Int
+	Decimals      uint8             `json:"decimals"`
+	Owner         types.Address     `json:"owner"`
+	TokenId       types.TokenTypeId `json:"tokenId"`
+	MaxSupply     *string           `json:"maxSupply"`     // *big.Int
+	OwnerBurnOnly bool              `json:"ownerBurnOnly"` // Deprecated: use IsOwnerBurnOnly instead
+	IsReIssuable  bool              `json:"isReIssuable"`
+	Index         uint16            `json:"index"`
+
+	// mainnet new
+	IsOwnerBurnOnly bool `json:"isOwnerBurnOnly"`
+}
+
+type PagingQueryBatch struct {
+	Address types.Address `json:"address"`
+
+	PageNumber uint64 `json:"pageNumber"`
+	PageCount  uint64 `json:"pageCount"`
 }
 
 func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
@@ -428,6 +449,64 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 		}
 	}
 	return rt
+}
+
+func ToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *RpcAccountInfo {
+	if info == nil {
+		return nil
+	}
+	var r RpcAccountInfo
+	r.AccountAddress = info.AccountAddress
+	r.TotalNumber = strconv.FormatUint(info.TotalNumber, 10)
+	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
+
+	for tti, v := range info.TokenBalanceInfoMap {
+		if v != nil {
+			tinfo, _ := chain.GetTokenInfoById(tti)
+			if tinfo == nil {
+				continue
+			}
+			b := &RpcTokenBalanceInfo{
+				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
+				TotalAmount: v.TotalAmount.String(),
+			}
+			if v.Number > 0 {
+				number := strconv.FormatUint(v.Number, 10)
+				b.Number = &number
+			}
+			r.TokenBalanceInfoMap[tti] = b
+		}
+	}
+	return &r
+}
+
+func ToAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *AccountInfo {
+	if info == nil {
+		return nil
+	}
+	var r AccountInfo
+	r.Address = info.AccountAddress
+	r.BlockCount = strconv.FormatUint(info.TotalNumber, 10)
+	r.BalanceInfoMap = make(map[types.TokenTypeId]*BalanceInfo)
+
+	for tti, v := range info.TokenBalanceInfoMap {
+		if v != nil {
+			tinfo, _ := chain.GetTokenInfoById(tti)
+			if tinfo == nil {
+				continue
+			}
+			b := &BalanceInfo{
+				TokenInfo: RawTokenInfoToRpc(tinfo, tti),
+				Balance:   v.TotalAmount.String(),
+			}
+			if v.Number > 0 {
+				number := strconv.FormatUint(v.Number, 10)
+				b.TransactionCount = &number
+			}
+			r.BalanceInfoMap[tti] = b
+		}
+	}
+	return &r
 }
 
 type TxParam interface {

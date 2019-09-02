@@ -32,6 +32,7 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Public:    false,
 		}
 		// public  WS HTTP IPC
+
 	case "pow":
 		return rpc.API{
 			Namespace: "pow",
@@ -187,6 +188,13 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Version:   "1.0",
 			Service:   api.NewDataApi(vite),
 			Public:    true,
+		}
+	case "ledgerdebug":
+		return rpc.API{
+			Namespace: "ledgerdebug",
+			Version:   "1.0",
+			Service:   api.NewLedgerDebugApi(vite),
+			Public:    false,
 		}
 	default:
 		return rpc.API{}

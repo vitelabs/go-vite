@@ -53,12 +53,12 @@ var (
 	initAmount        = "100000000000000000000000"
 )
 
-type AccountInfo struct {
+type accountInfo struct {
 	Addr       types.Address `json:"address"`
 	PrivateKey string        `json:"privateKey"`
 }
 
-func (v *VmDebugApi) Init() (*AccountInfo, error) {
+func (v *VmDebugApi) Init() (*accountInfo, error) {
 	// check genesis account status
 
 	prevBlock, err := v.vite.Chain().GetLatestAccountBlock(*v.vite.Config().GenesisAccountAddress)
@@ -86,7 +86,7 @@ func (v *VmDebugApi) Init() (*AccountInfo, error) {
 	return v.NewAccount()
 }
 
-func (v *VmDebugApi) NewAccount() (*AccountInfo, error) {
+func (v *VmDebugApi) NewAccount() (*accountInfo, error) {
 	// create new user account
 	response, err := v.wallet.NewMnemonicAndEntropyStore(defaultPassphrase)
 	if err != nil {
@@ -105,7 +105,7 @@ func (v *VmDebugApi) NewAccount() (*AccountInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	acc := AccountInfo{
+	acc := accountInfo{
 		Addr:       response.PrimaryAddr,
 		PrivateKey: hex.EncodeToString(privateKey),
 	}
@@ -160,14 +160,14 @@ func (v *VmDebugApi) CreateContract(param CreateContractParam) ([]*CreateContrac
 		return nil, err
 	}
 	// init and get test account
-	var testAccount *AccountInfo
+	var testAccount *accountInfo
 	if param.AccountAddr == nil || len(v.accountMap[*param.AccountAddr]) == 0 {
 		testAccount, err = v.Init()
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		testAccount = &AccountInfo{*param.AccountAddr, v.accountMap[*param.AccountAddr]}
+		testAccount = &accountInfo{*param.AccountAddr, v.accountMap[*param.AccountAddr]}
 	}
 
 	resultList := make([]*CreateContractResult, 0)
