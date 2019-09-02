@@ -11,9 +11,9 @@ import (
 // OnroadApi ...
 type OnroadApi interface {
 	GetOnroadBlocksByAddress(address types.Address, index, count uint64) ([]*api.AccountBlock, error)
-	GetOnroadInfoByAddress(address types.Address) (*api.RpcAccountInfo, error)
+	GetOnroadInfoByAddress(address types.Address) (*api.AccountInfo, error)
 	GetOnroadBlocksInBatch(queryList []api.OnroadPagingQuery) (map[types.Address][]*api.AccountBlock, error)
-	GetOnroadInfoInBatch(addrList []types.Address) ([]*api.RpcAccountInfo, error)
+	GetOnroadInfoInBatch(addrList []types.Address) ([]*api.AccountInfo, error)
 	GetContractOnRoadFrontBlocks(addr types.Address, gid *types.Gid) ([]*api.AccountBlock, error)
 }
 
@@ -30,8 +30,8 @@ func (oi onroadApi) GetOnroadBlocksByAddress(address types.Address, index, count
 	return
 }
 
-func (oi onroadApi) GetOnroadInfoByAddress(address types.Address) (info *api.RpcAccountInfo, err error) {
-	info = &api.RpcAccountInfo{}
+func (oi onroadApi) GetOnroadInfoByAddress(address types.Address) (info *api.AccountInfo, err error) {
+	info = &api.AccountInfo{}
 	err = oi.cc.Call(info, "onroad_getOnroadInfoByAddress", address)
 	return
 }
@@ -42,7 +42,7 @@ func (oi onroadApi) GetOnroadBlocksInBatch(queryList []api.OnroadPagingQuery) (r
 	return
 }
 
-func (oi onroadApi) GetOnroadInfoInBatch(addrList []types.Address) (infos []*api.RpcAccountInfo, err error) {
+func (oi onroadApi) GetOnroadInfoInBatch(addrList []types.Address) (infos []*api.AccountInfo, err error) {
 	err = oi.cc.Call(&infos, "onroad_getOnroadInfoInBatch", addrList)
 	return
 }

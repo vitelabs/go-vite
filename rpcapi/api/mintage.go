@@ -88,11 +88,11 @@ func (m *MintageApi) GetChangeTokenTypeData(tokenId types.TokenTypeId) ([]byte, 
 }
 
 type TokenInfoList struct {
-	Count int             `json:"totalCount"`
-	List  []*RpcTokenInfo `json:"tokenInfoList"`
+	Count int          `json:"totalCount"`
+	List  []*TokenInfo `json:"tokenInfoList"`
 }
 
-type byName []*RpcTokenInfo
+type byName []*TokenInfo
 
 func (a byName) Len() int      { return len(a) }
 func (a byName) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
@@ -114,7 +114,7 @@ func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, err
 		return nil, err
 	}
 	listLen := len(tokenMap)
-	tokenList := make([]*RpcTokenInfo, 0)
+	tokenList := make([]*TokenInfo, 0)
 	for tokenId, tokenInfo := range tokenMap {
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
 	}
@@ -132,7 +132,7 @@ func (m *ContractApi) GetTokenInfoList(index int, count int) (*TokenInfoList, er
 		return nil, err
 	}
 	listLen := len(tokenMap)
-	tokenList := make([]*RpcTokenInfo, 0)
+	tokenList := make([]*TokenInfo, 0)
 	for tokenId, tokenInfo := range tokenMap {
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
 	}
@@ -142,7 +142,7 @@ func (m *ContractApi) GetTokenInfoList(index int, count int) (*TokenInfoList, er
 }
 
 // Deprecated: use contract_getTokenInfoById instead
-func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
+func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*TokenInfo, error) {
 	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
@@ -156,7 +156,7 @@ func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo,
 	}
 	return nil, nil
 }
-func (m *ContractApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
+func (m *ContractApi) GetTokenInfoById(tokenId types.TokenTypeId) (*TokenInfo, error) {
 	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
@@ -172,7 +172,7 @@ func (m *ContractApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo
 }
 
 // Deprecated: use contract_getTokenInfoListByOwner
-func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
+func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*TokenInfo, error) {
 	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
@@ -181,13 +181,13 @@ func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenIn
 	if err != nil {
 		return nil, err
 	}
-	tokenList := make([]*RpcTokenInfo, 0)
+	tokenList := make([]*TokenInfo, 0)
 	for tokenId, tokenInfo := range tokenMap {
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
 	}
 	return checkGenesisToken(db, owner, m.vite.Config().MintageInfo.TokenInfoMap, tokenList)
 }
-func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
+func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*TokenInfo, error) {
 	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
@@ -196,14 +196,14 @@ func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenI
 	if err != nil {
 		return nil, err
 	}
-	tokenList := make([]*RpcTokenInfo, 0)
+	tokenList := make([]*TokenInfo, 0)
 	for tokenId, tokenInfo := range tokenMap {
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
 	}
 	return checkGenesisToken(db, owner, m.vite.Config().MintageInfo.TokenInfoMap, tokenList)
 }
 
-func checkGenesisToken(db vm_db.VmDb, owner types.Address, genesisTokenInfoMap map[string]config.TokenInfo, tokenList []*RpcTokenInfo) ([]*RpcTokenInfo, error) {
+func checkGenesisToken(db vm_db.VmDb, owner types.Address, genesisTokenInfoMap map[string]config.TokenInfo, tokenList []*TokenInfo) ([]*TokenInfo, error) {
 	for tidStr, _ := range genesisTokenInfoMap {
 		tid, _ := types.HexToTokenTypeId(tidStr)
 		info, err := abi.GetTokenById(db, tid)

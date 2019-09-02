@@ -16,27 +16,27 @@ type DummyBlock struct {
 
 func TestJson(t *testing.T) {
 
-	m := make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
+	m := make(map[types.TokenTypeId]*BalanceInfo)
 	id := types.CreateTokenTypeId([]byte{1, 3, 4})
 	totalSupply := "10000"
-	pledgeAmount := "10000"
+	/*	pledgeAmount := "10000"*/
 	number := "10000"
 	addresses, _, _ := types.CreateAddress()
 
-	m[id] = &RpcTokenBalanceInfo{
-		TokenInfo: &RpcTokenInfo{
+	m[id] = &BalanceInfo{
+		TokenInfo: &TokenInfo{
 			TokenName:      "as",
 			TokenSymbol:    "aa",
 			TotalSupply:    &totalSupply,
 			Decimals:       19,
 			Owner:          addresses,
-			PledgeAmount:   &pledgeAmount,
-			WithdrawHeight: "12",
+			/*			PledgeAmount:   &pledgeAmount,
+						WithdrawHeight: "12",*/
 		},
 		TotalAmount: "132",
 		Number:      &number,
 	}
-	r := RpcAccountInfo{
+	r := AccountInfo{
 		AccountAddress:      addresses,
 		TotalNumber:         "433",
 		TokenBalanceInfoMap: m,

@@ -48,7 +48,7 @@ type AccountBlock struct {
 	SendBlockList []*AccountBlock `json:"sendBlockList"`
 
 	// extra info below
-	TokenInfo *RpcTokenInfo `json:"tokenInfo"`
+	TokenInfo *TokenInfo `json:"tokenInfo"`
 
 	ConfirmedTimes *string     `json:"confirmedTimes"`
 	ConfirmedHash  *types.Hash `json:"confirmedHash"`
@@ -297,36 +297,48 @@ func ledgerToRpcBlock(chain chain.Chain, lAb *ledger.AccountBlock) (*AccountBloc
 	return rpcBlock, nil
 }
 
-type RpcAccountInfo struct {
-	AccountAddress      types.Address                              `json:"accountAddress"`
-	TotalNumber         string                                     `json:"totalNumber"` // uint64
-	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:"tokenBalanceInfoMap,omitempty"`
+// AccountInfo<-RpcAccountInfo
+type AccountInfo struct {
+	AccountAddress      types.Address                      `json:"accountAddress"`
+	TotalNumber         string                             `json:"totalNumber"`                   // uint64
+	TokenBalanceInfoMap map[types.TokenTypeId]*BalanceInfo `json:"tokenBalanceInfoMap,omitempty"` // Deprecated: use BalanceInfoMap instead
+
+	// mainnet new
+	BalanceInfoMap map[types.TokenTypeId]*BalanceInfo `json:"balanceInfo,omitempty"`
 }
 
-type RpcTokenBalanceInfo struct {
-	TokenInfo   *RpcTokenInfo `json:"tokenInfo,omitempty"`
-	TotalAmount string        `json:"totalAmount"`      // big int
-	Number      *string       `json:"number,omitempty"` // uint64
+// BalanceInfo<-RpcTokenBalanceInfo
+type BalanceInfo struct {
+	TokenInfo   *TokenInfo `json:"tokenInfo,omitempty"`
+	TotalAmount string     `json:"totalAmount"`      // Deprecated: use Balance instead
+	Number      *string    `json:"number,omitempty"` // Deprecated: use TransactionCount instead
+
+	// mainnet new
+	Balance          string  `json:"balance,omitempty"`          // big int
+	TransactionCount *string `json:"transactionCount,omitempty"` // uint64
 }
 
-type RpcTokenInfo struct {
-	TokenName       string            `json:"tokenName"`
-	TokenSymbol     string            `json:"tokenSymbol"`
-	TotalSupply     *string           `json:"totalSupply,omitempty"` // *big.Int
-	Decimals        uint8             `json:"decimals"`
-	Owner           types.Address     `json:"owner"`
-	TokenId         types.TokenTypeId `json:"tokenId"`
-	MaxSupply       *string           `json:"maxSupply"`     // *big.Int
-	OwnerBurnOnly   bool              `json:"ownerBurnOnly"` // Deprecated: use isOwnerBurnOnly field instead
-	IsOwnerBurnOnly bool              `json:"isOwnerBurnOnly"`
-	IsReIssuable    bool              `json:"isReIssuable"`
-	Index           uint16            `json:"index"`
+// TokenInfo<-TokenInfo
+type TokenInfo struct {
+	TokenName     string            `json:"tokenName"`
+	TokenSymbol   string            `json:"tokenSymbol"`
+	TotalSupply   *string           `json:"totalSupply,omitempty"` // *big.Int
+	Decimals      uint8             `json:"decimals"`
+	Owner         types.Address     `json:"owner"`
+	TokenId       types.TokenTypeId `json:"tokenId"`
+	MaxSupply     *string           `json:"maxSupply"`     // *big.Int
+	OwnerBurnOnly bool              `json:"ownerBurnOnly"` // Deprecated: use IsOwnerBurnOnly instead
+	IsReIssuable  bool              `json:"isReIssuable"`
+	Index         uint16            `json:"index"`
+
+	// mainnet new
+	IsOwnerBurnOnly bool `json:"isOwnerBurnOnly"`
 }
 
-func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
-	var rt *RpcTokenInfo = nil
+func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *TokenInfo {
+	var rt *TokenInfo = nil
 	if tinfo != nil {
-		rt = &RpcTokenInfo{
+		rt = &TokenInfo{
 			TokenName:       tinfo.TokenName,
 			TokenSymbol:     tinfo.TokenSymbol,
 			TotalSupply:     nil,
@@ -348,6 +360,35 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 		}
 	}
 	return rt
+}
+
+func AccountInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *AccountInfo {
+	if info == nil {
+		return nil
+	}
+	var r AccountInfo
+	r.AccountAddress = info.AccountAddress
+	r.TotalNumber = strconv.FormatUint(info.TotalNumber, 10)
+	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*BalanceInfo)
+	r.BalanceInfoMap = make(map[types.TokenTypeId]*BalanceInfo)
+
+	for tti, v := range info.TokenBalanceInfoMap {
+		if v != nil {
+			number := strconv.FormatUint(v.Number, 10)
+			tinfo, _ := chain.GetTokenInfoById(tti)
+			b := &BalanceInfo{
+				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
+				TotalAmount: v.TotalAmount.String(),
+				Number:      &number,
+
+				Balance:          v.TotalAmount.String(),
+				TransactionCount: &number,
+			}
+			r.TokenBalanceInfoMap[tti] = b
+			r.BalanceInfoMap[tti] = b
+		}
+	}
+	return &r
 }
 
 type TxParam interface {

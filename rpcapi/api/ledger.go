@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
@@ -101,11 +100,10 @@ func (l *LedgerApi) GetRawBlockByHash(blockHash types.Hash) (*ledger.AccountBloc
 	return l.chain.GetAccountBlockByHash(blockHash)
 }
 
-// new api
-func (l *LedgerApi) GetAccountBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
+func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
 	block, getError := l.chain.GetAccountBlockByHash(blockHash)
 	if getError != nil {
-		l.log.Error("GetAccountBlockByHash failed, error is "+getError.Error(), "method", "GetAccountBlockByHash")
+		l.log.Error("GetAccountBlockByHash failed, error is "+getError.Error(), "method", "GetBlockByHash")
 
 		return nil, getError
 	}
@@ -114,11 +112,6 @@ func (l *LedgerApi) GetAccountBlockByHash(blockHash types.Hash) (*AccountBlock, 
 	}
 
 	return l.ledgerBlockToRpcBlock(block)
-}
-
-// old api
-func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
-	return l.GetAccountBlockByHash(blockHash)
 }
 
 func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
@@ -297,7 +290,7 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int)
 }
 
 // new api
-func (l *LedgerApi) GetAccountInfoByAddress(addr types.Address) (*RpcAccountInfo, error) {
+func (l *LedgerApi) GetAccountInfoByAddress(addr types.Address) (*AccountInfo, error) {
 	l.log.Info("GetAccountInfoByAddress")
 	latestAccountBlock, err := l.chain.GetLatestAccountBlock(addr)
 	if err != nil {
@@ -316,30 +309,34 @@ func (l *LedgerApi) GetAccountInfoByAddress(addr types.Address) (*RpcAccountInfo
 		return nil, err
 	}
 
-	tokenBalanceInfoMap := make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
+	tokenBalanceInfoMap := make(map[types.TokenTypeId]*BalanceInfo)
 	for tokenId, amount := range balanceMap {
 		token, _ := l.chain.GetTokenInfoById(tokenId)
 		if token == nil {
 			continue
 		}
-		tokenBalanceInfoMap[tokenId] = &RpcTokenBalanceInfo{
+		tokenBalanceInfoMap[tokenId] = &BalanceInfo{
 			TokenInfo:   RawTokenInfoToRpc(token, tokenId),
 			TotalAmount: amount.String(),
 			Number:      nil,
+
+			Balance:          amount.String(),
+			TransactionCount: nil,
 		}
 	}
 
-	rpcAccount := &RpcAccountInfo{
+	rpcAccount := &AccountInfo{
 		AccountAddress:      addr,
 		TotalNumber:         strconv.FormatUint(totalNum, 10),
 		TokenBalanceInfoMap: tokenBalanceInfoMap,
+		BalanceInfoMap:      tokenBalanceInfoMap,
 	}
 
 	return rpcAccount, nil
 }
 
 // old api
-func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
+func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*AccountInfo, error) {
 	return l.GetAccountInfoByAddress(addr)
 }
 
@@ -509,11 +506,10 @@ func (l *LedgerApi) SendRawTransaction(block *AccountBlock) error {
 	}
 }
 
-// new api
+// new api: ledger_getUnreceivedBlocksByAddress <- onroad_getOnroadBlocksByAddress
 func (l *LedgerApi) GetUnreceivedBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
-	if count > math.MaxUint16+1 {
-		return nil, errors.New(fmt.Sprintf("maximum number per page allowed is %d", math.MaxUint16+1))
-	}
+
+	log.Info("GetUnreceivedBlocksByAddress", "addr", address, "index", index, "count", count)
 
 	blockList, err := l.chain.GetOnRoadBlocksByAddr(address, int(index), int(count))
 	if err != nil {
@@ -521,27 +517,29 @@ func (l *LedgerApi) GetUnreceivedBlocksByAddress(address types.Address, index, c
 	}
 	a := make([]*AccountBlock, len(blockList))
 	sum := 0
-	for k, v := range blockList {
+	for _, v := range blockList {
 		if v != nil {
 			accountBlock, e := ledgerToRpcBlock(l.chain, v)
 			if e != nil {
 				return nil, e
 			}
-			a[k] = accountBlock
+			a[sum] = accountBlock
 			sum++
 		}
 	}
 	return a[:sum], nil
 }
 
-// new api
-func (l *LedgerApi) GetUnreceivedTransactionSummaryByAddress(address types.Address) (*RpcAccountInfo, error) {
+// new api: ledger_getUnreceivedTransactionSummaryByAddress <- onroad_getOnroadInfoByAddress
+func (l *LedgerApi) GetUnreceivedTransactionSummaryByAddress(address types.Address) (*AccountInfo, error) {
+
+	log.Info("GetUnreceivedTransactionSummaryByAddress", "addr", address)
+
 	info, e := l.chain.GetAccountOnRoadInfo(address)
 	if e != nil || info == nil {
 		return nil, e
 	}
-	r := onroadInfoToRpcAccountInfo(l.chain, info)
-	return r, nil
+	return AccountInfoToRpcAccountInfo(l.chain, info), nil
 }
 
 func (l *LedgerApi) GetSeed(snapshotHash types.Hash, fromHash types.Hash) (uint64, error) {

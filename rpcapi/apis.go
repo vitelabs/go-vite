@@ -32,6 +32,15 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Public:    false,
 		}
 		// public  WS HTTP IPC
+
+	case "unreceived":
+		return rpc.API{
+			Namespace: "unreceived",
+			Version:   "1.0",
+			Service:   api.NewUnreceivedApi(vite),
+			Public:    false,
+		}
+		// public  WS HTTP IPC
 	case "pow":
 		return rpc.API{
 			Namespace: "pow",

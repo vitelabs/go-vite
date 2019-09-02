@@ -47,7 +47,7 @@ type Client interface {
 	BuildRequestCreateContractBlock(params RequestCreateContractParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
 	BuildResponseBlock(params ResponseTxParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, *big.Int, error)
-	GetBalanceAll(addr types.Address) (*api.RpcAccountInfo, *api.RpcAccountInfo, error)
+	GetBalanceAll(addr types.Address) (*api.AccountInfo, *api.AccountInfo, error)
 	SignData(wallet *entropystore.Manager, block *api.AccountBlock) error
 	SignDataWithPriKey(key *derivation.Key, block *api.AccountBlock) error
 }
@@ -203,20 +203,31 @@ func (c *client) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big
 	balance := big.NewInt(0)
 	onroad := big.NewInt(0)
 
-	if allBalance.TokenBalanceInfoMap != nil {
-		if info, ok := allBalance.TokenBalanceInfoMap[tokenId]; ok {
+	/*	if allBalance.TokenBalanceInfoMap != nil {
+			if info, ok := allBalance.TokenBalanceInfoMap[tokenId]; ok {
+				balance.SetString(info.TotalAmount, 10)
+			}
+		}
+		if allOnroad.TokenBalanceInfoMap != nil {
+			if info, ok := allOnroad.TokenBalanceInfoMap[tokenId]; ok {
+				onroad.SetString(info.TotalAmount, 10)
+			}
+		}*/
+
+	if allBalance.BalanceInfoMap != nil {
+		if info, ok := allBalance.BalanceInfoMap[tokenId]; ok {
 			balance.SetString(info.TotalAmount, 10)
 		}
 	}
-	if allOnroad.TokenBalanceInfoMap != nil {
-		if info, ok := allOnroad.TokenBalanceInfoMap[tokenId]; ok {
+	if allOnroad.BalanceInfoMap != nil {
+		if info, ok := allOnroad.BalanceInfoMap[tokenId]; ok {
 			onroad.SetString(info.TotalAmount, 10)
 		}
 	}
 	return balance, onroad, err
 }
 
-func (c *client) GetBalanceAll(addr types.Address) (*api.RpcAccountInfo, *api.RpcAccountInfo, error) {
+func (c *client) GetBalanceAll(addr types.Address) (*api.AccountInfo, *api.AccountInfo, error) {
 	allBalance, err := c.rpc.GetAccountByAccAddr(addr)
 	if err != nil {
 		return nil, nil, err

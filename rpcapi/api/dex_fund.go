@@ -34,9 +34,9 @@ func (f DexFundApi) String() string {
 }
 
 type AccountFundInfo struct {
-	TokenInfo *RpcTokenInfo `json:"tokenInfo,omitempty"`
-	Available string        `json:"available"`
-	Locked    string        `json:"locked"`
+	TokenInfo *TokenInfo `json:"tokenInfo,omitempty"`
+	Available string     `json:"available"`
+	Locked    string     `json:"locked"`
 }
 
 func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenTypeId) (map[types.TokenTypeId]*AccountFundInfo, error) {
