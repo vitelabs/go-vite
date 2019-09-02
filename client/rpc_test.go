@@ -1,5 +1,14 @@
 package client
 
+import (
+	"fmt"
+	"math/big"
+	"testing"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+)
+
 var RawUrl = "http://127.0.0.1:48133"
 
 //var RawUrl = "http://118.25.182.202:48132"
@@ -260,3 +269,45 @@ var RawUrl = "http://127.0.0.1:48133"
 //	byt, _ := json.Marshal(bs)
 //	t.Log(string(byt))
 //}
+
+func Test_GetConfirmedBalances(t *testing.T) {
+	rpc, err := NewRpcClient(RawUrl)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	shash := types.HexToHashPanic("25e11b16de62fe5863266cac3c318cf603759a647049672fdb9db5524cc26282")
+	gids := []types.TokenTypeId{ledger.ViteTokenId}
+
+	data := []string{
+		"vite_002f27f64a3e52b8ff62b28c4bb52441cb7d7dcf038032a52f",
+		"vite_0033e7c54bd8bc63a4885aa194c15cb6d20465dc035cdab3a2",
+		"vite_0065513a57258a84af95a438cf04efbb2071734cf29dabd7df",
+		"vite_01b0cb6e49a9e1a86b76562a46f406efcf0ed14d31f9cc68a8",
+		"vite_01c92aba4b6e5278e9c4b9fdd559bc9fe7ead97b30a2f55de5",
+		"vite_02473e87c77ab8891dda88797764f960379c81b2380b749959",
+		"vite_ffe984e5754cfcb852920147fcd931832d85f051363f50aee4",
+	}
+
+	var addrList []types.Address
+
+	for _, v := range data {
+		addrList = append(addrList, types.HexToAddressPanic(v))
+	}
+
+	balancesRes, err := rpc.GetConfirmedBalances(shash, addrList, gids)
+	if err != nil {
+		panic(err)
+	}
+	total := big.NewInt(0)
+	for k, v := range balancesRes {
+		for kk, vv := range v {
+			fmt.Println(k, kk, vv.String())
+			total.Add(total, vv)
+		}
+	}
+
+	fmt.Println("total", total)
+
+}
