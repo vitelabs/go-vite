@@ -100,10 +100,11 @@ func (l *LedgerApi) GetRawBlockByHash(blockHash types.Hash) (*ledger.AccountBloc
 	return l.chain.GetAccountBlockByHash(blockHash)
 }
 
-func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
+// new api
+func (l *LedgerApi) GetAccountBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
 	block, getError := l.chain.GetAccountBlockByHash(blockHash)
 	if getError != nil {
-		l.log.Error("GetAccountBlockByHash failed, error is "+getError.Error(), "method", "GetBlockByHash")
+		l.log.Error("GetAccountBlockByHash failed, error is "+getError.Error(), "method", "GetAccountBlockByHash")
 
 		return nil, getError
 	}
@@ -112,6 +113,11 @@ func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) 
 	}
 
 	return l.ledgerBlockToRpcBlock(block)
+}
+
+// old api
+func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
+	return l.GetAccountBlockByHash(blockHash)
 }
 
 func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
