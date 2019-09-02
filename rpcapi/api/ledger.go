@@ -548,6 +548,48 @@ func (l *LedgerApi) GetUnreceivedTransactionSummaryByAddress(address types.Addre
 	return AccountInfoToRpcAccountInfo(l.chain, info), nil
 }
 
+// new api: ledger_getUnreceivedBlocksInBatch <- onroad_getOnroadBlocksInBatch
+func (l *LedgerApi) GetUnreceivedBlocksInBatch(queryList []PagingQueryBatch) (map[types.Address][]*AccountBlock, error) {
+	resultMap := make(map[types.Address][]*AccountBlock)
+	for _, q := range queryList {
+		if l, ok := resultMap[q.Address]; ok && l != nil {
+			continue
+		}
+		blockList, err := l.GetUnreceivedBlocksByAddress(q.Address, q.PageNumber, q.PageCount)
+		if err != nil {
+			return nil, err
+		}
+		if len(blockList) <= 0 {
+			continue
+		}
+		resultMap[q.Address] = blockList
+	}
+	return resultMap, nil
+}
+
+// new api:  ledger_getUnreceivedTransactionSummaryInBatch <-  onroad_getOnroadInfoInBatch
+func (l *LedgerApi) GetUnreceivedTransactionSummaryInBatch(addressList []types.Address) ([]*AccountInfo, error) {
+
+	// Remove duplicate
+	addrMap := make(map[types.Address]bool, 0)
+	for _, v := range addressList {
+		addrMap[v] = true
+	}
+
+	resultList := make([]*AccountInfo, 0)
+	for addr, _ := range addrMap {
+		info, err := l.GetUnreceivedTransactionSummaryByAddress(addr)
+		if err != nil {
+			return nil, err
+		}
+		if info == nil {
+			continue
+		}
+		resultList = append(resultList, info)
+	}
+	return resultList, nil
+}
+
 func (l *LedgerApi) GetSeed(snapshotHash types.Hash, fromHash types.Hash) (uint64, error) {
 	sb, err := l.chain.GetSnapshotBlockByHash(snapshotHash)
 	if err != nil {

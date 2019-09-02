@@ -335,6 +335,13 @@ type TokenInfo struct {
 	IsOwnerBurnOnly bool `json:"isOwnerBurnOnly"`
 }
 
+type PagingQueryBatch struct {
+	Address types.Address `json:"address"`
+
+	PageNumber uint64 `json:"pageNumber"`
+	PageCount  uint64 `json:"pageCount"`
+}
+
 func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *TokenInfo {
 	var rt *TokenInfo = nil
 	if tinfo != nil {

@@ -35,12 +35,12 @@ func (pub PublicOnroadApi) GetOnroadInfoByAddress(address types.Address) (*Accou
 }
 
 type PrivateOnroadApi struct {
-	unreceivedApi *UnreceivedApi
+	ledgerApi *LedgerApi
 }
 
 func NewPrivateOnroadApi(vite *vite.Vite) *PrivateOnroadApi {
 	return &PrivateOnroadApi{
-		unreceivedApi: NewUnreceivedApi(vite),
+		ledgerApi: NewLedgerApi(vite),
 	}
 }
 
@@ -50,12 +50,12 @@ func (pri PrivateOnroadApi) String() string {
 
 // Deprecated: to use ledger_getUnreceivedBlocksByAddress instead
 func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
-	return pri.unreceivedApi.ledgerApi.GetUnreceivedBlocksByAddress(address, index, count)
+	return pri.ledgerApi.GetUnreceivedBlocksByAddress(address, index, count)
 }
 
 // Deprecated: to use ledger_getUnreceivedTransactionSummaryByAddress instead
 func (pri PrivateOnroadApi) GetOnroadInfoByAddress(address types.Address) (*AccountInfo, error) {
-	return pri.unreceivedApi.ledgerApi.GetUnreceivedTransactionSummaryByAddress(address)
+	return pri.ledgerApi.GetUnreceivedTransactionSummaryByAddress(address)
 }
 
 type OnroadPagingQuery struct {
@@ -67,28 +67,18 @@ type OnroadPagingQuery struct {
 
 // Deprecated: to use unreceived_getUnreceivedBlocksInBatch instead
 func (pri PrivateOnroadApi) GetOnroadBlocksInBatch(queryList []OnroadPagingQuery) (map[types.Address][]*AccountBlock, error) {
-	querys := make([]UnreceivedPagingQuery, 0)
+	querys := make([]PagingQueryBatch, 0)
 	for _, v := range queryList {
-		querys = append(querys, UnreceivedPagingQuery{
+		querys = append(querys, PagingQueryBatch{
 			Address:    v.Addr,
 			PageNumber: v.PageNum,
 			PageCount:  v.PageCount,
 		})
 	}
-	return pri.unreceivedApi.GetUnreceivedBlocksInBatch(querys)
+	return pri.ledgerApi.GetUnreceivedBlocksInBatch(querys)
 }
 
 // Deprecated: to use unreceived_getUnreceivedTransactionSummaryInBatch instead
 func (pri PrivateOnroadApi) GetOnroadInfoInBatch(addrList []types.Address) ([]*AccountInfo, error) {
-	return pri.unreceivedApi.GetUnreceivedTransactionSummaryInBatch(addrList)
-}
-
-// Deprecated: to use unreceived_getContractUnreceivedTransactionCount instead
-func (pri PrivateOnroadApi) GetContractOnRoadTotalNum(addr types.Address, gid *types.Gid) (uint64, error) {
-	return pri.unreceivedApi.GetContractUnreceivedTransactionCount(addr, gid)
-}
-
-// Deprecated: to use unreceived_getContractUnreceivedFrontBlocks instead
-func (pri PrivateOnroadApi) GetContractOnRoadFrontBlocks(addr types.Address, gid *types.Gid) ([]*AccountBlock, error) {
-	return pri.unreceivedApi.GetContractUnreceivedFrontBlocks(addr, gid)
+	return pri.ledgerApi.GetUnreceivedTransactionSummaryInBatch(addrList)
 }
