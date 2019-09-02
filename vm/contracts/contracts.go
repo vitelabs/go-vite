@@ -147,12 +147,13 @@ func newLeafContracts() map[types.Address]*builtinContract {
 	contracts[types.AddressPledge].m[cabi.MethodNameAgentPledgeV2] = &MethodAgentPledge{cabi.MethodNameAgentPledgeV2}
 	contracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledgeV2] = &MethodAgentCancelPledge{cabi.MethodNameAgentCancelPledgeV2}
 
+	contracts[types.AddressConsensusGroup].m[cabi.MethodNameUpdateRegistrationV2] = &MethodCancelRegister{cabi.MethodNameUpdateRegistrationV2}
 	contracts[types.AddressConsensusGroup].m[cabi.MethodNameCancelRegisterV2] = &MethodCancelRegister{cabi.MethodNameCancelRegisterV2}
 	contracts[types.AddressConsensusGroup].m[cabi.MethodNameRewardV2] = &MethodReward{cabi.MethodNameRewardV2}
-	contracts[types.AddressConsensusGroup].m[cabi.MethodNameCancelVoteV2] = &MethodCancelVote{cabi.MethodNameCancelVoteV2}
 
 	contracts[types.AddressMintage].m[cabi.MethodNameMintV2] = &MethodMint{cabi.MethodNameMintV2}
 	contracts[types.AddressMintage].m[cabi.MethodNameIssueV2] = &MethodIssue{cabi.MethodNameIssueV2}
+	contracts[types.AddressMintage].m[cabi.MethodNameChangeTokenTypeV2] = &MethodIssue{cabi.MethodNameChangeTokenTypeV2}
 	contracts[types.AddressMintage].m[cabi.MethodNameTransferOwnerV2] = &MethodTransferOwner{cabi.MethodNameTransferOwnerV2}
 	return contracts
 }

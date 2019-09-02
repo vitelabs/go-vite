@@ -554,12 +554,10 @@ func ToFilterParam(rangeMap map[string]*Range, topics [][]types.Hash) (*FilterPa
 }
 
 type Logs struct {
-	Log              *ledger.VmLog  `json:"log"`
+	Log              *ledger.VmLog  `json:"vmLog"`
 	AccountBlockHash types.Hash     `json:"accountBlockHash"`
 	AccountHeight    string         `json:"accountHeight"`
-	Addr             *types.Address `json:"addr"`
-	Address          *types.Address `json:"address"`
-	Removed          bool           `json:"removed"`
+	Addr             *types.Address `json:"address"`
 }
 
 func (l *LedgerApi) GetVmLogsByFilter(param VmLogFilterParam) ([]*Logs, error) {
@@ -605,7 +603,7 @@ func GetLogs(c chain.Chain, rangeMap map[string]*Range, topics [][]types.Hash) (
 					}
 					for _, l := range list {
 						if FilterLog(filterParam, l) {
-							logs = append(logs, &Logs{l, blocks[i-1].Hash, Uint64ToString(blocks[i-1].Height), &addr, &addr, false})
+							logs = append(logs, &Logs{l, blocks[i-1].Hash, Uint64ToString(blocks[i-1].Height), &addr})
 						}
 					}
 				}

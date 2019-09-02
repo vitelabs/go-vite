@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi/api"
@@ -23,7 +24,7 @@ type filter struct {
 	s                *RpcSubscription
 	blocks           []*AccountBlock
 	blocksWithHeight []*AccountBlockWithHeight
-	logs             []*api.Logs
+	logs             []*Logs
 	snapshotBlocks   []*SnapshotBlock
 	onroadMsgs       []*OnroadMsg
 }
@@ -99,6 +100,14 @@ type SnapshotBlock struct {
 	Height    uint64     `json:"height"` // Deprecated
 	HeightStr string     `json:"heightStr"`
 	Removed   bool       `json:"removed"`
+}
+
+type Logs struct {
+	Log              *ledger.VmLog  `json:"log"`
+	AccountBlockHash types.Hash     `json:"accountBlockHash"`
+	AccountHeight    string         `json:"accountHeight"`
+	Addr             *types.Address `json:"addr"`
+	Removed          bool           `json:"removed"`
 }
 
 // Deprecated: use subscribe_createSnapshotBlockFilter instead
@@ -271,7 +280,7 @@ func (s *SubscribeApi) createVmLogFilter(rangeMap map[string]*api.Range, topics 
 		return "", err
 	}
 	var (
-		logsCh  = make(chan []*api.Logs)
+		logsCh  = make(chan []*Logs)
 		logsSub = s.eventSystem.SubscribeLogs(p, logsCh)
 	)
 
@@ -325,8 +334,8 @@ type AccountBlocksWithHeightMsg struct {
 }
 
 type LogsMsg struct {
-	Logs []*api.Logs `json:"result"`
-	Id   rpc.ID      `json:"subscription"`
+	Logs []*Logs `json:"result"`
+	Id   rpc.ID  `json:"subscription"`
 }
 
 type OnroadBlocksMsg struct {
@@ -545,7 +554,7 @@ func (s *SubscribeApi) createVmLogSubscription(ctx context.Context, rangeMap map
 	rpcSub := notifier.CreateSubscription()
 
 	go func() {
-		logsMsg := make(chan []*api.Logs, 128)
+		logsMsg := make(chan []*Logs, 128)
 		sub := s.eventSystem.SubscribeLogs(p, logsMsg)
 
 		for {
@@ -565,6 +574,14 @@ func (s *SubscribeApi) createVmLogSubscription(ctx context.Context, rangeMap map
 }
 
 // Deprecated: use ledger_getVmLogsByFilter instead
-func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*api.Logs, error) {
-	return api.GetLogs(s.vite.Chain(), param.AddrRange, param.Topics)
+func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
+	logs, err := api.GetLogs(s.vite.Chain(), param.AddrRange, param.Topics)
+	if err != nil {
+		return nil, err
+	}
+	resultList := make([]*Logs, len(logs))
+	for i, l := range logs {
+		resultList[i] = &Logs{l.Log, l.AccountBlockHash, l.AccountHeight, l.Addr, false}
+	}
+	return resultList, nil
 }
