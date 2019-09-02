@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/hex"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
+	"math"
 	"sort"
 )
 
@@ -161,31 +161,6 @@ func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*Pl
 	return &PledgeInfoList{*bigIntToString(amount), len(list), targetList}, nil
 }
 
-type GetStakingListByPageResult struct {
-	StakingInfoList []*StakeInfo `json:"list"`
-	LastKey         string       `json:"lastKey"`
-}
-
-func (p *ContractApi) GetStakingListByPage(snapshotHash types.Hash, lastKey string, count uint64) (*GetStakingListByPageResult, error) {
-	lastKeyBytes, err := hex.DecodeString(lastKey)
-	if err != nil {
-		return nil, err
-	}
-	list, lastKeyBytes, err := p.chain.GetPledgeListByPage(snapshotHash, lastKeyBytes, count)
-	if err != nil {
-		return nil, err
-	}
-	targetList := make([]*StakeInfo, len(list))
-	snapshotBlock := p.chain.GetLatestSnapshotBlock()
-	if err != nil {
-		return nil, err
-	}
-	for i, info := range list {
-		targetList[i] = NewStakeInfo(info.PledgeAddress, info, snapshotBlock)
-	}
-	return &GetStakingListByPageResult{targetList, hex.EncodeToString(lastKeyBytes)}, nil
-}
-
 // Deprecated: use contract_getBeneficialStakingAmount instead
 func (p *PledgeApi) GetPledgeBeneficialAmount(addr types.Address) (string, error) {
 	amount, err := p.chain.GetPledgeBeneficialAmount(addr)
@@ -210,7 +185,8 @@ func (p *PledgeApi) GetPledgeAmountByUtps(utps string) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	amount, err := quota.CalcPledgeAmountByUtps(utpfF)
+	q := uint64(math.Ceil(utpfF * float64(quota.QuotaForUtps)))
+	amount, err := quota.CalcPledgeAmountByQuota(q)
 	if err != nil {
 		return nil, err
 	}

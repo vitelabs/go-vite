@@ -117,11 +117,10 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	return vm.NewVM(nil).OffChainReader(db, codeBytes, param.Data)
 }
 
-// TODO
 type QuotaInfo struct {
-	CurrentUt   string  `json:"currentUt"`
-	Utpe        string  `json:"utpe"`
-	StakeAmount *string `json:"stakeAmount"`
+	CurrentQuota string  `json:"currentQuota"`
+	MaxQuota     string  `json:"maxQuota"`
+	StakeAmount  *string `json:"stakeAmount"`
 }
 
 func (p *ContractApi) GetQuotaByAccount(addr types.Address) (*QuotaInfo, error) {
@@ -130,9 +129,9 @@ func (p *ContractApi) GetQuotaByAccount(addr types.Address) (*QuotaInfo, error) 
 		return nil, err
 	}
 	return &QuotaInfo{
-		CurrentUt:   Float64ToString(float64(q.Current())/float64(quota.QuotaForUtps), 4),
-		Utpe:        Float64ToString(float64(q.PledgeQuotaPerSnapshotBlock()*util.OneRound)/float64(quota.QuotaForUtps), 4),
-		StakeAmount: bigIntToString(amount)}, nil
+		CurrentQuota: Uint64ToString(q.Current()),
+		MaxQuota:     Uint64ToString(q.PledgeQuotaPerSnapshotBlock() * util.OneRound),
+		StakeAmount:  bigIntToString(amount)}, nil
 }
 
 type StakeInfoList struct {
@@ -192,12 +191,12 @@ func (p *ContractApi) GetStakeList(address types.Address, pageIndex int, pageSiz
 	return &StakeInfoList{*bigIntToString(amount), len(list), targetList}, nil
 }
 
-func (p *ContractApi) GetRequiredStakeAmount(utps string) (*string, error) {
-	utpfF, err := StringToFloat64(utps)
+func (p *ContractApi) GetRequiredStakeAmount(qStr string) (*string, error) {
+	q, err := StringToUint64(qStr)
 	if err != nil {
 		return nil, err
 	}
-	amount, err := quota.CalcPledgeAmountByUtps(utpfF)
+	amount, err := quota.CalcPledgeAmountByQuota(q)
 	if err != nil {
 		return nil, err
 	}
@@ -540,4 +539,29 @@ func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenI
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
 	}
 	return checkGenesisToken(db, owner, m.vite.Config().MintageInfo.TokenInfoMap, tokenList)
+}
+
+type StakeInfoListBySearchKey struct {
+	StakingInfoList []*StakeInfo `json:"stakeList"`
+	LastKey         string       `json:"lastSearchKey"`
+}
+
+func (p *ContractApi) GetStakeListBySearchKey(snapshotHash types.Hash, lastKey string, size uint64) (*StakeInfoListBySearchKey, error) {
+	lastKeyBytes, err := hex.DecodeString(lastKey)
+	if err != nil {
+		return nil, err
+	}
+	list, lastKeyBytes, err := p.chain.GetPledgeListByPage(snapshotHash, lastKeyBytes, size)
+	if err != nil {
+		return nil, err
+	}
+	targetList := make([]*StakeInfo, len(list))
+	snapshotBlock := p.chain.GetLatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	for i, info := range list {
+		targetList[i] = NewStakeInfo(info.PledgeAddress, info, snapshotBlock)
+	}
+	return &StakeInfoListBySearchKey{targetList, hex.EncodeToString(lastKeyBytes)}, nil
 }
