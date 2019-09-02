@@ -296,7 +296,7 @@ func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int)
 }
 
 // new api
-func (l *LedgerApi) GetAccountInfoByAddress(addr types.Address) (*AccountInfo, error) {
+func (l *LedgerApi) GetAccountInfoByAddress(addr types.Address) (*RpcAccountInfo, error) {
 	l.log.Info("GetAccountInfoByAddress")
 	latestAccountBlock, err := l.chain.GetLatestAccountBlock(addr)
 	if err != nil {
@@ -315,13 +315,13 @@ func (l *LedgerApi) GetAccountInfoByAddress(addr types.Address) (*AccountInfo, e
 		return nil, err
 	}
 
-	tokenBalanceInfoMap := make(map[types.TokenTypeId]*BalanceInfo)
+	tokenBalanceInfoMap := make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 	for tokenId, amount := range balanceMap {
 		token, _ := l.chain.GetTokenInfoById(tokenId)
 		if token == nil {
 			continue
 		}
-		tokenBalanceInfoMap[tokenId] = &BalanceInfo{
+		tokenBalanceInfoMap[tokenId] = &RpcTokenBalanceInfo{
 			TokenInfo:   RawTokenInfoToRpc(token, tokenId),
 			TotalAmount: amount.String(),
 			Number:      nil,
@@ -331,7 +331,7 @@ func (l *LedgerApi) GetAccountInfoByAddress(addr types.Address) (*AccountInfo, e
 		}
 	}
 
-	rpcAccount := &AccountInfo{
+	rpcAccount := &RpcAccountInfo{
 		AccountAddress:      addr,
 		TotalNumber:         strconv.FormatUint(totalNum, 10),
 		TokenBalanceInfoMap: tokenBalanceInfoMap,
@@ -342,7 +342,7 @@ func (l *LedgerApi) GetAccountInfoByAddress(addr types.Address) (*AccountInfo, e
 }
 
 // old api
-func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*AccountInfo, error) {
+func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
 	return l.GetAccountInfoByAddress(addr)
 }
 
@@ -537,7 +537,7 @@ func (l *LedgerApi) GetUnreceivedBlocksByAddress(address types.Address, index, c
 }
 
 // new api: ledger_getUnreceivedTransactionSummaryByAddress <- onroad_getOnroadInfoByAddress
-func (l *LedgerApi) GetUnreceivedTransactionSummaryByAddress(address types.Address) (*AccountInfo, error) {
+func (l *LedgerApi) GetUnreceivedTransactionSummaryByAddress(address types.Address) (*RpcAccountInfo, error) {
 
 	log.Info("GetUnreceivedTransactionSummaryByAddress", "addr", address)
 
@@ -568,7 +568,7 @@ func (l *LedgerApi) GetUnreceivedBlocksInBatch(queryList []PagingQueryBatch) (ma
 }
 
 // new api:  ledger_getUnreceivedTransactionSummaryInBatch <-  onroad_getOnroadInfoInBatch
-func (l *LedgerApi) GetUnreceivedTransactionSummaryInBatch(addressList []types.Address) ([]*AccountInfo, error) {
+func (l *LedgerApi) GetUnreceivedTransactionSummaryInBatch(addressList []types.Address) ([]*RpcAccountInfo, error) {
 
 	// Remove duplicate
 	addrMap := make(map[types.Address]bool, 0)
@@ -576,7 +576,7 @@ func (l *LedgerApi) GetUnreceivedTransactionSummaryInBatch(addressList []types.A
 		addrMap[v] = true
 	}
 
-	resultList := make([]*AccountInfo, 0)
+	resultList := make([]*RpcAccountInfo, 0)
 	for addr, _ := range addrMap {
 		info, err := l.GetUnreceivedTransactionSummaryByAddress(addr)
 		if err != nil {

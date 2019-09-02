@@ -19,7 +19,7 @@ type LedgerApi interface {
 	GetBlocksByHeight(addr types.Address, height interface{}, count uint64) ([]*api.AccountBlock, error)
 	GetBlockByHeight(addr types.Address, height interface{}) (*api.AccountBlock, error)
 	GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*api.AccountBlock, error)
-	GetAccountByAccAddr(addr types.Address) (*api.AccountInfo, error)
+	GetAccountByAccAddr(addr types.Address) (*api.RpcAccountInfo, error)
 	GetSnapshotBlockByHash(hash types.Hash) (*api.SnapshotBlock, error)
 	GetSnapshotBlockByHeight(height interface{}) (*api.SnapshotBlock, error)
 	GetSnapshotBlocks(height interface{}, count int) ([]*api.SnapshotBlock, error)
@@ -83,8 +83,8 @@ func (li ledgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int)
 	return
 }
 
-func (li ledgerApi) GetAccountByAccAddr(addr types.Address) (block *api.AccountInfo, err error) {
-	block = &api.AccountInfo{}
+func (li ledgerApi) GetAccountByAccAddr(addr types.Address) (block *api.RpcAccountInfo, err error) {
+	block = &api.RpcAccountInfo{}
 	err = li.cc.Call(block, "ledger_getAccountByAccAddr", addr)
 	return
 }

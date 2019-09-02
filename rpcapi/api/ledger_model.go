@@ -48,7 +48,7 @@ type AccountBlock struct {
 	SendBlockList []*AccountBlock `json:"sendBlockList"`
 
 	// extra info below
-	TokenInfo *TokenInfo `json:"tokenInfo"`
+	TokenInfo *RpcTokenInfo `json:"tokenInfo"`
 
 	ConfirmedTimes *string     `json:"confirmedTimes"`
 	ConfirmedHash  *types.Hash `json:"confirmedHash"`
@@ -160,7 +160,7 @@ func (block *AccountBlock) ComputeHash() (*types.Hash, error) {
 
 func (block *AccountBlock) addExtraInfo(chain chain.Chain) error {
 
-	// TokenInfo
+	// RpcTokenInfo
 	if block.TokenId != types.ZERO_TOKENID {
 		token, _ := chain.GetTokenInfoById(block.TokenId)
 		block.TokenInfo = RawTokenInfoToRpc(token, block.TokenId)
@@ -297,29 +297,26 @@ func ledgerToRpcBlock(chain chain.Chain, lAb *ledger.AccountBlock) (*AccountBloc
 	return rpcBlock, nil
 }
 
-// AccountInfo<-RpcAccountInfo
-type AccountInfo struct {
-	AccountAddress      types.Address                      `json:"accountAddress"`
-	TotalNumber         string                             `json:"totalNumber"`                   // uint64
-	TokenBalanceInfoMap map[types.TokenTypeId]*BalanceInfo `json:"tokenBalanceInfoMap,omitempty"` // Deprecated: use BalanceInfoMap instead
+type RpcAccountInfo struct {
+	AccountAddress      types.Address                              `json:"accountAddress"`
+	TotalNumber         string                                     `json:"totalNumber"`                   // uint64
+	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:"tokenBalanceInfoMap,omitempty"` // Deprecated: use BalanceInfoMap instead
 
 	// mainnet new
-	BalanceInfoMap map[types.TokenTypeId]*BalanceInfo `json:"balanceInfo,omitempty"`
+	BalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:"balanceInfo,omitempty"`
 }
 
-// BalanceInfo<-RpcTokenBalanceInfo
-type BalanceInfo struct {
-	TokenInfo   *TokenInfo `json:"tokenInfo,omitempty"`
-	TotalAmount string     `json:"totalAmount"`      // Deprecated: use Balance instead
-	Number      *string    `json:"number,omitempty"` // Deprecated: use TransactionCount instead
+type RpcTokenBalanceInfo struct {
+	TokenInfo   *RpcTokenInfo `json:"tokenInfo,omitempty"`
+	TotalAmount string        `json:"totalAmount"`      // Deprecated: use Balance instead
+	Number      *string       `json:"number,omitempty"` // Deprecated: use TransactionCount instead
 
 	// mainnet new
 	Balance          string  `json:"balance,omitempty"`          // big int
 	TransactionCount *string `json:"transactionCount,omitempty"` // uint64
 }
 
-// TokenInfo<-TokenInfo
-type TokenInfo struct {
+type RpcTokenInfo struct {
 	TokenName     string            `json:"tokenName"`
 	TokenSymbol   string            `json:"tokenSymbol"`
 	TotalSupply   *string           `json:"totalSupply,omitempty"` // *big.Int
@@ -342,10 +339,10 @@ type PagingQueryBatch struct {
 	PageCount  uint64 `json:"pageCount"`
 }
 
-func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *TokenInfo {
-	var rt *TokenInfo = nil
+func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenInfo {
+	var rt *RpcTokenInfo = nil
 	if tinfo != nil {
-		rt = &TokenInfo{
+		rt = &RpcTokenInfo{
 			TokenName:       tinfo.TokenName,
 			TokenSymbol:     tinfo.TokenSymbol,
 			TotalSupply:     nil,
@@ -369,21 +366,21 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *TokenInfo
 	return rt
 }
 
-func AccountInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *AccountInfo {
+func AccountInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *RpcAccountInfo {
 	if info == nil {
 		return nil
 	}
-	var r AccountInfo
+	var r RpcAccountInfo
 	r.AccountAddress = info.AccountAddress
 	r.TotalNumber = strconv.FormatUint(info.TotalNumber, 10)
-	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*BalanceInfo)
-	r.BalanceInfoMap = make(map[types.TokenTypeId]*BalanceInfo)
+	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
+	r.BalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 
 	for tti, v := range info.TokenBalanceInfoMap {
 		if v != nil {
 			number := strconv.FormatUint(v.Number, 10)
 			tinfo, _ := chain.GetTokenInfoById(tti)
-			b := &BalanceInfo{
+			b := &RpcTokenBalanceInfo{
 				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
 				TotalAmount: v.TotalAmount.String(),
 				Number:      &number,

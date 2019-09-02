@@ -47,7 +47,7 @@ type Client interface {
 	BuildRequestCreateContractBlock(params RequestCreateContractParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
 	BuildResponseBlock(params ResponseTxParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
 	GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, *big.Int, error)
-	GetBalanceAll(addr types.Address) (*api.AccountInfo, *api.AccountInfo, error)
+	GetBalanceAll(addr types.Address) (*api.RpcAccountInfo, *api.RpcAccountInfo, error)
 	SignData(wallet *entropystore.Manager, block *api.AccountBlock) error
 	SignDataWithPriKey(key *derivation.Key, block *api.AccountBlock) error
 }
@@ -227,7 +227,7 @@ func (c *client) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big
 	return balance, onroad, err
 }
 
-func (c *client) GetBalanceAll(addr types.Address) (*api.AccountInfo, *api.AccountInfo, error) {
+func (c *client) GetBalanceAll(addr types.Address) (*api.RpcAccountInfo, *api.RpcAccountInfo, error) {
 	allBalance, err := c.rpc.GetAccountByAccAddr(addr)
 	if err != nil {
 		return nil, nil, err

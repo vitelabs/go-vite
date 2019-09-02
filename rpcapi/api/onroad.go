@@ -30,7 +30,7 @@ func (pub PublicOnroadApi) GetOnroadBlocksByAddress(address types.Address, index
 }
 
 // Deprecated: to use ledger_getUnreceivedTransactionSummaryByAddress instead
-func (pub PublicOnroadApi) GetOnroadInfoByAddress(address types.Address) (*AccountInfo, error) {
+func (pub PublicOnroadApi) GetOnroadInfoByAddress(address types.Address) (*RpcAccountInfo, error) {
 	return pub.api.GetOnroadInfoByAddress(address)
 }
 
@@ -54,7 +54,7 @@ func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, inde
 }
 
 // Deprecated: to use ledger_getUnreceivedTransactionSummaryByAddress instead
-func (pri PrivateOnroadApi) GetOnroadInfoByAddress(address types.Address) (*AccountInfo, error) {
+func (pri PrivateOnroadApi) GetOnroadInfoByAddress(address types.Address) (*RpcAccountInfo, error) {
 	return pri.ledgerApi.GetUnreceivedTransactionSummaryByAddress(address)
 }
 
@@ -79,6 +79,6 @@ func (pri PrivateOnroadApi) GetOnroadBlocksInBatch(queryList []OnroadPagingQuery
 }
 
 // Deprecated: to use unreceived_getUnreceivedTransactionSummaryInBatch instead
-func (pri PrivateOnroadApi) GetOnroadInfoInBatch(addrList []types.Address) ([]*AccountInfo, error) {
+func (pri PrivateOnroadApi) GetOnroadInfoInBatch(addrList []types.Address) ([]*RpcAccountInfo, error) {
 	return pri.ledgerApi.GetUnreceivedTransactionSummaryInBatch(addrList)
 }
