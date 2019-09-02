@@ -22,14 +22,14 @@ import (
 // AccountVerifier implements all method to verify the transaction.
 type AccountVerifier struct {
 	chain     accountChain
-	consensus consensus
+	consensus cssConsensus
 	orManager onRoadPool
 
 	log log15.Logger
 }
 
-// NewAccountVerifier needs two args, the implementation methods of the "accountChain" and "consensus"
-func NewAccountVerifier(chain accountChain, consensus consensus) *AccountVerifier {
+// NewAccountVerifier needs two args, the implementation methods of the "accountChain" and "cssConsensus"
+func NewAccountVerifier(chain accountChain, consensus cssConsensus) *AccountVerifier {
 	return &AccountVerifier{
 		chain:     chain,
 		consensus: consensus,
