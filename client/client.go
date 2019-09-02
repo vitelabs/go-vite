@@ -203,24 +203,13 @@ func (c *client) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big
 	balance := big.NewInt(0)
 	onroad := big.NewInt(0)
 
-	/*	if allBalance.TokenBalanceInfoMap != nil {
-			if info, ok := allBalance.TokenBalanceInfoMap[tokenId]; ok {
-				balance.SetString(info.TotalAmount, 10)
-			}
-		}
-		if allOnroad.TokenBalanceInfoMap != nil {
-			if info, ok := allOnroad.TokenBalanceInfoMap[tokenId]; ok {
-				onroad.SetString(info.TotalAmount, 10)
-			}
-		}*/
-
-	if allBalance.BalanceInfoMap != nil {
-		if info, ok := allBalance.BalanceInfoMap[tokenId]; ok {
+	if allBalance.TokenBalanceInfoMap != nil {
+		if info, ok := allBalance.TokenBalanceInfoMap[tokenId]; ok {
 			balance.SetString(info.TotalAmount, 10)
 		}
 	}
-	if allOnroad.BalanceInfoMap != nil {
-		if info, ok := allOnroad.BalanceInfoMap[tokenId]; ok {
+	if allOnroad.TokenBalanceInfoMap != nil {
+		if info, ok := allOnroad.TokenBalanceInfoMap[tokenId]; ok {
 			onroad.SetString(info.TotalAmount, 10)
 		}
 	}

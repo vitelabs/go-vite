@@ -299,21 +299,26 @@ func ledgerToRpcBlock(chain chain.Chain, lAb *ledger.AccountBlock) (*AccountBloc
 
 type RpcAccountInfo struct {
 	AccountAddress      types.Address                              `json:"accountAddress"`
-	TotalNumber         string                                     `json:"totalNumber"`                   // uint64
-	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:"tokenBalanceInfoMap,omitempty"` // Deprecated: use BalanceInfoMap instead
-
-	// mainnet new
-	BalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:"balanceInfo,omitempty"`
+	TotalNumber         string                                     `json:"totalNumber"` // uint64
+	TokenBalanceInfoMap map[types.TokenTypeId]*RpcTokenBalanceInfo `json:"tokenBalanceInfoMap,omitempty"`
 }
 
 type RpcTokenBalanceInfo struct {
 	TokenInfo   *RpcTokenInfo `json:"tokenInfo,omitempty"`
-	TotalAmount string        `json:"totalAmount"`      // Deprecated: use Balance instead
-	Number      *string       `json:"number,omitempty"` // Deprecated: use TransactionCount instead
+	TotalAmount string        `json:"totalAmount"`
+	Number      *string       `json:"number,omitempty"`
+}
 
-	// mainnet new
-	Balance          string  `json:"balance,omitempty"`          // big int
-	TransactionCount *string `json:"transactionCount,omitempty"` // uint64
+type AccountInfo struct {
+	Address        types.Address                      `json:"address"`
+	BlockCount     string                             `json:"blockCount"`
+	BalanceInfoMap map[types.TokenTypeId]*BalanceInfo `json:"balanceInfo,omitempty"`
+}
+
+type BalanceInfo struct {
+	TokenInfo        *RpcTokenInfo `json:"tokenInfo,omitempty"`
+	Balance          string        `json:"balance"`                    // big int
+	TransactionCount *string       `json:"transactionCount,omitempty"` // uint64
 }
 
 type RpcTokenInfo struct {
@@ -366,7 +371,7 @@ func RawTokenInfoToRpc(tinfo *types.TokenInfo, tti types.TokenTypeId) *RpcTokenI
 	return rt
 }
 
-func AccountInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *RpcAccountInfo {
+func ToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *RpcAccountInfo {
 	if info == nil {
 		return nil
 	}
@@ -374,21 +379,50 @@ func AccountInfoToRpcAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *R
 	r.AccountAddress = info.AccountAddress
 	r.TotalNumber = strconv.FormatUint(info.TotalNumber, 10)
 	r.TokenBalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
-	r.BalanceInfoMap = make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 
 	for tti, v := range info.TokenBalanceInfoMap {
 		if v != nil {
-			number := strconv.FormatUint(v.Number, 10)
 			tinfo, _ := chain.GetTokenInfoById(tti)
+			if tinfo == nil {
+				continue
+			}
 			b := &RpcTokenBalanceInfo{
 				TokenInfo:   RawTokenInfoToRpc(tinfo, tti),
 				TotalAmount: v.TotalAmount.String(),
-				Number:      &number,
-
-				Balance:          v.TotalAmount.String(),
-				TransactionCount: &number,
+			}
+			if v.Number > 0 {
+				number := strconv.FormatUint(v.Number, 10)
+				b.Number = &number
 			}
 			r.TokenBalanceInfoMap[tti] = b
+		}
+	}
+	return &r
+}
+
+func ToAccountInfo(chain chain.Chain, info *ledger.AccountInfo) *AccountInfo {
+	if info == nil {
+		return nil
+	}
+	var r AccountInfo
+	r.Address = info.AccountAddress
+	r.BlockCount = strconv.FormatUint(info.TotalNumber, 10)
+	r.BalanceInfoMap = make(map[types.TokenTypeId]*BalanceInfo)
+
+	for tti, v := range info.TokenBalanceInfoMap {
+		if v != nil {
+			tinfo, _ := chain.GetTokenInfoById(tti)
+			if tinfo == nil {
+				continue
+			}
+			b := &BalanceInfo{
+				TokenInfo: RawTokenInfoToRpc(tinfo, tti),
+				Balance:   v.TotalAmount.String(),
+			}
+			if v.Number > 0 {
+				number := strconv.FormatUint(v.Number, 10)
+				b.TransactionCount = &number
+			}
 			r.BalanceInfoMap[tti] = b
 		}
 	}

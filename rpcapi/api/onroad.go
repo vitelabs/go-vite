@@ -55,7 +55,13 @@ func (pri PrivateOnroadApi) GetOnroadBlocksByAddress(address types.Address, inde
 
 // Deprecated: to use ledger_getUnreceivedTransactionSummaryByAddress instead
 func (pri PrivateOnroadApi) GetOnroadInfoByAddress(address types.Address) (*RpcAccountInfo, error) {
-	return pri.ledgerApi.GetUnreceivedTransactionSummaryByAddress(address)
+	log.Info("GetUnreceivedTransactionSummaryByAddress", "addr", address)
+
+	info, e := pri.ledgerApi.chain.GetAccountOnRoadInfo(address)
+	if e != nil || info == nil {
+		return nil, e
+	}
+	return ToRpcAccountInfo(pri.ledgerApi.chain, info), nil
 }
 
 type OnroadPagingQuery struct {
@@ -80,5 +86,22 @@ func (pri PrivateOnroadApi) GetOnroadBlocksInBatch(queryList []OnroadPagingQuery
 
 // Deprecated: to use unreceived_getUnreceivedTransactionSummaryInBatch instead
 func (pri PrivateOnroadApi) GetOnroadInfoInBatch(addrList []types.Address) ([]*RpcAccountInfo, error) {
-	return pri.ledgerApi.GetUnreceivedTransactionSummaryInBatch(addrList)
+	// Remove duplicate
+	addrMap := make(map[types.Address]bool, 0)
+	for _, v := range addrList {
+		addrMap[v] = true
+	}
+
+	resultList := make([]*RpcAccountInfo, 0)
+	for addr, _ := range addrMap {
+		info, err := pri.ledgerApi.chain.GetAccountOnRoadInfo(addr)
+		if err != nil {
+			return nil, err
+		}
+		if info == nil {
+			continue
+		}
+		resultList = append(resultList, ToRpcAccountInfo(pri.ledgerApi.chain, info))
+	}
+	return resultList, nil
 }
