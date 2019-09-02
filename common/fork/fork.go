@@ -151,6 +151,22 @@ func IsActiveForkPoint(snapshotHeight uint64) bool {
 	return false
 }
 
+func GetForkPoint(snapshotHeight uint64) *ForkPointItem {
+	// assume that fork point list is sorted by height asc
+	for i := len(forkPointList) - 1; i >= 0; i-- {
+		forkPoint := forkPointList[i]
+		if forkPoint.Height == snapshotHeight {
+			return forkPoint
+		}
+
+		if forkPoint.Height < snapshotHeight {
+			break
+		}
+	}
+
+	return nil
+}
+
 func GetForkPoints() config.ForkPoints {
 	return forkPoints
 }

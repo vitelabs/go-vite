@@ -16,18 +16,35 @@ func (c *chain) IsForkActive(point fork.ForkPointItem) bool {
 		return true
 	}
 
+	// TODO check active
 	return false
 }
 
-func (c *chain) initForkActive() error {
+func (c *chain) initActiveFork() error {
 	return nil
 }
 
-func (c *chain) checkNewForkPoint() {
+// TODO 并发
+func (c *chain) addActiveForkPoint(snapshotBlock *ledger.SnapshotBlock) {
+	point := fork.GetForkPoint(snapshotBlock.Height)
+	if point == nil {
+		return
+	}
 
+	// not active
+	if !c.checkIsActive(*point) {
+		c.log.Info(fmt.Sprintf("fork point is not active, height: %d, version: %d", point.Height, point.Version))
+		return
+	}
+
+	c.forkActiveCache = append(c.forkActiveCache, point)
 }
 
-func (c *chain) rollbackForkPoint() {
+func (c *chain) deleteActiveForkPoint(snapshotBlock *ledger.SnapshotBlock) {
+	point := fork.GetForkPoint(snapshotBlock.Height)
+	if point == nil {
+		return
+	}
 
 }
 
