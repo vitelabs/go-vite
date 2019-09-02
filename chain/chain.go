@@ -153,7 +153,12 @@ func (c *chain) Init() error {
 		return err
 	}
 
-	// init fork
+	// init fork active
+	if err := c.initActiveFork(); err != nil {
+		return err
+	}
+
+	// set active fork
 	if !fork.IsInitActiveChecker() {
 		fork.SetActiveChecker(c)
 	}

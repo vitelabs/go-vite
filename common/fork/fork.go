@@ -171,6 +171,10 @@ func GetForkPoints() config.ForkPoints {
 	return forkPoints
 }
 
+func GetForkPointList() ForkPointList {
+	return forkPointList
+}
+
 func GetForkPointMap() ForkPointMap {
 	return forkPointMap
 }

@@ -16,15 +16,26 @@ func (c *chain) IsForkActive(point fork.ForkPointItem) bool {
 		return true
 	}
 
-	// TODO check active
-	return false
+	return c.checkIsActiveInCache(point)
 }
 
 func (c *chain) initActiveFork() error {
+	forkPointList := fork.GetForkPointList()
+
+	latestSnapshotBlock := c.GetLatestSnapshotBlock()
+
+	for _, forkPoint := range forkPointList {
+		if forkPoint.Height > latestSnapshotBlock.Height {
+			break
+		}
+		if c.checkIsActive(*forkPoint) {
+			c.forkActiveCache = append(c.forkActiveCache, forkPoint)
+		}
+	}
+
 	return nil
 }
 
-// TODO 并发
 func (c *chain) addActiveForkPoint(snapshotBlock *ledger.SnapshotBlock) {
 	point := fork.GetForkPoint(snapshotBlock.Height)
 	if point == nil {
@@ -40,27 +51,47 @@ func (c *chain) addActiveForkPoint(snapshotBlock *ledger.SnapshotBlock) {
 	c.forkActiveCache = append(c.forkActiveCache, point)
 }
 
-func (c *chain) deleteActiveForkPoint(snapshotBlock *ledger.SnapshotBlock) {
-	point := fork.GetForkPoint(snapshotBlock.Height)
-	if point == nil {
+func (c *chain) deleteActiveForkPoint(snapshotBlocks []*ledger.SnapshotBlock) {
+	if c.forkActiveCache.Len() <= 0 {
 		return
 	}
 
+	height := snapshotBlocks[0].Height
+
+	deleteTo := -1
+	for i := c.forkActiveCache.Len() - 1; i >= 0; i-- {
+		point := c.forkActiveCache[i]
+
+		if point.Height >= height {
+			deleteTo = i
+		} else {
+			break
+		}
+	}
+
+	if deleteTo > 0 {
+		newForkActiveCache := make(fork.ForkPointList, deleteTo)
+		copy(newForkActiveCache, c.forkActiveCache[:deleteTo])
+
+		c.forkActiveCache = newForkActiveCache
+	}
 }
 
 func (c *chain) checkIsActiveInCache(point fork.ForkPointItem) bool {
-	if c.forkActiveCache.Len() <= 0 {
+	forkActiveCache := c.forkActiveCache
+	if forkActiveCache.Len() <= 0 {
 		return false
 	}
-	pointIndex := sort.Search(c.forkActiveCache.Len(), func(i int) bool {
-		forkActivePoint := c.forkActiveCache[i]
+
+	pointIndex := sort.Search(forkActiveCache.Len(), func(i int) bool {
+		forkActivePoint := forkActiveCache[i]
 		return forkActivePoint.Height >= point.Height
 	})
 
-	if pointIndex < 0 || pointIndex >= c.forkActiveCache.Len() {
+	if pointIndex < 0 || pointIndex >= forkActiveCache.Len() {
 		return false
 	}
-	searchedPoint := c.forkActiveCache[pointIndex]
+	searchedPoint := forkActiveCache[pointIndex]
 	if searchedPoint.Height == point.Height && searchedPoint.Version == point.Version {
 		return true
 	}
@@ -81,6 +112,10 @@ func (c *chain) checkIsActive(point fork.ForkPointItem) bool {
 	}
 
 	if len(headers) <= 0 {
+		return false
+	}
+
+	if headers[0].Height < point.Height {
 		return false
 	}
 
