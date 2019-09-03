@@ -38,7 +38,7 @@ func TestClient_BuildRequestNewOrderBlock(t *testing.T) {
 
 	one := big.NewInt(1e18)
 	quantity := big.NewInt(0).Set(one).Mul(one, big.NewInt(1000))
-	data, err := buildDexNewOrderData(&dex.ParamDexFundNewOrder{
+	data, err := buildDexNewOrderData(&dex.ParamPlaceOrder{
 		TradeToken: viteTokeId,
 		QuoteToken: btcTokenId,
 		Side:       true,

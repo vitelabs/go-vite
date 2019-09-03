@@ -32,6 +32,7 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Public:    false,
 		}
 		// public  WS HTTP IPC
+
 	case "pow":
 		return rpc.API{
 			Namespace: "pow",
@@ -103,19 +104,26 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewDexFundApi(vite),
 			Public:    true,
 		}
-	case "private_dexfund":
-		return rpc.API{
-			Namespace: "dexfund",
-			Version:   "1.0",
-			Service:   api.NewDexFundPrivateApi(vite),
-			Public:    false,
-		}
 	case "dextrade":
 		return rpc.API{
 			Namespace: "dextrade",
 			Version:   "1.0",
 			Service:   api.NewDexTradeApi(vite),
 			Public:    true,
+		}
+	case "dex":
+		return rpc.API{
+			Namespace: "dex",
+			Version:   "1.0",
+			Service:   api.NewDexApi(vite),
+			Public:    true,
+		}
+	case "private_dex":
+		return rpc.API{
+			Namespace: "dex",
+			Version:   "1.0",
+			Service:   api.NewDexPrivateApi(vite),
+			Public:    false,
 		}
 	case "consensusGroup":
 		return rpc.API{
@@ -187,6 +195,13 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Version:   "1.0",
 			Service:   api.NewDataApi(vite),
 			Public:    true,
+		}
+	case "ledgerdebug":
+		return rpc.API{
+			Namespace: "ledgerdebug",
+			Version:   "1.0",
+			Service:   api.NewLedgerDebugApi(vite),
+			Public:    false,
 		}
 	default:
 		return rpc.API{}

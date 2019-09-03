@@ -11,11 +11,11 @@ import (
 )
 
 type DexClient interface {
-	BuildRequestNewOrderBlock(param *dex.ParamDexFundNewOrder, selfAddr types.Address, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
+	BuildRequestNewOrderBlock(param *dex.ParamPlaceOrder, selfAddr types.Address, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
 	BuildRequestCancelOrderBlock(param *dex.ParamDexCancelOrder, selfAddr types.Address, prev *ledger.HashHeight) (block *api.AccountBlock, err error)
 }
 
-func (c *client) BuildRequestNewOrderBlock(param *dex.ParamDexFundNewOrder, selfAddr types.Address, prev *ledger.HashHeight) (block *api.AccountBlock, err error) {
+func (c *client) BuildRequestNewOrderBlock(param *dex.ParamPlaceOrder, selfAddr types.Address, prev *ledger.HashHeight) (block *api.AccountBlock, err error) {
 	data, err := buildDexNewOrderData(param)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func (c *client) BuildRequestCancelOrderBlock(param *dex.ParamDexCancelOrder, se
 	return c.BuildNormalRequestBlock(*params, prev)
 }
 
-func buildDexNewOrderData(param *dex.ParamDexFundNewOrder) ([]byte, error) {
+func buildDexNewOrderData(param *dex.ParamPlaceOrder) ([]byte, error) {
 	abiContract := abi.ABIDexFund
 	methodName := abi.MethodNameDexFundNewOrder
 	var arguments []interface{}
@@ -65,10 +65,10 @@ func buildDexCancelOrderData(param *dex.ParamDexCancelOrder) ([]byte, error) {
 
 	return abiContract.PackMethod(methodName, arguments...)
 }
-func parseDexNewOrderData(input []byte) (*dex.ParamDexFundNewOrder, error) {
+func parseDexNewOrderData(input []byte) (*dex.ParamPlaceOrder, error) {
 	abiContract := abi.ABIDexFund
 	methodName := abi.MethodNameDexFundNewOrder
-	param := new(dex.ParamDexFundNewOrder)
+	param := new(dex.ParamPlaceOrder)
 	err := abiContract.UnpackMethod(param, methodName, input)
 	return param, err
 }
