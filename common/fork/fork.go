@@ -163,6 +163,7 @@ func IsLeafFork(snapshotHeight uint64) bool {
 		panic("check leaf fork failed. LeafFork is not existed.")
 	}
 	return snapshotHeight >= leafForkPoint.Height && IsForkActive(*leafForkPoint)
+
 }
 
 func GetLeafForkPoint() *ForkPointItem {
@@ -172,14 +173,6 @@ func GetLeafForkPoint() *ForkPointItem {
 	}
 
 	return leafForkPoint
-}
-
-func GetLeafFork() uint64 {
-	leafForkPoint, ok := forkPointMap["LeafFork"]
-	if !ok {
-		panic("check leaf fork failed. LeafFork is not existed.")
-	}
-	return leafForkPoint.Height
 }
 
 func IsActiveForkPoint(snapshotHeight uint64) bool {
