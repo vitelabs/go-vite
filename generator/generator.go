@@ -123,7 +123,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 			}
 			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
 			result = &GenResult{}
-			resultErr = errors.New("generator_vm panic error")
+			resultErr = ErrVmRunPanic
 		}
 	}()
 	var state *VMGlobalStatus

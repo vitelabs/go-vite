@@ -66,7 +66,7 @@ func (tp *testProcessor) processOneAddress(task *contractTask) (canContinue bool
 
 	if err := tp.w.chain.InsertIntoChain(&task.Addr, &sBlock.Hash); err != nil {
 		tp.w.addContractCallerToInferiorList(&task.Addr, &sBlock.AccountAddress, RETRY)
-		blog.Info("addContractCallerToInferiorList, cause InsertIntoChain failed")
+		blog.Info("restrictContractCaller, cause InsertIntoChain failed")
 		return true
 	}
 	tp.w.deletePendingOnroadBlock(&task.Addr, sBlock)
@@ -74,7 +74,7 @@ func (tp *testProcessor) processOneAddress(task *contractTask) (canContinue bool
 
 	if !tp.w.chain.CheckQuota(&task.Addr) {
 		tp.w.addContractIntoBlackList(&task.Addr)
-		blog.Info("addContractIntoBlackList, cause quota is sufficient")
+		blog.Info("restrictContract, cause quota is sufficient")
 		return false
 	}
 	return true
