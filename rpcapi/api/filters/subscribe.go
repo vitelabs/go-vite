@@ -125,7 +125,7 @@ type Logs struct {
 	Removed          bool           `json:"removed"`
 }
 type LogsV2 struct {
-	Log              *ledger.VmLog  `json:"vmLog"`
+	Log              *ledger.VmLog  `json:"vmlog"`
 	AccountBlockHash types.Hash     `json:"accountBlockHash"`
 	AccountHeight    string         `json:"accountBlockHeight"`
 	Addr             *types.Address `json:"address"`
@@ -485,7 +485,15 @@ func (s *SubscribeApi) createSnapshotBlockSubscription(ctx context.Context, ft F
 		for {
 			select {
 			case h := <-snapshotBlockHashChan:
-				notifier.Notify(rpcSub.ID, h)
+				if ft == SnapshotBlocksSubscriptionV2 {
+					result := make([]*SnapshotBlockV2, len(h))
+					for i, b := range h {
+						result[i] = &SnapshotBlockV2{b.Hash, b.HeightStr, b.Removed}
+					}
+					notifier.Notify(rpcSub.ID, result)
+				} else {
+					notifier.Notify(rpcSub.ID, h)
+				}
 			case <-rpcSub.Err():
 				sbSub.Unsubscribe()
 				return
@@ -555,7 +563,15 @@ func (s *SubscribeApi) createAccountBlockSubscriptionByAddress(ctx context.Conte
 		for {
 			select {
 			case h := <-accountBlockCh:
-				notifier.Notify(rpcSub.ID, h)
+				if ft == AccountBlocksWithHeightSubscriptionV2 {
+					result := make([]*AccountBlockWithHeightV2, len(h))
+					for i, b := range h {
+						result[i] = &AccountBlockWithHeightV2{b.Hash, b.HeightStr, b.Removed}
+					}
+					notifier.Notify(rpcSub.ID, result)
+				} else {
+					notifier.Notify(rpcSub.ID, h)
+				}
 			case <-rpcSub.Err():
 				acSub.Unsubscribe()
 				return
@@ -590,7 +606,15 @@ func (s *SubscribeApi) createUnreceivedBlockSubscriptionByAddress(ctx context.Co
 		for {
 			select {
 			case h := <-accountBlockHashCh:
-				notifier.Notify(rpcSub.ID, h)
+				if ft == OnroadBlocksSubscriptionV2 {
+					result := make([]*OnroadMsgV2, len(h))
+					for i, o := range h {
+						result[i] = &OnroadMsgV2{o.Hash, o.Closed, o.Removed}
+					}
+					notifier.Notify(rpcSub.ID, result)
+				} else {
+					notifier.Notify(rpcSub.ID, h)
+				}
 			case <-rpcSub.Err():
 				acSub.Unsubscribe()
 				return
@@ -608,7 +632,7 @@ func (s *SubscribeApi) createUnreceivedBlockSubscriptionByAddress(ctx context.Co
 func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.Subscription, error) {
 	return s.createVmLogSubscription(ctx, param.AddrRange, param.Topics, LogsSubscription)
 }
-func (s *SubscribeApi) CreateVmLogSubscription(ctx context.Context, param api.VmLogFilterParam) (*rpc.Subscription, error) {
+func (s *SubscribeApi) CreateVmlogSubscription(ctx context.Context, param api.VmLogFilterParam) (*rpc.Subscription, error) {
 	return s.createVmLogSubscription(ctx, param.AddrRange, param.Topics, LogsSubscriptionV2)
 }
 func (s *SubscribeApi) createVmLogSubscription(ctx context.Context, rangeMap map[string]*api.Range, topics [][]types.Hash, ft FilterType) (*rpc.Subscription, error) {
@@ -631,7 +655,16 @@ func (s *SubscribeApi) createVmLogSubscription(ctx context.Context, rangeMap map
 		for {
 			select {
 			case msg := <-logsMsg:
-				notifier.Notify(rpcSub.ID, msg)
+				if ft == LogsSubscriptionV2 {
+					result := make([]*LogsV2, len(msg))
+					for i, l := range msg {
+						result[i] = &LogsV2{l.Log, l.AccountBlockHash, l.AccountHeight, l.Addr, l.Removed}
+					}
+					notifier.Notify(rpcSub.ID, result)
+				} else {
+					notifier.Notify(rpcSub.ID, msg)
+				}
+
 			case <-rpcSub.Err():
 				sub.Unsubscribe()
 				return
