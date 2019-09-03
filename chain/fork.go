@@ -40,7 +40,7 @@ func (c *chain) initActiveFork() error {
 }
 
 func (c *chain) addActiveForkPoint(snapshotBlock *ledger.SnapshotBlock) {
-	point := fork.GetForkPoint(snapshotBlock.Height)
+	point := fork.GetForkPoint(snapshotBlock.Height + 1)
 	if point == nil {
 		return
 	}
@@ -77,7 +77,7 @@ func (c *chain) deleteActiveForkPoint(chunks []*ledger.SnapshotChunk) {
 	for i := c.forkActiveCache.Len() - 1; i >= 0; i-- {
 		point := c.forkActiveCache[i]
 
-		if point.Height >= height {
+		if point.Height-1 >= height {
 			deleteTo = i
 		} else {
 			break
@@ -114,14 +114,14 @@ func (c *chain) checkIsActiveInCache(point fork.ForkPointItem) bool {
 }
 
 func (c *chain) checkIsActive(point fork.ForkPointItem) bool {
-	snapshotHeight := point.Height
+	snapshotHeight := point.Height - 1
 
 	producers := c.getTopProducersMap(snapshotHeight, 25)
 	if producers == nil {
 		return false
 	}
 
-	headers, err := c.GetSnapshotHeadersByHeight(snapshotHeight, false, 600)
+	headers, err := c.GetSnapshotHeadersByHeight(snapshotHeight, false, 750)
 	if err != nil {
 		panic(fmt.Sprintf("GetSnapshotHeadersByHeight failed. SnapshotHeight is %d. Error is %s.", snapshotHeight, err))
 	}
@@ -189,7 +189,12 @@ func (c *chain) getTopProducersMap(snapshotHeight uint64, count int) map[types.A
 	}
 
 	topProducers := make(map[types.Address]struct{}, count)
-	for i := 0; i < len(voteDetails); i++ {
+	end := len(voteDetails)
+	if end > count {
+		end = count
+	}
+
+	for i := 0; i < end; i++ {
 		topProducers[voteDetails[i].CurrentAddr] = struct{}{}
 	}
 	return topProducers

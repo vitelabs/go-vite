@@ -103,9 +103,9 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 		chainCfg: chainCfg,
 	}
 
-	forkActiveCheckPoint, ok := fork.GetForkPointMap()["CooperateFork"]
+	forkActiveCheckPoint, ok := fork.GetForkPointMap()["StemFork"]
 	if !ok || forkActiveCheckPoint == nil {
-		panic("CooperateFork is not existed")
+		panic("StemFork is not existed")
 	}
 
 	c.forkActiveCheckPoint = *forkActiveCheckPoint

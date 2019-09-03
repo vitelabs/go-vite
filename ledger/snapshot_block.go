@@ -161,12 +161,12 @@ func (sb *SnapshotBlock) hashSourceLength() int {
 	size += len(sb.SnapshotContent) * ScItemBytesLen
 
 	// forkName
-	forkName := fork.GetRecentActiveForkName(sb.Height)
-	if forkName != "" {
-		size += len(forkName)
+	forkPoint := fork.GetRecentActiveFork(sb.Height)
+	if forkPoint != nil {
+		size += len(forkPoint.ForkName)
 	}
 	// Add version
-	if fork.IsCooperateFork(sb.Height) {
+	if fork.IsStemFork(sb.Height) {
 		// append version
 		size += 4
 	}
@@ -209,13 +209,14 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	}
 
 	// Add fork name
-	forkName := fork.GetRecentActiveForkName(sb.Height)
-	if forkName != "" {
-		source = append(source, []byte(forkName)...)
+	forkPoint := fork.GetRecentActiveFork(sb.Height)
+
+	if forkPoint != nil {
+		source = append(source, []byte(forkPoint.ForkName)...)
 	}
 
 	// Add version
-	if fork.IsCooperateFork(sb.Height) {
+	if fork.IsStemFork(sb.Height) {
 		// append version
 		versionBytes := make([]byte, 4)
 		binary.BigEndian.PutUint32(versionBytes, sb.Version)

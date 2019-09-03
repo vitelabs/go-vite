@@ -12,7 +12,7 @@ var forkPoints config.ForkPoints
 
 type ForkPointItem struct {
 	config.ForkPoint
-	forkName string
+	ForkName string
 }
 
 type ForkPointList []*ForkPointItem
@@ -40,7 +40,7 @@ func SetForkPoints(points *config.ForkPoints) {
 
 		t := reflect.TypeOf(forkPoints)
 		v := reflect.ValueOf(forkPoints)
-		forkPointMap := make(ForkPointMap)
+		forkPointMap = make(ForkPointMap)
 
 		for k := 0; k < t.NumField(); k++ {
 			forkPoint := v.Field(k).Interface().(*config.ForkPoint)
@@ -48,7 +48,7 @@ func SetForkPoints(points *config.ForkPoints) {
 			forkName := t.Field(k).Name
 			forkPointItem := &ForkPointItem{
 				ForkPoint: *forkPoint,
-				forkName:  forkName,
+				ForkName:  forkName,
 			}
 
 			// set fork point list
@@ -143,14 +143,6 @@ func IsStemFork(snapshotHeight uint64) bool {
 	return snapshotHeight >= stemForkPoint.Height && IsForkActive(*stemForkPoint)
 }
 
-func IsCooperateFork(snapshotHeight uint64) bool {
-	cooperateForkPoint, ok := forkPointMap["CooperateFork"]
-	if !ok {
-		panic("check cooperate fork failed. CooperateFork is not existed.")
-	}
-	return snapshotHeight >= cooperateForkPoint.Height && IsForkActive(*cooperateForkPoint)
-}
-
 func IsActiveForkPoint(snapshotHeight uint64) bool {
 
 	// assume that fork point list is sorted by height asc
@@ -207,14 +199,14 @@ func GetActiveForkPointList() ForkPointList {
 	return activeForkPointList
 }
 
-func GetRecentActiveForkName(blockHeight uint64) string {
+func GetRecentActiveFork(blockHeight uint64) *ForkPointItem {
 	for i := len(forkPointList) - 1; i >= 0; i-- {
 		item := forkPointList[i]
 		if item.Height <= blockHeight && IsForkActive(*item) {
-			return item.forkName
+			return item
 		}
 	}
-	return ""
+	return nil
 }
 
 func IsForkActive(point ForkPointItem) bool {
