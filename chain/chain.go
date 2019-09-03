@@ -105,7 +105,7 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 
 	forkActiveCheckPoint := fork.GetLeafForkPoint()
 	if forkActiveCheckPoint == nil {
-		panic("LeafFork is not active")
+		panic("LeafFork is not existed")
 	}
 
 	c.forkActiveCheckPoint = *forkActiveCheckPoint

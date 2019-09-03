@@ -121,7 +121,7 @@ func (c *chain) checkIsActive(point fork.ForkPointItem) bool {
 		return false
 	}
 
-	headers, err := c.GetSnapshotHeadersByHeight(snapshotHeight, false, 750)
+	headers, err := c.GetSnapshotHeadersByHeight(snapshotHeight, false, 600)
 	if err != nil {
 		panic(fmt.Sprintf("GetSnapshotHeadersByHeight failed. SnapshotHeight is %d. Error is %s.", snapshotHeight, err))
 	}
