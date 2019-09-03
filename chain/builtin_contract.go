@@ -160,7 +160,7 @@ func (c *chain) GetPledgeListByPage(snapshotHash types.Hash, lastKey []byte, cou
 	return abi.GetPledgeListByPage(sd, lastKey, count)
 }
 
-func (c *chain) GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.UserFund, error) {
+func (c *chain) GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.Fund, error) {
 	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))

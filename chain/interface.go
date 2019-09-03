@@ -257,7 +257,7 @@ type Chain interface {
 
 	GetPledgeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error)
 
-	GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.UserFund, error)
+	GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.Fund, error)
 
 	// ====== Sync ledger ======
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
