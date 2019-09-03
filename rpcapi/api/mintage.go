@@ -87,42 +87,8 @@ func (m *MintageApi) GetChangeTokenTypeData(tokenId types.TokenTypeId) ([]byte, 
 	return abi.ABIMintage.PackMethod(abi.MethodNameChangeTokenType, tokenId)
 }
 
-type TokenInfoList struct {
-	Count int             `json:"totalCount"`
-	List  []*RpcTokenInfo `json:"tokenInfoList"`
-}
-
-type byName []*RpcTokenInfo
-
-func (a byName) Len() int      { return len(a) }
-func (a byName) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a byName) Less(i, j int) bool {
-	if a[i].TokenName == a[j].TokenName {
-		return a[i].TokenId.String() < a[j].TokenId.String()
-	}
-	return a[i].TokenName < a[j].TokenName
-}
-
 // Deprecated: use contract_getTokenInfoList instead
 func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, error) {
-	db, err := getVmDb(m.chain, types.AddressMintage)
-	if err != nil {
-		return nil, err
-	}
-	tokenMap, err := abi.GetTokenMap(db)
-	if err != nil {
-		return nil, err
-	}
-	listLen := len(tokenMap)
-	tokenList := make([]*RpcTokenInfo, 0)
-	for tokenId, tokenInfo := range tokenMap {
-		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
-	}
-	sort.Sort(byName(tokenList))
-	start, end := getRange(index, count, listLen)
-	return &TokenInfoList{listLen, tokenList[start:end]}, nil
-}
-func (m *ContractApi) GetTokenInfoList(index int, count int) (*TokenInfoList, error) {
 	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err
@@ -156,38 +122,9 @@ func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo,
 	}
 	return nil, nil
 }
-func (m *ContractApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
-	db, err := getVmDb(m.chain, types.AddressMintage)
-	if err != nil {
-		return nil, err
-	}
-	tokenInfo, err := abi.GetTokenById(db, tokenId)
-	if err != nil {
-		return nil, err
-	}
-	if tokenInfo != nil {
-		return RawTokenInfoToRpc(tokenInfo, tokenId), nil
-	}
-	return nil, nil
-}
 
 // Deprecated: use contract_getTokenInfoListByOwner
 func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
-	db, err := getVmDb(m.chain, types.AddressMintage)
-	if err != nil {
-		return nil, err
-	}
-	tokenMap, err := abi.GetTokenMapByOwner(db, owner)
-	if err != nil {
-		return nil, err
-	}
-	tokenList := make([]*RpcTokenInfo, 0)
-	for tokenId, tokenInfo := range tokenMap {
-		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
-	}
-	return checkGenesisToken(db, owner, m.vite.Config().MintageInfo.TokenInfoMap, tokenList)
-}
-func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
 	db, err := getVmDb(m.chain, types.AddressMintage)
 	if err != nil {
 		return nil, err

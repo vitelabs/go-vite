@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"sort"
+	"unicode"
 )
 
 var (
@@ -149,4 +150,8 @@ func CheckFork(db dbInterface, f func(uint64) bool) bool {
 	sb, err := db.LatestSnapshotBlock()
 	DealWithErr(err)
 	return f(sb.Height)
+}
+
+func FirstToLower(str string) string {
+	return string(unicode.ToLower(rune(str[0]))) + str[1:]
 }

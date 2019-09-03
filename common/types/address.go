@@ -172,6 +172,9 @@ func (addr Address) Hex() string {
 		return fmt.Sprintf("error address[%d]", byt)
 	}
 }
+func (addr Address) IsZero() bool {
+	return bytes.Equal(addr.Bytes(), ZERO_ADDRESS.Bytes())
+}
 func (addr Address) Bytes() []byte { return addr[:] }
 func (addr Address) String() string {
 	return addr.Hex()

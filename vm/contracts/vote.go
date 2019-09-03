@@ -39,10 +39,10 @@ func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if err := abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if !checkRegisterAndVoteParam(param.Gid, param.SuperNodeName) {
+	if !checkRegisterAndVoteParam(param.Gid, param.SbpName) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIConsensusGroup.PackMethod(p.MethodName, param.Gid, param.SuperNodeName)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(p.MethodName, param.Gid, param.SbpName)
 	return nil
 }
 
@@ -54,13 +54,13 @@ func (p *MethodVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBl
 	if consensusGroupInfo == nil {
 		return nil, util.ErrInvalidMethodParam
 	}
-	active, err := abi.IsActiveRegistration(db, param.SuperNodeName, param.Gid)
+	active, err := abi.IsActiveRegistration(db, param.SbpName, param.Gid)
 	util.DealWithErr(err)
 	if !active {
 		return nil, util.ErrInvalidMethodParam
 	}
 	voteKey := abi.GetVoteKey(sendBlock.AccountAddress, param.Gid)
-	voteStatus, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, param.SuperNodeName)
+	voteStatus, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, param.SbpName)
 	util.SetValue(db, voteKey, voteStatus)
 	return nil, nil
 }

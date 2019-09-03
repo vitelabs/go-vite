@@ -19,18 +19,22 @@ const (
 		{"type":"variable","name":"consensusGroupInfo","inputs":[{"name":"nodeCount","type":"uint8"},{"name":"interval","type":"int64"},{"name":"perCount","type":"int64"},{"name":"randCount","type":"uint8"},{"name":"randRank","type":"uint8"},{"name":"repeat","type":"uint16"},{"name":"checkLevel","type":"uint8"},{"name":"countingTokenId","type":"tokenId"},{"name":"registerConditionId","type":"uint8"},{"name":"registerConditionParam","type":"bytes"},{"name":"voteConditionId","type":"uint8"},{"name":"voteConditionParam","type":"bytes"},{"name":"owner","type":"address"},{"name":"pledgeAmount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"}]},
 		{"type":"variable","name":"registerOfPledge","inputs":[{"name":"pledgeAmount","type":"uint256"},{"name":"pledgeToken","type":"tokenId"},{"name":"pledgeHeight","type":"uint64"}]},
 		
-		{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"producerAddress","type":"address"}]},
-		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"Name":"name","type":"string"},{"name":"producerAddress","type":"address"}]},
-		{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}, {"name":"name","type":"string"}]},
-		{"type":"function","name":"CancelRegistration","inputs":[{"name":"gid","type":"gid"}, {"name":"name","type":"string"}]},
-		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"receiverAddress","type":"address"}]},
-		{"type":"function","name":"WithdrawReward","inputs":[{"name":"gid","type":"gid"},{"name":"name","type":"string"},{"name":"receiverAddress","type":"address"}]},
+		{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
+		
+		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
+		{"type":"function","name":"UpdateBlockProducingAddress", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
+		
+		{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}, {"name":"sbpName","type":"string"}]},
+		{"type":"function","name":"Revoke","inputs":[{"name":"gid","type":"gid"}, {"name":"sbpName","type":"string"}]},
+
+		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"receiveAddress","type":"address"}]},
+		{"type":"function","name":"WithdrawReward","inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"receiveAddress","type":"address"}]},
+		
 		{"type":"variable","name":"registration","inputs":[{"name":"name","type":"string"},{"name":"nodeAddr","type":"address"},{"name":"pledgeAddr","type":"address"},{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"rewardTime","type":"int64"},{"name":"cancelTime","type":"int64"},{"name":"hisAddrList","type":"address[]"}]},
 		{"type":"variable","name":"hisName","inputs":[{"name":"name","type":"string"}]},
 		
-		{"type":"function","name":"Vote", "inputs":[{"name":"gid","type":"gid"},{"name":"superNodeName","type":"string"}]},
+		{"type":"function","name":"Vote", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"}]},
 		{"type":"function","name":"CancelVote","inputs":[{"name":"gid","type":"gid"}]},
-		{"type":"function","name":"CancelVoting","inputs":[{"name":"gid","type":"gid"}]},
 		{"type":"variable","name":"voteStatus","inputs":[{"name":"nodeName","type":"string"}]}
 	]`
 
@@ -39,19 +43,19 @@ const (
 	VariableNameConditionRegisterOfPledge = "registerOfPledge"
 
 	// Method names and variable names of register
-	MethodNameRegister           = "Register"
-	MethodNameCancelRegister     = "CancelRegister"
-	MethodNameCancelRegisterV2   = "CancelRegistration"
-	MethodNameReward             = "Reward"
-	MethodNameRewardV2           = "WithdrawReward"
-	MethodNameUpdateRegistration = "UpdateRegistration"
-	VariableNameRegistration     = "registration"
-	VariableNameHisName          = "hisName"
+	MethodNameRegister             = "Register"
+	MethodNameCancelRegister       = "CancelRegister"
+	MethodNameCancelRegisterV2     = "Revoke"
+	MethodNameReward               = "Reward"
+	MethodNameRewardV2             = "WithdrawReward"
+	MethodNameUpdateRegistration   = "UpdateRegistration"
+	MethodNameUpdateRegistrationV2 = "UpdateBlockProducingAddress"
+	VariableNameRegistration       = "registration"
+	VariableNameHisName            = "hisName"
 
 	// Method names and variable names of vote
 	MethodNameVote         = "Vote"
 	MethodNameCancelVote   = "CancelVote"
-	MethodNameCancelVoteV2 = "CancelVoting"
 	VariableNameVoteStatus = "voteStatus"
 
 	groupInfoKeyPrefixSize    = 1
@@ -82,24 +86,24 @@ type VariableConditionVoteOfKeepToken struct {
 
 // Structs of register
 type ParamRegister struct {
-	Gid             types.Gid
-	Name            string
-	ProducerAddress types.Address
+	Gid                   types.Gid
+	SbpName               string
+	BlockProducingAddress types.Address
 }
 type ParamCancelRegister struct {
-	Gid  types.Gid
-	Name string
+	Gid     types.Gid
+	SbpName string
 }
 type ParamReward struct {
-	Gid             types.Gid
-	Name            string
-	ReceiverAddress types.Address
+	Gid            types.Gid
+	SbpName        string
+	ReceiveAddress types.Address
 }
 
 // Structs of vote
 type ParamVote struct {
-	Gid           types.Gid
-	SuperNodeName string
+	Gid     types.Gid
+	SbpName string
 }
 
 // Consensus group variable keys

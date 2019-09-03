@@ -117,7 +117,7 @@ func (p *MethodMint) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBl
 	nextV, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenNameIndex, nextIndex+1)
 	util.SetValue(db, nextIndexKey, nextV)
 
-	db.AddLog(util.NewLog(abi.ABIMintage, abi.EventNameMint, tokenId))
+	db.AddLog(util.NewLog(abi.ABIMintage, util.FirstToLower(p.MethodName), tokenId))
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,
@@ -156,7 +156,7 @@ func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if param.Amount.Sign() <= 0 || block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIMintage.PackMethod(p.MethodName, param.TokenId, param.Amount, param.ReceiverAddress)
+	block.Data, _ = abi.ABIMintage.PackMethod(p.MethodName, param.TokenId, param.Amount, param.ReceiveAddress)
 	return nil
 }
 func (p *MethodIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -181,11 +181,11 @@ func (p *MethodIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendB
 		oldTokenInfo.Index)
 	util.SetValue(db, abi.GetMintageKey(param.TokenId), newTokenInfo)
 
-	db.AddLog(util.NewLog(abi.ABIMintage, abi.EventNameIssue, param.TokenId))
+	db.AddLog(util.NewLog(abi.ABIMintage, util.FirstToLower(p.MethodName), param.TokenId))
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,
-			ToAddress:      param.ReceiverAddress,
+			ToAddress:      param.ReceiveAddress,
 			BlockType:      ledger.BlockTypeSendReward,
 			Amount:         param.Amount,
 			TokenId:        param.TokenId,
@@ -238,7 +238,7 @@ func (p *MethodBurn) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBl
 	util.SubBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 	util.SetValue(db, abi.GetMintageKey(sendBlock.TokenId), newTokenInfo)
 
-	db.AddLog(util.NewLog(abi.ABIMintage, abi.EventNameBurn, sendBlock.TokenId, sendBlock.AccountAddress, sendBlock.Amount))
+	db.AddLog(util.NewLog(abi.ABIMintage, util.FirstToLower(p.MethodName), sendBlock.TokenId, sendBlock.AccountAddress, sendBlock.Amount))
 	return nil, nil
 }
 
@@ -267,10 +267,10 @@ func (p *MethodTransferOwner) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) 
 	if err != nil {
 		return err
 	}
-	if param.NewOwnerAddress == block.AccountAddress {
+	if param.NewOwner == block.AccountAddress {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIMintage.PackMethod(p.MethodName, param.TokenId, param.NewOwnerAddress)
+	block.Data, _ = abi.ABIMintage.PackMethod(p.MethodName, param.TokenId, param.NewOwner)
 	return nil
 }
 func (p *MethodTransferOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -287,7 +287,7 @@ func (p *MethodTransferOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBloc
 		oldTokenInfo.TokenSymbol,
 		oldTokenInfo.TotalSupply,
 		oldTokenInfo.Decimals,
-		param.NewOwnerAddress,
+		param.NewOwner,
 		oldTokenInfo.IsReIssuable,
 		oldTokenInfo.MaxSupply,
 		oldTokenInfo.OwnerBurnOnly,
@@ -297,11 +297,11 @@ func (p *MethodTransferOwner) DoReceive(db vm_db.VmDb, block *ledger.AccountBloc
 	oldKey := abi.GetOwnerTokenIdListKey(sendBlock.AccountAddress)
 	oldIdList := util.GetValue(db, oldKey)
 	util.SetValue(db, oldKey, abi.DeleteTokenId(oldIdList, param.TokenId))
-	newKey := abi.GetOwnerTokenIdListKey(param.NewOwnerAddress)
+	newKey := abi.GetOwnerTokenIdListKey(param.NewOwner)
 	newIdList := util.GetValue(db, newKey)
 	util.SetValue(db, newKey, abi.AppendTokenId(newIdList, param.TokenId))
 
-	db.AddLog(util.NewLog(abi.ABIMintage, abi.EventNameTransferOwner, param.TokenId, param.NewOwnerAddress))
+	db.AddLog(util.NewLog(abi.ABIMintage, util.FirstToLower(p.MethodName), param.TokenId, param.NewOwner))
 	return nil, nil
 }
 
@@ -354,7 +354,7 @@ func (p *MethodChangeTokenType) DoReceive(db vm_db.VmDb, block *ledger.AccountBl
 		oldTokenInfo.Index)
 	util.SetValue(db, abi.GetMintageKey(*tokenId), newTokenInfo)
 
-	db.AddLog(util.NewLog(abi.ABIMintage, abi.EventNameChangeTokenType, *tokenId))
+	db.AddLog(util.NewLog(abi.ABIMintage, util.FirstToLower(p.MethodName), *tokenId))
 	return nil, nil
 }
 
