@@ -191,6 +191,31 @@ func (p *ContractApi) GetStakeList(address types.Address, pageIndex int, pageSiz
 	return &StakeInfoList{*bigIntToString(amount), len(list), targetList}, nil
 }
 
+type StakeInfoListBySearchKey struct {
+	StakingInfoList []*StakeInfo `json:"stakeList"`
+	LastKey         string       `json:"lastSearchKey"`
+}
+
+func (p *ContractApi) GetStakeListBySearchKey(snapshotHash types.Hash, lastKey string, size uint64) (*StakeInfoListBySearchKey, error) {
+	lastKeyBytes, err := hex.DecodeString(lastKey)
+	if err != nil {
+		return nil, err
+	}
+	list, lastKeyBytes, err := p.chain.GetPledgeListByPage(snapshotHash, lastKeyBytes, size)
+	if err != nil {
+		return nil, err
+	}
+	targetList := make([]*StakeInfo, len(list))
+	snapshotBlock := p.chain.GetLatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	for i, info := range list {
+		targetList[i] = NewStakeInfo(info.PledgeAddress, info, snapshotBlock)
+	}
+	return &StakeInfoListBySearchKey{targetList, hex.EncodeToString(lastKeyBytes)}, nil
+}
+
 func (p *ContractApi) GetRequiredStakeAmount(qStr string) (*string, error) {
 	q, err := StringToUint64(qStr)
 	if err != nil {
@@ -539,29 +564,4 @@ func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenI
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
 	}
 	return checkGenesisToken(db, owner, m.vite.Config().MintageInfo.TokenInfoMap, tokenList)
-}
-
-type StakeInfoListBySearchKey struct {
-	StakingInfoList []*StakeInfo `json:"stakeList"`
-	LastKey         string       `json:"lastSearchKey"`
-}
-
-func (p *ContractApi) GetStakeListBySearchKey(snapshotHash types.Hash, lastKey string, size uint64) (*StakeInfoListBySearchKey, error) {
-	lastKeyBytes, err := hex.DecodeString(lastKey)
-	if err != nil {
-		return nil, err
-	}
-	list, lastKeyBytes, err := p.chain.GetPledgeListByPage(snapshotHash, lastKeyBytes, size)
-	if err != nil {
-		return nil, err
-	}
-	targetList := make([]*StakeInfo, len(list))
-	snapshotBlock := p.chain.GetLatestSnapshotBlock()
-	if err != nil {
-		return nil, err
-	}
-	for i, info := range list {
-		targetList[i] = NewStakeInfo(info.PledgeAddress, info, snapshotBlock)
-	}
-	return &StakeInfoListBySearchKey{targetList, hex.EncodeToString(lastKeyBytes)}, nil
 }
