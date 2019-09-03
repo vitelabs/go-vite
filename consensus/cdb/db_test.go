@@ -33,6 +33,24 @@ func clearConsensusDB(db *ConsensusDB) {
 	os.RemoveAll("testdata-consensus")
 }
 
+func TestConsensusDB_read(t *testing.T) {
+	d, err := leveldb.OpenFile("/Users/jie/consensus", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	db := NewConsensusDB(d)
+	point, err := db.GetPointByHeight(IndexPointDay, 95)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(point.Hash, point.PrevHash)
+	for k, v := range point.Votes.Details {
+		fmt.Println(k, v)
+	}
+
+}
+
 func TestNewConsensusDB(t *testing.T) {
 	db := prepareConsensusDB()
 	defer clearConsensusDB(db)
