@@ -20,16 +20,15 @@ type ForkPointMap map[string]*ForkPointItem
 
 var activeChecker ActiveChecker
 
-var isInitForkPoint = false
 var forkPointList ForkPointList
-var forkPointMap = make(ForkPointMap)
+var forkPointMap ForkPointMap
 
 func (a ForkPointList) Len() int           { return len(a) }
 func (a ForkPointList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ForkPointList) Less(i, j int) bool { return a[i].Height < a[j].Height }
 
 func IsInitForkPoint() bool {
-	return isInitForkPoint
+	return forkPointMap != nil
 }
 func IsInitActiveChecker() bool {
 	return activeChecker != nil
@@ -41,6 +40,7 @@ func SetForkPoints(points *config.ForkPoints) {
 
 		t := reflect.TypeOf(forkPoints)
 		v := reflect.ValueOf(forkPoints)
+		forkPointMap := make(ForkPointMap)
 
 		for k := 0; k < t.NumField(); k++ {
 			forkPoint := v.Field(k).Interface().(*config.ForkPoint)
@@ -59,8 +59,6 @@ func SetForkPoints(points *config.ForkPoints) {
 
 		sort.Sort(forkPointList)
 	}
-
-	isInitForkPoint = true
 }
 
 func SetActiveChecker(ac ActiveChecker) {

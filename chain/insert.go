@@ -145,6 +145,9 @@ func (c *chain) insertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	wg.Wait()
 
+	// try add fork active point
+	c.addActiveForkPoint(snapshotBlock)
+
 	c.em.TriggerInsertSbs(InsertSbsEvent, chunks)
 	return nil
 }

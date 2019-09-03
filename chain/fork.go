@@ -25,6 +25,9 @@ func (c *chain) initActiveFork() error {
 	latestSnapshotBlock := c.GetLatestSnapshotBlock()
 
 	for _, forkPoint := range forkPointList {
+		if forkPoint.Height <= c.forkActiveCheckPoint.Height {
+			continue
+		}
 		if forkPoint.Height > latestSnapshotBlock.Height {
 			break
 		}
@@ -51,12 +54,24 @@ func (c *chain) addActiveForkPoint(snapshotBlock *ledger.SnapshotBlock) {
 	c.forkActiveCache = append(c.forkActiveCache, point)
 }
 
-func (c *chain) deleteActiveForkPoint(snapshotBlocks []*ledger.SnapshotBlock) {
+func (c *chain) deleteActiveForkPoint(chunks []*ledger.SnapshotChunk) {
 	if c.forkActiveCache.Len() <= 0 {
 		return
 	}
 
-	height := snapshotBlocks[0].Height
+	var firstSbHeight uint64
+	for _, chunk := range chunks {
+		if chunk.SnapshotBlock == nil {
+			continue
+		}
+		firstSbHeight = chunk.SnapshotBlock.Height
+		break
+	}
+	if firstSbHeight <= 0 {
+		return
+	}
+
+	height := firstSbHeight
 
 	deleteTo := -1
 	for i := c.forkActiveCache.Len() - 1; i >= 0; i-- {
@@ -69,7 +84,7 @@ func (c *chain) deleteActiveForkPoint(snapshotBlocks []*ledger.SnapshotBlock) {
 		}
 	}
 
-	if deleteTo > 0 {
+	if deleteTo >= 0 {
 		newForkActiveCache := make(fork.ForkPointList, deleteTo)
 		copy(newForkActiveCache, c.forkActiveCache[:deleteTo])
 
@@ -115,19 +130,18 @@ func (c *chain) checkIsActive(point fork.ForkPointItem) bool {
 		return false
 	}
 
-	if headers[0].Height < point.Height {
+	if headers[0].Height < snapshotHeight {
 		return false
 	}
 
 	var versionCountMap = make(map[uint32]int, 2)
 
 	var producerCounted = make(map[types.Address]struct{}, len(producers))
-	for i := len(headers) - 1; i >= 0; i-- {
+	for _, header := range headers {
 		if len(producerCounted) >= len(producers) {
 			break
 		}
 
-		header := headers[i]
 		producer := header.Producer()
 		if _, ok := producers[producer]; !ok {
 			continue
