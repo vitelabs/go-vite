@@ -240,6 +240,10 @@ func GetRecentActiveFork(blockHeight uint64) *ForkPointItem {
 	return nil
 }
 
+func GetLastForkPoint() *ForkPointItem {
+	return forkPointList[forkPointList.Len()-1]
+}
+
 func IsForkActive(point ForkPointItem) bool {
 	return activeChecker.IsForkActive(point)
 }

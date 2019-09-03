@@ -53,10 +53,7 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 
 	// add version
 	if fork.IsLeafFork(block.Height) {
-		activeForkPoint := fork.GetRecentActiveFork(block.Height)
-		if activeForkPoint != nil {
-			block.Version = activeForkPoint.Version
-		}
+		block.Version = fork.GetLastForkPoint().Version
 	}
 
 	block.Hash = block.ComputeHash()
