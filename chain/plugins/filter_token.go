@@ -49,7 +49,7 @@ func (ft *FilterToken) RebuildData(flusher *chain_flusher.Flusher) error {
 	ft.log.Info("FilterToken RebuildData remove dbDir" + ft.GetStore().GetDbDir())
 
 	// set new store
-	store, err := chain_db.NewStore(ft.GetStore().GetDbDir(), PluginKeyFilterToken)
+	store, err := chain_db.NewStore(ft.GetStore().GetDbDir(), "plugins")
 	if err != nil {
 		return err
 	}
