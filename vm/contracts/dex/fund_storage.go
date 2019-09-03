@@ -241,12 +241,12 @@ type ParamStakeForVIP struct {
 	ActionType uint8 // 1: stake 2: cancel stake
 }
 
-type ParamDelegateStakingCallBack struct {
-	StakingAddress types.Address
-	Beneficiary    types.Address
-	Amount         *big.Int
-	Bid            uint8
-	Success        bool
+type ParamDelegateStakeCallBack struct {
+	StakeAddress types.Address
+	Beneficiary  types.Address
+	Amount       *big.Int
+	Bid          uint8
+	Success      bool
 }
 
 type ParamGetTokenInfoCallback struct {
