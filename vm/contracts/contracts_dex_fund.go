@@ -521,66 +521,66 @@ func (md MethodDexFundStakeForSVIP) DoReceive(db vm_db.VmDb, block *ledger.Accou
 	}
 }
 
-type MethodDexFundDelegateStakingCallback struct {
+type MethodDexFundDelegateStakeCallback struct {
 	MethodName string
 }
 
-func (md *MethodDexFundDelegateStakingCallback) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexFundDelegateStakeCallback) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundDelegateStakingCallback) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+func (md *MethodDexFundDelegateStakeCallback) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (md *MethodDexFundDelegateStakingCallback) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+func (md *MethodDexFundDelegateStakeCallback) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexFundDelegateStakingCallback) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundDelegateStakingCallbackGas
+func (md *MethodDexFundDelegateStakeCallback) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+	return gasTable.DexFundDelegateStakeCallbackGas
 }
 
-func (md *MethodDexFundDelegateStakingCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundDelegateStakeCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.AccountAddress != types.AddressPledge {
 		return dex.InvalidSourceAddressErr
 	}
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateStakingCallBack), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateStakeCallBack), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundDelegateStakingCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var callbackParam = new(dex.ParamDelegateStakingCallBack)
+func (md MethodDexFundDelegateStakeCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var callbackParam = new(dex.ParamDelegateStakeCallBack)
 	cabi.ABIDexFund.UnpackMethod(callbackParam, md.MethodName, sendBlock.Data)
 	if callbackParam.Success {
 		switch callbackParam.Bid {
 		case dex.StakeForMining:
-			stakedAmount := dex.GetMiningStakedAmount(db, callbackParam.StakingAddress)
+			stakedAmount := dex.GetMiningStakedAmount(db, callbackParam.StakeAddress)
 			stakedAmount.Add(stakedAmount, callbackParam.Amount)
-			dex.SaveMiningStakedAmount(db, callbackParam.StakingAddress, stakedAmount)
-			if err := dex.OnMiningStakeSuccess(db, vm.ConsensusReader(), callbackParam.StakingAddress, callbackParam.Amount, stakedAmount); err != nil {
+			dex.SaveMiningStakedAmount(db, callbackParam.StakeAddress, stakedAmount)
+			if err := dex.OnMiningStakeSuccess(db, vm.ConsensusReader(), callbackParam.StakeAddress, callbackParam.Amount, stakedAmount); err != nil {
 				handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			}
 		case dex.StakeForVIP:
-			if vipStaking, ok := dex.GetVIPStaking(db, callbackParam.StakingAddress); ok { //duplicate staking for vip
+			if vipStaking, ok := dex.GetVIPStaking(db, callbackParam.StakeAddress); ok { //duplicate staking for vip
 				vipStaking.StakedTimes = vipStaking.StakedTimes + 1
-				dex.SaveVIPStaking(db, callbackParam.StakingAddress, vipStaking)
+				dex.SaveVIPStaking(db, callbackParam.StakeAddress, vipStaking)
 				// duplicate staking for vip, cancel stake
-				return dex.DoCancelStake(db, callbackParam.StakingAddress, callbackParam.Bid, callbackParam.Amount)
+				return dex.DoCancelStake(db, callbackParam.StakeAddress, callbackParam.Bid, callbackParam.Amount)
 			} else {
 				vipStaking.Timestamp = dex.GetTimestampInt64(db)
 				vipStaking.StakedTimes = 1
-				dex.SaveVIPStaking(db, callbackParam.StakingAddress, vipStaking)
+				dex.SaveVIPStaking(db, callbackParam.StakeAddress, vipStaking)
 			}
 		case dex.StakeForSuperVIP:
-			if superVIPStaking, ok := dex.GetSuperVIPStaking(db, callbackParam.StakingAddress); ok { //duplicate staking for super vip
+			if superVIPStaking, ok := dex.GetSuperVIPStaking(db, callbackParam.StakeAddress); ok { //duplicate staking for super vip
 				superVIPStaking.StakedTimes = superVIPStaking.StakedTimes + 1
-				dex.SaveSuperVIPStaking(db, callbackParam.StakingAddress, superVIPStaking)
+				dex.SaveSuperVIPStaking(db, callbackParam.StakeAddress, superVIPStaking)
 				// duplicate staking for vip, cancel stake
-				return dex.DoCancelStake(db, callbackParam.StakingAddress, callbackParam.Bid, callbackParam.Amount)
+				return dex.DoCancelStake(db, callbackParam.StakeAddress, callbackParam.Bid, callbackParam.Amount)
 			} else {
 				superVIPStaking.Timestamp = dex.GetTimestampInt64(db)
 				superVIPStaking.StakedTimes = 1
-				dex.SaveSuperVIPStaking(db, callbackParam.StakingAddress, superVIPStaking)
+				dex.SaveSuperVIPStaking(db, callbackParam.StakeAddress, superVIPStaking)
 			}
 		}
 	} else {
@@ -598,40 +598,40 @@ func (md MethodDexFundDelegateStakingCallback) DoReceive(db vm_db.VmDb, block *l
 				panic(dex.InvalidAmountForStakeCallbackErr)
 			}
 		}
-		dex.DepositAccount(db, callbackParam.StakingAddress, ledger.ViteTokenId, sendBlock.Amount)
+		dex.DepositAccount(db, callbackParam.StakeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}
 	return nil, nil
 }
 
-type MethodDexFundCancelDelegatedStakingCallback struct {
+type MethodDexFundCancelDelegateStakeCallback struct {
 	MethodName string
 }
 
-func (md *MethodDexFundCancelDelegatedStakingCallback) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (md *MethodDexFundCancelDelegateStakeCallback) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (md *MethodDexFundCancelDelegatedStakingCallback) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+func (md *MethodDexFundCancelDelegateStakeCallback) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (md *MethodDexFundCancelDelegatedStakingCallback) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+func (md *MethodDexFundCancelDelegateStakeCallback) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
 	return util.TxGasCost(data, gasTable)
 }
 
-func (md *MethodDexFundCancelDelegatedStakingCallback) GetReceiveQuota(gasTable *util.GasTable) uint64 {
-	return gasTable.DexFundCancelDelegatedStakingCallbackGas
+func (md *MethodDexFundCancelDelegateStakeCallback) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+	return gasTable.DexFundCancelDelegateStakeCallbackGas
 }
 
-func (md *MethodDexFundCancelDelegatedStakingCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundCancelDelegateStakeCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.AccountAddress != types.AddressPledge {
 		return dex.InvalidSourceAddressErr
 	}
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateStakingCallBack), md.MethodName, block.Data)
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateStakeCallBack), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundCancelDelegatedStakingCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var param = new(dex.ParamDelegateStakingCallBack)
+func (md MethodDexFundCancelDelegateStakeCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var param = new(dex.ParamDelegateStakeCallBack)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if param.Success {
 		switch param.Bid {
@@ -639,28 +639,28 @@ func (md MethodDexFundCancelDelegatedStakingCallback) DoReceive(db vm_db.VmDb, b
 			if param.Amount.Cmp(sendBlock.Amount) != 0 {
 				panic(dex.InvalidAmountForStakeCallbackErr)
 			}
-			stakedAmount := dex.GetMiningStakedAmount(db, param.StakingAddress)
+			stakedAmount := dex.GetMiningStakedAmount(db, param.StakeAddress)
 			leaved := new(big.Int).Sub(stakedAmount, sendBlock.Amount)
 			if leaved.Sign() < 0 {
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidAmountForStakeCallbackErr, sendBlock)
 			} else if leaved.Sign() == 0 {
-				dex.DeleteMiningStakedAmount(db, param.StakingAddress)
+				dex.DeleteMiningStakedAmount(db, param.StakeAddress)
 			} else {
-				dex.SaveMiningStakedAmount(db, param.StakingAddress, leaved)
+				dex.SaveMiningStakedAmount(db, param.StakeAddress, leaved)
 			}
-			if err := dex.OnCancelMiningStakeSuccess(db, vm.ConsensusReader(), param.StakingAddress, sendBlock.Amount, leaved); err != nil {
+			if err := dex.OnCancelMiningStakeSuccess(db, vm.ConsensusReader(), param.StakeAddress, sendBlock.Amount, leaved); err != nil {
 				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			}
 		case dex.StakeForVIP:
 			if dex.StakeForVIPAmount.Cmp(sendBlock.Amount) != 0 {
 				panic(dex.InvalidAmountForStakeCallbackErr)
 			}
-			if vipStaking, ok := dex.GetVIPStaking(db, param.StakingAddress); ok {
+			if vipStaking, ok := dex.GetVIPStaking(db, param.StakeAddress); ok {
 				vipStaking.StakedTimes = vipStaking.StakedTimes - 1
 				if vipStaking.StakedTimes == 0 {
-					dex.DeleteVIPStaking(db, param.StakingAddress)
+					dex.DeleteVIPStaking(db, param.StakeAddress)
 				} else {
-					dex.SaveVIPStaking(db, param.StakingAddress, vipStaking)
+					dex.SaveVIPStaking(db, param.StakeAddress, vipStaking)
 				}
 			} else {
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.VIPStakingNotExistsErr, sendBlock)
@@ -669,18 +669,18 @@ func (md MethodDexFundCancelDelegatedStakingCallback) DoReceive(db vm_db.VmDb, b
 			if dex.StakeForSuperVIPAmount.Cmp(sendBlock.Amount) != 0 {
 				panic(dex.InvalidAmountForStakeCallbackErr)
 			}
-			if superVIPStaking, ok := dex.GetSuperVIPStaking(db, param.StakingAddress); ok {
+			if superVIPStaking, ok := dex.GetSuperVIPStaking(db, param.StakeAddress); ok {
 				superVIPStaking.StakedTimes = superVIPStaking.StakedTimes - 1
 				if superVIPStaking.StakedTimes == 0 {
-					dex.DeleteSuperVIPStaking(db, param.StakingAddress)
+					dex.DeleteSuperVIPStaking(db, param.StakeAddress)
 				} else {
-					dex.SaveSuperVIPStaking(db, param.StakingAddress, superVIPStaking)
+					dex.SaveSuperVIPStaking(db, param.StakeAddress, superVIPStaking)
 				}
 			} else {
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.SuperVIPStakingNotExistsErr, sendBlock)
 			}
 		}
-		dex.DepositAccount(db, param.StakingAddress, ledger.ViteTokenId, sendBlock.Amount)
+		dex.DepositAccount(db, param.StakeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}
 	return nil, nil
 }

@@ -103,8 +103,8 @@ func newDexContracts() map[types.Address]*builtinContract {
 			cabi.MethodNameDexFundPeriodJob:            &MethodDexFundTriggerPeriodJob{cabi.MethodNameDexFundPeriodJob},
 			cabi.MethodNameDexFundPledgeForVx:          &MethodDexFundStakeForMining{cabi.MethodNameDexFundPledgeForVx},
 			cabi.MethodNameDexFundPledgeForVip:         &MethodDexFundStakeForVIP{cabi.MethodNameDexFundPledgeForVip},
-			cabi.MethodNameDexFundPledgeCallback:       &MethodDexFundDelegateStakingCallback{cabi.MethodNameDexFundPledgeCallback},
-			cabi.MethodNameDexFundCancelPledgeCallback: &MethodDexFundCancelDelegatedStakingCallback{cabi.MethodNameDexFundCancelPledgeCallback},
+			cabi.MethodNameDexFundPledgeCallback:       &MethodDexFundDelegateStakeCallback{cabi.MethodNameDexFundPledgeCallback},
+			cabi.MethodNameDexFundCancelPledgeCallback: &MethodDexFundCancelDelegateStakeCallback{cabi.MethodNameDexFundCancelPledgeCallback},
 			cabi.MethodNameDexFundGetTokenInfoCallback: &MethodDexFundGetTokenInfoCallback{cabi.MethodNameDexFundGetTokenInfoCallback},
 			cabi.MethodNameDexFundOwnerConfig:          &MethodDexFundDexAdminConfig{cabi.MethodNameDexFundOwnerConfig},
 			cabi.MethodNameDexFundOwnerConfigTrade:     &MethodDexFundTradeAdminConfig{cabi.MethodNameDexFundOwnerConfigTrade},
@@ -164,8 +164,8 @@ func newLeafContracts() map[types.Address]*builtinContract {
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundTriggerPeriodJob] = &MethodDexFundTriggerPeriodJob{cabi.MethodNameDexFundTriggerPeriodJob}
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundStakeForMining] = &MethodDexFundStakeForMining{cabi.MethodNameDexFundStakeForMining}
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundStakeForVIP] = &MethodDexFundStakeForVIP{cabi.MethodNameDexFundStakeForVIP}
-	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundDelegateStakingCallback] = &MethodDexFundDelegateStakingCallback{cabi.MethodNameDexFundDelegateStakingCallback}
-	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCancelDelegatedStakingCallback] = &MethodDexFundCancelDelegatedStakingCallback{cabi.MethodNameDexFundCancelDelegatedStakingCallback}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundDelegateStakeCallback] = &MethodDexFundDelegateStakeCallback{cabi.MethodNameDexFundDelegateStakeCallback}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCancelDelegateStakeCallback] = &MethodDexFundCancelDelegateStakeCallback{cabi.MethodNameDexFundCancelDelegateStakeCallback}
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundDexAdminConfig] = &MethodDexFundDexAdminConfig{cabi.MethodNameDexFundDexAdminConfig}
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundTradeAdminConfig] = &MethodDexFundTradeAdminConfig{cabi.MethodNameDexFundTradeAdminConfig}
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundMarketAdminConfig] = &MethodDexFundMarketAdminConfig{cabi.MethodNameDexFundMarketAdminConfig}

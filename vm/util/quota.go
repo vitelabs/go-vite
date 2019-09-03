@@ -198,29 +198,29 @@ type GasTable struct {
 	BurnGas                                  uint64
 	TransferOwnerGas                         uint64
 	ChangeTokenTypeGas                       uint64
-	GetTokenInfoGas                          uint64
-	DexFundDepositGas                        uint64
-	DexFundWithdrawGas                       uint64
-	DexFundOpenNewMarketGas                  uint64
-	DexFundPlaceOrderGas                     uint64
-	DexFundSettleOrdersGas                   uint64
-	DexFundTriggerPeriodJobGas               uint64
-	DexFundStakeForMiningGas                 uint64
-	DexFundStakeForVipGas                    uint64
-	DexFundStakeForSuperVIPGas               uint64
-	DexFundDelegateStakingCallbackGas        uint64
-	DexFundCancelDelegatedStakingCallbackGas uint64
-	DexFundGetTokenInfoCallbackGas           uint64
-	DexFundAdminConfigGas                    uint64
-	DexFundTradeAdminConfigGas               uint64
-	DexFundMarketAdminConfigGas              uint64
-	DexFundTransferTokenOwnershipGas         uint64
-	DexFundNotifyTimeGas                     uint64
-	DexFundCreateNewInviterGas               uint64
-	DexFundBindInviteCodeGas                 uint64
-	DexFundEndorseVxGas                      uint64
-	DexFundSettleMakerMinedVxGas     uint64
-	DexFundConfigMarketAgentsGas     uint64
+	GetTokenInfoGas                       uint64
+	DexFundDepositGas                     uint64
+	DexFundWithdrawGas                    uint64
+	DexFundOpenNewMarketGas               uint64
+	DexFundPlaceOrderGas                  uint64
+	DexFundSettleOrdersGas                uint64
+	DexFundTriggerPeriodJobGas            uint64
+	DexFundStakeForMiningGas              uint64
+	DexFundStakeForVipGas                 uint64
+	DexFundStakeForSuperVIPGas            uint64
+	DexFundDelegateStakeCallbackGas       uint64
+	DexFundCancelDelegateStakeCallbackGas uint64
+	DexFundGetTokenInfoCallbackGas        uint64
+	DexFundAdminConfigGas                 uint64
+	DexFundTradeAdminConfigGas            uint64
+	DexFundMarketAdminConfigGas           uint64
+	DexFundTransferTokenOwnershipGas      uint64
+	DexFundNotifyTimeGas                  uint64
+	DexFundCreateNewInviterGas            uint64
+	DexFundBindInviteCodeGas              uint64
+	DexFundEndorseVxGas                   uint64
+	DexFundSettleMakerMinedVxGas          uint64
+	DexFundConfigMarketAgentsGas          uint64
 	DexFunPlaceAgentOrderGas         uint64
 }
 
@@ -431,28 +431,28 @@ func newViteGasTable() GasTable {
 		IssueGas:                                 126000,
 		BurnGas:                                  115500,
 		TransferOwnerGas:                         136500,
-		ChangeTokenTypeGas:                       115500,
-		GetTokenInfoGas:                          31500,
-		DexFundDepositGas:                        10500,
-		DexFundWithdrawGas:                       10500,
-		DexFundOpenNewMarketGas:                  31500,
-		DexFundPlaceOrderGas:                     25200,
-		DexFundSettleOrdersGas:                   21000,
-		DexFundTriggerPeriodJobGas:               8400,
-		DexFundStakeForMiningGas:                 31500,
-		DexFundStakeForVipGas:                    31500,
-		DexFundDelegateStakingCallbackGas:        12600,
-		DexFundCancelDelegatedStakingCallbackGas: 16800,
-		DexFundGetTokenInfoCallbackGas:           10500,
-		DexFundAdminConfigGas:                    16800,
-		DexFundTradeAdminConfigGas:               10500,
-		DexFundMarketAdminConfigGas:              10500,
-		DexFundTransferTokenOwnershipGas:         8400,
-		DexFundNotifyTimeGas:                     10500,
-		DexFundCreateNewInviterGas:               18900,
-		DexFundBindInviteCodeGas:                 8400,
-		DexFundEndorseVxGas:                      6300,
-		DexFundSettleMakerMinedVxGas:             25200,
+		ChangeTokenTypeGas:                    115500,
+		GetTokenInfoGas:                       31500,
+		DexFundDepositGas:                     10500,
+		DexFundWithdrawGas:                    10500,
+		DexFundOpenNewMarketGas:               31500,
+		DexFundPlaceOrderGas:                  25200,
+		DexFundSettleOrdersGas:                21000,
+		DexFundTriggerPeriodJobGas:            8400,
+		DexFundStakeForMiningGas:              31500,
+		DexFundStakeForVipGas:                 31500,
+		DexFundDelegateStakeCallbackGas:       12600,
+		DexFundCancelDelegateStakeCallbackGas: 16800,
+		DexFundGetTokenInfoCallbackGas:        10500,
+		DexFundAdminConfigGas:                 16800,
+		DexFundTradeAdminConfigGas:            10500,
+		DexFundMarketAdminConfigGas:           10500,
+		DexFundTransferTokenOwnershipGas:      8400,
+		DexFundNotifyTimeGas:                  10500,
+		DexFundCreateNewInviterGas:            18900,
+		DexFundBindInviteCodeGas:              8400,
+		DexFundEndorseVxGas:                   6300,
+		DexFundSettleMakerMinedVxGas:          25200,
 	}
 }
 
