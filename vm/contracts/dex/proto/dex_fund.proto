@@ -133,7 +133,7 @@ message VxSettleActions {
 message PeriodJobForBiz {
     uint64 Period = 1;
     int32  BizType = 2;
-}rpc_converter.go
+}
 
 //event
 message FeeDividendForVxHolder {
