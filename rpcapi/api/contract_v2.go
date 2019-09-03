@@ -305,7 +305,7 @@ type SBPReward struct {
 	TotalReward      string `json:"totalReward"`
 	BlockNum         string `json:"producedBlocks"`
 	ExpectedBlockNum string `json:"targetBlocks"`
-	Drained          bool   `json:"missedBlocks"`
+	Drained          bool   `json:"allRewardWithdrawed"`
 }
 
 func ToSBPReward(source *contracts.Reward) *SBPReward {
