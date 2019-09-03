@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"github.com/vitelabs/go-vite/common/fork"
 	"time"
 
 	"github.com/pkg/errors"
@@ -48,6 +49,14 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 		seedHash := ledger.ComputeSeedHash(seed, block.PrevHash, block.Timestamp)
 		block.SeedHash = &seedHash
 		block.Seed = 0
+	}
+
+	// add version
+	if fork.IsLeafFork(block.Height) {
+		activeForkPoint := fork.GetRecentActiveFork(block.Height)
+		if activeForkPoint != nil {
+			block.Version = activeForkPoint.Version
+		}
 	}
 
 	block.Hash = block.ComputeHash()

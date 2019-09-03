@@ -18,4 +18,6 @@ message SnapshotBlock {
     bytes SeedHash = 8;
 
     bytes snapshotContent = 9;
+
+    uint32 version = 10;
 }
