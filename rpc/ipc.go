@@ -26,7 +26,7 @@ import (
 
 // ServeListener accepts connections on l, serving JSON-RPC on them.
 func (srv *Server) ServeListener(l net.Listener) error {
-	fmt.Println("Vite rpc start success!")
+	fmt.Println("Vite RPC service started successfully!")
 	for {
 		conn, err := l.Accept()
 		if err != nil {

@@ -8,6 +8,7 @@ var (
 	InvalidInputParamErr = errors.New("invalid input param")
 
 	InvalidOrderIdErr       = errors.New("invalid order id")
+	InvalidOrderHashErr     = errors.New("invalid order hash")
 	InvalidOrderTypeErr     = errors.New("invalid order type")
 	InvalidOrderPriceErr    = errors.New("invalid order price format")
 	InvalidOrderQuantityErr = errors.New("invalid order quantity")
@@ -18,6 +19,7 @@ var (
 	TradeMarketExistsErr            = errors.New("trade market already exists")
 	TradeMarketNotExistsErr         = errors.New("trade market not exists")
 	TradeMarketStoppedErr           = errors.New("trade market stopped")
+	TradeMarketNotGrantedErr        = errors.New("trade market not granted")
 	ComposeOrderIdFailErr           = errors.New("compose order id fail")
 	DeComposeOrderIdFailErr         = errors.New("decompose order id fail")
 	TradeMarketInvalidQuoteTokenErr = errors.New("invalid quote token")
@@ -38,6 +40,8 @@ var (
 	PledgeAmountLeavedNotValidErr = errors.New("pledge amount leaved not valid")
 	PledgeForVipExistsErr         = errors.New("pledge for vip exists")
 	PledgeForVipNotExistsErr      = errors.New("pledge for vip not exists")
+	PledgeForSuperVipExistsErr    = errors.New("pledge for super vip exists")
+	PledgeForSuperVipNotExistsErr = errors.New("pledge for super vip not exists")
 
 	InvalidSourceAddressErr           = errors.New("invalid source address")
 	InvalidAmountForPledgeCallbackErr = errors.New("invalid amouznt for pledge callback")
@@ -54,8 +58,7 @@ var (
 	NotSetMaintainerErr            = errors.New("not set maintainer")
 	NotSetMineProxyErr             = errors.New("not set mine proxy")
 
-	InvalidInviterFeeAmountErr = errors.New("invalid inviter fee amount")
-	AlreadyIsInviterErr        = errors.New("already is inviter")
+	AlreadyIsInviterErr = errors.New("already is inviter")
 
 	InvalidInviteCodeErr     = errors.New("invalid invite code")
 	NotBindInviterErr        = errors.New("not bind invite code")

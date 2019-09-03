@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/bloom"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -22,7 +24,6 @@ var errPeerExisted = errors.New("peer has existed")
 var errPeerNotExist = errors.New("peer not exist")
 var errPeerAlreadyRunning = errors.New("peer is already running")
 var errPeerNotRunning = errors.New("peer is not running")
-var errPeerWriteBusy = errors.New("peer is busy")
 var errPeerCannotWrite = errors.New("peer is not writable")
 
 func extractAddress(sender *_net.TCPAddr, fileAddressBytes []byte, defaultPort int) (address string) {
@@ -131,7 +132,7 @@ type Peer struct {
 	manager PeerManager
 	handler msgHandler
 
-	knownBlocks blockFilter
+	knownBlocks *bloom.Filter
 
 	m  map[peerId]struct{}
 	m2 map[peerId]struct{} // MUST NOT write m2, only read, for cross peers
@@ -250,7 +251,7 @@ func newPeer(c Codec, their *HandshakeMsg, publicAddress, fileAddress string, su
 		wg:            sync.WaitGroup{},
 		manager:       manager,
 		handler:       handler,
-		knownBlocks:   newBlockFilter(filterCap),
+		knownBlocks:   bloom.New(filterCap, rt),
 		m:             make(map[peerId]struct{}),
 		m2:            nil,
 		once:          sync.Once{},
@@ -474,11 +475,6 @@ func (p *Peer) sendAccountBlocks(bs []*ledger.AccountBlock, msgId MsgId) (err er
 	}
 
 	return p.send(CodeAccountBlocks, msgId, ms)
-}
-
-// markIfNotExist return true is not exist
-func (p *Peer) markIfNotExist(hash types.Hash) bool {
-	return !p.knownBlocks.lookAndRecord(hash.Bytes())
 }
 
 type peerEventCode byte

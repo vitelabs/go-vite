@@ -28,6 +28,7 @@ type accountBockReader interface {
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 	GetAccountBlocks(blockHash types.Hash, count uint64) ([]*ledger.AccountBlock, error)
 	GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*ledger.AccountBlock, error)
+	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
 }
 
 type ledgerReader interface {

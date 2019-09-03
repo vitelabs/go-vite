@@ -753,8 +753,9 @@ func (n *net) Info() NodeInfo {
 		Peers:     ps,
 		Height:    n.chain.GetLatestSnapshotBlock().Height,
 		//Nodes:     n.discover.NodesCount(),
-		Latency: n.broadcaster.Statistic(),
-		Server:  FileServerStatus{},
+		Latency:               n.broadcaster.Statistic(),
+		BroadCheckFailedRatio: n.broadcaster.rings.failedRatio(),
+		Server:                FileServerStatus{},
 	}
 
 	if n.syncServer != nil {
@@ -765,15 +766,16 @@ func (n *net) Info() NodeInfo {
 }
 
 type NodeInfo struct {
-	ID        vnode.NodeID     `json:"id"`
-	Name      string           `json:"name"`
-	NetID     int              `json:"netId"`
-	Version   int              `json:"version"`
-	Address   string           `json:"address"`
-	PeerCount int              `json:"peerCount"`
-	Peers     []PeerInfo       `json:"peers"`
-	Height    uint64           `json:"height"`
-	Nodes     int              `json:"nodes"`
-	Latency   []int64          `json:"latency"` // [0,1,12,24]
-	Server    FileServerStatus `json:"server"`
+	ID                    vnode.NodeID     `json:"id"`
+	Name                  string           `json:"name"`
+	NetID                 int              `json:"netId"`
+	Version               int              `json:"version"`
+	Address               string           `json:"address"`
+	PeerCount             int              `json:"peerCount"`
+	Peers                 []PeerInfo       `json:"peers"`
+	Height                uint64           `json:"height"`
+	Nodes                 int              `json:"nodes"`
+	Latency               []int64          `json:"latency"` // [0,1,12,24]
+	BroadCheckFailedRatio float32          `json:"broadCheckFailedRatio"`
+	Server                FileServerStatus `json:"server"`
 }

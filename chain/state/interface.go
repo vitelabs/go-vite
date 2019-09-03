@@ -81,7 +81,7 @@ type RoundCacheInterface interface {
 }
 
 type StateDBInterface interface {
-	NewStorageIterator(addr *types.Address, prefix []byte) interfaces.StorageIterator
+	NewStorageIterator(addr types.Address, prefix []byte) interfaces.StorageIterator
 	NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr types.Address, prefix []byte) (interfaces.StorageIterator, error)
 	NewSnapshotStorageIterator(snapshotHash types.Hash, addr types.Address, prefix []byte) (interfaces.StorageIterator, error)
 	NewRawSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr types.Address, prefix []byte) interfaces.StorageIterator

@@ -157,7 +157,7 @@ func randomBytesFromBytes(data, recursiveData []byte, begin, end int) ([]byte, b
 	}
 	resLen := len(recursiveData)
 	for i := begin; i < end; i += resLen {
-		for j := 0; j < resLen && i+j < end; j ++ {
+		for j := 0; j < resLen && i+j < end; j++ {
 			recursiveData[j] = byte(int8(recursiveData[j]) + int8(data[i+j]))
 		}
 	}

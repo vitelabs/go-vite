@@ -3,6 +3,9 @@ package chain
 import (
 	"github.com/olebedev/emitter"
 	"github.com/vitelabs/go-vite/common/fork"
+
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
+
 	"math/big"
 	"time"
 
@@ -261,6 +264,10 @@ type Chain interface {
 	GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error)
 
 	CalVoteDetails(gid types.Gid, info *core.GroupInfo, snapshotBlock ledger.HashHeight) ([]*interfaces.VoteDetails, error)
+
+	GetPledgeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error)
+
+	GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.UserFund, error)
 
 	// ====== Sync ledger ======
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)

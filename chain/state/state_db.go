@@ -83,7 +83,6 @@ func NewStateDBWithStore(chain Chain, chainCfg *config.Chain, store *chain_db.St
 	if err := stateDb.newCache(); err != nil {
 		return nil, err
 	}
-
 	stateDb.roundCache = NewRoundCache(chain, stateDb, 3)
 	return stateDb, nil
 }
