@@ -8,7 +8,11 @@ ADD . /usr/local/go/src/github.com/vitelabs/go-vite
 RUN go build -o gvite  github.com/vitelabs/go-vite/cmd/gvite
 
 FROM alpine:3.8
+RUN apk add ca-certificates && \
+ ln -s /root/.gvite /data
+
 COPY --from=maker /go/gvite .
 COPY ./node_config.json .
 EXPOSE 8483 8484 48132 41420 8483/udp
+VOLUME ["/data"]
 ENTRYPOINT ["/gvite"]
