@@ -103,12 +103,18 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 		chainCfg: chainCfg,
 	}
 
+	// set leaf fork point
 	forkActiveCheckPoint := fork.GetLeafForkPoint()
 	if forkActiveCheckPoint == nil {
 		panic("LeafFork is not existed")
 	}
 
 	c.forkActiveCheckPoint = *forkActiveCheckPoint
+
+	// set active fork
+	if !fork.IsInitActiveChecker() {
+		fork.SetActiveChecker(c)
+	}
 
 	c.em = newEventManager(c)
 	c.emitter.Use("*", emitter.Sync)
@@ -156,11 +162,6 @@ func (c *chain) Init() error {
 	// init fork active
 	if err := c.initActiveFork(); err != nil {
 		return err
-	}
-
-	// set active fork
-	if !fork.IsInitActiveChecker() {
-		fork.SetActiveChecker(c)
 	}
 
 	// check fork points and rollback

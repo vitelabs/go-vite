@@ -16,10 +16,16 @@ func (c *chain) IsForkActive(point fork.ForkPointItem) bool {
 		return true
 	}
 
+	if c.forkActiveCache == nil {
+		panic("Not initActiveFork, Can't check IsForkActive")
+	}
+
 	return c.checkIsActiveInCache(point)
 }
 
 func (c *chain) initActiveFork() error {
+	c.forkActiveCache = make(fork.ForkPointList, 0)
+
 	forkPointList := fork.GetForkPointList()
 
 	latestSnapshotBlock := c.GetLatestSnapshotBlock()
