@@ -30,9 +30,12 @@ func (v VoteApi) String() string {
 	return "VoteApi"
 }
 
+// Private
 func (v *VoteApi) GetVoteData(gid types.Gid, name string) ([]byte, error) {
 	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameVote, gid, name)
 }
+
+// Private
 func (v *VoteApi) GetCancelVoteData(gid types.Gid) ([]byte, error) {
 	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelVote, gid)
 }
@@ -48,6 +51,7 @@ type VoteInfo struct {
 	Balance    string `json:"balance"`
 }
 
+// Deprecated: use contract_getVotedSBP instead
 func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, error) {
 	db, err := getVmDb(v.chain, types.AddressConsensusGroup)
 	if err != nil {
@@ -75,6 +79,7 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 	return nil, nil
 }
 
+// Deprecated: use contract_getSBPVotingDetailsByCycle instead
 func (v *VoteApi) GetVoteDetails(index *uint64) ([]*consensus.VoteDetails, error) {
 	t := time.Now()
 	if index != nil {

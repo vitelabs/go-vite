@@ -17,9 +17,11 @@ import (
 
 func initForkPointsForQuotaTest() {
 	fork.SetForkPoints(&config.ForkPoints{
-		SeedFork: &config.ForkPoint{Height: 100, Version: 1},
-		DexFork:  &config.ForkPoint{Height: 200, Version: 1},
-		StemFork: &config.ForkPoint{Height: 200, Version: 1}})
+		SeedFork:   &config.ForkPoint{Height: 100, Version: 1},
+		DexFork:    &config.ForkPoint{Height: 200, Version: 2},
+		DexFeeFork: &config.ForkPoint{Height: 250, Version: 3},
+		StemFork:   &config.ForkPoint{Height: 300, Version: 4},
+		LeafFork:   &config.ForkPoint{Height: 400, Version: 5}})
 }
 
 type testQuotaDb struct {
@@ -1287,49 +1289,44 @@ func TestCalcQuotaForBlock(t *testing.T) {
 func TestCalcPledgeAmountByUtps(t *testing.T) {
 	InitQuotaConfig(false, false)
 	testCases := []struct {
-		utps           float64
+		q              uint64
 		expectedResult *big.Int
 		err            error
 	}{
-		{
-			-1,
-			nil,
-			util.ErrInvalidMethodParam,
-		},
 		{
 			0,
 			big.NewInt(0),
 			nil,
 		},
 		{
-			0.013,
+			273,
 			new(big.Int).Mul(big.NewInt(134), big.NewInt(1e18)),
 			nil,
 		},
 		{
-			0.026,
+			546,
 			new(big.Int).Mul(big.NewInt(267), big.NewInt(1e18)),
 			nil,
 		},
 		{
-			1.0,
+			21000,
 			new(big.Int).Mul(big.NewInt(1e4), big.NewInt(1e18)),
 			nil,
 		},
 		{
-			48,
+			1008000,
 			nil,
 			util.ErrInvalidMethodParam,
 		},
 	}
 	for _, utps := range testCases {
-		result, error := CalcPledgeAmountByUtps(utps.utps)
+		result, error := CalcPledgeAmountByQuota(utps.q)
 		if (error == nil && utps.err != nil) || (error != nil && utps.err == nil) ||
 			(error != nil && utps.err != nil && error.Error() != utps.err.Error()) {
-			t.Fatalf("param: %v, error expected %v, but got %v", utps.utps, utps.err, error)
+			t.Fatalf("param: %v, error expected %v, but got %v", utps.q, utps.err, error)
 		}
 		if error == nil && utps.err == nil && result.Cmp(utps.expectedResult) != 0 {
-			t.Fatalf("param: %v, result expected %v, but got %v", utps.utps, utps.expectedResult, result)
+			t.Fatalf("param: %v, result expected %v, but got %v", utps.q, utps.expectedResult, result)
 		}
 	}
 }
@@ -1397,15 +1394,15 @@ func TestCalcDexQuota(t *testing.T) {
 	dataLenMap[abi.MethodNameDexTradeCancelOrder] = len(methodNameDexTradeCancelOrderData)
 	fmt.Println("quota for dex tx")
 	for name, length := range dataLenMap {
-		f := float64(gasTable.TxGas+uint64(length)*gasTable.TxDataGas) / float64(gasTable.TxGas) / float64(75)
-		minPledgeAmount, _ := CalcPledgeAmountByUtps(f)
+		q := (gasTable.TxGas + uint64(length)*gasTable.TxDataGas + 74) / 75
+		minPledgeAmount, _ := CalcPledgeAmountByQuota(q)
 		fmt.Printf("%v\t%v\t%v\n", name, gasTable.TxGas+uint64(length)*gasTable.TxDataGas, minPledgeAmount.Div(minPledgeAmount, big.NewInt(1e18)))
 	}
 	fmt.Println("pledge amount for dex tx")
 	for name, length := range dataLenMap {
 		for _, numerator := range numeratorList {
-			f := float64(numerator*(gasTable.TxGas+uint64(length)*gasTable.TxDataGas)) / float64(gasTable.TxGas) / float64(75)
-			pledgeAmount, _ := CalcPledgeAmountByUtps(f)
+			q := (numerator*(gasTable.TxGas+uint64(length)*gasTable.TxDataGas) + 74) / 75
+			pledgeAmount, _ := CalcPledgeAmountByQuota(q)
 			if numerator < 75 {
 				fmt.Printf("%v\t%v\t%v\n", name, strconv.Itoa(int(numerator))+"("+strconv.Itoa(int(numerator))+"/75 tps)", pledgeAmount.Div(pledgeAmount, big.NewInt(1e18)))
 			} else {

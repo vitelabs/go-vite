@@ -16,3 +16,7 @@ func (db *vmDb) GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.Snapshot
 func (db *vmDb) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
 	return db.chain.GetConfirmedTimes(blockHash)
 }
+
+func (db *vmDb) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	return db.chain.GetSnapshotBlockByHeight(height)
+}

@@ -29,6 +29,7 @@ type LedgerApi interface {
 	GetLatestBlock(addr types.Address) (*api.AccountBlock, error)
 	GetVmLogList(blockHash types.Hash) (ledger.VmLogList, error)
 	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
+	GetConfirmedBalances(snapshotHash types.Hash, addrList []types.Address, tokenIds []types.TokenTypeId) (api.GetBalancesRes, error)
 }
 
 type ledgerApi struct {
@@ -135,5 +136,10 @@ func (li ledgerApi) GetVmLogList(blockHash types.Hash) (logs ledger.VmLogList, e
 
 func (li ledgerApi) GetUnconfirmedBlocks(addr types.Address) (blocks []*ledger.AccountBlock) {
 	li.cc.Call(&blocks, "ledger_getUnconfirmedBlocks", addr)
+	return
+}
+
+func (li ledgerApi) GetConfirmedBalances(snapshotHash types.Hash, addrList []types.Address, tokenIds []types.TokenTypeId) (result api.GetBalancesRes, err error) {
+	err = li.cc.Call(&result, "ledger_getConfirmedBalances", snapshotHash, addrList, tokenIds)
 	return
 }

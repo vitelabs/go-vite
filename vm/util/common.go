@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"sort"
+	"unicode"
 )
 
 var (
@@ -51,12 +52,8 @@ func IsValidQuotaRatio(quotaRatio uint8) bool {
 	return quotaRatio >= 10 && quotaRatio <= 100
 }
 
-func GetCreateContractData(bytecode []byte, contractType uint8, confirmTimes uint8, seedCount uint8, quotaRatio uint8, gid types.Gid, snapshotHeight uint64) []byte {
-	if !fork.IsSeedFork(snapshotHeight) {
-		return helper.JoinBytes(gid.Bytes(), []byte{contractType}, []byte{confirmTimes}, []byte{quotaRatio}, bytecode)
-	} else {
-		return helper.JoinBytes(gid.Bytes(), []byte{contractType}, []byte{confirmTimes}, []byte{seedCount}, []byte{quotaRatio}, bytecode)
-	}
+func GetCreateContractData(bytecode []byte, contractType uint8, confirmTimes uint8, seedCount uint8, quotaRatio uint8, gid types.Gid) []byte {
+	return helper.JoinBytes(gid.Bytes(), []byte{contractType}, []byte{confirmTimes}, []byte{seedCount}, []byte{quotaRatio}, bytecode)
 }
 
 func GetGidFromCreateContractData(data []byte) types.Gid {
@@ -147,4 +144,14 @@ func IsUserAccount(addr types.Address) bool {
 func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog {
 	topics, data, _ := c.PackEvent(name, params...)
 	return &ledger.VmLog{Topics: topics, Data: data}
+}
+
+func CheckFork(db dbInterface, f func(uint64) bool) bool {
+	sb, err := db.LatestSnapshotBlock()
+	DealWithErr(err)
+	return f(sb.Height)
+}
+
+func FirstToLower(str string) string {
+	return string(unicode.ToLower(rune(str[0]))) + str[1:]
 }
