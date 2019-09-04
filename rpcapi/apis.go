@@ -204,7 +204,7 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Public:    false,
 		}
 	default:
-		return rpc.API{}
+		return rpc.API{Namespace: apiModule}
 	}
 }
 
