@@ -22,6 +22,14 @@ func initForkPointsForQuotaTest() {
 		DexFeeFork: &config.ForkPoint{Height: 250, Version: 3},
 		StemFork:   &config.ForkPoint{Height: 300, Version: 4},
 		LeafFork:   &config.ForkPoint{Height: 400, Version: 5}})
+	fork.SetActiveChecker(mockActiveChecker{})
+}
+
+type mockActiveChecker struct {
+}
+
+func (m mockActiveChecker) IsForkActive(point fork.ForkPointItem) bool {
+	return true
 }
 
 type testQuotaDb struct {
