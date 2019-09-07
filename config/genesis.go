@@ -27,11 +27,16 @@ func IsCompleteGenesisConfig(genesisConfig *Genesis) bool {
 }
 
 type ForkPoint struct {
-	Height uint64
-	Hash   *types.Hash
+	Height  uint64
+	Version uint32
 }
 
-type ForkPoints struct{}
+type ForkPoints struct {
+	SeedFork   *ForkPoint
+	DexFork    *ForkPoint
+	DexFeeFork *ForkPoint
+	StemFork   *ForkPoint
+}
 
 type GenesisVmLog struct {
 	Data   string

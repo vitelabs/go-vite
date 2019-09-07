@@ -1,6 +1,7 @@
 package chain_genesis
 
 import (
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 )
@@ -10,4 +11,7 @@ type Chain interface {
 	InsertAccountBlock(vmAccountBlocks *vm_db.VmAccountBlock) error
 	QuerySnapshotBlockByHeight(uint64) (*ledger.SnapshotBlock, error)
 	GetContentNeedSnapshot() ledger.SnapshotContent
+
+	WriteGenesisCheckSum(hash types.Hash) error
+	QueryGenesisCheckSum() (*types.Hash, error)
 }

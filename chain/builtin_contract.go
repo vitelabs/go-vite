@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -77,26 +78,26 @@ func (c *chain) GetPledgeBeneficialAmount(addr types.Address) (*big.Int, error) 
 }
 
 // total
-func (c *chain) GetPledgeQuota(addr types.Address) (*types.Quota, error) {
+func (c *chain) GetPledgeQuota(addr types.Address) (*big.Int, *types.Quota, error) {
 
 	amount, err := c.GetPledgeBeneficialAmount(addr)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	vmDb := vm_db.NewVmDbByAddr(c, &addr)
 
-	quota, err := quota.GetPledgeQuota(vmDb, addr, amount)
+	quota, err := quota.GetPledgeQuota(vmDb, addr, amount, c.GetLatestSnapshotBlock().Height)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &quota, nil
+	return amount, &quota, nil
 }
 
 // total
 func (c *chain) GetPledgeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error) {
-
-	sd, err := c.stateDB.NewStorageDatabase(c.GetLatestSnapshotBlock().Hash, types.AddressPledge)
+	sb := c.GetLatestSnapshotBlock()
+	sd, err := c.stateDB.NewStorageDatabase(sb.Hash, types.AddressPledge)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
 		c.log.Error(cErr.Error(), "method", "GetPledgeBeneficialAmount")
@@ -114,7 +115,7 @@ func (c *chain) GetPledgeQuotas(addrList []types.Address) (map[types.Address]*ty
 		}
 
 		vmDb := vm_db.NewVmDbByAddr(c, &addr)
-		quota, err := quota.GetPledgeQuota(vmDb, addr, amount)
+		quota, err := quota.GetPledgeQuota(vmDb, addr, amount, sb.Height)
 		if err != nil {
 			cErr := errors.New(fmt.Sprintf("quota.GetPledgeQuota failed. Error: %s", err))
 			c.log.Error(cErr.Error(), "method", "GetPledgeQuotas")
@@ -146,4 +147,25 @@ func (c *chain) GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error
 		return nil, cErr
 	}
 	return abi.GetTokenMap(sd)
+}
+
+func (c *chain) GetPledgeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressPledge)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
+		c.log.Error(cErr.Error(), "method", "GetPledgeAmountByPage")
+
+		return nil, nil, cErr
+	}
+	return abi.GetPledgeListByPage(sd, lastKey, count)
+}
+
+func (c *chain) GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.UserFund, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
+		c.log.Error(cErr.Error(), "method", "GetPledgeAmountByPage")
+		return nil, cErr
+	}
+	return dex.GetUserFundsByPage(sd, lastAddress, count)
 }

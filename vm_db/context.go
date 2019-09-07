@@ -27,6 +27,13 @@ func (vdb *vmDb) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 	return vdb.latestSnapshotBlock, nil
 }
 
+func (vdb *vmDb) PrevAccountBlockHash() types.Hash {
+	if vdb.prevAccountBlockHash == nil {
+		return types.Hash{}
+	}
+	return *vdb.prevAccountBlockHash
+}
+
 func (vdb *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
 	if vdb.prevAccountBlock == nil {
 		if vdb.prevAccountBlockHash == nil {
@@ -70,4 +77,7 @@ func (vdb *vmDb) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 
 func (vdb *vmDb) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 	return vdb.chain.GetQuotaUsedList(addr)
+}
+func (vdb *vmDb) GetGlobalQuota() types.QuotaInfo {
+	return vdb.chain.GetGlobalQuota()
 }

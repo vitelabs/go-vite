@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -16,16 +17,21 @@ func (p *MethodVote) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodVote) GetRefundData() ([]byte, bool) {
+func (p *MethodVote) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
-func (p *MethodVote) GetSendQuota(data []byte) (uint64, error) {
-	return VoteGas, nil
+func (p *MethodVote) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return gasTable.VoteGas, nil
+}
+func (p *MethodVote) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+	return 0
 }
 
 // vote for a super node of a consensus group
 func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.Amount.Sign() != 0 || !util.IsUserAccount(block.AccountAddress) {
+	latestSb, err := db.LatestSnapshotBlock()
+	util.DealWithErr(err)
+	if block.Amount.Sign() != 0 || (!util.IsUserAccount(block.AccountAddress) && !fork.IsStemFork(latestSb.Height)) {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamVote)
@@ -65,21 +71,26 @@ func (p *MethodCancelVote) GetFee(block *ledger.AccountBlock) (*big.Int, error) 
 	return big.NewInt(0), nil
 }
 
-func (p *MethodCancelVote) GetRefundData() ([]byte, bool) {
+func (p *MethodCancelVote) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
 	return []byte{}, false
 }
-func (p *MethodCancelVote) GetSendQuota(data []byte) (uint64, error) {
-	return CancelVoteGas, nil
+func (p *MethodCancelVote) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
+	return gasTable.CancelVoteGas, nil
+}
+func (p *MethodCancelVote) GetReceiveQuota(gasTable *util.GasTable) uint64 {
+	return 0
 }
 
 // cancel vote for a super node of a consensus group
 func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	latestSb, err := db.LatestSnapshotBlock()
+	util.DealWithErr(err)
 	if block.Amount.Sign() != 0 ||
-		!util.IsUserAccount(block.AccountAddress) {
+		(!util.IsUserAccount(block.AccountAddress) && !fork.IsStemFork(latestSb.Height)) {
 		return util.ErrInvalidMethodParam
 	}
 	gid := new(types.Gid)
-	err := abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelVote, block.Data)
+	err = abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelVote, block.Data)
 	if err != nil || util.IsDelegateGid(*gid) {
 		return util.ErrInvalidMethodParam
 	}

@@ -1,0 +1,21 @@
+syntax="proto3";
+
+package vitepb;
+
+import "vitepb/message.proto";
+
+message cacheItem {
+    uint64 from = 1;
+    uint64 to = 2;
+    bytes prevHash = 3;
+    bytes hash = 4;
+    repeated vitepb.HashHeight points = 5;
+    bool verified = 6;
+    string filename = 7;
+    bool done = 8;
+    int64 size = 9;
+}
+
+message cacheItems {
+     repeated cacheItem items = 1;
+}

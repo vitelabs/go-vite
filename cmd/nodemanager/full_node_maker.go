@@ -92,10 +92,6 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.MaxPendingPeers = ctx.GlobalInt(utils.MaxPendingPeersFlag.Name)
 	}
 
-	if ctx.GlobalIsSet(utils.ListenPortFlag.Name) {
-		cfg.ListenAddress = "0.0.0.0:" + utils.ListenPortFlag.Name
-	}
-
 	if nodeKeyHex := ctx.GlobalString(utils.NodeKeyHexFlag.Name); len(nodeKeyHex) > 0 {
 		cfg.SetPrivateKey(nodeKeyHex)
 	}
@@ -160,6 +156,9 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(utils.VMTestParamFlag.Name) {
 		cfg.VMTestParamEnabled = ctx.GlobalBool(utils.VMTestParamFlag.Name)
 	}
+	if ctx.GlobalIsSet(utils.QuotaTestParamFlag.Name) {
+		cfg.QuotaTestParamEnabled = ctx.GlobalBool(utils.QuotaTestParamFlag.Name)
+	}
 	if ctx.GlobalIsSet(utils.VMDebugFlag.Name) {
 		cfg.VMDebug = ctx.GlobalBool(utils.VMDebugFlag.Name)
 	}
@@ -172,10 +171,6 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	//Net
 	if ctx.GlobalIsSet(utils.SingleFlag.Name) {
 		cfg.Single = ctx.GlobalBool(utils.SingleFlag.Name)
-	}
-
-	if ctx.GlobalIsSet(utils.FilePortFlag.Name) {
-		cfg.FileListenAddress = "0.0.0.0:" + utils.FilePortFlag.Name
 	}
 
 	//metrics

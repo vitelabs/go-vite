@@ -2,10 +2,9 @@ package pool
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
+	"time"
 )
 
 func (pl *pool) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
@@ -29,7 +28,11 @@ func (pl *pool) InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 		if block == nil {
 			continue
 		}
-		fmt.Printf("[Insert] Height:%d, Hash:%s, Timestamp:%s, Producer:%s, Time:%s\n", block.Height, block.Hash, block.Timestamp, block.Producer(), time.Now())
+		tps := 0
+		if v.AccountBlocks != nil {
+			tps = len(v.AccountBlocks)
+		}
+		fmt.Printf("[Insert] Height:%d, Hash:%s, Timestamp:%s, Producer:%s, Time:%s, Cnt:%d\n", block.Height, block.Hash, block.Timestamp, block.Producer(), time.Now(), tps)
 	}
 	return nil
 }

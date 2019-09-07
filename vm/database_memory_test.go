@@ -201,8 +201,21 @@ func (db *memoryDatabase) GetQuotaUsedList(addr types.Address) []types.QuotaInfo
 	return list
 }
 
+func (db *memoryDatabase) GetGlobalQuota() types.QuotaInfo {
+	return types.QuotaInfo{}
+}
+
+func (db *memoryDatabase) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
+func (db *memoryDatabase) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	return nil, nil
+}
+
 func (db *memoryDatabase) SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta) {
 }
+
 func (db *memoryDatabase) GetContractMeta() (*ledger.ContractMeta, error) {
 	return &ledger.ContractMeta{Gid: types.DELEGATE_GID, SendConfirmedTimes: 0, QuotaRatio: 10}, nil
 }
@@ -222,4 +235,7 @@ func (db *memoryDatabase) GetConfirmedTimes(blockHash types.Hash) (uint64, error
 }
 func (db *memoryDatabase) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
 	return nil, nil
+}
+func (db *memoryDatabase) CanWrite() bool {
+	return false
 }

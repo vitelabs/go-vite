@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -295,9 +296,18 @@ func (m WalletApi) SignData(addr types.Address, hexMsg string) (*HexSignedTuple,
 }
 
 func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.Hash, error) {
+	if !checkTxToAddressAvailable(params.ToAddr) {
+		return nil, errors.New("ToAddress is invalid")
+	}
+	if params.ToAddr == types.AddressDexFund && !dex.VerifyNewOrderPriceForRpc(params.Data) {
+		return nil, dex.InvalidOrderPriceErr
+	}
 	amount, ok := new(big.Int).SetString(params.Amount, 10)
 	if !ok {
 		return nil, ErrStrToBigInt
+	}
+	if err := checkTokenIdValid(m.chain, &params.TokenTypeId); err != nil {
+		return nil, err
 	}
 	var difficulty *big.Int = nil
 	if params.Difficulty != nil {
@@ -394,4 +404,21 @@ func (m WalletApi) IsMayValidKeystoreFile(path string) IsMayValidKeystoreFileRes
 
 func (m WalletApi) GetDataDir() string {
 	return m.wallet.GetDataDir()
+}
+
+func (m WalletApi) GetPrivateKey(entropyStore string, passphrase string) (*string, error) {
+	manager, e := m.wallet.GetEntropyStoreManager(entropyStore)
+	if e != nil {
+		return nil, e
+	}
+	err := manager.Unlock(passphrase)
+	if err != nil {
+		return nil, err
+	}
+	pk, err := manager.GetPrivateKey(manager.GetPrimaryAddr())
+	if err != nil {
+		return nil, err
+	}
+	pkStr := hex.EncodeToString(pk)
+	return &pkStr, nil
 }

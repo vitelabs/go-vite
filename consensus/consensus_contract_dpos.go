@@ -120,7 +120,7 @@ func (contract *contractDposCs) verifyAccountsProducer(accountBlocks []*ledger.A
 func (contract *contractDposCs) verifyProducers(blocks []*ledger.AccountBlock, result map[types.Address]bool) []*ledger.AccountBlock {
 	var inValid []*ledger.AccountBlock
 	for _, v := range blocks {
-		if !result[v.AccountAddress] {
+		if !result[v.Producer()] {
 			inValid = append(inValid, v)
 		}
 	}

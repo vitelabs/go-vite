@@ -13,7 +13,7 @@ func (vdb *vmDb) DebugGetStorage() (map[string][]byte, error) {
 		result[string(iter.Key())] = iter.Value()
 	}
 	if err := iter.Error(); err != nil {
-		return nil, err
+		return nil, iter.Error()
 	}
 
 	return result, nil

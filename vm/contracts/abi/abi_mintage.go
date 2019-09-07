@@ -20,8 +20,8 @@ const (
 		{"type":"function","name":"Burn","inputs":[]},
 		{"type":"function","name":"TransferOwner","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"newOwner","type":"address"}]},
 		{"type":"function","name":"ChangeTokenType","inputs":[{"name":"tokenId","type":"tokenId"}]},
-		{"type":"function","name":"GetTokenInfo","inputs":[{"name":"tokenId","type":"tokenId"}]},
-		{"type":"callback","name":"GetTokenInfo","inputs":[{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"}]},
+		{"type":"function","name":"GetTokenInfo","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"bid","type":"uint8"}]},
+		{"type":"callback","name":"GetTokenInfo","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"bid","type":"uint8"},{"name":"exist","type":"bool"},{"name":"decimals","type":"uint8"},{"name":"tokenSymbol","type":"string"},{"name":"index","type":"uint16"},{"name":"owner","type":"address"}]},
 		{"type":"variable","name":"tokenInfo","inputs":[{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"owner","type":"address"},{"name":"isReIssuable","type":"bool"},{"name":"maxSupply","type":"uint256"},{"name":"ownerBurnOnly","type":"bool"},{"name":"index","type":"uint16"}]},
 		{"type":"variable","name":"tokenNameIndex","inputs":[{"name":"nextIndex","type":"uint16"}]},
 		{"type":"event","name":"mint","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]},
@@ -70,6 +70,11 @@ type ParamIssue struct {
 type ParamTransferOwner struct {
 	TokenId  types.TokenTypeId
 	NewOwner types.Address
+}
+
+type ParamGetTokenInfo struct {
+	TokenId types.TokenTypeId
+	Bid     uint8
 }
 
 func GetMintageKey(tokenId types.TokenTypeId) []byte {
@@ -139,7 +144,7 @@ func GetTokenMap(db StorageDatabase) (map[types.TokenTypeId]*types.TokenInfo, er
 	for {
 		if !iterator.Next() {
 			if iterator.Error() != nil {
-				return nil, err
+				return nil, iterator.Error()
 			}
 			break
 		}

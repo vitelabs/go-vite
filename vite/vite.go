@@ -6,18 +6,19 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/onroad"
-	"github.com/vitelabs/go-vite/p2p"
 	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/producer"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/wallet"
 )
@@ -37,10 +38,43 @@ type Vite struct {
 	pool            pool.BlockPool
 	consensus       consensus.Consensus
 	onRoad          *onroad.Manager
-	p2p             p2p.P2P
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
+	var addressContext *producer.AddressContext
+	if cfg.Producer.Producer && cfg.Producer.Coinbase != "" {
+		var coinbase *types.Address
+		var index uint32
+		coinbase, index, err = parseCoinbase(cfg.Producer.Coinbase)
+		if err != nil {
+			log.Error(fmt.Sprintf("coinBase parse fail. %v", cfg.Producer.Coinbase), "err", err)
+			return nil, err
+		}
+		err = walletManager.MatchAddress(cfg.EntropyStorePath, *coinbase, index)
+
+		if err != nil {
+			log.Error(fmt.Sprintf("coinBase is not child of entropyStore, coinBase is : %v", cfg.Producer.Coinbase), "err", err)
+			return nil, err
+		}
+
+		var key *derivation.Key
+		_, key, _, err = walletManager.GlobalFindAddr(*coinbase)
+		if err != nil {
+			return
+		}
+
+		cfg.Net.MineKey, err = key.PrivateKey()
+		if err != nil {
+			return
+		}
+
+		addressContext = &producer.AddressContext{
+			EntryPath: cfg.EntropyStorePath,
+			Address:   *coinbase,
+			Index:     index,
+		}
+	}
+
 	// set fork points
 	fork.SetForkPoints(cfg.ForkPoints)
 
@@ -65,21 +99,10 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 
 	verifier := verifier.NewVerifier(sbVerifier, aVerifier)
 	// net
-	var net = net.New(net.Config{
-		Single:             cfg.Single,
-		FileListenAddress:  cfg.FileListenAddress,
-		TraceEnabled:       false,
-		ForwardStrategy:    cfg.ForwardStrategy,
-		AccessControl:      cfg.AccessControl,
-		AccessAllowKeys:    cfg.AccessAllowKeys,
-		AccessDenyKeys:     cfg.AccessDenyKeys,
-		BlackBlockHashList: cfg.BlackBlockHashList,
-		MinePrivateKey:     cfg.MinePrivateKey,
-		P2PPrivateKey:      cfg.P2PPrivateKey,
-		Chain:              chain,
-		Verifier:           verifier,
-	})
-	net.Init(cs, pl)
+	net, err := net.New(cfg.Net, chain, verifier, cs, pl)
+	if err != nil {
+		return
+	}
 
 	// vite
 	vite = &Vite{
@@ -92,25 +115,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		accountVerifier: verifier,
 	}
 
-	// producer
-	if cfg.Producer.Producer && cfg.Producer.Coinbase != "" {
-		coinbase, index, err := parseCoinbase(cfg.Producer.Coinbase)
-		//coinbase, err := types.HexToAddress(cfg.Producer.Coinbase)
-		if err != nil {
-			log.Error(fmt.Sprintf("coinBase parse fail. %v", cfg.Producer.Coinbase), "err", err)
-			return nil, err
-		}
-		err = walletManager.MatchAddress(cfg.EntropyStorePath, *coinbase, index)
-
-		if err != nil {
-			log.Error(fmt.Sprintf("coinBase is not child of entropyStore, coinBase is : %v", cfg.Producer.Coinbase), "err", err)
-			return nil, err
-		}
-		addressContext := &producer.AddressContext{
-			EntryPath: cfg.EntropyStorePath,
-			Address:   *coinbase,
-			Index:     index,
-		}
+	if addressContext != nil {
 		vite.producer = producer.NewProducer(chain, net, addressContext, cs, sbVerifier, walletManager, pl)
 	}
 
@@ -123,7 +128,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 }
 
 func (v *Vite) Init() (err error) {
-	vm.InitVMConfig(v.config.IsVmTest, v.config.IsUseVmTestParam, v.config.IsVmDebug, v.config.DataDir)
+	vm.InitVMConfig(v.config.IsVmTest, v.config.IsUseVmTestParam, v.config.IsUseQuotaTestParam, v.config.IsVmDebug, v.config.DataDir)
 
 	//v.chain.Init()
 	if v.producer != nil {
@@ -140,9 +145,7 @@ func (v *Vite) Init() (err error) {
 	return nil
 }
 
-func (v *Vite) Start(p2p p2p.P2P) (err error) {
-	v.p2p = p2p
-
+func (v *Vite) Start() (err error) {
 	v.onRoad.Start()
 
 	v.chain.Start()
@@ -156,7 +159,7 @@ func (v *Vite) Start(p2p p2p.P2P) (err error) {
 
 	v.consensus.Start()
 
-	err = v.net.Start(p2p)
+	err = v.net.Start()
 	if err != nil {
 		return
 	}
@@ -219,10 +222,6 @@ func (v *Vite) OnRoad() *onroad.Manager {
 
 func (v *Vite) Config() *config.Config {
 	return v.config
-}
-
-func (v *Vite) P2P() p2p.P2P {
-	return v.p2p
 }
 
 func parseCoinbase(coinbaseCfg string) (*types.Address, uint32, error) {

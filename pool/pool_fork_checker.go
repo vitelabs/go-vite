@@ -271,6 +271,9 @@ func (pl *pool) getLatestIrreversible(lastIdx uint64, nodeCnt int, ti core.TimeI
 		if err != nil {
 			return nil, err
 		}
+		if point == nil {
+			return nil, errors.New("block not exist.")
+		}
 
 		if pl.checkIrreversible(point, latest, irreversibleCnt) {
 			return &irreversibleInfo{point: point, proofPoint: head, rollbackV: pl.rollbackVersion.Val()}, nil
@@ -289,6 +292,9 @@ func (pl *pool) checkIrreversible(point *ledger.SnapshotBlock, proofPoint *ledge
 	for i := proofPoint.Height - 1; i > point.Height; i-- {
 		block, err := pl.bc.GetSnapshotHeaderByHeight(i)
 		if err != nil {
+			return false
+		}
+		if block == nil {
 			return false
 		}
 		addrs[block.Producer()] = struct{}{}

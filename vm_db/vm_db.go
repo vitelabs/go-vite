@@ -7,10 +7,13 @@ import (
 )
 
 type vmDb struct {
-	uns   *Unsaved
+	uns *Unsaved // the unsaved memory
+
 	chain Chain
 
-	address *types.Address
+	// context
+	address   *types.Address
+	isGenesis bool
 
 	latestSnapshotBlockHash *types.Hash
 	latestSnapshotBlock     *ledger.SnapshotBlock // for cache
@@ -31,8 +34,9 @@ func NewVmDb(chain Chain, address *types.Address, latestSnapshotBlockHash *types
 	}
 
 	return &vmDb{
-		chain:   chain,
-		address: address,
+		chain:     chain,
+		address:   address,
+		isGenesis: false,
 
 		latestSnapshotBlockHash: latestSnapshotBlockHash,
 		prevAccountBlockHash:    prevAccountBlockHash,
@@ -44,6 +48,12 @@ func (vdb *vmDb) unsaved() *Unsaved {
 		vdb.uns = NewUnsaved()
 	}
 	return vdb.uns
+}
+
+func (vdb *vmDb) CanWrite() bool {
+	return vdb.isGenesis || (vdb.address != nil &&
+		vdb.prevAccountBlockHash != nil &&
+		vdb.latestSnapshotBlockHash != nil)
 }
 
 func NewNoContextVmDb(chain Chain) VmDb {
@@ -59,8 +69,9 @@ func NewVmDbByAddr(chain Chain, address *types.Address) VmDb {
 	}
 }
 
-func NewEmptyVmDB(address *types.Address) VmDb {
+func NewGenesisVmDB(address *types.Address) VmDb {
 	return &vmDb{
-		address: address,
+		address:   address,
+		isGenesis: true,
 	}
 }

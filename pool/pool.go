@@ -16,11 +16,11 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/pool/batch"
 	"github.com/vitelabs/go-vite/pool/lock"
 	"github.com/vitelabs/go-vite/pool/tree"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/vite/net"
 	"github.com/vitelabs/go-vite/vm_db"
 	"github.com/vitelabs/go-vite/wallet"
 )
@@ -538,6 +538,8 @@ func (pl *pool) broadcastUnConfirmedBlocks() {
 
 func (pl *pool) delUseLessChains() {
 	if pl.sync.SyncState() != net.Syncing {
+		pl.RLockInsert()
+		defer pl.RUnLockInsert()
 		info := pl.pendingSc.irreversible
 		pl.delChainsForIrreversible(info)
 		pl.pendingSc.checkPool()

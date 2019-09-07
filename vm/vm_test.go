@@ -21,12 +21,15 @@ import (
 )
 
 func init() {
-	InitVMConfig(false, false, true, common.HomeDir())
+	InitVMConfig(false, false, false, false, common.HomeDir())
 	initFork()
 }
 
 func initFork() {
-	fork.SetForkPoints(&config.ForkPoints{})
+	fork.SetForkPoints(&config.ForkPoints{
+		SeedFork: &config.ForkPoint{Height: 100, Version: 1},
+		DexFork:  &config.ForkPoint{Height: 200, Version: 1},
+		StemFork: &config.ForkPoint{Height: 300, Version: 1}})
 }
 
 func TestVmRun(t *testing.T) {
@@ -399,13 +402,7 @@ func TestCall(t *testing.T) {
 
 func BenchmarkVMTransfer(b *testing.B) {
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), util.AttovPerVite)
-	db, addr1, _, hash12, _, timestamp := prepareDb(viteTotalSupply)
-	for i := 3; i < b.N+3; i++ {
-		timestamp = timestamp + 1
-		ti := time.Unix(timestamp, 0)
-		snapshoti := &ledger.SnapshotBlock{Height: uint64(i), Timestamp: &ti, Hash: types.DataHash([]byte(strconv.Itoa(i)))}
-		db.snapshotBlockList = append(db.snapshotBlockList, snapshoti)
-	}
+	db, addr1, _, hash12, _, _ := prepareDb(viteTotalSupply)
 
 	// send call
 	b.ResetTimer()
@@ -436,7 +433,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 }
 
 func TestVmForTest(t *testing.T) {
-	InitVMConfig(true, true, false, "")
+	InitVMConfig(true, true, true, false, "")
 	db, _, _, _, _, _ := prepareDb(big.NewInt(0))
 
 	addr1, _, _ := types.CreateAddress()
@@ -527,6 +524,7 @@ func TestVm(t *testing.T) {
 			}
 			vm := NewVM(nil)
 			vm.i = newInterpreter(1, false)
+			vm.gasTable = util.GasTableByHeight(1)
 			vm.globalStatus = NewTestGlobalStatus(testCase.Seed, &sb)
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
@@ -709,14 +707,86 @@ func TestOffChainReader(t *testing.T) {
 type TestGlobalStatus struct {
 	seed          uint64
 	snapshotBlock *ledger.SnapshotBlock
+	randSource    helper.Source64
+	setRandSeed   bool
 }
 
 func NewTestGlobalStatus(seed uint64, snapshotBlock *ledger.SnapshotBlock) *TestGlobalStatus {
-	return &TestGlobalStatus{seed, snapshotBlock}
+	return &TestGlobalStatus{seed: seed, snapshotBlock: snapshotBlock}
 }
 func (g *TestGlobalStatus) Seed() (uint64, error) {
 	return g.seed, nil
 }
+func (g *TestGlobalStatus) Random() (uint64, error) {
+	if g.setRandSeed {
+		return g.randSource.Uint64(), nil
+	}
+	g.randSource = helper.NewSource64(int64(g.seed))
+	g.setRandSeed = true
+	return g.randSource.Uint64(), nil
+}
 func (g *TestGlobalStatus) SnapshotBlock() *ledger.SnapshotBlock {
 	return g.snapshotBlock
+}
+
+func BenchmarkSendCall(b *testing.B) {
+	sbTime := time.Now()
+	sb := ledger.SnapshotBlock{
+		Height:    1,
+		Timestamp: &sbTime,
+		Hash:      types.DataHash([]byte{1, 1}),
+	}
+	sendCallBlock := &ledger.AccountBlock{
+		BlockType:  ledger.BlockTypeSendCall,
+		Data:       []byte{},
+		Amount:     big.NewInt(10),
+		Fee:        big.NewInt(0),
+		TokenId:    ledger.ViteTokenId,
+		Difficulty: big.NewInt(67108863),
+	}
+	sendCallBlock.AccountAddress, _ = types.HexToAddress("vite_e41be57d38c796984952fad618a9bc91637329b5255cb18906")
+	sendCallBlock.ToAddress, _ = types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+	db := newMemoryDatabase(sendCallBlock.AccountAddress, &sb)
+	db.SetBalance(&ledger.ViteTokenId, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	for i := 0; i < b.N; i++ {
+		vm := NewVM(nil)
+		_, _, err := vm.RunV2(db, sendCallBlock, nil, nil)
+		if err != nil {
+			b.Fatalf("vm run failed, err: %v", err)
+		}
+	}
+}
+
+func BenchmarkReceiveCall(b *testing.B) {
+	sbTime := time.Now()
+	sb := ledger.SnapshotBlock{
+		Height:    1,
+		Timestamp: &sbTime,
+		Hash:      types.DataHash([]byte{1, 1}),
+	}
+	sendCallBlock := &ledger.AccountBlock{
+		BlockType:  ledger.BlockTypeSendCall,
+		Data:       []byte{},
+		Amount:     big.NewInt(10),
+		Fee:        big.NewInt(0),
+		TokenId:    ledger.ViteTokenId,
+		Difficulty: big.NewInt(67108863),
+	}
+	sendCallBlock.AccountAddress, _ = types.HexToAddress("vite_e41be57d38c796984952fad618a9bc91637329b5255cb18906")
+	sendCallBlock.ToAddress, _ = types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
+
+	receiveCallBlock := &ledger.AccountBlock{
+		BlockType:  ledger.BlockTypeReceive,
+		Difficulty: big.NewInt(67108863),
+	}
+
+	db := newMemoryDatabase(sendCallBlock.AccountAddress, &sb)
+	db.SetBalance(&ledger.ViteTokenId, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	for i := 0; i < b.N; i++ {
+		vm := NewVM(nil)
+		_, _, err := vm.RunV2(db, receiveCallBlock, sendCallBlock, nil)
+		if err != nil {
+			b.Fatalf("vm run failed, err: %v", err)
+		}
+	}
 }

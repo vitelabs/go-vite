@@ -2,6 +2,10 @@ package api
 
 import (
 	"fmt"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain/plugins"
@@ -10,7 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
-	"strconv"
 )
 
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
@@ -173,6 +176,21 @@ func (l *LedgerApi) GetBlocksByHashInToken(addr types.Address, originBlockHash *
 	}
 
 	return l.ledgerBlocksToRpcBlocks(blocks)
+}
+
+func (l *LedgerApi) GetSnapshotBlockBeforeTime(timestamp int64) (*SnapshotBlock, error) {
+	time := time.Unix(timestamp, 0)
+	sbHeader, err := l.chain.GetSnapshotHeaderBeforeTime(&time)
+	if err != nil || sbHeader == nil {
+		return nil, err
+	}
+
+	sb, err := l.chain.GetSnapshotBlockByHash(sbHeader.Hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return l.ledgerSnapshotBlockToRpcBlock(sb)
 }
 
 func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, error) {
@@ -362,6 +380,11 @@ func (l *LedgerApi) GetLatestSnapshotChainHash() *types.Hash {
 	return &l.chain.GetLatestSnapshotBlock().Hash
 }
 
+func (l *LedgerApi) GetLatestSnapshotBlock() (*SnapshotBlock, error) {
+	block := l.chain.GetLatestSnapshotBlock()
+	return l.ledgerSnapshotBlockToRpcBlock(block)
+}
+
 func (l *LedgerApi) GetLatestBlock(addr types.Address) (*AccountBlock, error) {
 	l.log.Info("GetLatestBlock")
 	block, getError := l.chain.GetLatestAccountBlock(addr)
@@ -407,6 +430,39 @@ func (l *LedgerApi) GetAllUnconfirmedBlocks() []*ledger.AccountBlock {
 
 func (l *LedgerApi) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock {
 	return l.chain.GetUnconfirmedBlocks(addr)
+}
+
+type GetBalancesRes map[types.Address]map[types.TokenTypeId]*big.Int
+
+func (l *LedgerApi) GetConfirmedBalances(snapshotHash types.Hash, addrList []types.Address, tokenIds []types.TokenTypeId) (GetBalancesRes, error) {
+	if len(addrList) <= 0 || len(tokenIds) <= 0 {
+		return nil, nil
+	}
+
+	res := make(map[types.Address]map[types.TokenTypeId]*big.Int)
+
+	for _, tokenId := range tokenIds {
+		//addrBalances[tokenId] = big.NewInt(1)
+		balances, err := l.chain.GetConfirmedBalanceList(addrList, tokenId, snapshotHash)
+		if err != nil {
+			return nil, err
+		}
+
+		if balances == nil {
+			return nil, errors.New(fmt.Sprintf("snapshot block %s is not existed.", snapshotHash))
+		}
+
+		for addr, balance := range balances {
+			addrBalances, ok := res[addr]
+			if !ok {
+				addrBalances = make(map[types.TokenTypeId]*big.Int)
+				res[addr] = addrBalances
+			}
+			addrBalances[tokenId] = balance
+		}
+	}
+
+	return res, nil
 }
 
 func parseHeight(height interface{}) (uint64, error) {

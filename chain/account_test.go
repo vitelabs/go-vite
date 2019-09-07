@@ -253,6 +253,15 @@ func (acc *Account) CreateSendBlock(toAccount *Account, options *CreateTxOptions
 
 // No state_bak hash
 func (acc *Account) CreateReceiveBlock(options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
+
+	if options == nil {
+		options = &CreateTxOptions{
+			MockVmContext: false,
+			MockSignature: true,
+			Quota:         10,
+		}
+	}
+
 	// pop onRoad block
 	UnreceivedBlock := acc.PopOnRoadBlock()
 	if UnreceivedBlock == nil {

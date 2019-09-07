@@ -13,7 +13,7 @@ type MemDB struct {
 
 	seq uint64
 
-	mu sync.RWMutex
+	copyMu sync.RWMutex
 }
 
 func NewMemDB() *MemDB {
@@ -36,14 +36,19 @@ func (mDb *MemDB) GetSeq() uint64 {
 }
 
 func (mDb *MemDB) Put(key, value []byte) {
+	//mDb.copyMu.RLock()
+	//defer mDb.copyMu.RUnlock()
+
 	atomic.AddUint64(&mDb.seq, 1)
 
 	mDb.storage.Put(leveldb.MakeInternalKey(nil, key, mDb.seq, leveldb.KeyTypeVal), value)
 }
 
 func (mDb *MemDB) Delete(key []byte) {
-	atomic.AddUint64(&mDb.seq, 1)
+	//mDb.copyMu.RLock()
+	//defer mDb.copyMu.RUnlock()
 
+	atomic.AddUint64(&mDb.seq, 1)
 	mDb.storage.Put(leveldb.MakeInternalKey(nil, key, mDb.seq, leveldb.KeyTypeDel), nil)
 }
 
@@ -54,3 +59,40 @@ func (mDb *MemDB) Len() int {
 func (mDb *MemDB) Size() int {
 	return mDb.storage.Size()
 }
+
+//const CopyLimitDefault = uint64(9000 * 10000)
+//
+//var CopyLimit = CopyLimitDefault
+//
+//func (mDb *MemDB) Copy() *MemDB {
+//	mDb.copyMu.Lock()
+//	defer mDb.copyMu.Unlock()
+//
+//	newMemDB := NewMemDB()
+//
+//	seq := atomic.LoadUint64(&mDb.seq)
+//	if seq >= CopyLimit {
+//		leveldb.
+//		iter := mDb.GetDb().NewIterator(nil)
+//		defer iter.Release()
+//
+//		for iter.Next() {
+//			newMemDB.Put(iter.Key(), iter.Value())
+//		}
+//		if err := iter.Error(); err != nil {
+//			panic(fmt.Sprintf("MemDB copy failed, Error: %s", err.Error()))
+//		}
+//
+//		// copy storage
+//
+//		return nil
+//	} else {
+//		// copy seq
+//		newMemDB.seq = seq
+//		// copy storage
+//		newMemDB.storage = mDb.storage.Copy()
+//	}
+//
+//	return newMemDB
+//
+//}

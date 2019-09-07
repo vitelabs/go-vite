@@ -6,29 +6,36 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/vitelabs/go-vite/p2p/discovery"
-	"github.com/vitelabs/go-vite/vite/net"
+	"github.com/vitelabs/go-vite/config"
 
 	"github.com/vitelabs/go-vite/common"
 )
 
 var DefaultNodeConfig = Config{
-	Identity:        "nodeServer",
-	IPCPath:         "gvite.ipc",
-	DataDir:         DefaultDataDir(),
-	KeyStoreDir:     DefaultDataDir(),
-	HttpPort:        common.DefaultHTTPPort,
-	WSPort:          common.DefaultWSPort,
-	Discover:        true,
-	LogLevel:        "info",
-	WSOrigins:       []string{"*"},
-	WSExposeAll:     true,
-	HttpExposeAll:   true,
-	ListenInterface: discovery.DefaultListenInterface,
-	Port:            discovery.DefaultPort,
-	FilePort:        net.DefaultFilePort,
-	ForwardStrategy: net.DefaultForwardStrategy,
-	AccessControl:   "any",
+	IPCPath:     "gvite.ipc",
+	DataDir:     DefaultDataDir(),
+	KeyStoreDir: DefaultDataDir(),
+	HttpPort:    common.DefaultHTTPPort,
+	WSPort:      common.DefaultWSPort,
+
+	LogLevel:      "info",
+	WSOrigins:     []string{"*"},
+	WSExposeAll:   true,
+	HttpExposeAll: true,
+
+	Single:          config.DefaultSingle,
+	Identity:        config.DefaultNodeName,
+	NetID:           config.DefaultNetID,
+	ListenInterface: config.DefaultListenInterface,
+	Port:            config.DefaultPort,
+	FilePort:        config.DefaultFilePort,
+	Discover:        config.DefaultDiscover,
+	MaxPeers:        config.DefaultMaxPeers,
+	MaxInboundRatio: config.DefaultMaxInboundRatio,
+	MinPeers:        config.DefaultMinPeers,
+	MaxPendingPeers: config.DefaultMaxPendingPeers,
+	ForwardStrategy: config.DefaultForwardStrategy,
+	AccessControl:   config.DefaultAccessControl,
 }
 
 // DefaultDataDir is the default data directory to use for the databases and other persistence requirements.

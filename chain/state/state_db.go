@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/patrickmn/go-cache"
+	"github.com/vitelabs/go-vite/config"
+	"sync/atomic"
 
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/chain/utils"
@@ -17,8 +19,20 @@ import (
 	"path"
 )
 
+const (
+	ConsensusNoCache   = 0
+	ConsensusReadCache = 1
+)
+
 type StateDB struct {
 	chain Chain
+
+	chainCfg *config.Chain
+
+	// contract address white list which save VM logs
+	vmLogWhiteListSet map[types.Address]struct{}
+	// save all VM logs
+	vmLogAll bool
 
 	store *chain_db.Store
 	cache *cache.Cache
@@ -27,9 +41,12 @@ type StateDB struct {
 
 	redo     *Redo
 	useCache bool
+
+	consensusCacheLevel uint32
+	roundCache          *RoundCache
 }
 
-func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
+func NewStateDB(chain Chain, chainCfg *config.Chain, chainDir string) (*StateDB, error) {
 
 	store, err := chain_db.NewStore(path.Join(chainDir, "state"), "stateDb")
 
@@ -37,30 +54,49 @@ func NewStateDB(chain Chain, chainDir string) (*StateDB, error) {
 		return nil, err
 	}
 
-	storageRedo, err := NewStorageRedo(chain, chainDir)
+	redoStore, err := chain_db.NewStore(path.Join(chainDir, "state_redo"), "stateDbRedo")
+	if err != nil {
+		return nil, err
+	}
+
+	return NewStateDBWithStore(chain, chainCfg, store, redoStore)
+}
+
+func NewStateDBWithStore(chain Chain, chainCfg *config.Chain, store *chain_db.Store, redoStore *chain_db.Store) (*StateDB, error) {
+	storageRedo, err := NewStorageRedoWithStore(chain, redoStore)
 	if err != nil {
 		return nil, err
 	}
 
 	stateDb := &StateDB{
-		chain:    chain,
-		log:      log15.New("module", "stateDB"),
-		store:    store,
-		useCache: false,
-
-		redo: storageRedo,
+		chain:               chain,
+		chainCfg:            chainCfg,
+		vmLogWhiteListSet:   parseVmLogWhiteList(chainCfg.VmLogWhiteList),
+		vmLogAll:            chainCfg.VmLogAll,
+		log:                 log15.New("module", "stateDB"),
+		store:               store,
+		useCache:            false,
+		consensusCacheLevel: ConsensusNoCache,
+		redo:                storageRedo,
 	}
+
 	if err := stateDb.newCache(); err != nil {
 		return nil, err
 	}
-
+	stateDb.roundCache = NewRoundCache(chain, stateDb, 3)
 	return stateDb, nil
 }
 
 func (sDB *StateDB) Init() error {
 	defer sDB.enableCache()
 
-	return sDB.initCache()
+	if err := sDB.initCache(); err != nil {
+		return err
+	}
+	//if err := sDB.roundCache.Init(); err != nil {
+	//	return err
+	//}
+	return nil
 }
 
 func (sDB *StateDB) Close() error {
@@ -78,6 +114,14 @@ func (sDB *StateDB) Close() error {
 		return err
 	}
 	sDB.redo = nil
+	sDB.roundCache = nil
+	return nil
+}
+
+func (sDB *StateDB) SetConsensus(cs Consensus) error {
+	if err := sDB.roundCache.Init(cs.SBPReader().GetPeriodTimeIndex()); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -229,47 +273,37 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return binary.BigEndian.Uint16(value), nil
 }
 
-func (sDB *StateDB) GetSnapshotBalanceList(snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) (map[types.Address]*big.Int, error) {
-	snapshotHeight, err := sDB.chain.GetSnapshotHeightByHash(snapshotBlockHash)
-	if err != nil {
-		return nil, err
-	}
-	if snapshotHeight <= 0 {
-		return nil, nil
-	}
-
-	balanceMap := make(map[types.Address]*big.Int, len(addrList))
-
-	prefix := chain_utils.BalanceHistoryKeyPrefix
-
-	iter := sDB.store.NewIterator(util.BytesPrefix([]byte{prefix}))
-	defer iter.Release()
-
-	seekKey := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
-	seekKey[0] = prefix
-
-	copy(seekKey[1+types.AddressSize:], tokenId.Bytes())
-	binary.BigEndian.PutUint64(seekKey[1+types.AddressSize+types.TokenTypeIdSize:], snapshotHeight+1)
-
-	for _, addr := range addrList {
-		copy(seekKey[1:1+types.AddressSize], addr.Bytes())
-
-		iter.Seek(seekKey)
-
-		ok := iter.Prev()
-		if !ok {
-			continue
+func (sDB *StateDB) GetSnapshotBalanceList(balanceMap map[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error {
+	// if consensusCacheLevel is ConsensusReadCache and tokenId is vite token id
+	if sDB.consensusCacheLevel == ConsensusReadCache &&
+		tokenId == ledger.ViteTokenId {
+		// read from cache
+		cacheBalanceMap, notFoundAddressList, err := sDB.roundCache.GetSnapshotViteBalanceList(snapshotBlockHash, addrList)
+		if err != nil {
+			return err
 		}
 
-		key := iter.Key()
-		if bytes.HasPrefix(key, seekKey[:len(seekKey)-8]) {
-			balanceMap[addr] = big.NewInt(0).SetBytes(iter.Value())
-			// FOR DEBUG
-			// fmt.Println("query", addr, balanceMap[addr], binary.BigEndian.Uint64(key[len(key)-8:]))
-		}
+		// hit the cache
+		if cacheBalanceMap != nil {
+			// if some address miss the cache, supplement through the database
+			if len(notFoundAddressList) > 0 {
+				if err := sDB.getSnapshotBalanceList(cacheBalanceMap, snapshotBlockHash, notFoundAddressList, tokenId); err != nil {
+					return err
+				}
+			}
 
+			// copy cache
+			for addr, balance := range cacheBalanceMap {
+				balanceMap[addr] = balance
+			}
+
+			// over
+			return nil
+		}
 	}
-	return balanceMap, nil
+
+	return sDB.getSnapshotBalanceList(balanceMap, snapshotBlockHash, addrList, tokenId)
+
 }
 
 func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error) {
@@ -295,6 +329,10 @@ func (sDB *StateDB) GetSnapshotValue(snapshotBlockHeight uint64, addr types.Addr
 	return nil, nil
 }
 
+func (sDB *StateDB) SetCacheLevelForConsensus(level uint32) {
+	atomic.StoreUint32(&sDB.consensusCacheLevel, level)
+}
+
 func (sDB *StateDB) Store() *chain_db.Store {
 	return sDB.store
 }
@@ -303,7 +341,7 @@ func (sDB *StateDB) RedoStore() *chain_db.Store {
 	return sDB.redo.store
 }
 
-func (sDB *StateDB) StorageRedo() *Redo {
+func (sDB *StateDB) Redo() RedoInterface {
 	return sDB.redo
 }
 
@@ -325,4 +363,57 @@ func (sDB *StateDB) GetStatus() []interfaces.DBStatus {
 		Size:   uint64(statusList[1].Size),
 		Status: statusList[1].Status,
 	}}
+}
+
+func (sDB *StateDB) getSnapshotBalanceList(balanceMap map[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error {
+	// get snapshot height
+	snapshotHeight, err := sDB.chain.GetSnapshotHeightByHash(snapshotBlockHash)
+	if err != nil {
+		return err
+	}
+	if snapshotHeight <= 0 {
+		return nil
+	}
+
+	// prepare iterator
+	prefix := chain_utils.BalanceHistoryKeyPrefix
+	iter := sDB.store.NewIterator(util.BytesPrefix([]byte{prefix}))
+	defer iter.Release()
+
+	seekKey := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
+	seekKey[0] = prefix
+
+	copy(seekKey[1+types.AddressSize:], tokenId.Bytes())
+	binary.BigEndian.PutUint64(seekKey[1+types.AddressSize+types.TokenTypeIdSize:], snapshotHeight+1)
+
+	// iterate address list
+	for _, addr := range addrList {
+		copy(seekKey[1:1+types.AddressSize], addr.Bytes())
+
+		iter.Seek(seekKey)
+
+		ok := iter.Prev()
+		if !ok {
+			continue
+		}
+
+		key := iter.Key()
+		if bytes.HasPrefix(key, seekKey[:len(seekKey)-8]) {
+			// set balance
+			balanceMap[addr] = big.NewInt(0).SetBytes(iter.Value())
+			// FOR DEBUG
+			// fmt.Println("query", addr, balanceMap[addr], binary.BigEndian.Uint64(key[len(key)-8:]))
+		}
+
+	}
+	return nil
+}
+
+func parseVmLogWhiteList(list []types.Address) map[types.Address]struct{} {
+	set := make(map[types.Address]struct{}, len(list))
+	for _, item := range list {
+		set[item] = struct{}{}
+	}
+	return set
+
 }

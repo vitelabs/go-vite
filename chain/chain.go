@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/vitelabs/go-vite/common/fork"
 
 	"github.com/vitelabs/go-vite/chain/plugins"
 
@@ -54,6 +55,8 @@ type chain struct {
 
 	cache *chain_cache.Cache
 
+	metaDB *leveldb.DB
+
 	indexDB *chain_index.IndexDB
 
 	blockDB *chain_block.BlockDB
@@ -79,6 +82,10 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 		chainCfg = defaultConfig()
 	}
 
+	if !fork.IsInit() {
+		fork.SetForkPoints(genesisCfg.ForkPoints)
+	}
+
 	c := &chain{
 		genesisCfg: genesisCfg,
 		dataDir:    dir,
@@ -90,6 +97,7 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
+
 	c.genesisAccountBlockHash = chain_genesis.VmBlocksToHashMap(c.genesisAccountBlocks)
 
 	return c
@@ -97,39 +105,38 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 
 /*
  * 1. Check and init ledger (check genesis block)
- * 2. Init index database
- * 3. Init state database
- * 4. Init block database
- * 5. Init cache
+ * 2. Init indexDB
+ * 3. Init stateDB
+ * 4. Init blockDB
+ * 5. Init cache(indexDB cache, stateDB cache, blockDB cache, syncCache)
  */
 func (c *chain) Init() error {
 	c.log.Info("Begin initializing", "method", "Init")
-	for {
-		// init db
-		if err := c.newDbAndRecover(); err != nil {
-			return err
-		}
 
-		// check ledger
-		status, err := c.checkAndInitData()
-		if err != nil {
-			return err
-		}
+	// init db
+	if err := c.newDbAndRecover(); err != nil {
+		return err
+	}
 
-		// ledger is valid
-		if status == chain_genesis.LedgerValid {
-			break
-		}
+	// check ledger
+	status, err := c.checkAndInitData()
+	if err != nil {
+		return err
+	}
 
-		// close and clean ledger data
-		if err := c.closeAndCleanData(); err != nil {
-			return err
-		}
-
+	// ledger is invalid
+	if status != chain_genesis.LedgerValid {
+		return errors.New(fmt.Sprintf("The genesis state is incorrect. You can fix the problem by removing the database manually."+
+			"The directory of database is %s.", c.chainDir))
 	}
 
 	// init cache
 	if err := c.initCache(); err != nil {
+		return err
+	}
+
+	// check fork points and rollback
+	if err := c.checkForkPointsAndRollback(); err != nil {
 		return err
 	}
 
@@ -176,6 +183,7 @@ func (c *chain) Destroy() error {
 		c.log.Error(cErr.Error(), "method", "Close")
 		return cErr
 	}
+
 	c.log.Info("Close stateDB", "method", "Close")
 
 	if err := c.indexDB.Close(); err != nil {
@@ -192,11 +200,19 @@ func (c *chain) Destroy() error {
 	}
 	c.log.Info("Close blockDB", "method", "Close")
 
+	if err := c.syncCache.Close(); err != nil {
+		cErr := errors.New(fmt.Sprintf("c.syncCache.Close failed, error is %s", err))
+		c.log.Error(cErr.Error(), "method", "Close")
+		return cErr
+	}
+	c.log.Info("Close syncCache", "method", "Close")
+
 	c.flusher = nil
 	c.cache = nil
 	c.stateDB = nil
 	c.indexDB = nil
 	c.blockDB = nil
+	c.syncCache = nil
 
 	c.log.Info("Complete destruction", "method", "Close")
 
@@ -218,11 +234,24 @@ func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
 }
 
 func (c *chain) SetConsensus(cs Consensus) {
+	c.log.Info("Start set consensus", "method", "SetConsensus")
 	c.consensus = cs
+
+	if err := c.stateDB.SetConsensus(cs); err != nil {
+		c.log.Crit(fmt.Sprintf("c.stateDB.SetConsensus failed. Error: %s", err.Error()), "method", "SetConsensus")
+	}
+	c.log.Info("set consensus finished", "method", "SetConsensus")
 }
 
 func (c *chain) newDbAndRecover() error {
 	var err error
+	// new metaDB
+	c.metaDB, err = c.NewDb("chain_meta")
+	if err != nil {
+		c.log.Error(fmt.Sprintf("new meta db failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
+		return err
+	}
+
 	// new ledger db
 	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir, c); err != nil {
 		c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
@@ -236,7 +265,7 @@ func (c *chain) newDbAndRecover() error {
 	}
 
 	// new state db
-	if c.stateDB, err = chain_state.NewStateDB(c, c.chainDir); err != nil {
+	if c.stateDB, err = chain_state.NewStateDB(c, c.chainCfg, c.chainDir); err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_cache.NewStateDB failed, error is %s", err))
 
 		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
@@ -285,7 +314,7 @@ func (c *chain) newDbAndRecover() error {
 
 func (c *chain) checkAndInitData() (byte, error) {
 	// check ledger
-	status, err := chain_genesis.CheckLedger(c, c.genesisSnapshotBlock)
+	status, err := chain_genesis.CheckLedger(c, c.genesisSnapshotBlock, c.genesisAccountBlocks)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_genesis.CheckLedger failed, error is %s, chainDir is %s", err, c.chainDir))
 
@@ -293,21 +322,53 @@ func (c *chain) checkAndInitData() (byte, error) {
 		return status, err
 	}
 
-	switch status {
-	case chain_genesis.LedgerInvalid:
-		break
-	case chain_genesis.LedgerEmpty:
-		// Init Ledger
+	if status == chain_genesis.LedgerInvalid {
+		return status, nil
+	}
+
+	if status == chain_genesis.LedgerEmpty {
 		if err = chain_genesis.InitLedger(c, c.genesisSnapshotBlock, c.genesisAccountBlocks); err != nil {
 			cErr := errors.New(fmt.Sprintf("chain_genesis.InitLedger failed, error is %s", err))
 			c.log.Error(cErr.Error(), "method", "checkAndInitData")
-			return status, err
+			return chain_genesis.LedgerInvalid, err
 		}
-		status = chain_genesis.LedgerValid
 
+		status = chain_genesis.LedgerValid
 	}
 
 	return status, nil
+}
+
+func (c *chain) checkForkPointsAndRollback() error {
+	forkPointList := fork.GetForkPointList()
+
+	// check
+	var rollbackForkPoint *fork.ForkPointItem
+	for i := len(forkPointList) - 1; i >= 0; i-- {
+		forkPoint := forkPointList[i]
+		sb, err := c.GetSnapshotBlockByHeight(forkPoint.Height)
+		if err != nil {
+			return err
+		}
+
+		if sb == nil {
+			continue
+		}
+
+		if sb.ComputeHash() == sb.Hash {
+			break
+		}
+		rollbackForkPoint = forkPoint
+	}
+
+	// rollback
+	if rollbackForkPoint != nil {
+		if _, err := c.DeleteSnapshotBlocksToHeight(rollbackForkPoint.Height); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *chain) initCache() error {
@@ -445,4 +506,16 @@ func (c *chain) GetStatus() []interfaces.DBStatus {
 	statusList = append(statusList, c.stateDB.GetStatus()...)
 
 	return statusList
+}
+
+func (c *chain) SetCacheLevelForConsensus(level uint32) {
+	c.stateDB.SetCacheLevelForConsensus(level)
+}
+
+func (c *chain) StopWrite() {
+	c.flushMu.Lock()
+}
+
+func (c *chain) RecoverWrite() {
+	c.flushMu.Unlock()
 }

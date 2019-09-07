@@ -1,7 +1,6 @@
 package abi
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 )
@@ -66,7 +65,7 @@ func set(dst, src reflect.Value, output Argument) error {
 	case dstType.Kind() == reflect.Ptr:
 		return set(dst.Elem(), src, output)
 	default:
-		return fmt.Errorf("abi: cannot unmarshal %v in to %v", src.Type(), dst.Type())
+		return errUnmarshalTypeFailed(src, dst)
 	}
 	return nil
 }
@@ -74,7 +73,7 @@ func set(dst, src reflect.Value, output Argument) error {
 // requireAssignable assures that `dest` is a pointer and it's not an interface.
 func requireAssignable(dst, src reflect.Value) error {
 	if dst.Kind() != reflect.Ptr && dst.Kind() != reflect.Interface {
-		return fmt.Errorf("abi: cannot unmarshal %v into %v", src.Type(), dst.Type())
+		return errUnmarshalTypeFailed(src, dst)
 	}
 	return nil
 }
@@ -87,11 +86,10 @@ func requireUnpackKind(v reflect.Value, t reflect.Type, k reflect.Kind,
 	case reflect.Struct:
 	case reflect.Slice, reflect.Array:
 		if minLen := args.LengthNonIndexed(); v.Len() < minLen {
-			return fmt.Errorf("abi: insufficient number of elements in the list/array for unpack, want %d, got %d",
-				minLen, v.Len())
+			return errInsufficientElementSize(minLen, v)
 		}
 	default:
-		return fmt.Errorf("abi: cannot unmarshal tuple into %v", t)
+		return errInvalidTuple(t)
 	}
 	return nil
 }
@@ -127,7 +125,7 @@ func mapAbiToStructFields(args Arguments, value reflect.Value) (map[string]strin
 
 		// check if tag is empty.
 		if tagName == "" {
-			return nil, fmt.Errorf("struct: abi tag in '%s' is empty", structFieldName)
+			return nil, errEmptyTagName(structFieldName)
 		}
 
 		// check which argument field matches with the abi tag.
@@ -135,7 +133,7 @@ func mapAbiToStructFields(args Arguments, value reflect.Value) (map[string]strin
 		for _, abiField := range args.NonIndexed() {
 			if abiField.Name == tagName {
 				if abi2struct[abiField.Name] != "" {
-					return nil, fmt.Errorf("struct: abi tag in '%s' already mapped", structFieldName)
+					return nil, errTagAlreadyMapped(structFieldName)
 				}
 				// pair them
 				abi2struct[abiField.Name] = structFieldName
@@ -146,7 +144,7 @@ func mapAbiToStructFields(args Arguments, value reflect.Value) (map[string]strin
 
 		// check if this tag has been mapped.
 		if !found {
-			return nil, fmt.Errorf("struct: abi tag '%s' defined but not found in abi", tagName)
+			return nil, errTagNotFound(tagName)
 		}
 
 	}
@@ -158,7 +156,7 @@ func mapAbiToStructFields(args Arguments, value reflect.Value) (map[string]strin
 		structFieldName := capitalise(abiFieldName)
 
 		if structFieldName == "" {
-			return nil, fmt.Errorf("abi: purely underscored output cannot unpack to struct")
+			return nil, errPureUnderscoredOutput
 		}
 
 		// this abi has already been paired, skip it... unless there exists another, yet unassigned
@@ -169,14 +167,14 @@ func mapAbiToStructFields(args Arguments, value reflect.Value) (map[string]strin
 			if abi2struct[abiFieldName] != structFieldName &&
 				struct2abi[structFieldName] == "" &&
 				value.FieldByName(structFieldName).IsValid() {
-				return nil, fmt.Errorf("abi: multiple variables maps to the same abi field '%s'", abiFieldName)
+				return nil, errMultipleVariable(abiFieldName)
 			}
 			continue
 		}
 
 		// return an error if this struct field has already been paired.
 		if struct2abi[structFieldName] != "" {
-			return nil, fmt.Errorf("abi: multiple outputs mapping to the same struct field '%s'", structFieldName)
+			return nil, errMultipleOutput(structFieldName)
 		}
 
 		if value.FieldByName(structFieldName).IsValid() {
