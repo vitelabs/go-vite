@@ -117,34 +117,6 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	return vm.NewVM(nil).OffChainReader(db, codeBytes, param.Data)
 }
 
-func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {
-	var prefixBytes []byte
-	if len(prefix) > 0 {
-		var err error
-		prefixBytes, err = hex.DecodeString(prefix)
-		if err != nil {
-			return nil, err
-		}
-	}
-	iter, err := c.chain.GetStorageIterator(addr, prefixBytes)
-	if err != nil {
-		return nil, err
-	}
-	defer iter.Release()
-	m := make(map[string]string)
-	for {
-		if !iter.Next() {
-			if iter.Error() != nil {
-				return nil, iter.Error()
-			}
-			return m, nil
-		}
-		if len(iter.Key()) > 0 && len(iter.Value()) > 0 {
-			m[hex.EncodeToString(iter.Key())] = hex.EncodeToString(iter.Value())
-		}
-	}
-}
-
 type QuotaInfo struct {
 	CurrentQuota string  `json:"currentQuota"`
 	MaxQuota     string  `json:"maxQuota"`
