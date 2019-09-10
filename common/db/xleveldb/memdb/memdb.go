@@ -291,17 +291,33 @@ func (p *DB) Copy2(bytesGetter func(n int) []byte, intGetter func(n int) []int) 
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	newDB := New2(p.cmp, p.Capacity())
+	newDB := New2(p.cmp, 0)
 
 	// copy kv data
-	newDB.kvData = bytesGetter(len(p.kvData))
-	copy(newDB.kvData, p.kvData)
+	kvDataLen := len(p.kvData)
 
-	// copy nodeData
-	newDB.nodeData = intGetter(len(p.nodeData))
-	copy(newDB.nodeData, p.nodeData)
+	pSize := p.Size()
+	if kvDataLen >= pSize+int(0.2*float64(pSize)) {
+		// optimize
+		newDB.kvData = bytesGetter(0)
+		iter := p.NewIterator(nil)
+		for iter.Next() {
+			newDB.Put(iter.Key(), iter.Value())
+		}
 
-	return p.copy(newDB)
+		iter.Release()
+	} else {
+		newDB.kvData = bytesGetter(len(p.kvData))
+		copy(newDB.kvData, p.kvData)
+
+		// copy nodeData
+		newDB.nodeData = intGetter(len(p.nodeData))
+		copy(newDB.nodeData, p.nodeData)
+
+		newDB = p.copy(newDB)
+	}
+	return newDB
+
 }
 
 func (p *DB) Destroy2(putter func(x interface{})) {

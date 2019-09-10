@@ -399,7 +399,7 @@ func ToFilterParam(rangeMap map[string]*Range, topics [][]types.Hash) (*FilterPa
 type Logs struct {
 	Log              *ledger.VmLog  `json:"vmlog"`
 	AccountBlockHash types.Hash     `json:"accountBlockHash"`
-	AccountHeight    string         `json:"accountHeight"`
+	AccountHeight    string         `json:"accountBlockHeight"`
 	Addr             *types.Address `json:"address"`
 }
 

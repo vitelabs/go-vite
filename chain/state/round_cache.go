@@ -34,7 +34,10 @@ func NewMemPool(byteSliceLimit int, intSliceLimit int) *MemPool {
 		intSliceLimit = 3
 	}
 
-	return &MemPool{}
+	return &MemPool{
+		byteSliceLimit: byteSliceLimit,
+		intSliceLimit:  intSliceLimit,
+	}
 }
 
 func (mp *MemPool) GetByteSlice(n int) []byte {
@@ -44,12 +47,10 @@ func (mp *MemPool) GetByteSlice(n int) []byte {
 		mp.byteSliceList = mp.byteSliceList[1:]
 		mp.mu.RUnlock()
 
-		if len(byteSlice) >= n {
-			return byteSlice[:n]
-		} else {
+		if len(byteSlice) < n {
 			byteSlice = append(byteSlice, make([]byte, n-len(byteSlice))...)
 		}
-
+		return byteSlice[:n]
 	}
 
 	return make([]byte, n)
@@ -62,12 +63,10 @@ func (mp *MemPool) GetIntSlice(n int) []int {
 		mp.intSliceList = mp.intSliceList[1:]
 		mp.mu.RUnlock()
 
-		if len(intSlice) >= n {
-			return intSlice[:n]
-		} else {
+		if len(intSlice) < n {
 			intSlice = append(intSlice, make([]int, n-len(intSlice))...)
 		}
-
+		return intSlice[:n]
 	}
 
 	return make([]int, n)
@@ -79,12 +78,16 @@ func (mp *MemPool) Put(x interface{}) {
 		mp.mu.Lock()
 		if len(mp.byteSliceList) < mp.byteSliceLimit {
 			mp.byteSliceList = append(mp.byteSliceList, x.([]byte))
+		} else {
+			mp.byteSliceList[0] = x.([]byte)
 		}
 		mp.mu.Unlock()
 	case []int:
 		mp.mu.Lock()
 		if len(mp.intSliceList) < mp.intSliceLimit {
 			mp.intSliceList = append(mp.intSliceList, x.([]int))
+		} else {
+			mp.intSliceList[0] = x.([]int)
 		}
 		mp.mu.Unlock()
 	default:
