@@ -70,5 +70,7 @@ var (
 
 	MultiMarketsInOneActionErr = errors.New("multi markets one action")
 
+	DexFundUserNotExists = errors.New("fund user doesn't exist.")
+
 	InternalErr = errors.New("internal error")
 )
