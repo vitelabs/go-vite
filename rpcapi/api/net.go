@@ -30,7 +30,6 @@ type SyncInfo struct {
 }
 
 func (n *NetApi) SyncInfo() SyncInfo {
-	log.Info("SyncInfo")
 	s := n.net.Status()
 
 	return SyncInfo{
@@ -51,7 +50,11 @@ func (n *NetApi) Peers() net.NodeInfo {
 	return n.net.Info()
 }
 
-func (n *NetApi) NetInfo() net.NodeInfo {
+func (n *NetApi) PeerCount() int {
+	return n.net.PeerCount()
+}
+
+func (n *NetApi) NodeInfo() net.NodeInfo {
 	return n.net.Info()
 }
 
