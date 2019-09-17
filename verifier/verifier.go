@@ -94,7 +94,7 @@ func (v *verifier) VerifyPoolAccountBlock(block *ledger.AccountBlock, snapshot *
 	}
 	verifyResult, task, err := v.Av.verifyReferred(block, snapshotHashHeight)
 	if err != nil {
-		eLog.Error(err.Error(), "d", detail)
+		eLog.Error(err.Error()+":"+err.Detail(), "d", detail)
 	}
 	switch verifyResult {
 	case PENDING:
@@ -102,7 +102,7 @@ func (v *verifier) VerifyPoolAccountBlock(block *ledger.AccountBlock, snapshot *
 	case SUCCESS:
 		blocks, err := v.Av.vmVerify(block, snapshotHashHeight)
 		if err != nil {
-			eLog.Error(err.Error(), "d", detail)
+			eLog.Error(err.Error()+":"+err.Detail(), "d", detail)
 			return nil, nil, err
 		}
 		return nil, blocks, nil
@@ -129,7 +129,7 @@ func (v *verifier) VerifyRPCAccountBlock(block *ledger.AccountBlock, snapshot *l
 
 	if verifyResult, task, err := v.Av.verifyReferred(block, snapshotHashHeight); verifyResult != SUCCESS {
 		if err != nil {
-			log.Error(err.Error(), "d", detail)
+			log.Error(err.Error()+":"+err.Detail(), "d", detail)
 			return nil, err
 		}
 		log.Error("verify block failed, pending for:"+task.pendingHashListToStr(), "d", detail)
@@ -138,7 +138,7 @@ func (v *verifier) VerifyRPCAccountBlock(block *ledger.AccountBlock, snapshot *l
 
 	vmBlock, err := v.Av.vmVerify(block, snapshotHashHeight)
 	if err != nil {
-		log.Error(err.Error(), "d", detail)
+		log.Error(err.Error()+":"+err.Detail(), "d", detail)
 		return nil, err
 	}
 	return vmBlock, nil
