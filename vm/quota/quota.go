@@ -18,7 +18,7 @@ type NodeConfig struct {
 	qcIndexMin       uint64
 	qcIndexMax       uint64
 	qcMap            map[uint64]*big.Int
-	calcQuotaFunc    func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, err error)
+	calcQuotaFunc    func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, blockReleaseHeight uint64, err error)
 }
 
 var nodeConfig NodeConfig
@@ -56,11 +56,11 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 	nodeConfig.qcMap = qcMapMainnet
 
 	if isTest {
-		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, err error) {
-			return 75000000, 1000000, 0, 1000000, 0, false, nil
+		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, blockReleaseHeight uint64, err error) {
+			return 75000000, 1000000, 0, 1000000, 0, false, 0, nil
 		}
 	} else {
-		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, err error) {
+		nodeConfig.calcQuotaFunc = func(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, blockReleaseHeight uint64, err error) {
 			return calcQuotaV3(db, addr, pledgeAmount, difficulty, sbHeight)
 		}
 	}
@@ -86,7 +86,7 @@ func CalcBlockQuota(db quotaDb, block *ledger.AccountBlock, sbHeight uint64) (ui
 }
 
 func CalcSnapshotCurrentQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int, sbHeight uint64) (uint64, error) {
-	_, _, _, snapshotCurrentQuota, _, _, err := nodeConfig.calcQuotaFunc(db, beneficial, pledgeAmount, big.NewInt(0), sbHeight)
+	_, _, _, snapshotCurrentQuota, _, _, _, err := nodeConfig.calcQuotaFunc(db, beneficial, pledgeAmount, big.NewInt(0), sbHeight)
 	if err == nil || err == util.ErrInvalidUnconfirmedQuota {
 		return snapshotCurrentQuota, nil
 	}
@@ -94,12 +94,12 @@ func CalcSnapshotCurrentQuota(db quotaDb, beneficial types.Address, pledgeAmount
 }
 
 func GetPledgeQuota(db quotaDb, beneficial types.Address, pledgeAmount *big.Int, sbHeight uint64) (types.Quota, error) {
-	quotaTotal, pledgeQuota, _, snapshotCurrentQuota, quotaAvg, blocked, err := nodeConfig.calcQuotaFunc(db, beneficial, pledgeAmount, big.NewInt(0), sbHeight)
-	return types.NewQuota(pledgeQuota, quotaTotal, quotaAvg, snapshotCurrentQuota, blocked), err
+	quotaTotal, pledgeQuota, _, snapshotCurrentQuota, quotaAvg, blocked, blockReleaseHeight, err := nodeConfig.calcQuotaFunc(db, beneficial, pledgeAmount, big.NewInt(0), sbHeight)
+	return types.NewQuota(pledgeQuota, quotaTotal, quotaAvg, snapshotCurrentQuota, blocked, blockReleaseHeight), err
 }
 
 func CalcQuotaForBlock(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaAddition uint64, err error) {
-	quotaTotal, _, quotaAddition, _, _, _, err = nodeConfig.calcQuotaFunc(db, addr, pledgeAmount, difficulty, sbHeight)
+	quotaTotal, _, quotaAddition, _, _, _, _, err = nodeConfig.calcQuotaFunc(db, addr, pledgeAmount, difficulty, sbHeight)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -119,54 +119,54 @@ func CalcCreateQuota(fee *big.Int) uint64 {
 }
 
 // Check whether current quota of a contract account is enough to receive a new block
-func CheckQuota(db quotaDb, q types.Quota, addr types.Address) bool {
+func CheckQuota(db quotaDb, q types.Quota, addr types.Address) (bool, uint64) {
 	if q.Blocked() {
-		return false
+		return false, q.BlockReleaseHeight()
 	}
 	if q.Current() >= q.Avg() {
-		return true
+		return true, 0
 	} else {
-		return false
+		return false, 1
 	}
 }
 
-func calcQuotaV3(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, err error) {
+func calcQuotaV3(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, blockReleaseHeight uint64, err error) {
 	powFlag := difficulty != nil && difficulty.Sign() > 0
 	if powFlag {
 		canPoW := CanPoW(db, addr)
 		if !canPoW {
-			return 0, 0, 0, 0, 0, false, util.ErrCalcPoWTwice
+			return 0, 0, 0, 0, 0, false, 0, util.ErrCalcPoWTwice
 		}
 	}
 	return calcQuotaTotal(db, addr, pledgeAmount, difficulty, sbHeight)
 }
-func isBlocked(db quotaDb, addr types.Address) (bool, error) {
+func isBlocked(db quotaDb, addr types.Address) (bool, uint64, error) {
 	if !types.IsContractAddr(addr) {
-		return false, nil
+		return false, 0, nil
 	}
 
 	prevBlock, err := db.GetLatestAccountBlock(addr)
 	if err != nil {
-		return true, err
+		return true, 0, err
 	}
 	if prevBlock == nil {
-		return false, nil
+		return false, 0, nil
 	}
 	if prevBlock.BlockType == ledger.BlockTypeReceiveError {
 		confirmTime, err := db.GetConfirmedTimes(prevBlock.Hash)
 		if err != nil {
-			return true, err
+			return true, 0, err
 		}
 		if confirmTime < outOfQuotaBlockTime {
-			return true, nil
+			return true, outOfQuotaBlockTime - confirmTime, nil
 		}
 	}
-	return false, nil
+	return false, 0, nil
 }
-func calcQuotaTotal(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, err error) {
-	blocked, err = isBlocked(db, addr)
+func calcQuotaTotal(db quotaDb, addr types.Address, pledgeAmount *big.Int, difficulty *big.Int, sbHeight uint64) (quotaTotal, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg uint64, blocked bool, blockReleaseHeight uint64, err error) {
+	blocked, blockReleaseHeight, err = isBlocked(db, addr)
 	if err != nil {
-		return 0, 0, 0, 0, 0, false, err
+		return 0, 0, 0, 0, 0, false, 0, err
 	}
 	qc, _, isCongestion := CalcQc(db, sbHeight)
 	quotaPledge = calcPledgeQuota(qc, isCongestion, pledgeAmount)
@@ -207,12 +207,12 @@ func calcQuotaTotal(db quotaDb, addr types.Address, pledgeAmount *big.Int, diffi
 	if quotaTotal >= unconfirmedQuota {
 		quotaTotal = quotaTotal - unconfirmedQuota
 	} else {
-		return 0, quotaPledge, 0, snapshotCurrentQuota, quotaAvg, blocked, util.ErrInvalidUnconfirmedQuota
+		return 0, quotaPledge, 0, snapshotCurrentQuota, quotaAvg, blocked, blockReleaseHeight, util.ErrInvalidUnconfirmedQuota
 	}
 	if blocked {
-		return 0, quotaPledge, 0, snapshotCurrentQuota, quotaAvg, blocked, nil
+		return 0, quotaPledge, 0, snapshotCurrentQuota, quotaAvg, blocked, blockReleaseHeight, nil
 	}
-	return quotaTotal + quotaAddition, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg, blocked, nil
+	return quotaTotal + quotaAddition, quotaPledge, quotaAddition, snapshotCurrentQuota, quotaAvg, blocked, blockReleaseHeight, nil
 }
 
 func calcPledgeQuota(qc *big.Int, isCongestion bool, pledgeAmount *big.Int) uint64 {
