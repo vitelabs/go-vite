@@ -47,6 +47,7 @@ type NodeConfig struct {
 	contractABIMapRW sync.RWMutex
 }
 
+// AddContractABI method is used for debug
 func AddContractABI(addr types.Address, info abi.ABIContract) {
 	nodeConfig.contractABIMapRW.Lock()
 	defer nodeConfig.contractABIMapRW.Unlock()
@@ -55,6 +56,8 @@ func AddContractABI(addr types.Address, info abi.ABIContract) {
 	}
 	nodeConfig.ContractABIMap[addr] = info
 }
+
+// GetContractABI method is used for debug
 func GetContractABI(addr types.Address) (abi.ABIContract, bool) {
 	nodeConfig.contractABIMapRW.RLock()
 	defer nodeConfig.contractABIMapRW.RUnlock()
@@ -76,7 +79,7 @@ func IsTest() bool {
 //   isTestParam: use test params for built-in contracts.
 //   isDebug: print debug log.
 //   datadir: print debug log under this directory.
-func InitVMConfig(isTest bool, isTestParam bool, isQuotaTestParam bool, isDebug bool, datadir string) {
+func InitVMConfig(isTest bool, isTestParam bool, isQuotaTestParam bool, isDebug bool, dataDir string) {
 	if isTest {
 		nodeConfig = NodeConfig{
 			isTest: isTest,
@@ -113,7 +116,7 @@ func InitVMConfig(isTest bool, isTestParam bool, isQuotaTestParam bool, isDebug 
 	quota.InitQuotaConfig(isTest, isQuotaTestParam)
 	nodeConfig.IsDebug = isDebug
 	if isDebug {
-		initLog(datadir, "dbug")
+		initLog(dataDir, "dbug")
 	}
 }
 
@@ -154,7 +157,7 @@ type VM struct {
 	reader util.ConsensusReader
 	// latest snapshot block height, used for fork check
 	latestSnapshotHeight uint64
-	gasTable             *util.GasTable
+	gasTable             *util.QuotaTable
 }
 
 // NewVM is a constructor of VM. This method is called before running an
@@ -218,7 +221,7 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 	sb, err := db.LatestSnapshotBlock()
 	util.DealWithErr(err)
 	vm.latestSnapshotHeight = sb.Height
-	vm.gasTable = util.GasTableByHeight(sb.Height)
+	vm.gasTable = util.QuotaTableByHeight(sb.Height)
 	// In case vm will update some fields of block, make a copy of block.
 	blockCopy := block.Copy()
 	if blockCopy.IsSendBlock() {
@@ -415,7 +418,7 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 	code, err := c.run(vm)
 	if err == nil && len(code) <= maxCodeSize {
 		code := util.PackContractCode(util.GetContractTypeFromCreateContractData(sendBlock.Data), code)
-		codeCost := uint64(len(code)) * vm.gasTable.CodeGas
+		codeCost := uint64(len(code)) * vm.gasTable.CodeQuota
 		c.quotaLeft, err = util.UseQuota(c.quotaLeft, codeCost)
 		if err == nil {
 			db.SetContractCode(code)
@@ -433,7 +436,7 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 	vm.updateBlock(db, block, err, 0, 0)
 	if sendBlock.Amount.Sign() > 0 {
 		vm.vmContext.AppendBlock(
-			util.MakeSendBlock(
+			util.MakeRequestBlock(
 				block.AccountAddress,
 				sendBlock.AccountAddress,
 				ledger.BlockTypeSendRefund,
@@ -671,7 +674,7 @@ func doRefund(vm *VM, db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledg
 	if sendBlock.Amount.Sign() > 0 && sendBlock.Fee.Sign() > 0 && sendBlock.TokenId == ledger.ViteTokenId {
 		refundAmount := new(big.Int).Add(sendBlock.Amount, sendBlock.Fee)
 		vm.vmContext.AppendBlock(
-			util.MakeSendBlock(
+			util.MakeRequestBlock(
 				block.AccountAddress,
 				sendBlock.AccountAddress,
 				refundBlockType,
@@ -683,7 +686,7 @@ func doRefund(vm *VM, db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledg
 	} else {
 		if sendBlock.Amount.Sign() > 0 {
 			vm.vmContext.AppendBlock(
-				util.MakeSendBlock(
+				util.MakeRequestBlock(
 					block.AccountAddress,
 					sendBlock.AccountAddress,
 					refundBlockType,
@@ -695,7 +698,7 @@ func doRefund(vm *VM, db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledg
 		}
 		if sendBlock.Fee.Sign() > 0 {
 			vm.vmContext.AppendBlock(
-				util.MakeSendBlock(
+				util.MakeRequestBlock(
 					block.AccountAddress,
 					sendBlock.AccountAddress,
 					refundBlockType,
@@ -708,7 +711,7 @@ func doRefund(vm *VM, db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledg
 	}
 	if !refundFlag && needRefund {
 		vm.vmContext.AppendBlock(
-			util.MakeSendBlock(
+			util.MakeRequestBlock(
 				block.AccountAddress,
 				sendBlock.AccountAddress,
 				ledger.BlockTypeSendCall,
@@ -732,8 +735,8 @@ func (vm *VM) sendReward(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 			return nil, err
 		}
 	}
-	if block.AccountAddress != types.AddressConsensusGroup &&
-		block.AccountAddress != types.AddressMintage {
+	if block.AccountAddress != types.AddressGovernance &&
+		block.AccountAddress != types.AddressAssert {
 		return nil, util.ErrInvalidMethodParam
 	}
 	q, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
@@ -909,7 +912,7 @@ func (vm *VM) OffChainReader(db vm_db.VmDb, code []byte, data []byte) (result []
 		return nil, err
 	}
 	vm.i = newInterpreter(sb.Height, true)
-	vm.gasTable = util.GasTableByHeight(sb.Height)
+	vm.gasTable = util.QuotaTableByHeight(sb.Height)
 	c := newContract(&ledger.AccountBlock{AccountAddress: *db.Address()}, db, &ledger.AccountBlock{ToAddress: *db.Address()}, data, offChainReaderGas)
 	c.setCallCode(*db.Address(), code)
 	return c.run(vm)
@@ -921,7 +924,7 @@ func getPledgeAmount(db vm_db.VmDb) *big.Int {
 	return pledgeAmount
 }
 
-func useQuotaForSend(block *ledger.AccountBlock, db vm_db.VmDb, quotaLeft uint64, gasTable *util.GasTable) (uint64, error) {
+func useQuotaForSend(block *ledger.AccountBlock, db vm_db.VmDb, quotaLeft uint64, gasTable *util.QuotaTable) (uint64, error) {
 	cost, err := gasSendCall(block, gasTable)
 	if err != nil {
 		return quotaLeft, err

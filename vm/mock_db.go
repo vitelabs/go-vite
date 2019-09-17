@@ -28,7 +28,7 @@ type mockDB struct {
 	code                   []byte
 }
 
-func NewMockDB(addr *types.Address,
+func newMockDB(addr *types.Address,
 	latestSnapshotBlock *ledger.SnapshotBlock,
 	prevAccountBlock *ledger.AccountBlock,
 	quotaInfo []types.QuotaInfo,
@@ -76,11 +76,11 @@ func (db *mockDB) Address() *types.Address {
 	return db.currentAddr
 }
 func (db *mockDB) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
-	if b := db.latestSnapshotBlock; b == nil {
+	b := db.latestSnapshotBlock
+	if b == nil {
 		return nil, errors.New("latest snapshot block not exist")
-	} else {
-		return b, nil
 	}
+	return b, nil
 }
 func (db *mockDB) PrevAccountBlock() (*ledger.AccountBlock, error) {
 	return db.prevAccountBlock, nil
@@ -88,19 +88,18 @@ func (db *mockDB) PrevAccountBlock() (*ledger.AccountBlock, error) {
 func (db *mockDB) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error) {
 	if addr != *db.currentAddr {
 		return nil, errors.New("current account address not match")
-	} else {
-		return db.prevAccountBlock, nil
 	}
+	return db.prevAccountBlock, nil
 }
 func (db *mockDB) IsContractAccount() (bool, error) {
 	if !types.IsContractAddr(*db.currentAddr) {
 		return false, nil
 	}
-	if meta, err := db.GetContractMeta(); err != nil {
+	meta, err := db.GetContractMeta()
+	if err != nil {
 		return false, err
-	} else {
-		return meta != nil, nil
 	}
+	return meta != nil, nil
 }
 func (db *mockDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return 0, nil
@@ -108,9 +107,8 @@ func (db *mockDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 func (db *mockDB) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 	if addr != *db.currentAddr {
 		return nil
-	} else {
-		return db.quotaInfo
 	}
+	return db.quotaInfo
 }
 func (db *mockDB) GetGlobalQuota() types.QuotaInfo {
 	return types.QuotaInfo{}
@@ -263,24 +261,23 @@ func (st mockIteratorSorter) Less(i, j int) bool {
 	tkCmp := bytes.Compare(st[i].key, st[j].key)
 	if tkCmp < 0 {
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 func (db *mockDB) GetUnsavedStorage() [][2][]byte {
 	return nil
 }
-func (db *mockDB) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {
-	if balance, ok := db.balanceMap[*tokenTypeId]; ok {
+func (db *mockDB) GetBalance(tokenTypeID *types.TokenTypeId) (*big.Int, error) {
+	if balance, ok := db.balanceMap[*tokenTypeID]; ok {
 		return new(big.Int).Set(balance), nil
 	}
-	if balance, ok := db.balanceMapOrigin[*tokenTypeId]; ok {
+	if balance, ok := db.balanceMapOrigin[*tokenTypeID]; ok {
 		return new(big.Int).Set(balance), nil
 	}
 	return big.NewInt(0), nil
 }
-func (db *mockDB) SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) {
-	db.balanceMap[*tokenTypeId] = amount
+func (db *mockDB) SetBalance(tokenTypeID *types.TokenTypeId, amount *big.Int) {
+	db.balanceMap[*tokenTypeID] = amount
 }
 func (db *mockDB) GetBalanceMap() (map[types.TokenTypeId]*big.Int, error) {
 	balanceMap := make(map[types.TokenTypeId]*big.Int)
@@ -404,9 +401,8 @@ func (db *mockDB) GetUnsavedContractCode() []byte {
 func (db *mockDB) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	if *addr != *db.currentAddr {
 		return nil, errors.New("current account address not match")
-	} else {
-		return db.pledgeBeneficialAmount, nil
 	}
+	return db.pledgeBeneficialAmount, nil
 }
 func (db *mockDB) DebugGetStorage() (map[string][]byte, error) {
 	return nil, nil

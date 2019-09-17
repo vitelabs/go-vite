@@ -43,8 +43,8 @@ func TestContractDposCs_ElectionIndex(t *testing.T) {
 		VoteConditionId:        0,
 		VoteConditionParam:     nil,
 		Owner:                  types.Address{},
-		PledgeAmount:           nil,
-		WithdrawHeight:         0,
+		StakeAmount:            nil,
+		ExpirationHeight:       0,
 	}
 
 	info := core.NewGroupInfo(simpleGenesis, group)
@@ -60,7 +60,7 @@ func TestContractDposCs_ElectionIndex(t *testing.T) {
 	registers := []*types.Registration{{
 		Name:           "s1",
 		NodeAddr:       common.MockAddress(0),
-		PledgeAddr:     common.MockAddress(0),
+		StakeAddress:   common.MockAddress(0),
 		Amount:         nil,
 		WithdrawHeight: 0,
 		RewardTime:     0,
@@ -69,7 +69,7 @@ func TestContractDposCs_ElectionIndex(t *testing.T) {
 	}, {
 		Name:           "s2",
 		NodeAddr:       common.MockAddress(1),
-		PledgeAddr:     common.MockAddress(1),
+		StakeAddress:   common.MockAddress(1),
 		Amount:         nil,
 		WithdrawHeight: 0,
 		RewardTime:     0,
@@ -78,15 +78,15 @@ func TestContractDposCs_ElectionIndex(t *testing.T) {
 	}}
 	votes := []*types.VoteInfo{
 		{
-			VoterAddr: common.MockAddress(11),
-			NodeName:  "s1",
+			VoteAddr: common.MockAddress(11),
+			SbpName:  "s1",
 		},
 		{
-			VoterAddr: common.MockAddress(12),
-			NodeName:  "s1",
+			VoteAddr: common.MockAddress(12),
+			SbpName:  "s1",
 		}, {
-			VoterAddr: common.MockAddress(21),
-			NodeName:  "s2",
+			VoteAddr: common.MockAddress(21),
+			SbpName:  "s2",
 		}}
 
 	S1balances := make(map[types.Address]*big.Int)

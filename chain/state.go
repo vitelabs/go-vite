@@ -102,7 +102,7 @@ func (c *chain) GetContractList(gid types.Gid) ([]types.Address, error) {
 		return nil, cErr
 	}
 	if util.IsDelegateGid(gid) {
-		addrList = append(addrList, types.BuiltinContractAddrList...)
+		addrList = append(addrList, types.BuiltinContracts...)
 	}
 	return addrList, nil
 }

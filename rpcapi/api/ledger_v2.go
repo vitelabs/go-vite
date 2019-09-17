@@ -545,7 +545,7 @@ func calcPoWDifficulty(c chain.Chain, param CalcPoWDifficultyParam) (result *Cal
 	if err != nil {
 		return nil, err
 	}
-	quotaRequired, err := vm.GasRequiredForBlock(db, block, util.GasTableByHeight(sb.Height), sb.Height)
+	quotaRequired, err := vm.GasRequiredForBlock(db, block, util.QuotaTableByHeight(sb.Height), sb.Height)
 	if err != nil {
 		return nil, err
 	}
@@ -630,7 +630,7 @@ func calcQuotaRequired(c chain.Chain, param CalcQuotaRequiredParam) (*CalcQuotaR
 	if err != nil {
 		return nil, err
 	}
-	quotaRequired, err := vm.GasRequiredForBlock(db, block, util.GasTableByHeight(sb.Height), sb.Height)
+	quotaRequired, err := vm.GasRequiredForBlock(db, block, util.QuotaTableByHeight(sb.Height), sb.Height)
 	if err != nil {
 		return nil, err
 	}

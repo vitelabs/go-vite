@@ -48,8 +48,8 @@ func CalVotes(info types.ConsensusGroupInfo, hash types.Hash, rw stateCh) ([]*Vo
 func voteCompleting(snapshotHash types.Hash, vote *Vote, infos []*types.VoteInfo, id types.TokenTypeId, rw stateCh) error {
 	var addrs []types.Address
 	for _, v := range infos {
-		if v.NodeName == vote.Name {
-			addrs = append(addrs, v.VoterAddr)
+		if v.SbpName == vote.Name {
+			addrs = append(addrs, v.VoteAddr)
 		}
 	}
 	if len(addrs) > 0 {

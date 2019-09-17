@@ -30,7 +30,7 @@ type VMRunTestCase struct {
 	ToAddress        types.Address
 	Data             string
 	Amount           string
-	TokenId          types.TokenTypeId
+	TokenID          types.TokenTypeId
 	Fee              string
 	Code             string
 	NeedGlobalStatus bool
@@ -116,7 +116,7 @@ func TestVM_RunV2(t *testing.T) {
 
 			sendBlock := &ledger.AccountBlock{
 				Amount:  big.NewInt(0),
-				TokenId: testCase.TokenId,
+				TokenId: testCase.TokenID,
 				Fee:     big.NewInt(0),
 			}
 			if len(testCase.Fee) > 0 {
@@ -152,7 +152,7 @@ func TestVM_RunV2(t *testing.T) {
 				sendBlock.AccountAddress = testCase.FromAddress
 				sendBlock.ToAddress = testCase.ToAddress
 				var newDbErr error
-				db, newDbErr = NewMockDB(&testCase.FromAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code)
+				db, newDbErr = newMockDB(&testCase.FromAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code)
 				if newDbErr != nil {
 					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
 				}
@@ -192,7 +192,7 @@ func TestVM_RunV2(t *testing.T) {
 					}
 				}
 				var newDbErr error
-				db, newDbErr = NewMockDB(&testCase.ToAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code)
+				db, newDbErr = newMockDB(&testCase.ToAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code)
 				if newDbErr != nil {
 					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
 				}

@@ -1368,7 +1368,7 @@ func makeNumeratorList() []uint64 {
 
 func TestCalcDexQuota(t *testing.T) {
 	InitQuotaConfig(false, false)
-	gasTable := util.GasTableByHeight(1)
+	gasTable := util.QuotaTableByHeight(1)
 	dataLenMap := make(map[string]int)
 	methodNameDexFundUserDepositData, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundUserDeposit)
 	dataLenMap[abi.MethodNameDexFundUserDeposit] = len(methodNameDexFundUserDepositData)
@@ -1402,14 +1402,14 @@ func TestCalcDexQuota(t *testing.T) {
 	dataLenMap[abi.MethodNameDexTradeCancelOrder] = len(methodNameDexTradeCancelOrderData)
 	fmt.Println("quota for dex tx")
 	for name, length := range dataLenMap {
-		q := (gasTable.TxGas + uint64(length)*gasTable.TxDataGas + 74) / 75
+		q := (gasTable.TxQuota + uint64(length)*gasTable.TxDataQuota + 74) / 75
 		minPledgeAmount, _ := CalcPledgeAmountByQuota(q)
-		fmt.Printf("%v\t%v\t%v\n", name, gasTable.TxGas+uint64(length)*gasTable.TxDataGas, minPledgeAmount.Div(minPledgeAmount, big.NewInt(1e18)))
+		fmt.Printf("%v\t%v\t%v\n", name, gasTable.TxQuota+uint64(length)*gasTable.TxDataQuota, minPledgeAmount.Div(minPledgeAmount, big.NewInt(1e18)))
 	}
 	fmt.Println("pledge amount for dex tx")
 	for name, length := range dataLenMap {
 		for _, numerator := range numeratorList {
-			q := (numerator*(gasTable.TxGas+uint64(length)*gasTable.TxDataGas) + 74) / 75
+			q := (numerator*(gasTable.TxQuota+uint64(length)*gasTable.TxDataQuota) + 74) / 75
 			pledgeAmount, _ := CalcPledgeAmountByQuota(q)
 			if numerator < 75 {
 				fmt.Printf("%v\t%v\t%v\n", name, strconv.Itoa(int(numerator))+"("+strconv.Itoa(int(numerator))+"/75 tps)", pledgeAmount.Div(pledgeAmount, big.NewInt(1e18)))

@@ -34,22 +34,22 @@ func (r RegisterApi) String() string {
 
 // Private
 func (r *RegisterApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
-	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
+	return abi.ABIGovernance.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
 }
 
 // Private
 func (r *RegisterApi) GetCancelRegisterData(gid types.Gid, name string) ([]byte, error) {
-	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, gid, name)
+	return abi.ABIGovernance.PackMethod(abi.MethodNameRevoke, gid, name)
 }
 
 // Private
 func (r *RegisterApi) GetRewardData(gid types.Gid, name string, beneficialAddr types.Address) ([]byte, error) {
-	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, gid, name, beneficialAddr)
+	return abi.ABIGovernance.PackMethod(abi.MethodNameWithdrawReward, gid, name, beneficialAddr)
 }
 
 // Private
 func (r *RegisterApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
-	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, gid, name, nodeAddr)
+	return abi.ABIGovernance.PackMethod(abi.MethodNameUpdateBlockProducingAddress, gid, name, nodeAddr)
 }
 
 type RegistrationInfo struct {
@@ -79,7 +79,7 @@ func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
 
 // Deprecated: use contract_getSBPList
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 			targetList[i] = &RegistrationInfo{
 				Name:           info.Name,
 				NodeAddr:       info.NodeAddr,
-				PledgeAddr:     info.PledgeAddr,
+				PledgeAddr:     info.StakeAddress,
 				PledgeAmount:   *bigIntToString(info.Amount),
 				WithdrawHeight: Uint64ToString(info.WithdrawHeight),
 				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
@@ -136,7 +136,7 @@ func ToReward(source *contracts.Reward) *Reward {
 
 // Deprecated: use contract_getSBPRewardPendingWithdrawal
 func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, error) {
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -162,11 +162,11 @@ func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, e
 
 // Deprecated: use contract_getSBPRewardByTimestamp instead
 func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string]*Reward, error) {
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
-	m, _, err := contracts.CalcRewardByDay(db, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
+	m, _, err := contracts.CalcRewardByCycle(db, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -189,11 +189,11 @@ func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (*RewardI
 	if err != nil {
 		return nil, err
 	}
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
-	m, err := contracts.CalcRewardByDayIndex(db, util.NewVmConsensusReader(r.cs.SBPReader()), index)
+	m, err := contracts.CalcRewardByIndex(db, util.NewVmConsensusReader(r.cs.SBPReader()), index)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (*RewardI
 
 // Deprecated: use contract_getSBP instead
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 	if len(paramList) == 0 {
 		return nil, nil
 	}
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +241,7 @@ func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*ty
 			}
 		}
 		if r != nil {
-			addrList[k] = &r.PledgeAddr
+			addrList[k] = &r.StakeAddress
 		}
 	}
 	return addrList, nil

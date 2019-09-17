@@ -234,7 +234,7 @@ func GetContractList(chainInstance *chain, accounts map[types.Address]*Account) 
 	if err != nil {
 		panic(err)
 	}
-	if len(delegateContractList) < len(types.BuiltinContractAddrList) {
+	if len(delegateContractList) < len(types.BuiltinContracts) {
 		panic("error")
 	}
 	for _, addr := range delegateContractList {

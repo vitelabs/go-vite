@@ -106,6 +106,8 @@ var (
 	statusCodeListOfSeedCount    = []opCode{SEED, RANDOM}
 )
 
+// ContainsCertainStatusCode method checks whether the input code contains
+// certain op codes that read cross chain data.
 func ContainsCertainStatusCode(code []byte) (containsConfirmTimeCode, containsSeedCountCode bool) {
 	if len(code) == 0 {
 		return false, false

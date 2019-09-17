@@ -33,13 +33,13 @@ func (p PledgeApi) String() string {
 
 // Private
 func (p *PledgeApi) GetPledgeData(beneficialAddr types.Address) ([]byte, error) {
-	return abi.ABIPledge.PackMethod(abi.MethodNamePledge, beneficialAddr)
+	return abi.ABIQuota.PackMethod(abi.MethodNameStake, beneficialAddr)
 }
 
 // Private
 func (p *PledgeApi) GetCancelPledgeData(beneficialAddr types.Address, amount string) ([]byte, error) {
 	if bAmount, err := stringToBigInt(&amount); err == nil {
-		return abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, beneficialAddr, bAmount)
+		return abi.ABIQuota.PackMethod(abi.MethodNameCancelStake, beneficialAddr, bAmount)
 	} else {
 		return nil, err
 	}
@@ -59,13 +59,13 @@ func (p *PledgeApi) GetAgentPledgeData(param AgentPledgeParam) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return abi.ABIPledge.PackMethod(abi.MethodNameAgentPledge, param.PledgeAddr, param.BeneficialAddr, param.Bid, stakeHeight)
+	return abi.ABIQuota.PackMethod(abi.MethodNameDelegateStake, param.PledgeAddr, param.BeneficialAddr, param.Bid, stakeHeight)
 }
 
 // Private
 func (p *PledgeApi) GetAgentCancelPledgeData(param AgentPledgeParam) ([]byte, error) {
 	if bAmount, err := stringToBigInt(&param.Amount); err == nil {
-		return abi.ABIPledge.PackMethod(abi.MethodNameAgentCancelPledge, param.PledgeAddr, param.BeneficialAddr, bAmount, param.Bid)
+		return abi.ABIQuota.PackMethod(abi.MethodNameCancelDelegateStake, param.PledgeAddr, param.BeneficialAddr, bAmount, param.Bid)
 	} else {
 		return nil, err
 	}
@@ -110,35 +110,35 @@ type PledgeInfo struct {
 	Bid            uint8         `json:"bid"`
 }
 
-func NewPledgeInfo(info *types.PledgeInfo, snapshotBlock *ledger.SnapshotBlock) *PledgeInfo {
+func NewPledgeInfo(info *types.StakeInfo, snapshotBlock *ledger.SnapshotBlock) *PledgeInfo {
 	return &PledgeInfo{
 		*bigIntToString(info.Amount),
-		info.BeneficialAddr,
-		Uint64ToString(info.WithdrawHeight),
-		getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
-		info.Agent,
-		info.AgentAddress,
+		info.Beneficiary,
+		Uint64ToString(info.ExpirationHeight),
+		getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.ExpirationHeight),
+		info.IsDelegated,
+		info.DelegateAddress,
 		info.Bid}
 }
 
-type byWithdrawHeight []*types.PledgeInfo
+type byWithdrawHeight []*types.StakeInfo
 
 func (a byWithdrawHeight) Len() int      { return len(a) }
 func (a byWithdrawHeight) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byWithdrawHeight) Less(i, j int) bool {
-	if a[i].WithdrawHeight == a[j].WithdrawHeight {
-		return a[i].BeneficialAddr.String() < a[j].BeneficialAddr.String()
+	if a[i].ExpirationHeight == a[j].ExpirationHeight {
+		return a[i].Beneficiary.String() < a[j].Beneficiary.String()
 	}
-	return a[i].WithdrawHeight < a[j].WithdrawHeight
+	return a[i].ExpirationHeight < a[j].ExpirationHeight
 }
 
 // Deprecated: use contract_getStakeList instead
 func (p *PledgeApi) GetPledgeList(addr types.Address, index int, count int) (*PledgeInfoList, error) {
-	db, err := getVmDb(p.chain, types.AddressPledge)
+	db, err := getVmDb(p.chain, types.AddressQuota)
 	if err != nil {
 		return nil, err
 	}
-	list, amount, err := abi.GetPledgeInfoList(db, addr)
+	list, amount, err := abi.GetStakeInfoList(db, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func (p *PledgeApi) GetPledgeBeneficialAmount(addr types.Address) (string, error
 
 // Private
 func (p *PledgeApi) GetQuotaUsedList(addr types.Address) ([]types.QuotaInfo, error) {
-	db, err := getVmDb(p.chain, types.AddressPledge)
+	db, err := getVmDb(p.chain, types.AddressQuota)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +202,7 @@ type PledgeQueryParams struct {
 
 // Deprecated
 func (p *PledgeApi) GetAgentPledgeInfo(params PledgeQueryParams) (*PledgeInfo, error) {
-	db, err := getVmDb(p.chain, types.AddressPledge)
+	db, err := getVmDb(p.chain, types.AddressQuota)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func (p *PledgeApi) GetAgentPledgeInfo(params PledgeQueryParams) (*PledgeInfo, e
 	if err != nil {
 		return nil, err
 	}
-	info, err := abi.GetPledgeInfo(db, params.PledgeAddr, params.BeneficialAddr, params.AgentAddr, true, params.Bid)
+	info, err := abi.GetStakeInfo(db, params.PledgeAddr, params.BeneficialAddr, params.AgentAddr, true, params.Bid)
 	if err != nil {
 		return nil, err
 	}

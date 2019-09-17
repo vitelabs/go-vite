@@ -13,22 +13,28 @@ import (
 )
 
 var (
-	AttovPerVite                    = big.NewInt(1e18)
-	CreateContractDataLengthMin     = 13
-	CreateContractDataLengthMinRand = 14
+	AttovPerVite                    = big.NewInt(1e18) // decimals of vite
+	CreateContractDataLengthMin     = 13               // create contract request block data prefix length before seed fork
+	CreateContractDataLengthMinRand = 14               // create contract request block data prefix length after seed fork
 )
 
-func IsViteToken(tokenId types.TokenTypeId) bool {
-	return tokenId == ledger.ViteTokenId
+// IsViteToken checks whether tokenId is vite token
+func IsViteToken(tokenID types.TokenTypeId) bool {
+	return tokenID == ledger.ViteTokenId
 }
+
+// IsSnapshotGid checks whether gid is snapshot consensus group id
 func IsSnapshotGid(gid types.Gid) bool {
 	return gid == types.SNAPSHOT_GID
 }
+
+// IsDelegateGid checks whether gid is global delegate consensus group id
 func IsDelegateGid(gid types.Gid) bool {
 	return gid == types.DELEGATE_GID
 }
 
-func MakeSendBlock(fromAddress types.Address, toAddress types.Address, blockType byte, amount *big.Int, tokenId types.TokenTypeId, data []byte) *ledger.AccountBlock {
+// MakeRequestBlock returns a request block
+func MakeRequestBlock(fromAddress types.Address, toAddress types.Address, blockType byte, amount *big.Int, tokenId types.TokenTypeId, data []byte) *ledger.AccountBlock {
 	return &ledger.AccountBlock{
 		AccountAddress: fromAddress,
 		ToAddress:      toAddress,
@@ -41,7 +47,7 @@ func MakeSendBlock(fromAddress types.Address, toAddress types.Address, blockType
 }
 
 var (
-	SolidityPPContractType uint8 = 1
+	SolidityPPContractType uint8 = 1 // contract type of solidity++ byte code
 	contractTypeSize             = 1
 	confirmTimeSize              = 1
 	seedCountSize                = 1

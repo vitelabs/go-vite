@@ -379,7 +379,7 @@ func (tx Tx) autoSend() {
 		}
 	}
 
-	toAddr := types.AddressConsensusGroup
+	toAddr := types.AddressGovernance
 	amount := string("0")
 
 	ss := []string{

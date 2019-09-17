@@ -80,8 +80,8 @@ func main() {
 func genVoteDetails(rw chain.Chain, snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *consensus.VoteDetails {
 	var addrs []types.Address
 	for _, v := range infos {
-		if v.NodeName == registration.Name {
-			addrs = append(addrs, v.VoterAddr)
+		if v.SbpName == registration.Name {
+			addrs = append(addrs, v.VoteAddr)
 		}
 	}
 	balanceMap, _ := rw.GetConfirmedBalanceList(addrs, id, snapshotHash)

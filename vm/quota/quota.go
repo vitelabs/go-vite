@@ -10,8 +10,6 @@ import (
 )
 
 type NodeConfig struct {
-	QuotaParams
-	sectionList      []*big.Float
 	difficultyList   []*big.Int
 	pledgeAmountList []*big.Int
 	qcIndexMin       uint64
@@ -23,15 +21,8 @@ type NodeConfig struct {
 var nodeConfig NodeConfig
 
 func InitQuotaConfig(isTest, isTestParam bool) {
-	sectionList := make([]*big.Float, len(sectionStrList))
-	for i, str := range sectionStrList {
-		sectionList[i], _ = new(big.Float).SetPrec(precForFloat).SetString(str)
-	}
-
 	if isTestParam {
 		nodeConfig = NodeConfig{
-			QuotaParams:    QuotaParamTestnet,
-			sectionList:    sectionList,
 			difficultyList: difficultyListTestnet}
 		pledgeAmountList := make([]*big.Int, len(pledgeAmountListTestnet))
 		for i, str := range pledgeAmountListTestnet {
@@ -40,8 +31,6 @@ func InitQuotaConfig(isTest, isTestParam bool) {
 		nodeConfig.pledgeAmountList = pledgeAmountList
 	} else {
 		nodeConfig = NodeConfig{
-			QuotaParams:    QuotaParamMainnet,
-			sectionList:    sectionList,
 			difficultyList: difficultyListMainnet}
 		pledgeAmountList := make([]*big.Int, len(pledgeAmountListMainnet))
 		for i, str := range pledgeAmountListMainnet {
@@ -219,7 +208,7 @@ func calcPledgeQuota(qc *big.Int, isCongestion bool, pledgeAmount *big.Int) uint
 		return 0
 	}
 	pledgeAmount = calcPledgeParam(qc, isCongestion, pledgeAmount)
-	return calcQuotaByIndex(getIndexInBigIntList(pledgeAmount, nodeConfig.pledgeAmountList, 0, len(nodeConfig.sectionList)-1))
+	return calcQuotaByIndex(getIndexInBigIntList(pledgeAmount, nodeConfig.pledgeAmountList, 0, sectionLen))
 }
 
 func calcPoWQuotaByQc(db quotaDb, difficulty *big.Int, sbHeight uint64) uint64 {
@@ -227,7 +216,7 @@ func calcPoWQuotaByQc(db quotaDb, difficulty *big.Int, sbHeight uint64) uint64 {
 		return 0
 	}
 	difficulty = calcPledgeParamByQc(db, difficulty, sbHeight)
-	return calcQuotaByIndex(getIndexInBigIntList(difficulty, nodeConfig.difficultyList, 0, len(nodeConfig.sectionList)-1))
+	return calcQuotaByIndex(getIndexInBigIntList(difficulty, nodeConfig.difficultyList, 0, sectionLen))
 }
 
 func calcPoWQuota(qc *big.Int, isCongestion bool, difficulty *big.Int) uint64 {
@@ -235,11 +224,11 @@ func calcPoWQuota(qc *big.Int, isCongestion bool, difficulty *big.Int) uint64 {
 		return 0
 	}
 	difficulty = calcPledgeParam(qc, isCongestion, difficulty)
-	return calcQuotaByIndex(getIndexInBigIntList(difficulty, nodeConfig.difficultyList, 0, len(nodeConfig.sectionList)-1))
+	return calcQuotaByIndex(getIndexInBigIntList(difficulty, nodeConfig.difficultyList, 0, sectionLen))
 }
 
 func calcQuotaByIndex(index int) uint64 {
-	if index >= 0 && index < len(nodeConfig.sectionList) {
+	if index >= 0 && index <= sectionLen {
 		return uint64(index) * quotaForSection
 	}
 	return 0
@@ -247,7 +236,7 @@ func calcQuotaByIndex(index int) uint64 {
 
 func getIndexByQuota(q uint64) (int, error) {
 	index := int((q + quotaForSection - 1) / quotaForSection)
-	if index >= len(nodeConfig.sectionList) || uint64(index)*quotaForSection < q {
+	if index > sectionLen || uint64(index)*quotaForSection < q {
 		return 0, util.ErrBlockQuotaLimitReached
 	}
 	return index, nil
@@ -339,7 +328,7 @@ func calcPledgeTargetParam(qc *big.Int, isCongestion bool, target *big.Int) (*bi
 }
 
 func getMaxQutoa() uint64 {
-	return uint64(len(nodeConfig.sectionList)-1) * quotaForSection
+	return uint64(sectionLen) * quotaForSection
 }
 
 func calcPledgeParamByQc(db quotaDb, param *big.Int, sbHeight uint64) *big.Int {

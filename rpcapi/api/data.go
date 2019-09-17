@@ -27,8 +27,8 @@ func (p DataApi) String() string {
 }
 
 type GetPledgeListByPageResult struct {
-	PledgeInfoList []*types.PledgeInfo `json:"list"`
-	LastKey        string              `json:"lastKey"`
+	PledgeInfoList []*types.StakeInfo `json:"list"`
+	LastKey        string             `json:"lastKey"`
 }
 
 func (p *DataApi) GetPledgeListByPage(snapshotHash types.Hash, lastKey string, count uint64) (*GetPledgeListByPageResult, error) {

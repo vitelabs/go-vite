@@ -199,15 +199,15 @@ func TestCalcRewardByDay(t *testing.T) {
 		reader := util.NewVmConsensusReader(newConsensusReaderTest(genesisTime, oneDay, testCase.detailMap))
 		rewardMap, err := calcRewardByDay(reader, reader.GetIndexByTime(testCase.day, genesisTime), pledgeAmountForTest)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
-			t.Fatalf("%v CalcRewardByDay failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
+			t.Fatalf("%v CalcRewardByCycle failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}
 		if err == nil {
 			if len(rewardMap) != len(testCase.rewardMap) {
-				t.Fatalf("%v CalcRewardByDay failed, rewardMap len not match, expected %v, got %v", testCase.name, len(testCase.rewardMap), len(rewardMap))
+				t.Fatalf("%v CalcRewardByCycle failed, rewardMap len not match, expected %v, got %v", testCase.name, len(testCase.rewardMap), len(rewardMap))
 			} else {
 				for k, v := range rewardMap {
 					if expectedV, ok := testCase.rewardMap[k]; !ok || v.TotalReward.Cmp(expectedV) != 0 {
-						t.Fatalf("%v CalcRewardByDay failed, rewardMap not match, expected %v:%v, got %v:%v", testCase.name, k, expectedV, k, v)
+						t.Fatalf("%v CalcRewardByCycle failed, rewardMap not match, expected %v:%v, got %v:%v", testCase.name, k, expectedV, k, v)
 					}
 				}
 			}
@@ -264,14 +264,14 @@ type timeIndex struct {
 	Interval    time.Duration
 }
 
-func (self timeIndex) Index2Time(index uint64) (time.Time, time.Time) {
-	sTime := self.GenesisTime.Add(self.Interval * time.Duration(index))
-	eTime := self.GenesisTime.Add(self.Interval * time.Duration(index+1))
+func (ti timeIndex) Index2Time(index uint64) (time.Time, time.Time) {
+	sTime := ti.GenesisTime.Add(ti.Interval * time.Duration(index))
+	eTime := ti.GenesisTime.Add(ti.Interval * time.Duration(index+1))
 	return sTime, eTime
 }
-func (self timeIndex) Time2Index(t time.Time) uint64 {
-	subSec := int64(t.Sub(self.GenesisTime).Seconds())
-	i := uint64(subSec) / uint64(self.Interval.Seconds())
+func (ti timeIndex) Time2Index(t time.Time) uint64 {
+	subSec := int64(t.Sub(ti.GenesisTime).Seconds())
+	i := uint64(subSec) / uint64(ti.Interval.Seconds())
 	return i
 }
 
