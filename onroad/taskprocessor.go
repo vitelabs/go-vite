@@ -165,7 +165,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 					tp.restrictContract(task.Addr, OUT)
 					return false
 				}
-				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVMDB(), *q, task.Addr); !canRetryDuringNextSnapshot {
+				if canRetryDuringNextSnapshot, _ := quota.CheckQuota(gen.GetVMDB(), *q, task.Addr); !canRetryDuringNextSnapshot {
 					blog.Info("Check quota is gone to be insufficient",
 						"quota", fmt.Sprintf("(u:%v c:%v sc:%v a:%v sb:%v)", q.StakeQuotaPerSnapshotBlock(), q.Current(), q.SnapshotCurrent(), q.Avg(), addrState.LatestSnapshotHash))
 					tp.restrictContract(task.Addr, OUT)
