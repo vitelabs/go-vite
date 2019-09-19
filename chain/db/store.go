@@ -63,6 +63,10 @@ func NewStoreWithDb(dataDir string, name string, diskStore *leveldb.DB) (*Store,
 	return store, nil
 }
 
+func (store *Store) GetDbDir() string {
+	return store.dbDir
+}
+
 func (store *Store) CompactRange(r util.Range) error {
 	return store.db.CompactRange(r)
 }

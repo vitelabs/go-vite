@@ -10,14 +10,12 @@ import (
 
 var (
 	pluginDataCommand = cli.Command{
-		Action:   utils.MigrateFlags(pluginDataAction),
-		Name:     "pluginData",
-		Usage:    "pluginData",
-		Category: "PLUGIN DATA COMMANDS",
-		Flags:    configFlags,
-		Description: `
-recreate plugin data.
-`,
+		Action:      utils.MigrateFlags(pluginDataAction),
+		Name:        "pluginData",
+		Usage:       "pluginData",
+		Category:    "PLUGIN DATA COMMANDS",
+		Flags:       append(configFlags, pluginsFlags...),
+		Description: `recreate plugin data.`,
 	}
 )
 

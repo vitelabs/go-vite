@@ -170,10 +170,12 @@ func (c *chain) Init() error {
 	}
 
 	// reconstruct the plugins
-	/*	if c.chainCfg.OpenPlugins {
-			c.plugins.BuildPluginsDb(c.flusher)
+	if c.chainCfg.OpenPlugins {
+		if err := c.plugins.GetPlugin(chain_plugins.PluginKeyOnRoadInfo).RebuildData(c.flusher); err != nil {
+			return err
 		}
-	*/
+	}
+
 	c.log.Info("Complete initialization", "method", "Init")
 
 	return nil
@@ -315,8 +317,12 @@ func (c *chain) newDbAndRecover() error {
 	// new flusher
 	stores := []chain_flusher.Storage{c.blockDB, c.stateDB.Store(), c.stateDB.RedoStore(), c.indexDB.Store()}
 	if c.chainCfg.OpenPlugins {
-		stores = append(stores, c.plugins.Store())
+		pluginsStores := c.plugins.Stores()
+		for _, v := range pluginsStores {
+			stores = append(stores, v)
+		}
 	}
+
 	if c.flusher, err = chain_flusher.NewFlusher(stores, &c.flushMu, c.chainDir); err != nil {
 		cErr := errors.New(fmt.Sprintf("chain_flusher.NewFlusher failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "newDbAndRecover")
