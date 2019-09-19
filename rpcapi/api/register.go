@@ -32,15 +32,22 @@ func (r RegisterApi) String() string {
 	return "RegisterApi"
 }
 
+// Private
 func (r *RegisterApi) GetRegisterData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
 	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, gid, name, nodeAddr)
 }
+
+// Private
 func (r *RegisterApi) GetCancelRegisterData(gid types.Gid, name string) ([]byte, error) {
 	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, gid, name)
 }
+
+// Private
 func (r *RegisterApi) GetRewardData(gid types.Gid, name string, beneficialAddr types.Address) ([]byte, error) {
 	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, gid, name, beneficialAddr)
 }
+
+// Private
 func (r *RegisterApi) GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error) {
 	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, gid, name, nodeAddr)
 }
@@ -70,6 +77,7 @@ func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
 	return a[i].WithdrawHeight > a[j].WithdrawHeight
 }
 
+// Deprecated: use contract_getSBPList
 func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error) {
 	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
@@ -101,31 +109,6 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	return targetList, nil
 }
 
-func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, error) {
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
-	if err != nil {
-		return nil, err
-	}
-	info, err := abi.GetRegistration(db, gid, name)
-	if err != nil {
-		return nil, err
-	}
-	if info == nil {
-		return nil, nil
-	}
-	sb, err := db.LatestSnapshotBlock()
-	if err != nil {
-		return nil, err
-	}
-	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, sb)
-	if err != nil {
-		return nil, err
-	}
-	result := ToReward(reward)
-	result.Drained = contracts.RewardDrained(reward, drained)
-	return result, nil
-}
-
 type Reward struct {
 	BlockReward      string `json:"blockReward"`
 	VoteReward       string `json:"voteReward"`
@@ -151,12 +134,39 @@ func ToReward(source *contracts.Reward) *Reward {
 	}
 }
 
+// Deprecated: use contract_getSBPRewardPendingWithdrawal
+func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, error) {
+	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	if err != nil {
+		return nil, err
+	}
+	info, err := abi.GetRegistration(db, gid, name)
+	if err != nil {
+		return nil, err
+	}
+	if info == nil {
+		return nil, nil
+	}
+	sb, err := db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, sb)
+	if err != nil {
+		return nil, err
+	}
+	result := ToReward(reward)
+	result.Drained = contracts.RewardDrained(reward, drained)
+	return result, nil
+}
+
+// Deprecated: use contract_getSBPRewardByTimestamp instead
 func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string]*Reward, error) {
 	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
 		return nil, err
 	}
-	m, err := contracts.CalcRewardByDay(db, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
+	m, _, err := contracts.CalcRewardByDay(db, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +183,7 @@ type RewardInfo struct {
 	EndTime   int64              `json:"endTime"`
 }
 
+// Deprecated: use contract_getSBPRewardByCycle instead
 func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (*RewardInfo, error) {
 	index, err := StringToUint64(indexStr)
 	if err != nil {
@@ -194,6 +205,7 @@ func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (*RewardI
 	return &RewardInfo{rewardMap, startTime.Unix(), endTime.Unix()}, nil
 }
 
+// Deprecated: use contract_getSBP instead
 func (r *RegisterApi) GetRegistration(name string, gid types.Gid) (*types.Registration, error) {
 	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
 	if err != nil {
@@ -207,6 +219,7 @@ type RegistParam struct {
 	Gid  *types.Gid `json:"gid"`
 }
 
+// Deprecated
 func (r *RegisterApi) GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*types.Address, error) {
 	if len(paramList) == 0 {
 		return nil, nil
@@ -240,6 +253,7 @@ type CandidateInfo struct {
 	VoteNum  string        `json:"voteNum"`
 }
 
+// Deprecated: usecontract_getSBPVoteList instead
 func (r *RegisterApi) GetCandidateList() ([]*CandidateInfo, error) {
 	head := r.chain.GetLatestSnapshotBlock()
 	details, _, err := r.cs.API().ReadVoteMap((*head.Timestamp).Add(time.Second))

@@ -8,6 +8,7 @@
 .DS_Store
 gvite
 !gvite/
+gvite.log
 
 # vscode
 .vscode

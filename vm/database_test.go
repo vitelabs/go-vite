@@ -188,6 +188,14 @@ func (db *testDatabase) GetContractMetaInSnapshot(contractAddress types.Address,
 	meta := db.contractMetaMap[contractAddress]
 	return meta, nil
 }
+func (db *testDatabase) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	for _, sb := range db.snapshotBlockList {
+		if sb.Height == height {
+			return sb, nil
+		}
+	}
+	return nil, nil
+}
 func (db *testDatabase) CanWrite() bool {
 	return false
 }
