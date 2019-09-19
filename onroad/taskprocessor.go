@@ -41,7 +41,7 @@ func (tp *ContractTaskProcessor) work() {
 		}
 		task := tp.worker.popContractTask()
 		if task != nil {
-			signalLog.Info(fmt.Sprintf("tp %v wakeup, pop addr %v quota %v", tp.taskID, task.Addr, task.Quota))
+			signalLog.Info(fmt.Sprintf("tp=%v wakeup, pop addr %v quota %v", tp.taskID, task.Addr, task.Quota))
 			if tp.worker.isContractInBlackList(task.Addr) || !tp.worker.addContractIntoWorkingList(task.Addr) {
 				continue
 			}

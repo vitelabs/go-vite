@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/fork"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -128,20 +129,32 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 
 		log.Info("addSnapshotEventLis", "gid", w.gid, "event", "snapshotEvent")
 		w.manager.addSnapshotEventLis(w.gid, func(latestHeight uint64) {
+			pendingTask := make([]*contractTask, len(w.contractAddressList))
+			count := 0
 			for _, addr := range w.contractAddressList {
-				pushContractTask, callerCount := w.releaseContract(addr)
-				if pushContractTask {
+				if pushContractTask, callerCount := w.releaseContract(addr); pushContractTask {
+					signalLog.Info(fmt.Sprintf("release contract %v RETRY callers len %v", addr, callerCount), "snapshot", latestHeight, "event", "snapshotEvent")
+
 					q := w.GetPledgeQuota(addr)
-					c := &contractTask{
-						Addr:  addr,
-						Quota: q,
-					}
-					if !w.isCancel.Load() {
-						w.pushContractTask(c)
-						signalLog.Info(fmt.Sprintf("release contract %v RETRY callers len %v", addr, callerCount), "snapshot", latestHeight, "event", "snapshotEvent")
-						w.wakeupOneTp()
-					}
+					pendingTask[count] = &contractTask{Addr: addr, Quota: q}
+					count++
 				}
+			}
+			sortedTask := pendingTask[0:count]
+			sort.Slice(sortedTask, func(i, j int) bool {
+				if sortedTask[i].Quota > sortedTask[j].Quota {
+					return true
+				}
+				return false
+			})
+			for _, task := range sortedTask {
+				if w.isCancel.Load() {
+					break
+				}
+				signalLog.Info(fmt.Sprintf("push contract %v %v", task.Addr, task.Quota), "snapshot", latestHeight, "event", "snapshotEvent")
+
+				w.pushContractTask(task)
+				w.wakeupOneTp()
 			}
 		})
 
