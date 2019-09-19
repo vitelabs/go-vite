@@ -16,19 +16,19 @@ const (
 		{"type":"function","name":"Stake", "inputs":[{"name":"beneficiary","type":"address"}]},
 
 		{"type":"function","name":"CancelPledge","inputs":[{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"}]},
-		{"type":"function","name":"CancelStaking","inputs":[{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"}]},
+		{"type":"function","name":"CancelStake","inputs":[{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"}]},
 
-		{"type":"function","name":"AgentPledge", "inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakingHeight","type":"uint64"}]},
-		{"type":"function","name":"DelegateStaking", "inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakingHeight","type":"uint64"}]},
+		{"type":"function","name":"AgentPledge", "inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakeHeight","type":"uint64"}]},
+		{"type":"function","name":"DelegateStake", "inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakeHeight","type":"uint64"}]},
 		
-		{"type":"function","name":"AgentCancelPledge","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
-		{"type":"function","name":"CancelDelegatedStaking","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
+		{"type":"function","name":"AgentCancelPledge","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
+		{"type":"function","name":"CancelDelegateStake","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
 
-		{"type":"callback","name":"AgentPledge","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
-		{"type":"callback","name":"DelegateStaking","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"AgentPledge","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"DelegateStake","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
 
-		{"type":"callback","name":"AgentCancelPledge","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
-		{"type":"callback","name":"CancelDelegatedStaking","inputs":[{"name":"stakingAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"AgentCancelPledge","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"CancelDelegateStake","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
 
 		{"type":"variable","name":"pledgeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"beneficialAddr","type":"address"},{"name":"agent","type":"bool"},{"name":"agentAddress","type":"address"},{"name":"bid","type":"uint8"}]},
 
@@ -38,11 +38,11 @@ const (
 	MethodNamePledge              = "Pledge"
 	MethodNamePledgeV2            = "Stake"
 	MethodNameCancelPledge        = "CancelPledge"
-	MethodNameCancelPledgeV2      = "CancelStaking"
+	MethodNameCancelPledgeV2      = "CancelStake"
 	MethodNameAgentPledge         = "AgentPledge"
-	MethodNameAgentPledgeV2       = "DelegateStaking"
+	MethodNameAgentPledgeV2       = "DelegateStake"
 	MethodNameAgentCancelPledge   = "AgentCancelPledge"
-	MethodNameAgentCancelPledgeV2 = "CancelDelegatedStaking"
+	MethodNameAgentCancelPledgeV2 = "CancelDelegateStake"
 	VariableNamePledgeInfo        = "pledgeInfo"
 	VariableNamePledgeBeneficial  = "pledgeBeneficial"
 )
@@ -60,16 +60,16 @@ type ParamCancelPledge struct {
 	Amount      *big.Int
 }
 type ParamAgentPledge struct {
-	StakingAddress types.Address
-	Beneficiary    types.Address
-	Bid            uint8
-	StakingHeight  uint64
+	StakeAddress types.Address
+	Beneficiary  types.Address
+	Bid          uint8
+	StakeHeight  uint64
 }
 type ParamAgentCancelPledge struct {
-	StakingAddress types.Address
-	Beneficiary    types.Address
-	Amount         *big.Int
-	Bid            uint8
+	StakeAddress types.Address
+	Beneficiary  types.Address
+	Amount       *big.Int
+	Bid          uint8
 }
 
 func GetPledgeBeneficialKey(beneficial types.Address) []byte {

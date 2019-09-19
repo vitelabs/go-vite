@@ -3,50 +3,15 @@ package api
 import (
 	"encoding/hex"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
 	"strings"
 )
 
-type ContractApi struct {
-	chain chain.Chain
-	vite  *vite.Vite
-	cs    consensus.Consensus
-	log   log15.Logger
-}
-
-func NewContractApi(vite *vite.Vite) *ContractApi {
-	return &ContractApi{
-		chain: vite.Chain(),
-		vite:  vite,
-		cs:    vite.Consensus(),
-		log:   log15.New("module", "rpc_api/contract_api"),
-	}
-}
-
-func (c ContractApi) String() string {
-	return "ContractApi"
-}
-
 // Deprecated: use contract_createContractAddress instead
 func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
-	h, err := StringToUint64(heightStr)
-	if err != nil {
-		return nil, err
-	}
-	addr := util.NewContractAddress(selfAddr, h, prevHash)
-	return &addr, nil
-}
-
-func (c *ContractApi) CreateContractAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
 	h, err := StringToUint64(heightStr)
 	if err != nil {
 		return nil, err
@@ -146,100 +111,4 @@ func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, pa
 		return nil, err
 	}
 	return abiContract.PackOffChain(offChainName, arguments...)
-}
-
-type CallOffChainMethodParam struct {
-	SelfAddr          types.Address  `json:"selfAddr"` // Deprecated: use address field instead
-	Addr              *types.Address `json:"address"`
-	OffChainCode      string         `json:"offchainCode"`
-	OffChainCodeBytes []byte         `json:"offchainCodeBytes"`
-	Data              []byte         `json:"data"`
-}
-
-func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
-	if param.Addr != nil {
-		param.SelfAddr = *param.Addr
-	}
-	prevHash, err := getPrevBlockHash(c.chain, types.AddressConsensusGroup)
-	if err != nil {
-		return nil, err
-	}
-	db, err := vm_db.NewVmDb(c.chain, &param.SelfAddr, &c.chain.GetLatestSnapshotBlock().Hash, prevHash)
-	if err != nil {
-		return nil, err
-	}
-	var codeBytes []byte
-	if len(param.OffChainCode) > 0 {
-		codeBytes, err = hex.DecodeString(param.OffChainCode)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		codeBytes = param.OffChainCodeBytes
-	}
-	return vm.NewVM(nil).OffChainReader(db, codeBytes, param.Data)
-}
-
-// Private
-func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {
-	var prefixBytes []byte
-	if len(prefix) > 0 {
-		var err error
-		prefixBytes, err = hex.DecodeString(prefix)
-		if err != nil {
-			return nil, err
-		}
-	}
-	iter, err := c.chain.GetStorageIterator(addr, prefixBytes)
-	if err != nil {
-		return nil, err
-	}
-	defer iter.Release()
-	m := make(map[string]string)
-	for {
-		if !iter.Next() {
-			if iter.Error() != nil {
-				return nil, iter.Error()
-			}
-			return m, nil
-		}
-		if len(iter.Key()) > 0 && len(iter.Value()) > 0 {
-			m["0x"+hex.EncodeToString(iter.Key())] = "0x" + hex.EncodeToString(iter.Value())
-		}
-	}
-}
-
-type ContractInfo struct {
-	Code            []byte    `json:"code"`
-	Gid             types.Gid `json:"gid"`
-	ConfirmTime     uint8     `json:"confirmTime"` // Deprecated: use responseLatency instead
-	ResponseLatency uint8     `json:"responseLatency"`
-	SeedCount       uint8     `json:"seedCount"` // Deprecated: use randomness instead
-	Randomness      uint8     `json:"randomness"`
-	QuotaRatio      uint8     `json:"quotaRatio"` // Deprecated: use quotaMultiplier instead
-	QuotaMultiplier uint8     `json:"quotaMultiplier"`
-}
-
-func (c *ContractApi) GetContractInfo(addr types.Address) (*ContractInfo, error) {
-	code, err := c.chain.GetContractCode(addr)
-	if err != nil {
-		return nil, err
-	}
-	meta, err := c.chain.GetContractMeta(addr)
-	if err != nil {
-		return nil, err
-	}
-	if meta == nil {
-		return nil, nil
-	}
-	return &ContractInfo{
-		Code:            code,
-		Gid:             meta.Gid,
-		ConfirmTime:     meta.SendConfirmedTimes,
-		ResponseLatency: meta.SendConfirmedTimes,
-		SeedCount:       meta.SeedConfirmedTimes,
-		Randomness:      meta.SeedConfirmedTimes,
-		QuotaRatio:      meta.QuotaRatio,
-		QuotaMultiplier: meta.QuotaRatio,
-	}, nil
 }

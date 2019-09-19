@@ -8,8 +8,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config/gen"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -165,4 +167,41 @@ func TestSnapshotCs_Tools(t *testing.T) {
 func TestNumber(t *testing.T) {
 	i := uint64(25)/3*2 + 1
 	assert.Equal(t, uint64(17), i)
+}
+
+func TestChainSnapshotAAAA(t *testing.T) {
+	dir := "/Users/jie/Library/GVite/maindata"
+	cfg := config_gen.MakeGenesisConfig("")
+
+	c := chain.NewChain(dir, nil, cfg)
+
+	err := c.Init()
+	if err != nil {
+		panic(err)
+	}
+	err = c.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	rw := newChainRw(c, log15.New(), &lock.EasyImpl{})
+	cs := newSnapshotCs(rw, log15.New())
+
+	rw.init(cs)
+
+	point, err := rw.dayPoints.GetByIndex(95)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(point.Hash, point.Votes.Total)
+
+	votes, err := cs.rw.rw.GetVoteList(point.Hash, types.SNAPSHOT_GID)
+	if err != nil {
+		panic(err)
+	}
+	for _, v := range votes {
+		if v.NodeName == "N4Q.org" {
+			fmt.Println(v.VoterAddr)
+		}
+	}
 }

@@ -63,10 +63,3 @@ func (p UtilApi) GetPoWNonce(difficulty string, data types.Hash) ([]byte, error)
 
 	return nn, nil
 }
-
-func (p UtilApi) CancelPoW(data types.Hash) error {
-	if err := remote.CancelWork(data.Bytes()); err != nil {
-		return errors.New("pow cancel failed")
-	}
-	return nil
-}

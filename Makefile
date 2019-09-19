@@ -2,7 +2,7 @@
 .PHONY: all clean
 .PHONY: gvite_linux  gvite-linux-amd64 gvite-darwin-amd64
 .PHONY: gvite-darwin gvite-darwin-amd64
-.PHONY: gvite-windows gvite-windows-386 gvite-windows-amd64
+.PHONY: gvite-windows gvite-windows-amd64
 .PHONY: gitversion
 
 
@@ -59,18 +59,9 @@ gvite-darwin:
 	@echo "Build server done."
 	@ls -ld $(GOBIN)/gvite-$(VITE_VERSION)-darwin/gvite
 
-gvite-windows: gvite-windows-386 gvite-windows-amd64
+gvite-windows: gvite-windows-amd64
 	@echo "Windows cross compilation done:"
 	@ls -ld $(GOBIN)/gvite-$(VITE_VERSION)-windows/gvite-windows-*
-
-gvite-windows-386:
-	@echo "package govite" > $(shell pwd)/buildversion.go
-	@echo "const VITE_VERSION = \""$(shell git rev-parse HEAD)"\"" >> $(shell pwd)/buildversion.go
-	@echo "const VITE_BUILD_VERSION = \""$(VITE_VERSION)"\"" >> $(shell pwd)/buildversion.go
-	env GOOS=windows GOARCH=386 go build -i -o $(GOBIN)/gvite-$(VITE_VERSION)-windows/gvite-windows-386.exe $(SERVERMAIN)
-	@cp  $(shell pwd)/node_config.json $(GOBIN)/gvite-$(VITE_VERSION)-windows/node_config.json
-	@echo "Build server done."
-	@ls -ld $(GOBIN)/gvite-$(VITE_VERSION)-windows/gvite-windows-386.exe
 
 gvite-windows-amd64:
 	@echo "package govite" > $(shell pwd)/buildversion.go

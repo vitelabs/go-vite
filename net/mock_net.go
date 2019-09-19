@@ -101,6 +101,10 @@ func (n *mockNet) Nodes() []*vnode.Node {
 	return nil
 }
 
+func (n *mockNet) PeerCount() int {
+	return 0
+}
+
 func mock(chain Chain) Net {
 	return &mockNet{
 		chain: chain,
