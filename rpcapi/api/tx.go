@@ -279,7 +279,7 @@ func calcPoWDifficulty(c chain.Chain, param CalcPoWDifficultyParam) (result *Cal
 		}
 	} else {
 		pledgeAmount = big.NewInt(0)
-		q = types.NewQuota(0, 0, 0, 0, false)
+		q = types.NewQuota(0, 0, 0, 0, false, 0)
 	}
 	// calc difficulty if current quota is not enough
 	canPoW := quota.CanPoW(db, block.AccountAddress)
