@@ -149,7 +149,7 @@ func TestContractsRegister(t *testing.T) {
 		AccountAddress: addr1,
 		BlockType:      ledger.BlockTypeSendCall,
 		PrevHash:       hash12,
-		Amount:         new(big.Int).Mul(big.NewInt(1e6), big.NewInt(1e18)),
+		Amount:         new(big.Int).Mul(big.NewInt(5e5), big.NewInt(1e18)),
 		Fee:            big.NewInt(0),
 		Data:           block13Data,
 		TokenId:        ledger.ViteTokenId,

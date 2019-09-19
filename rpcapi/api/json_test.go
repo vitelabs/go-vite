@@ -19,7 +19,7 @@ func TestJson(t *testing.T) {
 	m := make(map[types.TokenTypeId]*RpcTokenBalanceInfo)
 	id := types.CreateTokenTypeId([]byte{1, 3, 4})
 	totalSupply := "10000"
-	pledgeAmount := "10000"
+	/*	pledgeAmount := "10000"*/
 	number := "10000"
 	addresses, _, _ := types.CreateAddress()
 
@@ -30,8 +30,8 @@ func TestJson(t *testing.T) {
 			TotalSupply:    &totalSupply,
 			Decimals:       19,
 			Owner:          addresses,
-			PledgeAmount:   &pledgeAmount,
-			WithdrawHeight: "12",
+			/*			PledgeAmount:   &pledgeAmount,
+						WithdrawHeight: "12",*/
 		},
 		TotalAmount: "132",
 		Number:      &number,

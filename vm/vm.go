@@ -563,7 +563,7 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		}
 		vm.revert(db)
 		refundFlag := false
-		refundData, needRefund := p.GetRefundData(sendBlock)
+		refundData, needRefund := p.GetRefundData(sendBlock, vm.latestSnapshotHeight)
 		refundFlag = doRefund(vm, db, block, sendBlock, refundData, needRefund, ledger.BlockTypeSendCall)
 		vm.updateBlock(db, block, err, quotaUsed, quotaUsed)
 		if refundFlag {
