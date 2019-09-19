@@ -19,7 +19,7 @@ type ParamDexCancelOrder struct {
 	OrderId []byte
 }
 
-func CleanExpireOrders(db vm_db.VmDb, orderIds []byte) (map[types.Address]map[bool]*dexproto.FundSettle, *MarketInfo, error) {
+func CleanExpireOrders(db vm_db.VmDb, orderIds []byte) (map[types.Address]map[bool]*dexproto.AccountSettle, *MarketInfo, error) {
 	var (
 		matcher       *Matcher
 		marketId      int32
@@ -121,6 +121,20 @@ func TryUpdateTimestamp(db vm_db.VmDb, timestamp int64, preHash types.Hash) {
 	}
 }
 
+type AccountSettleSorter []*dexproto.AccountSettle
+
+func (st AccountSettleSorter) Len() int {
+	return len(st)
+}
+
+func (st AccountSettleSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st AccountSettleSorter) Less(i, j int) bool {
+	return st[i].IsTradeToken
+}
+
 type FundSettleSorter []*dexproto.FundSettle
 
 func (st FundSettleSorter) Len() int {
@@ -132,20 +146,6 @@ func (st FundSettleSorter) Swap(i, j int) {
 }
 
 func (st FundSettleSorter) Less(i, j int) bool {
-	return st[i].IsTradeToken
-}
-
-type UserFundSettleSorter []*dexproto.UserFundSettle
-
-func (st UserFundSettleSorter) Len() int {
-	return len(st)
-}
-
-func (st UserFundSettleSorter) Swap(i, j int) {
-	st[i], st[j] = st[j], st[i]
-}
-
-func (st UserFundSettleSorter) Less(i, j int) bool {
 	addCmp := bytes.Compare(st[i].Address, st[j].Address)
 	if addCmp < 0 {
 		return true
@@ -154,17 +154,17 @@ func (st UserFundSettleSorter) Less(i, j int) bool {
 	}
 }
 
-type UserFeeSettleSorter []*dexproto.UserFeeSettle
+type FeeSettleSorter []*dexproto.FeeSettle
 
-func (st UserFeeSettleSorter) Len() int {
+func (st FeeSettleSorter) Len() int {
 	return len(st)
 }
 
-func (st UserFeeSettleSorter) Swap(i, j int) {
+func (st FeeSettleSorter) Swap(i, j int) {
 	st[i], st[j] = st[j], st[i]
 }
 
-func (st UserFeeSettleSorter) Less(i, j int) bool {
+func (st FeeSettleSorter) Less(i, j int) bool {
 	addCmp := bytes.Compare(st[i].Address, st[j].Address)
 	if addCmp < 0 {
 		return true

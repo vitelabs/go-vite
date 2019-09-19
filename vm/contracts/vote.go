@@ -11,13 +11,14 @@ import (
 )
 
 type MethodVote struct {
+	MethodName string
 }
 
 func (p *MethodVote) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodVote) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (p *MethodVote) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodVote) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
@@ -35,43 +36,44 @@ func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamVote)
-	if err := abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameVote, block.Data); err != nil {
+	if err := abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if !checkRegisterAndVoteParam(param.Gid, param.NodeName) {
+	if !checkRegisterAndVoteParam(param.Gid, param.SbpName) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameVote, param.Gid, param.NodeName)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(p.MethodName, param.Gid, param.SbpName)
 	return nil
 }
 
 func (p *MethodVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamVote)
-	abi.ABIConsensusGroup.UnpackMethod(param, abi.MethodNameVote, sendBlock.Data)
+	abi.ABIConsensusGroup.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	consensusGroupInfo, err := abi.GetConsensusGroup(db, param.Gid)
 	util.DealWithErr(err)
 	if consensusGroupInfo == nil {
 		return nil, util.ErrInvalidMethodParam
 	}
-	active, err := abi.IsActiveRegistration(db, param.NodeName, param.Gid)
+	active, err := abi.IsActiveRegistration(db, param.SbpName, param.Gid)
 	util.DealWithErr(err)
 	if !active {
 		return nil, util.ErrInvalidMethodParam
 	}
 	voteKey := abi.GetVoteKey(sendBlock.AccountAddress, param.Gid)
-	voteStatus, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, param.NodeName)
+	voteStatus, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, param.SbpName)
 	util.SetValue(db, voteKey, voteStatus)
 	return nil, nil
 }
 
 type MethodCancelVote struct {
+	MethodName string
 }
 
 func (p *MethodCancelVote) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodCancelVote) GetRefundData(sendBlock *ledger.AccountBlock) ([]byte, bool) {
+func (p *MethodCancelVote) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 func (p *MethodCancelVote) GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error) {
@@ -90,17 +92,17 @@ func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) err
 		return util.ErrInvalidMethodParam
 	}
 	gid := new(types.Gid)
-	err = abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelVote, block.Data)
+	err = abi.ABIConsensusGroup.UnpackMethod(gid, p.MethodName, block.Data)
 	if err != nil || util.IsDelegateGid(*gid) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelVote, *gid)
+	block.Data, _ = abi.ABIConsensusGroup.PackMethod(p.MethodName, *gid)
 	return nil
 }
 
 func (p *MethodCancelVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	gid := new(types.Gid)
-	abi.ABIConsensusGroup.UnpackMethod(gid, abi.MethodNameCancelVote, sendBlock.Data)
+	abi.ABIConsensusGroup.UnpackMethod(gid, p.MethodName, sendBlock.Data)
 	util.SetValue(db, abi.GetVoteKey(sendBlock.AccountAddress, *gid), nil)
 	return nil, nil
 }

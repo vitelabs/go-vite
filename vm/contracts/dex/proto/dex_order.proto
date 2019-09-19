@@ -12,17 +12,17 @@ message Order {
     bytes Price = 6; // //[unset on serialize] [0...4]intPart [5..9]decimalPart
     int32 TakerFeeRate = 7; // rate/100,000
     int32 MakerFeeRate = 8; // rate/100,000
-    int32 TakerBrokerFeeRate = 9; // rate/100,000
-    int32 MakerBrokerFeeRate = 10; // rate/100,000
+    int32 TakerOperatorFeeRate = 9; // rate/100,000
+    int32 MakerOperatorFeeRate = 10; // rate/100,000
     bytes Quantity = 11;
     bytes Amount = 12; // QuoteAmount
-    bytes LockedBuyFee = 13; // fee locked ahead for buy (Fee + BrokerFee)
+    bytes LockedBuyFee = 13; // fee locked ahead for buy (Fee + OperatorFee)
     int32 Status = 14;
     int32 CancelReason = 15;
     bytes ExecutedQuantity = 16;
     bytes ExecutedAmount = 17;
     bytes ExecutedBaseFee = 18; // fee actually executed
-    bytes ExecutedBrokerFee = 19;
+    bytes ExecutedOperatorFee = 19;
     bytes RefundToken = 20;
     bytes RefundQuantity = 21; //refund trade/quote token
     int64 Timestamp = 22; // [unset on serialize]
@@ -46,8 +46,8 @@ message Transaction {
     bytes Amount = 7;
     bytes TakerFee = 8;
     bytes MakerFee = 9;
-    bytes TakerBrokerFee = 10;
-    bytes MakerBrokerFee = 11;
+    bytes TakerOperatorFee = 10;
+    bytes MakerOperatorFee = 11;
     int64 Timestamp = 12;
 }
 
@@ -70,9 +70,9 @@ message MarketInfo {
     int32 QuoteTokenType = 5;
     int32 TradeTokenDecimals = 6;
     int32 QuoteTokenDecimals = 7;
-    int32 TakerBrokerFeeRate = 8; // rate/100,000
-    int32 MakerBrokerFeeRate = 9; // rate/100,000
-    bool AllowMine = 10;
+    int32 TakerOperatorFeeRate = 8; // rate/100,000
+    int32 MakerOperatorFeeRate = 9; // rate/100,000
+    bool AllowMining = 10;
     bool Valid = 11; // false: pending for tradeToken validate
     bytes Owner = 12;
     bytes Creator = 13; //creator address
@@ -97,7 +97,7 @@ message OrderUpdateInfo {
     bytes ExecutedQuantity = 6;
     bytes ExecutedAmount = 7;
     bytes ExecutedBaseFee = 8;
-    bytes ExecutedBrokerFee = 9;
+    bytes ExecutedOperatorFee = 9;
     bytes RefundToken = 10;
     bytes RefundQuantity = 11; //refund trade/quote token
 }
@@ -110,16 +110,16 @@ message NewMarketAction {
 }
 
 message PendingNewMarkets {
-    repeated NewMarketAction pendingActions = 1;
+    repeated NewMarketAction PendingActions = 1;
 }
 
-message SetQuoteAction {
-    bytes token = 1;
+message SetQuoteTokenAction {
+    bytes Token = 1;
     int32 QuoteTokenType = 2;
 }
 
-message PendingSetQuotes {
-    repeated SetQuoteAction pendingActions = 1;
+message PendingSetQuoteTokenActions {
+    repeated SetQuoteTokenAction pendingActions = 1;
 }
 
 message TransferTokenOwnerAction {
@@ -128,6 +128,6 @@ message TransferTokenOwnerAction {
     bytes New = 3;
 }
 
-message PendingTransferTokenOwners {
+message PendingTransferTokenOwnerActions {
     repeated TransferTokenOwnerAction pendingActions = 1;
 }

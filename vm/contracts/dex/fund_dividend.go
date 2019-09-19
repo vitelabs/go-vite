@@ -8,16 +8,16 @@ import (
 )
 
 //Note: allow dividend from specify periodId, former periods will be divided at that period
-func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
+func DoFeesDividend(db vm_db.VmDb, periodId uint64) error {
 	var (
-		feeSumsMap map[uint64]*FeeSumByPeriod
-		vxSumFunds *VxFunds
-		err        error
-		ok         bool
+		dexFeesByPeriodMap map[uint64]*DexFeesByPeriod
+		vxSumFunds         *VxFunds
+		err                error
+		ok                 bool
 	)
 
 	//allow divide history fees that not divided yet
-	if feeSumsMap = GetNotDividedFeeSumsByPeriodId(db, periodId); len(feeSumsMap) == 0 { // no fee to divide
+	if dexFeesByPeriodMap = GetNotFinishDividendDexFeesByPeriodMap(db, periodId); len(dexFeesByPeriodMap) == 0 { // no fee to divide
 		return nil
 	}
 	if vxSumFunds, ok = GetVxSumFunds(db); !ok {
@@ -37,7 +37,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 	}
 	// sum fees from multi period not divided
 	feeSumMap := make(map[types.TokenTypeId]*big.Int)
-	for pId, fee := range feeSumsMap {
+	for pId, fee := range dexFeesByPeriodMap {
 		for _, feeAccount := range fee.FeesForDividend {
 			if tokenId, err := types.BytesToTokenTypeId(feeAccount.Token); err != nil {
 				return err
@@ -50,7 +50,7 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 				}
 			}
 		}
-		MarkFeeSumAsFeeDivided(db, fee, pId)
+		MarkDexFeesFinishDividend(db, fee, pId)
 	}
 
 	var (
@@ -127,46 +127,46 @@ func DoDivideFees(db vm_db.VmDb, periodId uint64) error {
 			}
 			AddFeeDividendEvent(db, address, feeSumWtTk.Token, userVxAmount, userFeeDividend[feeSumWtTk.Token])
 		}
-		if err = BatchSaveUserFund(db, address, userFeeDividend); err != nil {
+		if err = UpdateFund(db, address, userFeeDividend); err != nil {
 			return err
 		}
 	}
 	return err
 }
 
-func DoDivideBrokerFees(db vm_db.VmDb, periodId uint64) error {
-	iterator, err := db.NewStorageIterator(append(brokerFeeSumKeyPrefix, Uint64ToBytes(periodId)...))
+func DoOperatorFeesDividend(db vm_db.VmDb, periodId uint64) error {
+	iterator, err := db.NewStorageIterator(append(operatorFeesKeyPrefix, Uint64ToBytes(periodId)...))
 	if err != nil {
 		panic(err)
 	}
 	defer iterator.Release()
 	for {
-		var brokerFeeSumKey, brokerFeeSumBytes []byte
+		var operatorFeesKey, operatorFeesBytes []byte
 		if !iterator.Next() {
 			if iterator.Error() != nil {
 				panic(iterator.Error())
 			}
 			break
 		}
-		brokerFeeSumKey = iterator.Key() //3+8+21
-		brokerFeeSumBytes = iterator.Value()
-		if len(brokerFeeSumBytes) == 0 {
+		operatorFeesKey = iterator.Key() //3+8+21
+		operatorFeesBytes = iterator.Value()
+		if len(operatorFeesBytes) == 0 {
 			continue
 		}
-		if len(brokerFeeSumKey) != 32 {
-			panic(fmt.Errorf("invalid broker fee sum key type"))
+		if len(operatorFeesKey) != 32 {
+			panic(fmt.Errorf("invalid opearator fees key type"))
 		}
-		DeleteBrokerFeeSumByKey(db, brokerFeeSumKey)
-		brokerFeeSum := &BrokerFeeSumByPeriod{}
-		if err = brokerFeeSum.DeSerialize(brokerFeeSumBytes); err != nil {
+		DeleteOperatorFeesByKey(db, operatorFeesKey)
+		operatorFeesByPeriod := &OperatorFeesByPeriod{}
+		if err = operatorFeesByPeriod.DeSerialize(operatorFeesBytes); err != nil {
 			panic(err)
 		}
-		addr, err := types.BytesToAddress(brokerFeeSumKey[11:])
+		addr, err := types.BytesToAddress(operatorFeesKey[11:])
 		if err != nil {
 			panic(err)
 		}
 		userFund := make(map[types.TokenTypeId]*big.Int)
-		for _, feeAcc := range brokerFeeSum.BrokerFees {
+		for _, feeAcc := range operatorFeesByPeriod.OperatorFees {
 			tokenId, err := types.BytesToTokenTypeId(feeAcc.Token)
 			if err != nil {
 				panic(err)
@@ -177,10 +177,10 @@ func DoDivideBrokerFees(db vm_db.VmDb, periodId uint64) error {
 				} else {
 					userFund[tokenId] = new(big.Int).SetBytes(mkFee.Amount)
 				}
-				AddBrokerFeeDividendEvent(db, addr, mkFee)
+				AddOperatorFeeDividendEvent(db, addr, mkFee)
 			}
 		}
-		BatchSaveUserFund(db, addr, userFund)
+		UpdateFund(db, addr, userFund)
 	}
 	return nil
 }

@@ -21,22 +21,22 @@ func innerTestCalculateFeeAndExecutedFee(t *testing.T, isDexFeeFork bool) {
 	maker.LockedBuyFee = big.NewInt(25).Bytes()
 	maker.Price = PriceToBytes("0.00001")
 	maker.MakerFeeRate = BaseFeeRate
-	maker.MakerBrokerFeeRate = 50
+	maker.MakerOperatorFeeRate = 50
 
 	executeQuantity := big.NewInt(988500000).Bytes()
 	executeAmount := big.NewInt(9885).Bytes()
-	_, makerExecutedFee, _, makerExecutedBrokerFee := CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerBrokerFeeRate, isDexFeeFork)
-	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedBrokerFee, 0)
-	assert.Equal(t, "5", new(big.Int).SetBytes(maker.ExecutedBrokerFee).String())
+	_, makerExecutedFee, _, makerExecutedOperatorFee := CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, isDexFeeFork)
+	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, 0)
+	assert.Equal(t, "5", new(big.Int).SetBytes(maker.ExecutedOperatorFee).String())
 
 	executeQuantity = big.NewInt(11500000).Bytes()
 	executeAmount = big.NewInt(115).Bytes()
-	_, makerExecutedFee, _, makerExecutedBrokerFee = CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerBrokerFeeRate, isDexFeeFork)
-	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedBrokerFee, 0)
+	_, makerExecutedFee, _, makerExecutedOperatorFee = CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, isDexFeeFork)
+	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, 0)
 	if isDexFeeFork {
-		assert.Equal(t, "5", new(big.Int).SetBytes(maker.ExecutedBrokerFee).String())
+		assert.Equal(t, "5", new(big.Int).SetBytes(maker.ExecutedOperatorFee).String())
 	} else {
-		assert.Equal(t, "0", new(big.Int).SetBytes(maker.ExecutedBrokerFee).String())
+		assert.Equal(t, "0", new(big.Int).SetBytes(maker.ExecutedOperatorFee).String())
 	}
 }
 

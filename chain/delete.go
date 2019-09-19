@@ -199,6 +199,9 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
+	// delete active fork point
+	c.deleteActiveForkPoint(snapshotChunks)
+
 	if err := c.em.TriggerDeleteSbs(deleteSbsEvent, realChunksToDelete); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.em.Trigger(deleteSbsEvent) failed, error is %s", err.Error()))
 		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")

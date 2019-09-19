@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 	"math/rand"
@@ -200,6 +201,15 @@ type CalcPoWDifficultyParam struct {
 	Multiple uint16 `json:"multipleOnCongestion"`
 }
 
+type GetPoWDifficultyParam struct {
+	SelfAddr  types.Address  `json:"address"`
+	PrevHash  types.Hash     `json:"prevHash"`
+	BlockType byte           `json:"blockType"`
+	ToAddr    *types.Address `json:"toAddress"`
+	Data      []byte         `json:"data"`
+	Multiple  uint16         `json:"congestionMultiplier"`
+}
+
 var multipleDivision = big.NewInt(10)
 
 type CalcPoWDifficultyResult struct {
@@ -211,8 +221,16 @@ type CalcPoWDifficultyResult struct {
 	IsCongestion  bool    `json:"isCongestion"`
 }
 
+// Deprecated: use ledger_getPoWDifficulty instead
 func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
-	latestBlock, err := t.vite.Chain().GetLatestAccountBlock(param.SelfAddr)
+	return calcPoWDifficulty(t.vite.Chain(), param)
+}
+func (t LedgerApi) GetPoWDifficulty(param GetPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
+	return calcPoWDifficulty(t.chain,
+		CalcPoWDifficultyParam{param.SelfAddr, param.PrevHash, param.BlockType, param.ToAddr, param.Data, true, param.Multiple})
+}
+func calcPoWDifficulty(c chain.Chain, param CalcPoWDifficultyParam) (result *CalcPoWDifficultyResult, err error) {
+	latestBlock, err := c.GetLatestAccountBlock(param.SelfAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -230,10 +248,10 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	if param.ToAddr != nil {
 		block.ToAddress = *param.ToAddr
 	} else if param.BlockType == ledger.BlockTypeSendCall {
-		return nil, errors.New("toAddr is nil")
+		return nil, errors.New("toAddress is nil")
 	}
-	sb := t.vite.Chain().GetLatestSnapshotBlock()
-	db, err := vm_db.NewVmDb(t.vite.Chain(), &param.SelfAddr, &sb.Hash, &param.PrevHash)
+	sb := c.GetLatestSnapshotBlock()
+	db, err := vm_db.NewVmDb(c, &param.SelfAddr, &sb.Hash, &param.PrevHash)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +266,7 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	var pledgeAmount *big.Int
 	var q types.Quota
 	if param.UsePledgeQuota {
-		pledgeAmount, err = t.vite.Chain().GetPledgeBeneficialAmount(param.SelfAddr)
+		pledgeAmount, err = c.GetPledgeBeneficialAmount(param.SelfAddr)
 		if err != nil {
 			return nil, err
 		}
@@ -279,10 +297,16 @@ func (t Tx) CalcPoWDifficulty(param CalcPoWDifficultyParam) (result *CalcPoWDiff
 	return &CalcPoWDifficultyResult{quotaRequired, Uint64ToString(quotaRequired), d.String(), Float64ToString(float64(quotaRequired)/float64(quota.QuotaForUtps), 4), bigIntToString(qc), isCongestion}, nil
 }
 
-type CalcQuotaRequired struct {
+type CalcQuotaRequiredParam struct {
 	SelfAddr  types.Address  `json:"selfAddr"`
 	BlockType byte           `json:"blockType"`
 	ToAddr    *types.Address `json:"toAddr"`
+	Data      []byte         `json:"data"`
+}
+type GetQuotaRequiredParam struct {
+	SelfAddr  types.Address  `json:"address"`
+	BlockType byte           `json:"blockType"`
+	ToAddr    *types.Address `json:"toAddress"`
 	Data      []byte         `json:"data"`
 }
 type CalcQuotaRequiredResult struct {
@@ -290,8 +314,16 @@ type CalcQuotaRequiredResult struct {
 	TxNumRequired string `json:"utRequired"`
 }
 
-func (t Tx) CalcQuotaRequired(param CalcQuotaRequired) (*CalcQuotaRequiredResult, error) {
-	latestBlock, err := t.vite.Chain().GetLatestAccountBlock(param.SelfAddr)
+// Deprecated: use ledger_getRequiredQuota instead
+func (t Tx) CalcQuotaRequired(param CalcQuotaRequiredParam) (*CalcQuotaRequiredResult, error) {
+	return calcQuotaRequired(t.vite.Chain(), param)
+}
+func (t LedgerApi) GetRequiredQuota(param GetQuotaRequiredParam) (*CalcQuotaRequiredResult, error) {
+	return calcQuotaRequired(t.chain,
+		CalcQuotaRequiredParam{param.SelfAddr, param.BlockType, param.ToAddr, param.Data})
+}
+func calcQuotaRequired(c chain.Chain, param CalcQuotaRequiredParam) (*CalcQuotaRequiredResult, error) {
+	latestBlock, err := c.GetLatestAccountBlock(param.SelfAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -308,10 +340,10 @@ func (t Tx) CalcQuotaRequired(param CalcQuotaRequired) (*CalcQuotaRequiredResult
 	if param.ToAddr != nil {
 		block.ToAddress = *param.ToAddr
 	} else if param.BlockType == ledger.BlockTypeSendCall {
-		return nil, errors.New("toAddr is nil")
+		return nil, errors.New("toAddress is nil")
 	}
-	sb := t.vite.Chain().GetLatestSnapshotBlock()
-	db, err := vm_db.NewVmDb(t.vite.Chain(), &param.SelfAddr, &sb.Hash, &prevHash)
+	sb := c.GetLatestSnapshotBlock()
+	db, err := vm_db.NewVmDb(c, &param.SelfAddr, &sb.Hash, &prevHash)
 	if err != nil {
 		return nil, err
 	}
