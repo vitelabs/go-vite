@@ -7,8 +7,8 @@ import (
 
 func TestCalcQuotaUsed(t *testing.T) {
 	tests := []struct {
-		quotaTotal, quotaAddition, quotaLeft, q, qUsed uint64
-		err                                            error
+		quotaTotal, quotaAddition, quotaLeft, qStakeUsed, qUsed uint64
+		err                                                     error
 	}{
 		{15000, 5000, 10001, 0, 4999, nil},
 		{15000, 5000, 9999, 1, 5001, nil},
@@ -26,9 +26,9 @@ func TestCalcQuotaUsed(t *testing.T) {
 		{15000, 5000, 5000, 5000, 10000, errors.New("")},
 	}
 	for i, test := range tests {
-		q, qUsed := CalcQuotaUsed(true, test.quotaTotal, test.quotaAddition, test.quotaLeft, test.err)
-		if qUsed != test.qUsed || q != test.q {
-			t.Fatalf("%v th calculate quota used failed, expected %v:%v, got %v:%v", i, test.q, test.qUsed, q, qUsed)
+		qStakeUsed, qUsed := CalcQuotaUsed(true, test.quotaTotal, test.quotaAddition, test.quotaLeft, test.err)
+		if qUsed != test.qUsed || qStakeUsed != test.qStakeUsed {
+			t.Fatalf("%v th calculate quota used failed, expected %v:%v, got %v:%v", i, test.qStakeUsed, test.qUsed, qStakeUsed, qUsed)
 		}
 	}
 }

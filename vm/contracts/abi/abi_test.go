@@ -11,7 +11,7 @@ import (
 )
 
 func TestContractsABIInit(t *testing.T) {
-	tests := []string{jsonPledge, jsonConsensusGroup, jsonMintage}
+	tests := []string{jsonQuota, jsonGovernance, jsonAsset}
 	for _, data := range tests {
 		if _, err := abi.JSONToABIContract(strings.NewReader(data)); err != nil {
 			t.Fatalf("json to abi failed, %v, %v", data, err)
@@ -28,7 +28,7 @@ var (
 func TestDeleteTokenId(t *testing.T) {
 	tests := []struct {
 		input   []types.TokenTypeId
-		tokenId types.TokenTypeId
+		tokenID types.TokenTypeId
 		output  []types.TokenTypeId
 	}{
 		{[]types.TokenTypeId{t1}, t1, []types.TokenTypeId{}},
@@ -43,33 +43,33 @@ func TestDeleteTokenId(t *testing.T) {
 	for _, test := range tests {
 		var idList []byte
 		for _, tid := range test.input {
-			idList = AppendTokenId(idList, tid)
+			idList = AppendTokenID(idList, tid)
 		}
-		result := DeleteTokenId(idList, test.tokenId)
+		result := DeleteTokenID(idList, test.tokenID)
 		var target []byte
 		for _, tid := range test.output {
-			target = AppendTokenId(target, tid)
+			target = AppendTokenID(target, tid)
 		}
 		if !bytes.Equal(result, target) {
-			t.Fatalf("delete token id failed, delete %v from input %v, expected %v, got %v", test.tokenId, test.input, target, result)
+			t.Fatalf("delete token id failed, delete %v from input %v, expected %v, got %v", test.tokenID, test.input, target, result)
 		}
 	}
 }
 
 func TestABIContract_EventById(t *testing.T) {
-	for _, e := range ABIMintage.Events {
+	for _, e := range ABIAsset.Events {
 		fmt.Printf("%v: %v\n", e.Name, e.Id().String())
 	}
 }
 
 func TestABIContract_MethodById(t *testing.T) {
-	for _, m := range ABIConsensusGroup.Methods {
+	for _, m := range ABIGovernance.Methods {
 		fmt.Printf("%v: %v\n", m.Sig(), hex.EncodeToString(m.Id()))
 	}
 }
 
 func TestABIContract_CallbackById(t *testing.T) {
-	for _, m := range ABIPledge.Callbacks {
+	for _, m := range ABIQuota.Callbacks {
 		fmt.Printf("%v: %v\n", m.Sig(), hex.EncodeToString(m.Id()))
 	}
 }

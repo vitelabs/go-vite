@@ -251,13 +251,13 @@ type Chain interface {
 
 	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
 
-	GetPledgeBeneficialAmount(addr types.Address) (*big.Int, error)
+	GetStakeBeneficialAmount(addr types.Address) (*big.Int, error)
 
 	// total
-	GetPledgeQuota(addr types.Address) (*big.Int, *types.Quota, error)
+	GetStakeQuota(addr types.Address) (*big.Int, *types.Quota, error)
 
 	// total
-	GetPledgeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error)
+	GetStakeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error)
 
 	GetTokenInfoById(tokenId types.TokenTypeId) (*types.TokenInfo, error)
 
@@ -265,7 +265,7 @@ type Chain interface {
 
 	CalVoteDetails(gid types.Gid, info *core.GroupInfo, snapshotBlock ledger.HashHeight) ([]*interfaces.VoteDetails, error)
 
-	GetPledgeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error)
+	GetStakeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.StakeInfo, []byte, error)
 
 	GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.Fund, error)
 

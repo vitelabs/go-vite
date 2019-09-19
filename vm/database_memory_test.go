@@ -227,7 +227,7 @@ func (db *memoryDatabase) GetContractMetaInSnapshot(contractAddress types.Addres
 	return &ledger.ContractMeta{Gid: types.DELEGATE_GID, SendConfirmedTimes: 0, QuotaRatio: 10}, nil
 }
 
-func (db *memoryDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
+func (db *memoryDatabase) GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 func (db *memoryDatabase) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {

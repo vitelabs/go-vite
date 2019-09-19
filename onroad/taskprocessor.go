@@ -47,7 +47,7 @@ func (tp *ContractTaskProcessor) work() {
 			canContinue := tp.processOneAddress(task)
 			tp.worker.removeContractFromWorkingList(task.Addr)
 			if canContinue {
-				task.Quota = tp.worker.GetPledgeQuota(task.Addr)
+				task.Quota = tp.worker.GetStakeQuota(task.Addr)
 				tp.worker.pushContractTask(task)
 			}
 			continue
@@ -145,19 +145,19 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			// vmRetry it in next turn
 			blog.Info("genResult.IsRetry true")
 			if !types.IsBuiltinContractAddrInUseWithoutQuota(task.Addr) {
-				_, q, err := tp.worker.manager.Chain().GetPledgeQuota(task.Addr)
+				_, q, err := tp.worker.manager.Chain().GetStakeQuota(task.Addr)
 				if err != nil {
-					blog.Error(fmt.Sprintf("failed to get pledge quota, err:%v", err))
+					blog.Error(fmt.Sprintf("failed to get stake quota, err:%v", err))
 					return true
 				}
 				if q == nil {
-					blog.Info("pledge quota is nil, to judge it in next round")
+					blog.Info("stake quota is nil, to judge it in next round")
 					tp.worker.addContractIntoBlackList(task.Addr)
 					return false
 				}
 				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVMDB(), *q, task.Addr); !canRetryDuringNextSnapshot {
 					blog.Info("Check quota is gone to be insufficient",
-						"quota", fmt.Sprintf("(u:%v c:%v sc:%v a:%v sb:%v)", q.PledgeQuotaPerSnapshotBlock(), q.Current(), q.SnapshotCurrent(), q.Avg(), addrState.LatestSnapshotHash))
+						"quota", fmt.Sprintf("(u:%v c:%v sc:%v a:%v sb:%v)", q.StakeQuotaPerSnapshotBlock(), q.Current(), q.SnapshotCurrent(), q.Avg(), addrState.LatestSnapshotHash))
 					tp.worker.addContractIntoBlackList(task.Addr)
 					return false
 				}

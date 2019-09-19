@@ -125,7 +125,7 @@ func (redoLogs *RoundCacheRedoLogs) Add(snapshotHeight uint64, snapshotLog Snaps
 	filteredSnapshotLog := newRoundCacheSnapshotLog(len(snapshotLog), snapshotHeight)
 
 	for addr, logList := range snapshotLog {
-		needSetStorage := addr == types.AddressConsensusGroup
+		needSetStorage := addr == types.AddressGovernance
 
 		filteredLogList := make([]RoundCacheLogItem, len(logList))
 
@@ -618,7 +618,7 @@ func (cache *RoundCache) queryCurrentData(roundIndex uint64) (*memdb.DB, *ledger
 	}
 
 	// set vote list cache
-	if err := cache.setStorageToCache(roundData, types.AddressConsensusGroup, snapshotBlock.Hash); err != nil {
+	if err := cache.setStorageToCache(roundData, types.AddressGovernance, snapshotBlock.Hash); err != nil {
 		return nil, nil, err
 	}
 
