@@ -49,20 +49,23 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 				Height:  3488471,
 				Version: 1,
 			},
+
 			DexFork: &config.ForkPoint{
 				Height:  5442723,
 				Version: 2,
 			},
+
 			DexFeeFork: &config.ForkPoint{
 				Height:  8013367,
 				Version: 3,
 			},
+
 			StemFork: &config.ForkPoint{
 				Height:  8403110,
 				Version: 4,
 			},
 			LeafFork: &config.ForkPoint{
-				Height:  20000000,
+				Height:  9413600,
 				Version: 5,
 			},
 		}

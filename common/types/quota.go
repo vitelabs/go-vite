@@ -12,10 +12,11 @@ type Quota struct {
 	avg                         uint64
 	snapshotCurrent             uint64
 	blocked                     bool
+	blockReleaseHeight          uint64
 }
 
-func NewQuota(pledgeQuota, current, avg, snapshotCurrent uint64, blocked bool) Quota {
-	return Quota{current, pledgeQuota, avg, snapshotCurrent, blocked}
+func NewQuota(pledgeQuota, current, avg, snapshotCurrent uint64, blocked bool, blockReleaseHeight uint64) Quota {
+	return Quota{current, pledgeQuota, avg, snapshotCurrent, blocked, blockReleaseHeight}
 }
 
 func (q *Quota) PledgeQuotaPerSnapshotBlock() uint64 {
@@ -38,4 +39,8 @@ func (q *Quota) Avg() uint64 {
 
 func (q *Quota) Blocked() bool {
 	return q.blocked
+}
+
+func (q *Quota) BlockReleaseHeight() uint64 {
+	return q.blockReleaseHeight
 }

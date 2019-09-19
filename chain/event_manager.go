@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"github.com/olebedev/emitter"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
 	"sync"
@@ -25,12 +26,14 @@ const (
 type eventManager struct {
 	listenerList []EventListener
 
+	chain        *chain
 	maxHandlerId uint32
 	mu           sync.Mutex
 }
 
-func newEventManager() *eventManager {
+func newEventManager(chain *chain) *eventManager {
 	return &eventManager{
+		chain:        chain,
 		maxHandlerId: 0,
 		listenerList: make([]EventListener, 0),
 	}
@@ -51,10 +54,13 @@ func (em *eventManager) TriggerInsertAbs(eventType byte, vmAccountBlocks []*vm_d
 				return err
 			}
 		}
+		em.chain.emitter.Emit("prepareInsertAccountBlocks", vmAccountBlocks)
+
 	case insertAbsEvent:
 		for _, listener := range em.listenerList {
 			listener.InsertAccountBlocks(vmAccountBlocks)
 		}
+		em.chain.emitter.Emit("insertAccountBlocks", vmAccountBlocks)
 
 	}
 	return nil
@@ -75,12 +81,27 @@ func (em *eventManager) TriggerDeleteAbs(eventType byte, accountBlocks []*ledger
 				return err
 			}
 		}
+		em.chain.emitter.Emit("prepareDeleteAccountBlocks", accountBlocks)
+
 	case DeleteAbsEvent:
 		for _, listener := range em.listenerList {
 			listener.DeleteAccountBlocks(accountBlocks)
 		}
+		em.chain.emitter.Emit("deleteAccountBlocks", accountBlocks)
+
 	}
 	return nil
+}
+
+func splitChunks(chunks []*ledger.SnapshotChunk) ([]*ledger.SnapshotBlock, [][]*ledger.AccountBlock) {
+	snapshotBlocks := make([]*ledger.SnapshotBlock, len(chunks))
+	accountBlocksList := make([][]*ledger.AccountBlock, len(chunks))
+	for i := 0; i < len(chunks); i++ {
+		snapshotBlocks[i] = chunks[i].SnapshotBlock
+		accountBlocksList[i] = chunks[i].AccountBlocks
+	}
+
+	return snapshotBlocks, accountBlocksList
 }
 
 func (em *eventManager) TriggerInsertSbs(eventType byte, chunks []*ledger.SnapshotChunk) error {
@@ -99,10 +120,17 @@ func (em *eventManager) TriggerInsertSbs(eventType byte, chunks []*ledger.Snapsh
 				return err
 			}
 		}
+
+		snapshotBlocks, accountBlocksList := splitChunks(chunks)
+		em.chain.emitter.Emit("prepareInsertSnapshotBlocks", snapshotBlocks, accountBlocksList)
+
 	case InsertSbsEvent:
 		for _, listener := range em.listenerList {
 			listener.InsertSnapshotBlocks(chunks)
 		}
+
+		snapshotBlocks, accountBlocksList := splitChunks(chunks)
+		em.chain.emitter.Emit("insertSnapshotBlocks", snapshotBlocks, accountBlocksList)
 	}
 	return nil
 }
@@ -121,10 +149,16 @@ func (em *eventManager) TriggerDeleteSbs(eventType byte, chunks []*ledger.Snapsh
 				return err
 			}
 		}
+
+		snapshotBlocks, accountBlocksList := splitChunks(chunks)
+		em.chain.emitter.Emit("prepareDeleteSnapshotBlocks", snapshotBlocks, accountBlocksList)
 	case deleteSbsEvent:
 		for _, listener := range em.listenerList {
 			listener.DeleteSnapshotBlocks(chunks)
 		}
+
+		snapshotBlocks, accountBlocksList := splitChunks(chunks)
+		em.chain.emitter.Emit("deleteSnapshotBlocks", snapshotBlocks, accountBlocksList)
 	}
 	return nil
 }
@@ -147,10 +181,12 @@ func (em *eventManager) UnRegister(listener EventListener) {
 	}
 }
 
+func (c *chain) Emitter() *emitter.Emitter {
+	return c.emitter
+}
+
 func (c *chain) Register(listener EventListener) {
-
 	c.em.Register(listener)
-
 }
 
 func (c *chain) UnRegister(listener EventListener) {

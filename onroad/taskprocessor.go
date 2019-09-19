@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/quota"
+	"strings"
 	"time"
 )
 
@@ -40,7 +41,7 @@ func (tp *ContractTaskProcessor) work() {
 		}
 		task := tp.worker.popContractTask()
 		if task != nil {
-			signalLog.Info(fmt.Sprintf("tp %v wakeup, pop addr %v quota %v", tp.taskID, task.Addr, task.Quota))
+			signalLog.Info(fmt.Sprintf("tp=%v wakeup, pop addr %v quota %v", tp.taskID, task.Addr, task.Quota))
 			if tp.worker.isContractInBlackList(task.Addr) || !tp.worker.addContractIntoWorkingList(task.Addr) {
 				continue
 			}
@@ -92,7 +93,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 
 	if err := tp.worker.verifyConfirmedTimes(&task.Addr, &sBlock.Hash, addrState.LatestSnapshotHeight); err != nil {
 		blog.Info(fmt.Sprintf("verifyConfirmedTimes failed, err:%v", err))
-		tp.worker.addContractCallerToInferiorList(task.Addr, sBlock.AccountAddress, RETRY)
+		tp.worker.restrictContractCaller(task.Addr, sBlock.AccountAddress, RETRY)
 		return true
 	}
 
@@ -112,18 +113,27 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			}
 			return key.SignData(data)
 		}, nil)
+
+	retryWithoutSnapshotSecondLimit := true
 	// judge generator result
 	if err != nil {
 		blog.Error(fmt.Sprintf("GenerateWithOnRoad failed, err:%v", err))
-		return true
+		if strings.EqualFold(err.Error(), generator.ErrVmRunPanic.Error()) {
+			tp.restrictContract(task.Addr, RETRY)
+			retryWithoutSnapshotSecondLimit = false
+		}
+		return true && retryWithoutSnapshotSecondLimit
 	}
 	if genResult == nil {
 		blog.Info("result of generator is nil")
-		return true
+		return true && retryWithoutSnapshotSecondLimit
 	}
+
 	// judge vm result
 	if genResult.Err != nil {
 		blog.Info(fmt.Sprintf("vm.Run error, can ignore, err:%v", genResult.Err))
+		tp.restrictContract(task.Addr, RETRY)
+		retryWithoutSnapshotSecondLimit = false
 	}
 	if genResult.VMBlock != nil {
 
@@ -131,13 +141,13 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 
 		if err := tp.worker.manager.insertBlockToPool(genResult.VMBlock); err != nil {
 			blog.Error(fmt.Sprintf("insertContractBlocksToPool failed, err:%v", err))
-			tp.worker.addContractCallerToInferiorList(task.Addr, sBlock.AccountAddress, OUT)
-			return true
+			tp.worker.restrictContractCaller(task.Addr, sBlock.AccountAddress, OUT)
+			return true && retryWithoutSnapshotSecondLimit
 		}
 
 		if genResult.IsRetry {
 			blog.Info("impossible situation: vmBlock and vmRetry")
-			tp.worker.addContractIntoBlackList(task.Addr)
+			tp.restrictContract(task.Addr, OUT)
 			return false
 		}
 	} else {
@@ -146,19 +156,18 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			blog.Info("genResult.IsRetry true")
 			if !types.IsBuiltinContractAddrInUseWithoutQuota(task.Addr) {
 				_, q, err := tp.worker.manager.Chain().GetPledgeQuota(task.Addr)
-				if err != nil {
+				if err != nil || q == nil {
 					blog.Error(fmt.Sprintf("failed to get pledge quota, err:%v", err))
-					return true
+					return true && retryWithoutSnapshotSecondLimit
 				}
-				if q == nil {
-					blog.Info("pledge quota is nil, to judge it in next round")
-					tp.worker.addContractIntoBlackList(task.Addr)
-					return false
-				}
-				if canRetryDuringNextSnapshot := quota.CheckQuota(gen.GetVMDB(), *q, task.Addr); !canRetryDuringNextSnapshot {
-					blog.Info("Check quota is gone to be insufficient",
+				if canRetryDuringNextSnapshot, snapshotHeightWaited := quota.CheckQuota(gen.GetVMDB(), *q, task.Addr); !canRetryDuringNextSnapshot {
+					blog.Info("Check quota is gone to be insufficient", "snapshotHeightWaited", snapshotHeightWaited,
 						"quota", fmt.Sprintf("(u:%v c:%v sc:%v a:%v sb:%v)", q.PledgeQuotaPerSnapshotBlock(), q.Current(), q.SnapshotCurrent(), q.Avg(), addrState.LatestSnapshotHash))
-					tp.worker.addContractIntoBlackList(task.Addr)
+					if snapshotHeightWaited >= 3 {
+						tp.restrictContract(task.Addr, OUT)
+					} else {
+						tp.restrictContract(task.Addr, RETRY)
+					}
 					return false
 				}
 			}
@@ -166,9 +175,14 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			// no vmBlock no vmRetry in condition that fail to create contract
 			blog.Info(fmt.Sprintf("manager.DeleteDirect, contract %v hash %v", task.Addr, sBlock.Hash))
 			tp.worker.manager.deleteDirect(sBlock)
-			tp.worker.addContractIntoBlackList(task.Addr)
+			tp.restrictContract(task.Addr, OUT)
 			return false
 		}
 	}
-	return true
+	return true && retryWithoutSnapshotSecondLimit
+}
+
+func (tp *ContractTaskProcessor) restrictContract(addr types.Address, state inferiorState) {
+	tp.worker.restrictContract(addr, state)
+	tp.log.Info("restrict contract", "addr", addr, "state", state)
 }

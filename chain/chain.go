@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"github.com/olebedev/emitter"
 	"github.com/vitelabs/go-vite/common/fork"
 
 	"github.com/vitelabs/go-vite/chain/plugins"
@@ -53,6 +54,8 @@ type chain struct {
 
 	em *eventManager
 
+	emitter *emitter.Emitter
+
 	cache *chain_cache.Cache
 
 	metaDB *leveldb.DB
@@ -72,6 +75,9 @@ type chain struct {
 	plugins *chain_plugins.Plugins
 
 	status uint32
+
+	forkActiveCheckPoint fork.ForkPointItem
+	forkActiveCache      fork.ForkPointList
 }
 
 /*
@@ -82,7 +88,7 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 		chainCfg = defaultConfig()
 	}
 
-	if !fork.IsInit() {
+	if !fork.IsInitForkPoint() {
 		fork.SetForkPoints(genesisCfg.ForkPoints)
 	}
 
@@ -90,10 +96,28 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 		genesisCfg: genesisCfg,
 		dataDir:    dir,
 		chainDir:   path.Join(dir, "ledger"),
-		log:        log15.New("module", "chain"),
-		em:         newEventManager(),
-		chainCfg:   chainCfg,
+
+		log: log15.New("module", "chain"),
+
+		emitter:  emitter.New(10),
+		chainCfg: chainCfg,
 	}
+
+	// set leaf fork point
+	forkActiveCheckPoint := fork.GetLeafForkPoint()
+	if forkActiveCheckPoint == nil {
+		panic("LeafFork is not existed")
+	}
+
+	c.forkActiveCheckPoint = *forkActiveCheckPoint
+
+	// set active fork
+	if !fork.IsInitActiveChecker() {
+		fork.SetActiveChecker(c)
+	}
+
+	c.em = newEventManager(c)
+	c.emitter.Use("*", emitter.Sync)
 
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
@@ -135,6 +159,11 @@ func (c *chain) Init() error {
 		return err
 	}
 
+	// init fork active
+	if err := c.initActiveFork(); err != nil {
+		return err
+	}
+
 	// check fork points and rollback
 	if err := c.checkForkPointsAndRollback(); err != nil {
 		return err
@@ -142,7 +171,9 @@ func (c *chain) Init() error {
 
 	// reconstruct the plugins
 	if c.chainCfg.OpenPlugins {
-		c.plugins.GetPlugin(chain_plugins.PluginKeyOnRoadInfo).RebuildData(c.flusher)
+		if err := c.plugins.GetPlugin(chain_plugins.PluginKeyOnRoadInfo).RebuildData(c.flusher); err != nil {
+			return err
+		}
 	}
 
 	c.log.Info("Complete initialization", "method", "Init")
@@ -344,7 +375,7 @@ func (c *chain) checkAndInitData() (byte, error) {
 }
 
 func (c *chain) checkForkPointsAndRollback() error {
-	forkPointList := fork.GetForkPointList()
+	forkPointList := fork.GetActiveForkPointList()
 
 	// check
 	var rollbackForkPoint *fork.ForkPointItem

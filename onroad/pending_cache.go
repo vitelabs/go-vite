@@ -9,17 +9,6 @@ import (
 
 const defaultPullCount uint8 = 5
 
-type inferiorState int
-
-const (
-	// RETRY represents a state which the processor can retry to handle the onroad from a particular caller
-	// to a particular contract in the next second during a block period.
-	RETRY inferiorState = iota
-	// OUT represents a state which the processor won't handle the onroad from a particular caller
-	// to a particular contract during a block period any more.
-	OUT
-)
-
 type callerPendingMap struct {
 	pmap         map[types.Address]*list.List
 	inferiorList map[types.Address]inferiorState

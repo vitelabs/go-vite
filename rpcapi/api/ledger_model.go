@@ -392,7 +392,7 @@ type RpcTokenBalanceInfo struct {
 type AccountInfo struct {
 	Address        types.Address                      `json:"address"`
 	BlockCount     string                             `json:"blockCount"`
-	BalanceInfoMap map[types.TokenTypeId]*BalanceInfo `json:"balanceInfo,omitempty"`
+	BalanceInfoMap map[types.TokenTypeId]*BalanceInfo `json:"balanceInfoMap,omitempty"`
 }
 
 type BalanceInfo struct {

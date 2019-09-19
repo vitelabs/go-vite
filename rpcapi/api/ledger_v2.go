@@ -50,7 +50,10 @@ func (l *LedgerApi) GetAccountBlocks(addr types.Address, originBlockHash *types.
 			return nil, err
 		}
 
-		plugin := plugins.GetPlugin(chain_plugins.PluginKeyFilterToken).(*chain_plugins.FilterToken)
+		plugin, ok := plugins.GetPlugin(chain_plugins.PluginKeyFilterToken).(*chain_plugins.FilterToken)
+		if !ok || plugin == nil {
+			return nil, errors.New("plugin_filter_token service not provided")
+		}
 
 		blocks, err := plugin.GetBlocks(addr, *tokenTypeId, originBlockHash, count)
 		if err != nil {
@@ -399,7 +402,7 @@ func ToFilterParam(rangeMap map[string]*Range, topics [][]types.Hash) (*FilterPa
 type Logs struct {
 	Log              *ledger.VmLog  `json:"vmlog"`
 	AccountBlockHash types.Hash     `json:"accountBlockHash"`
-	AccountHeight    string         `json:"accountHeight"`
+	AccountHeight    string         `json:"accountBlockHeight"`
 	Addr             *types.Address `json:"address"`
 }
 

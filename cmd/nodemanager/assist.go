@@ -17,24 +17,24 @@ var (
 // start node
 func StartNode(node *node.Node) error {
 	// Prepare the node
-	log.Info(fmt.Sprintf("Begin PrepareNode... "))
+	log.Info(fmt.Sprintf("Starting prepare node..."))
 	if err := node.Prepare(); err != nil {
-		log.Error(fmt.Sprintf("Failed to prepare node， %v", err))
-		fmt.Println(fmt.Sprintf("Failed to prepare node， %v", err))
+		log.Error(fmt.Sprintf("Failed to prepare node, %v", err))
+		fmt.Println(fmt.Sprintf("Failed to prepare node, %v", err))
 		return err
 	} else {
 		//Start the node Extenders
 		prepareNodeExtenders(node)
-		fmt.Println("Prepare the Node success!!!")
+		fmt.Println("Node prepared successfully!!!")
 	}
 
 	// Start the node
-	log.Info(fmt.Sprintf("Begin StartNode... "))
+	log.Info(fmt.Sprintf("Starting Node..."))
 	if err := node.Start(); err != nil {
-		fmt.Println(fmt.Sprintf("Failed to start node， %v", err))
-		log.Crit(fmt.Sprintf("Failed to start node， %v", err))
+		fmt.Println(fmt.Sprintf("Failed to start node, %v", err))
+		log.Crit(fmt.Sprintf("Failed to start node, %v", err))
 	} else {
-		fmt.Println("Start the Node success!!!")
+		fmt.Println("Node started successfully!!!")
 		//Start the node Extenders
 		startNodeExtenders(node)
 	}
@@ -45,7 +45,7 @@ func StartNode(node *node.Node) error {
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 		defer signal.Stop(c)
 		<-c
-		fmt.Println("Prepare Stop the Node...")
+		fmt.Println("Preparing node shutdown...")
 
 		go func() {
 			StopNode(node)
@@ -54,7 +54,7 @@ func StartNode(node *node.Node) error {
 		for i := 10; i > 0; i-- {
 			<-c
 			if i > 1 {
-				log.Warn("Already shutting down, interrupt more to panic.", "times", i-1)
+				log.Warn("Please DO NOT interrupt the shutting down process, otherwise may cause panic.", "times", i-1)
 			}
 		}
 	}()
@@ -69,15 +69,14 @@ func WaitNode(node *node.Node) {
 
 // stop the node
 func StopNode(node *node.Node) {
-	log.Warn("Stop the Node...")
+	log.Warn("Stopping node...")
 
 	//Stop the node Extenders
-	log.Warn("Stop the NodeExtenders...")
+	log.Warn("Stopping node extenders...")
 	stopNodeExtenders(node)
 
-	log.Warn("Stop the Node...")
 	if err := node.Stop(); err != nil {
-		log.Error(fmt.Sprintf("Node stop error: %v", err))
+		log.Error(fmt.Sprintf("Failed to stop node, %v", err))
 	}
 
 }
