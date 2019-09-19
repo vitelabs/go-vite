@@ -191,7 +191,7 @@ type CalcPoWDifficultyParam struct {
 	ToAddr    *types.Address `json:"toAddr"`
 	Data      []byte         `json:"data"`
 
-	UsePledgeQuota bool `json:"usePledgeQuota"`
+	UseStakeQuota bool `json:"usePledgeQuota"`
 
 	Multiple uint16 `json:"multipleOnCongestion"`
 }

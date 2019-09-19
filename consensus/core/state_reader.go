@@ -34,7 +34,7 @@ func CalVotes(info types.ConsensusGroupInfo, hash types.Hash, rw stateCh) ([]*Vo
 
 	// cal candidate
 	for _, v := range registerList {
-		register := &Vote{Balance: big.NewInt(0), Name: v.Name, Addr: v.NodeAddr}
+		register := &Vote{Balance: big.NewInt(0), Name: v.Name, Addr: v.BlockProducingAddress}
 		err := voteCompleting(hash, register, votes, info.CountingTokenId, rw)
 		if err != nil {
 			return nil, err

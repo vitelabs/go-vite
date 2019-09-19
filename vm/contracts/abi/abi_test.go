@@ -11,7 +11,7 @@ import (
 )
 
 func TestContractsABIInit(t *testing.T) {
-	tests := []string{jsonQuota, jsonGovernance, jsonAssert}
+	tests := []string{jsonQuota, jsonGovernance, jsonAsset}
 	for _, data := range tests {
 		if _, err := abi.JSONToABIContract(strings.NewReader(data)); err != nil {
 			t.Fatalf("json to abi failed, %v, %v", data, err)
@@ -57,7 +57,7 @@ func TestDeleteTokenId(t *testing.T) {
 }
 
 func TestABIContract_EventById(t *testing.T) {
-	for _, e := range ABIAssert.Events {
+	for _, e := range ABIAsset.Events {
 		fmt.Printf("%v: %v\n", e.Name, e.Id().String())
 	}
 }

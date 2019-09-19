@@ -7,25 +7,29 @@ import (
 )
 
 const (
-	CommonQuotaRatio   uint8  = 10
-	QuotaRatioDivision uint64 = 10
-	OneRound           uint64 = 75
+	// CommonQuotaMultiplier defines base quota multiplier for all accounts
+	CommonQuotaMultiplier   uint8  = 10
+	quotaMultiplierDivision uint64 = 10
+	// QuotaAccumulationBlockCount defines max quota accumulation count
+	QuotaAccumulationBlockCount uint64 = 75
 )
 
-func MultipleCost(cost uint64, quotaRatio uint8) (uint64, error) {
-	if quotaRatio < CommonQuotaRatio {
-		return 0, ErrInvalidQuotaRatio
+// MultipleCost multiply quota
+func MultipleCost(cost uint64, quotaMultiplier uint8) (uint64, error) {
+	if quotaMultiplier < CommonQuotaMultiplier {
+		return 0, ErrInvalidQuotaMultiplier
 	}
-	if quotaRatio == CommonQuotaRatio {
+	if quotaMultiplier == CommonQuotaMultiplier {
 		return cost, nil
 	}
-	ratioUint64 := uint64(quotaRatio)
+	ratioUint64 := uint64(quotaMultiplier)
 	if cost > helper.MaxUint64/ratioUint64 {
 		return 0, ErrGasUintOverflow
 	}
-	return cost * ratioUint64 / QuotaRatioDivision, nil
+	return cost * ratioUint64 / quotaMultiplierDivision, nil
 }
 
+// UseQuota check out of quota and return quota left
 func UseQuota(quotaLeft, cost uint64) (uint64, error) {
 	if quotaLeft < cost {
 		return 0, ErrOutOfQuota
@@ -34,6 +38,7 @@ func UseQuota(quotaLeft, cost uint64) (uint64, error) {
 	return quotaLeft, nil
 }
 
+// UseQuotaWithFlag check out of quota and return quota left
 func UseQuotaWithFlag(quotaLeft, cost uint64, flag bool) (uint64, error) {
 	if flag {
 		return UseQuota(quotaLeft, cost)
@@ -41,25 +46,27 @@ func UseQuotaWithFlag(quotaLeft, cost uint64, flag bool) (uint64, error) {
 	return quotaLeft + cost, nil
 }
 
-func IntrinsicGasCost(data []byte, baseGas uint64, confirmTime uint8, quotaTable *QuotaTable) (uint64, error) {
+// BlockGasCost calculate base quota cost of a block
+func BlockGasCost(data []byte, baseGas uint64, snapshotCount uint8, quotaTable *QuotaTable) (uint64, error) {
 	var gas uint64
 	gas = baseGas
-	gasData, err := DataGasCost(data, quotaTable)
+	gasData, err := DataQuotaCost(data, quotaTable)
 	if err != nil || helper.MaxUint64-gas < gasData {
 		return 0, ErrGasUintOverflow
 	}
 	gas = gas + gasData
-	if confirmTime == 0 {
+	if snapshotCount == 0 {
 		return gas, nil
 	}
-	confirmGas := uint64(confirmTime) * quotaTable.ConfirmTimeQuota
+	confirmGas := uint64(snapshotCount) * quotaTable.SnapshotQuota
 	if helper.MaxUint64-gas < confirmGas {
 		return 0, ErrGasUintOverflow
 	}
 	return gas + confirmGas, nil
 }
 
-func DataGasCost(data []byte, quotaTable *QuotaTable) (uint64, error) {
+// DataQuotaCost calculate quota cost by request block data
+func DataQuotaCost(data []byte, quotaTable *QuotaTable) (uint64, error) {
 	var gas uint64
 	if l := uint64(len(data)); l > 0 {
 		if helper.MaxUint64/quotaTable.TxDataQuota < l {
@@ -70,8 +77,9 @@ func DataGasCost(data []byte, quotaTable *QuotaTable) (uint64, error) {
 	return gas, nil
 }
 
-func TxGasCost(data []byte, quotaTable *QuotaTable) (uint64, error) {
-	dataCost, err := DataGasCost(data, quotaTable)
+// RequestQuotaCost calculate quota cost by a request block
+func RequestQuotaCost(data []byte, quotaTable *QuotaTable) (uint64, error) {
+	dataCost, err := DataQuotaCost(data, quotaTable)
 	if err != nil {
 		return 0, err
 	}
@@ -82,22 +90,22 @@ func TxGasCost(data []byte, quotaTable *QuotaTable) (uint64, error) {
 	return totalCost, nil
 }
 
-func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft uint64, err error) (q uint64, qUsed uint64) {
+// CalcQuotaUsed calculate stake quota and total quota used by a block
+func CalcQuotaUsed(useQuota bool, quotaTotal, quotaAddition, quotaLeft uint64, err error) (qStakeUsed uint64, qUsed uint64) {
 	if !useQuota {
 		return 0, 0
 	}
 	if err == ErrOutOfQuota {
 		return 0, 0
-	} else {
-		qUsed = quotaTotal - quotaLeft
-		if qUsed < quotaAddition {
-			return 0, qUsed
-		} else {
-			return qUsed - quotaAddition, qUsed
-		}
 	}
+	qUsed = quotaTotal - quotaLeft
+	if qUsed < quotaAddition {
+		return 0, qUsed
+	}
+	return qUsed - quotaAddition, qUsed
 }
 
+// IsPoW check whether a block calculated pow
 func IsPoW(block *ledger.AccountBlock) bool {
 	return len(block.Nonce) > 0
 }
@@ -175,7 +183,7 @@ type QuotaTable struct {
 	LogDataQuota        uint64
 	CallMinusQuota      uint64
 	MemQuotaDivision    uint64
-	ConfirmTimeQuota    uint64
+	SnapshotQuota       uint64
 	CodeQuota           uint64
 	MemQuota            uint64
 
@@ -194,7 +202,7 @@ type QuotaTable struct {
 	CancelStakeQuota                        uint64
 	DelegateStakeQuota                      uint64
 	CancelDelegateStakeQuota                uint64
-	IssueTokenQuota                         uint64
+	IssueQuota                              uint64
 	ReIssueQuota                            uint64
 	BurnQuota                               uint64
 	TransferOwnershipQuota                  uint64
@@ -308,7 +316,7 @@ var (
 		LogDataQuota:                     8,
 		CallMinusQuota:                   10000,
 		MemQuotaDivision:                 512,
-		ConfirmTimeQuota:                 200,
+		SnapshotQuota:                    200,
 		CodeQuota:                        200,
 		MemQuota:                         3,
 		TxQuota:                          21000,
@@ -325,7 +333,7 @@ var (
 		CancelStakeQuota:                 73000,
 		DelegateStakeQuota:               82000,
 		CancelDelegateStakeQuota:         73000,
-		IssueTokenQuota:                  104525,
+		IssueQuota:                       104525,
 		ReIssueQuota:                     69325,
 		BurnQuota:                        48837,
 		TransferOwnershipQuota:           58981,
@@ -410,7 +418,7 @@ func newViteQuotaTable() QuotaTable {
 		LogDataQuota:        12,
 		CallMinusQuota:      13500,
 		MemQuotaDivision:    1024,
-		ConfirmTimeQuota:    40,
+		SnapshotQuota:       40,
 		CodeQuota:           160,
 		MemQuota:            1,
 
@@ -429,7 +437,7 @@ func newViteQuotaTable() QuotaTable {
 		CancelStakeQuota:                        105000,
 		DelegateStakeQuota:                      115500,
 		CancelDelegateStakeQuota:                115500,
-		IssueTokenQuota:                         189000,
+		IssueQuota:                              189000,
 		ReIssueQuota:                            126000,
 		BurnQuota:                               115500,
 		TransferOwnershipQuota:                  136500,

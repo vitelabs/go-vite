@@ -234,10 +234,10 @@ func (cRw *chainRw) genVoteDetails(snapshotHash types.Hash, registration *types.
 	return &VoteDetails{
 		Vote: core.Vote{
 			Name:    registration.Name,
-			Addr:    registration.NodeAddr,
+			Addr:    registration.BlockProducingAddress,
 			Balance: balanceTotal,
 		},
-		CurrentAddr:  registration.NodeAddr,
+		CurrentAddr:  registration.BlockProducingAddress,
 		RegisterList: registration.HisAddrList,
 		Addr:         balanceMap,
 	}

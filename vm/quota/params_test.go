@@ -29,14 +29,14 @@ func TestPrintParamAndSectionList(t *testing.T) {
 	}
 	fmt.Printf("}\n")
 
-	defaultSectionForPledge := sectionList[75]
+	defaultSectionForStake := sectionList[75]
 	defaultSectionForPoW := sectionList[75]
 
 	floatTmp := new(big.Float).SetPrec(precForFloat)
 
-	pledgeAmountForOneTpsMainnet, _ := new(big.Float).SetPrec(precForFloat).SetString("9999")
-	pledgeAmountForOneTpsMainnet.Mul(pledgeAmountForOneTpsMainnet, new(big.Float).SetPrec(precForFloat).SetInt(util.AttovPerVite))
-	floatTmp.Quo(defaultSectionForPledge, pledgeAmountForOneTpsMainnet)
+	stakeAmountForOneTpsMainnet, _ := new(big.Float).SetPrec(precForFloat).SetString("9999")
+	stakeAmountForOneTpsMainnet.Mul(stakeAmountForOneTpsMainnet, new(big.Float).SetPrec(precForFloat).SetInt(util.AttovPerVite))
+	floatTmp.Quo(defaultSectionForStake, stakeAmountForOneTpsMainnet)
 	paramaForMainnet := floatTmp.String()
 
 	defaultDifficultyForMainnet := new(big.Float).SetPrec(precForFloat).SetUint64(67108862)
@@ -45,9 +45,9 @@ func TestPrintParamAndSectionList(t *testing.T) {
 
 	fmt.Printf("QuotaParamMainnet  = NewQuotaParams(\"%v\", \"%v\")\n", paramaForMainnet, parambForMainnet)
 
-	pledgeAmountForOneTpsTestnet, _ := new(big.Float).SetPrec(precForFloat).SetString("10")
-	pledgeAmountForOneTpsTestnet.Mul(pledgeAmountForOneTpsTestnet, new(big.Float).SetPrec(precForFloat).SetInt(util.AttovPerVite))
-	floatTmp.Quo(defaultSectionForPledge, pledgeAmountForOneTpsTestnet)
+	stakeAmountForOneTpsTestnet, _ := new(big.Float).SetPrec(precForFloat).SetString("10")
+	stakeAmountForOneTpsTestnet.Mul(stakeAmountForOneTpsTestnet, new(big.Float).SetPrec(precForFloat).SetInt(util.AttovPerVite))
+	floatTmp.Quo(defaultSectionForStake, stakeAmountForOneTpsTestnet)
 	paramaForTestnet := floatTmp.String()
 
 	defaultDifficultyForTestnet := new(big.Float).SetPrec(precForFloat).SetUint64(65534)
@@ -3643,30 +3643,30 @@ func stringToFloat(s string) *big.Float {
 	return f
 }
 
-func TestPrintPledgeAmountSection(t *testing.T) {
+func TestPrintStakeAmountSection(t *testing.T) {
 	tmpFloat := new(big.Float).SetPrec(precForFloat)
 	tmpFloatForCalc := new(big.Float).SetPrec(precForFloat)
 
 	InitQuotaConfig(false, false)
 	p := paramAMainnet
-	fmt.Printf("pledgeAmountListMainnet = []string{\n")
+	fmt.Printf("stakeAmountListMainnet = []string{\n")
 	for _, secStr := range sectionStrList {
 		sec := stringToFloat(secStr)
 		tmpFloat = tmpFloat.Quo(sec, p)
 		amount, _ := tmpFloat.Int(nil)
-		amount = getNextPledgeAmount(amount, p, sec, tmpFloatForCalc)
+		amount = getNextStakeAmount(amount, p, sec, tmpFloatForCalc)
 		fmt.Printf("\"%v\", \n", amount.String())
 	}
 	fmt.Printf("}\n")
 
 	InitQuotaConfig(false, true)
 	p = paramAMainnet
-	fmt.Printf("pledgeAmountListTestnet = []string{\n")
+	fmt.Printf("stakeAmountListTestnet = []string{\n")
 	for _, secStr := range sectionStrList {
 		sec := stringToFloat(secStr)
 		tmpFloat = tmpFloat.Quo(sec, p)
 		amount, _ := tmpFloat.Int(nil)
-		amount = getNextPledgeAmount(amount, p, sec, tmpFloatForCalc)
+		amount = getNextStakeAmount(amount, p, sec, tmpFloatForCalc)
 		fmt.Printf("\"%v\", \n", amount.String())
 	}
 	fmt.Printf("}\n")
@@ -3707,19 +3707,19 @@ func TestPrintDifficultySection(t *testing.T) {
 func TestCheckNodeConfig(t *testing.T) {
 	InitQuotaConfig(false, false)
 	l := sectionLen + 1
-	if len(nodeConfig.pledgeAmountList) != l || len(nodeConfig.difficultyList) != l {
+	if len(quotaConfig.stakeAmountList) != l || len(quotaConfig.difficultyList) != l {
 		t.Fatalf("main net node config param error")
 	}
 	checkFloatList(sectionStrList, "section list", t)
-	checkList(nodeConfig.pledgeAmountList, "mainnet pledge amount", t)
-	checkList(nodeConfig.difficultyList, "mainnet difficulty", t)
+	checkList(quotaConfig.stakeAmountList, "mainnet stake amount", t)
+	checkList(quotaConfig.difficultyList, "mainnet difficulty", t)
 	InitQuotaConfig(false, true)
 	l = sectionLen + 1
-	if len(nodeConfig.pledgeAmountList) != l || len(nodeConfig.difficultyList) != l {
+	if len(quotaConfig.stakeAmountList) != l || len(quotaConfig.difficultyList) != l {
 		t.Fatalf("main net node config param error")
 	}
-	checkList(nodeConfig.pledgeAmountList, "testnet pledge amount", t)
-	checkList(nodeConfig.difficultyList, "testnet difficulty", t)
+	checkList(quotaConfig.stakeAmountList, "testnet stake amount", t)
+	checkList(quotaConfig.difficultyList, "testnet difficulty", t)
 }
 
 func checkList(list []*big.Int, s string, t *testing.T) {
@@ -3743,7 +3743,7 @@ func checkFloatList(list []string, s string, t *testing.T) {
 	}
 }
 
-func getNextPledgeAmount(bi *big.Int, p *big.Float, target *big.Float, tmp *big.Float) *big.Int {
+func getNextStakeAmount(bi *big.Int, p *big.Float, target *big.Float, tmp *big.Float) *big.Int {
 	bi.Quo(bi, util.AttovPerVite)
 	bi.Mul(bi, util.AttovPerVite)
 	for {
@@ -3775,7 +3775,7 @@ func TestPrintUTPS(t *testing.T) {
 	InitQuotaConfig(false, false)
 	index := 75
 	for {
-		if index >= len(nodeConfig.pledgeAmountList) {
+		if index >= len(quotaConfig.stakeAmountList) {
 			break
 		}
 		fmt.Printf("| $(%v, %v]$ | %v | %v | %v | %v | %v |\n",
@@ -3783,8 +3783,8 @@ func TestPrintUTPS(t *testing.T) {
 			index*21000,
 			index/75,
 			index,
-			nodeConfig.pledgeAmountList[index],
-			nodeConfig.difficultyList[index/75],
+			quotaConfig.stakeAmountList[index],
+			quotaConfig.difficultyList[index/75],
 		)
 		index += 75
 	}
@@ -3794,14 +3794,14 @@ func TestPrintQuotaTable(t *testing.T) {
 	InitQuotaConfig(false, true)
 	index := 75
 	for {
-		if index >= len(nodeConfig.pledgeAmountList) {
+		if index >= len(quotaConfig.stakeAmountList) {
 			break
 		}
 		fmt.Printf("%v\t%v\t%v\t%v\n",
 			index/75*21000,
 			index/75,
-			nodeConfig.pledgeAmountList[index],
-			nodeConfig.difficultyList[index/75],
+			quotaConfig.stakeAmountList[index],
+			quotaConfig.difficultyList[index/75],
 		)
 		index += 75
 	}
@@ -3810,16 +3810,16 @@ func TestPrintQuotaTable(t *testing.T) {
 func TestPrintQuotaUnder1UTPS(t *testing.T) {
 	InitQuotaConfig(false, false)
 	for i := 1; i < 75; i = i + 1 {
-		pledgeAmount := new(big.Int).Quo(nodeConfig.pledgeAmountList[i], util.AttovPerVite)
-		fmt.Printf("| $(%v, %v]$ | %v | %v/75 | %v | %v | %v |\n", sectionStrList[i-1], sectionStrList[i], uint64(i)*quotaForSection, i, i, pledgeAmount, nodeConfig.difficultyList[i])
+		stakeAmount := new(big.Int).Quo(quotaConfig.stakeAmountList[i], util.AttovPerVite)
+		fmt.Printf("| $(%v, %v]$ | %v | %v/75 | %v | %v | %v |\n", sectionStrList[i-1], sectionStrList[i], uint64(i)*quotaForSection, i, i, stakeAmount, quotaConfig.difficultyList[i])
 	}
 }
 
 func TestPrintQuota(t *testing.T) {
 	InitQuotaConfig(false, false)
 	for i := 75; i <= sectionLen; i = i + 75 {
-		pledgeAmount := new(big.Int).Quo(nodeConfig.pledgeAmountList[i], util.AttovPerVite)
-		fmt.Printf("| $(%v, %v]$ | %v | %v | %v | %v | %v |\n", sectionStrList[i-75], sectionStrList[i], uint64(i)*quotaForSection, i/75, i, pledgeAmount, nodeConfig.difficultyList[i])
+		stakeAmount := new(big.Int).Quo(quotaConfig.stakeAmountList[i], util.AttovPerVite)
+		fmt.Printf("| $(%v, %v]$ | %v | %v | %v | %v | %v |\n", sectionStrList[i-75], sectionStrList[i], uint64(i)*quotaForSection, i/75, i, stakeAmount, quotaConfig.difficultyList[i])
 	}
 }
 
@@ -3878,33 +3878,33 @@ func testCalcQc(a, b, c, d float64, t1, t2, x uint64) float64 {
 }
 
 func TestPrintQcTable(t *testing.T) {
-	var pledgeAmountMax = new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
+	var stakeAmountMax = new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	InitQuotaConfig(false, false)
-	pledgeAmount := new(big.Int).Set(nodeConfig.pledgeAmountList[1])
-	for i := nodeConfig.qcIndexMin; i <= nodeConfig.qcIndexMax; i = i + 1 {
-		qc, ok := nodeConfig.qcMap[i]
+	stakeAmount := new(big.Int).Set(quotaConfig.stakeAmountList[1])
+	for i := quotaConfig.qcIndexMin; i <= quotaConfig.qcIndexMax; i = i + 1 {
+		qc, ok := quotaConfig.qcMap[i]
 		if !ok {
 			t.Fatalf("index %v not found", i)
 		}
 		tmp := new(big.Float).SetPrec(18).SetInt(qc)
 		tmp.Quo(tmp, new(big.Float).SetPrec(18).SetInt(qcDivision))
-		p, _ := calcPledgeTargetParam(qc, true, pledgeAmount)
-		pledgeAmountStr := "-"
-		if p.Cmp(pledgeAmountMax) < 0 {
-			pledgeAmountStr = getViteByAttov(p).String()
+		p, _ := calcStakeTargetParam(qc, true, stakeAmount)
+		stakeAmountStr := "-"
+		if p.Cmp(stakeAmountMax) < 0 {
+			stakeAmountStr = getViteByAttov(p).String()
 		}
-		fmt.Printf("| %v | %v | %v |\n", i, tmp.Text('g', 18), pledgeAmountStr)
+		fmt.Printf("| %v | %v | %v |\n", i, tmp.Text('g', 18), stakeAmountStr)
 	}
 }
 
-func TestPrintPledgeTableByQc(t *testing.T) {
+func TestPrintStakeTableByQc(t *testing.T) {
 	InitQuotaConfig(false, false)
-	qc51 := new(big.Int).Set(nodeConfig.qcMap[51])
-	qc100 := new(big.Int).Set(nodeConfig.qcMap[100])
-	qc200 := new(big.Int).Set(nodeConfig.qcMap[200])
-	for i := 1; i < len(nodeConfig.pledgeAmountList); {
-		pledgeAmount := new(big.Int).Set(nodeConfig.pledgeAmountList[i])
-		difficulty := new(big.Int).Set(nodeConfig.difficultyList[i])
+	qc51 := new(big.Int).Set(quotaConfig.qcMap[51])
+	qc100 := new(big.Int).Set(quotaConfig.qcMap[100])
+	qc200 := new(big.Int).Set(quotaConfig.qcMap[200])
+	for i := 1; i < len(quotaConfig.stakeAmountList); {
+		stakeAmount := new(big.Int).Set(quotaConfig.stakeAmountList[i])
+		difficulty := new(big.Int).Set(quotaConfig.difficultyList[i])
 		utpsStr := ""
 		if i < 75 {
 			utpsStr = strconv.Itoa(i) + "/75"
@@ -3913,10 +3913,10 @@ func TestPrintPledgeTableByQc(t *testing.T) {
 		}
 		fmt.Printf("| %v | %v | %v | %v | %v | %v | %v | %v | %v | %v |\n",
 			uint64(i)*quotaForSection, utpsStr,
-			new(big.Int).Div(pledgeAmount, big.NewInt(1e18)), difficulty,
-			getPledgeAmountByAttov(qc51, pledgeAmount), getPledgeDifficultyByAttov(qc51, difficulty),
-			getPledgeAmountByAttov(qc100, pledgeAmount), getPledgeDifficultyByAttov(qc100, difficulty),
-			getPledgeAmountByAttov(qc200, pledgeAmount), getPledgeDifficultyByAttov(qc200, difficulty),
+			new(big.Int).Div(stakeAmount, big.NewInt(1e18)), difficulty,
+			getStakeAmountByAttov(qc51, stakeAmount), getStakeDifficultyByAttov(qc51, difficulty),
+			getStakeAmountByAttov(qc100, stakeAmount), getStakeDifficultyByAttov(qc100, difficulty),
+			getStakeAmountByAttov(qc200, stakeAmount), getStakeDifficultyByAttov(qc200, difficulty),
 		)
 		if i < 75 {
 			i = i + 1
@@ -3926,22 +3926,22 @@ func TestPrintPledgeTableByQc(t *testing.T) {
 	}
 }
 
-func getPledgeAmountByAttov(qc *big.Int, param *big.Int) *big.Int {
-	target, err := calcPledgeTargetParam(qc, true, param)
+func getStakeAmountByAttov(qc *big.Int, param *big.Int) *big.Int {
+	target, err := calcStakeTargetParam(qc, true, param)
 	if err == nil {
 		return getViteByAttov(target)
 	}
 	return nil
 }
-func getPledgeDifficultyByAttov(qc *big.Int, param *big.Int) *big.Int {
-	target, _ := calcPledgeTargetParam(qc, true, param)
+func getStakeDifficultyByAttov(qc *big.Int, param *big.Int) *big.Int {
+	target, _ := calcStakeTargetParam(qc, true, param)
 	return target
 }
 func getViteByAttov(i *big.Int) *big.Int {
 	return new(big.Int).Div(i, big.NewInt(1e18))
 }
 
-func TestCalcQuotaByPledgeAmount(t *testing.T) {
+func TestCalcQuotaByStakeAmount(t *testing.T) {
 	InitQuotaConfig(false, true)
-	fmt.Println(calcPledgeQuota(big.NewInt(9999999999954), true, new(big.Int).Mul(big.NewInt(1100000), big.NewInt(1e18))))
+	fmt.Println(calcStakeQuota(big.NewInt(9999999999954), true, new(big.Int).Mul(big.NewInt(1100000), big.NewInt(1e18))))
 }

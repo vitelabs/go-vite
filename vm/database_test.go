@@ -310,7 +310,7 @@ func (db *testDatabase) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.Ac
 	return nil, nil
 }
 
-func (db *testDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
+func (db *testDatabase) GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	data := db.storageMap[types.AddressQuota][ToKey(abi.GetStakeBeneficialKey(*addr))]
 	if len(data) > 0 {
 		amount := new(abi.VariableStakeBeneficial)
@@ -343,10 +343,10 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	addr1, _ = types.BytesToAddress(helper.HexToBytes("6c1032417f80329f3abe0a024fa3a7aa0e952b0f00"))
 	privKey, _ = ed25519.HexToPrivateKey("44e9768b7d8320a282e75337df8fc1f12a4f000b9f9906ddb886c6823bb599addfda7318e7824d25aae3c749c1cbd4e72ce9401653c66479554a05a2e3cb4f88")
 	db = newNoDatabase()
-	db.storageMap[types.AddressAssert] = make(map[string][]byte)
+	db.storageMap[types.AddressAsset] = make(map[string][]byte)
 	viteTokenIDKey := abi.GetTokenInfoKey(ledger.ViteTokenId)
 	var err error
-	db.storageMap[types.AddressAssert][ToKey(viteTokenIDKey)], err = abi.ABIAssert.PackVariable(abi.VariableNameTokenInfo, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, true, helper.Tt256m1, false, uint16(1))
+	db.storageMap[types.AddressAsset][ToKey(viteTokenIDKey)], err = abi.ABIAsset.PackVariable(abi.VariableNameTokenInfo, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, true, helper.Tt256m1, false, uint16(1))
 	if err != nil {
 		panic(err)
 	}
@@ -461,7 +461,7 @@ func ToBytes(key string) []byte {
 func TestPrepareDb(t *testing.T) {
 	totalSupply := big.NewInt(1e18)
 	db, addr1, _, _, _, _ := prepareDb(totalSupply)
-	db.addr = types.AddressAssert
+	db.addr = types.AddressAsset
 	tokenMap, _ := abi.GetTokenMap(db)
 	if len(tokenMap) != 1 || tokenMap[ledger.ViteTokenId] == nil || tokenMap[ledger.ViteTokenId].TotalSupply.Cmp(totalSupply) != 0 {
 		t.Fatalf("invalid token info")
@@ -480,8 +480,8 @@ func TestPrepareDb(t *testing.T) {
 		t.Fatalf("invalid consensus group info")
 	}
 	db.addr = addr1
-	if pledgeAmount, _ := db.GetPledgeBeneficialAmount(&addr1); pledgeAmount == nil || pledgeAmount.Sign() < 0 {
-		t.Fatalf("invalid pledge amount")
+	if stakeAmount, _ := db.GetStakeBeneficialAmount(&addr1); stakeAmount == nil || stakeAmount.Sign() < 0 {
+		t.Fatalf("invalid stake amount")
 	}
 	db.addr = types.AddressGovernance
 	registrationList, _ := abi.GetRegistrationList(db, types.SNAPSHOT_GID, addr1)

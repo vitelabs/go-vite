@@ -86,7 +86,7 @@ func TestAddressValid(t *testing.T) {
 		t.Fail()
 	}
 
-	if !IsValidHexAddress(AddressAssert.String()) {
+	if !IsValidHexAddress(AddressAsset.String()) {
 		t.Fail()
 	}
 

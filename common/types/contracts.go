@@ -33,18 +33,18 @@ type VoteInfo struct {
 }
 
 type Registration struct {
-	Name           string
-	NodeAddr       Address
-	StakeAddress   Address
-	Amount         *big.Int
-	WithdrawHeight uint64
-	RewardTime     int64
-	CancelTime     int64
-	HisAddrList    []Address
+	Name                  string
+	BlockProducingAddress Address
+	StakeAddress          Address
+	Amount                *big.Int
+	ExpirationHeight      uint64
+	RewardTime            int64
+	RevokeTime            int64
+	HisAddrList           []Address
 }
 
 func (r *Registration) IsActive() bool {
-	return r.CancelTime == 0
+	return r.RevokeTime == 0
 }
 
 type TokenInfo struct {

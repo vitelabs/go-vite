@@ -58,23 +58,23 @@ func TestContractDposCs_ElectionIndex(t *testing.T) {
 	voteTime := cs.GenProofTime(0)
 	mock_chain.EXPECT().GetSnapshotHeaderBeforeTime(gomock.Eq(&voteTime)).Return(b1, nil)
 	registers := []*types.Registration{{
-		Name:           "s1",
-		NodeAddr:       common.MockAddress(0),
-		StakeAddress:   common.MockAddress(0),
-		Amount:         nil,
-		WithdrawHeight: 0,
-		RewardTime:     0,
-		CancelTime:     0,
-		HisAddrList:    nil,
+		Name:                  "s1",
+		BlockProducingAddress: common.MockAddress(0),
+		StakeAddress:          common.MockAddress(0),
+		Amount:                nil,
+		ExpirationHeight:      0,
+		RewardTime:            0,
+		RevokeTime:            0,
+		HisAddrList:           nil,
 	}, {
-		Name:           "s2",
-		NodeAddr:       common.MockAddress(1),
-		StakeAddress:   common.MockAddress(1),
-		Amount:         nil,
-		WithdrawHeight: 0,
-		RewardTime:     0,
-		CancelTime:     0,
-		HisAddrList:    nil,
+		Name:                  "s2",
+		BlockProducingAddress: common.MockAddress(1),
+		StakeAddress:          common.MockAddress(1),
+		Amount:                nil,
+		ExpirationHeight:      0,
+		RewardTime:            0,
+		RevokeTime:            0,
+		HisAddrList:           nil,
 	}}
 	votes := []*types.VoteInfo{
 		{

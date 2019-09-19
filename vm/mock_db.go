@@ -13,40 +13,40 @@ import (
 )
 
 type mockDB struct {
-	currentAddr            *types.Address
-	latestSnapshotBlock    *ledger.SnapshotBlock
-	prevAccountBlock       *ledger.AccountBlock
-	quotaInfo              []types.QuotaInfo
-	pledgeBeneficialAmount *big.Int
-	balanceMap             map[types.TokenTypeId]*big.Int
-	balanceMapOrigin       map[types.TokenTypeId]*big.Int
-	storageMap             map[string]string
-	storageMapOrigin       map[string]string
-	contractMetaMap        map[types.Address]*ledger.ContractMeta
-	contractMetaMapOrigin  map[types.Address]*ledger.ContractMeta
-	logList                []*ledger.VmLog
-	code                   []byte
+	currentAddr           *types.Address
+	latestSnapshotBlock   *ledger.SnapshotBlock
+	prevAccountBlock      *ledger.AccountBlock
+	quotaInfo             []types.QuotaInfo
+	stakeBeneficialAmount *big.Int
+	balanceMap            map[types.TokenTypeId]*big.Int
+	balanceMapOrigin      map[types.TokenTypeId]*big.Int
+	storageMap            map[string]string
+	storageMapOrigin      map[string]string
+	contractMetaMap       map[types.Address]*ledger.ContractMeta
+	contractMetaMapOrigin map[types.Address]*ledger.ContractMeta
+	logList               []*ledger.VmLog
+	code                  []byte
 }
 
 func newMockDB(addr *types.Address,
 	latestSnapshotBlock *ledger.SnapshotBlock,
 	prevAccountBlock *ledger.AccountBlock,
 	quotaInfo []types.QuotaInfo,
-	pledgeBeneficialAmount *big.Int,
+	stakeBeneficialAmount *big.Int,
 	balanceMap map[types.TokenTypeId]string,
 	storage map[string]string,
 	contractMetaMap map[types.Address]*ledger.ContractMeta,
 	code []byte) (*mockDB, error) {
 	db := &mockDB{currentAddr: addr,
-		latestSnapshotBlock:    latestSnapshotBlock,
-		prevAccountBlock:       prevAccountBlock,
-		quotaInfo:              quotaInfo,
-		pledgeBeneficialAmount: new(big.Int).Set(pledgeBeneficialAmount),
-		logList:                make([]*ledger.VmLog, 0),
-		balanceMap:             make(map[types.TokenTypeId]*big.Int),
-		storageMap:             make(map[string]string),
-		contractMetaMap:        make(map[types.Address]*ledger.ContractMeta),
-		code:                   code,
+		latestSnapshotBlock:   latestSnapshotBlock,
+		prevAccountBlock:      prevAccountBlock,
+		quotaInfo:             quotaInfo,
+		stakeBeneficialAmount: new(big.Int).Set(stakeBeneficialAmount),
+		logList:               make([]*ledger.VmLog, 0),
+		balanceMap:            make(map[types.TokenTypeId]*big.Int),
+		storageMap:            make(map[string]string),
+		contractMetaMap:       make(map[types.Address]*ledger.ContractMeta),
+		code:                  code,
 	}
 	balanceMapCopy := make(map[types.TokenTypeId]*big.Int)
 	for tid, amount := range balanceMap {
@@ -398,11 +398,11 @@ func (db *mockDB) GetUnsavedContractMeta() map[types.Address]*ledger.ContractMet
 func (db *mockDB) GetUnsavedContractCode() []byte {
 	return nil
 }
-func (db *mockDB) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
+func (db *mockDB) GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	if *addr != *db.currentAddr {
 		return nil, errors.New("current account address not match")
 	}
-	return db.pledgeBeneficialAmount, nil
+	return db.stakeBeneficialAmount, nil
 }
 func (db *mockDB) DebugGetStorage() (map[string][]byte, error) {
 	return nil, nil

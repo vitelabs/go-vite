@@ -11,22 +11,22 @@ import (
 	"sort"
 )
 
-type MintageApi struct {
+type AssetApi struct {
 	chain chain.Chain
 	vite  *vite.Vite
 	log   log15.Logger
 }
 
-func NewMintageApi(vite *vite.Vite) *MintageApi {
-	return &MintageApi{
+func NewAssetApi(vite *vite.Vite) *AssetApi {
+	return &AssetApi{
 		chain: vite.Chain(),
 		vite:  vite,
-		log:   log15.New("module", "rpc_api/mintage_api"),
+		log:   log15.New("module", "rpc_api/asset_api"),
 	}
 }
 
-func (m MintageApi) String() string {
-	return "MintageApi"
+func (m AssetApi) String() string {
+	return "AssetApi"
 }
 
 type MintageParams struct {
@@ -40,7 +40,7 @@ type MintageParams struct {
 }
 
 // Private
-func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
+func (m *AssetApi) GetMintData(param MintageParams) ([]byte, error) {
 	totalSupply, err := stringToBigInt(&param.TotalSupply)
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (m *MintageApi) GetMintData(param MintageParams) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return abi.ABIAssert.PackMethod(abi.MethodNameIssue, param.IsReIssuable, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals, maxSupply, param.OwnerBurnOnly)
+	return abi.ABIAsset.PackMethod(abi.MethodNameIssue, param.IsReIssuable, param.TokenName, param.TokenSymbol, totalSupply, param.Decimals, maxSupply, param.OwnerBurnOnly)
 }
 
 type IssueParams struct {
@@ -59,17 +59,17 @@ type IssueParams struct {
 }
 
 // Private
-func (m *MintageApi) GetIssueData(param IssueParams) ([]byte, error) {
+func (m *AssetApi) GetIssueData(param IssueParams) ([]byte, error) {
 	amount, err := stringToBigInt(&param.Amount)
 	if err != nil {
 		return nil, err
 	}
-	return abi.ABIAssert.PackMethod(abi.MethodNameReIssue, param.TokenId, amount, param.Beneficial)
+	return abi.ABIAsset.PackMethod(abi.MethodNameReIssue, param.TokenId, amount, param.Beneficial)
 }
 
 // Private
-func (m *MintageApi) GetBurnData() ([]byte, error) {
-	return abi.ABIAssert.PackMethod(abi.MethodNameBurn)
+func (m *AssetApi) GetBurnData() ([]byte, error) {
+	return abi.ABIAsset.PackMethod(abi.MethodNameBurn)
 }
 
 type TransferOwnerParams struct {
@@ -78,18 +78,18 @@ type TransferOwnerParams struct {
 }
 
 // Private
-func (m *MintageApi) GetTransferOwnerData(param TransferOwnerParams) ([]byte, error) {
-	return abi.ABIAssert.PackMethod(abi.MethodNameTransferOwnership, param.TokenId, param.NewOwner)
+func (m *AssetApi) GetTransferOwnerData(param TransferOwnerParams) ([]byte, error) {
+	return abi.ABIAsset.PackMethod(abi.MethodNameTransferOwnership, param.TokenId, param.NewOwner)
 }
 
 // Private
-func (m *MintageApi) GetChangeTokenTypeData(tokenId types.TokenTypeId) ([]byte, error) {
-	return abi.ABIAssert.PackMethod(abi.MethodNameDisableReIssue, tokenId)
+func (m *AssetApi) GetChangeTokenTypeData(tokenId types.TokenTypeId) ([]byte, error) {
+	return abi.ABIAsset.PackMethod(abi.MethodNameDisableReIssue, tokenId)
 }
 
 // Deprecated: use contract_getTokenInfoList instead
-func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, error) {
-	db, err := getVmDb(m.chain, types.AddressAssert)
+func (m *AssetApi) GetTokenInfoList(index int, count int) (*TokenInfoList, error) {
+	db, err := getVmDb(m.chain, types.AddressAsset)
 	if err != nil {
 		return nil, err
 	}
@@ -108,8 +108,8 @@ func (m *MintageApi) GetTokenInfoList(index int, count int) (*TokenInfoList, err
 }
 
 // Deprecated: use contract_getTokenInfoById instead
-func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
-	db, err := getVmDb(m.chain, types.AddressAssert)
+func (m *AssetApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
+	db, err := getVmDb(m.chain, types.AddressAsset)
 	if err != nil {
 		return nil, err
 	}
@@ -124,8 +124,8 @@ func (m *MintageApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo,
 }
 
 // Deprecated: use contract_getTokenInfoListByOwner
-func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
-	db, err := getVmDb(m.chain, types.AddressAssert)
+func (m *AssetApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
+	db, err := getVmDb(m.chain, types.AddressAsset)
 	if err != nil {
 		return nil, err
 	}
@@ -137,10 +137,10 @@ func (m *MintageApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenIn
 	for tokenId, tokenInfo := range tokenMap {
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
 	}
-	return checkGenesisToken(db, owner, m.vite.Config().MintageInfo.TokenInfoMap, tokenList)
+	return checkGenesisToken(db, owner, m.vite.Config().AssetInfo.TokenInfoMap, tokenList)
 }
 
-func checkGenesisToken(db vm_db.VmDb, owner types.Address, genesisTokenInfoMap map[string]config.TokenInfo, tokenList []*RpcTokenInfo) ([]*RpcTokenInfo, error) {
+func checkGenesisToken(db vm_db.VmDb, owner types.Address, genesisTokenInfoMap map[string]*config.TokenInfo, tokenList []*RpcTokenInfo) ([]*RpcTokenInfo, error) {
 	for tidStr, _ := range genesisTokenInfoMap {
 		tid, _ := types.HexToTokenTypeId(tidStr)
 		info, err := abi.GetTokenByID(db, tid)

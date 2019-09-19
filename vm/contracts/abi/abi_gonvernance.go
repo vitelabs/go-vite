@@ -27,12 +27,12 @@ const (
 		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"receiveAddress","type":"address"}]},
 		{"type":"function","name":"WithdrawReward","inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"receiveAddress","type":"address"}]},
 		
-		{"type":"variable","name":"registrationInfo","inputs":[{"name":"name","type":"string"},{"name":"nodeAddr","type":"address"},{"name":"stakeAddress","type":"address"},{"name":"amount","type":"uint256"},{"name":"withdrawHeight","type":"uint64"},{"name":"rewardTime","type":"int64"},{"name":"cancelTime","type":"int64"},{"name":"hisAddrList","type":"address[]"}]},
+		{"type":"variable","name":"registrationInfo","inputs":[{"name":"name","type":"string"},{"name":"blockProducingAddress","type":"address"},{"name":"stakeAddress","type":"address"},{"name":"amount","type":"uint256"},{"name":"expirationHeight","type":"uint64"},{"name":"rewardTime","type":"int64"},{"name":"revokeTime","type":"int64"},{"name":"hisAddrList","type":"address[]"}]},
 		{"type":"variable","name":"registeredHisName","inputs":[{"name":"name","type":"string"}]},
 		
 		{"type":"function","name":"Vote", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"}]},
 		{"type":"function","name":"CancelVote","inputs":[{"name":"gid","type":"gid"}]},
-		{"type":"variable","name":"voteInfo","inputs":[{"name":"nodeName","type":"string"}]}
+		{"type":"variable","name":"voteInfo","inputs":[{"name":"sbpName","type":"string"}]}
 	]`
 
 	VariableNameConsensusGroupInfo = "consensusGroupInfo"

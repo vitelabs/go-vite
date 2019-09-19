@@ -77,6 +77,7 @@ func IsTest() bool {
 // Parameters:
 //   isTest: test mode, quota and balance is not checked under test mode.
 //   isTestParam: use test params for built-in contracts.
+//   isQuotaTestParam: use test params for quota calculation.
 //   isDebug: print debug log.
 //   datadir: print debug log under this directory.
 func InitVMConfig(isTest bool, isTestParam bool, isQuotaTestParam bool, isDebug bool, dataDir string) {
@@ -226,10 +227,10 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 	blockCopy := block.Copy()
 	if blockCopy.IsSendBlock() {
 		if blockCopy.BlockType == ledger.BlockTypeSendCreate {
-			quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
+			quotaTotal, quotaAddition, err := quota.GetQuotaForBlock(
 				db,
 				blockCopy.AccountAddress,
-				getPledgeAmount(db),
+				getStakeBeneficialAmount(db),
 				blockCopy.Difficulty,
 				sb.Height)
 			if err != nil {
@@ -239,10 +240,10 @@ func (vm *VM) RunV2(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger
 			return vmAccountBlock, noRetry, err
 		}
 		if blockCopy.BlockType == ledger.BlockTypeSendCall {
-			quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
+			quotaTotal, quotaAddition, err := quota.GetQuotaForBlock(
 				db,
 				blockCopy.AccountAddress,
-				getPledgeAmount(db),
+				getStakeBeneficialAmount(db),
 				blockCopy.Difficulty,
 				sb.Height)
 			if err != nil {
@@ -326,32 +327,32 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	if !util.IsExistContractType(contractType) {
 		return nil, util.ErrInvalidMethodParam
 	}
-	confirmTime := util.GetConfirmTimeFromCreateContractData(block.Data)
-	if confirmTime < confirmTimeMin || confirmTime > confirmTimeMax {
-		return nil, util.ErrInvalidConfirmTime
+	snapshotCount := util.GetSnapshotCountFromCreateContractData(block.Data)
+	if snapshotCount < snapshotCountMin || snapshotCount > snapshotCountMax {
+		return nil, util.ErrInvalidResponseLatency
 	}
-	quotaRatio := util.GetQuotaRatioFromCreateContractData(block.Data, vm.latestSnapshotHeight)
-	if !util.IsValidQuotaRatio(quotaRatio) {
-		return nil, util.ErrInvalidQuotaRatio
+	quotaMultiplier := util.GetQuotaMultiplierFromCreateContractData(block.Data, vm.latestSnapshotHeight)
+	if quotaMultiplier < 10 || quotaMultiplier > 100 {
+		return nil, util.ErrInvalidQuotaMultiplier
 	}
 
-	seedCount := confirmTime
+	snapshotWithSeedCount := snapshotCount
 	if !isSeedFork {
-		if ContainsStatusCode(util.GetCodeFromCreateContractData(block.Data, vm.latestSnapshotHeight)) && confirmTime <= 0 {
-			return nil, util.ErrInvalidConfirmTime
+		if ContainsStatusCode(util.GetCodeFromCreateContractData(block.Data, vm.latestSnapshotHeight)) && snapshotCount <= 0 {
+			return nil, util.ErrInvalidResponseLatency
 		}
 	} else {
-		seedCount = util.GetSeedCountFromCreateContractData(block.Data)
-		if seedCount < seedCountMin || seedCount > seedCountMax || confirmTime < seedCount {
-			return nil, util.ErrInvalidSeedCount
+		snapshotWithSeedCount = util.GetSnapshotWithSeedCountCountFromCreateContractData(block.Data)
+		if snapshotWithSeedCount < snapshotWithSeedCountMin || snapshotWithSeedCount > snapshotWithSeedCountMax || snapshotCount < snapshotWithSeedCount {
+			return nil, util.ErrInvalidRandomDegree
 		}
 		code := util.GetCodeFromCreateContractData(block.Data, vm.latestSnapshotHeight)
-		containsConfirmTimeCode, containsSeedCountCode := ContainsCertainStatusCode(code)
-		if containsConfirmTimeCode && confirmTime <= 0 {
-			return nil, util.ErrInvalidConfirmTime
+		requireSnapshot, requireSnapshotWithSeed := ContainsCertainStatusCode(code)
+		if requireSnapshot && snapshotCount <= 0 {
+			return nil, util.ErrInvalidResponseLatency
 		}
-		if containsSeedCountCode && seedCount <= 0 {
-			return nil, util.ErrInvalidSeedCount
+		if requireSnapshotWithSeed && snapshotWithSeedCount <= 0 {
+			return nil, util.ErrInvalidRandomDegree
 		}
 	}
 
@@ -375,11 +376,11 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 	util.SubBalance(db, &block.TokenId, block.Amount)
 	util.SubBalance(db, &ledger.ViteTokenId, block.Fee)
 
-	q, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
-	vm.updateBlock(db, block, nil, q, qUsed)
+	qStakeUsed, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
+	vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
 	// Set contract meta at send block, so that contract block producer module
 	// will be informed of the binding between gid and the new contract.
-	db.SetContractMeta(contractAddr, &ledger.ContractMeta{Gid: gid, SendConfirmedTimes: confirmTime, QuotaRatio: quotaRatio, SeedConfirmedTimes: seedCount})
+	db.SetContractMeta(contractAddr, &ledger.ContractMeta{Gid: gid, SendConfirmedTimes: snapshotCount, QuotaRatio: quotaMultiplier, SeedConfirmedTimes: snapshotWithSeedCount})
 	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
@@ -391,7 +392,7 @@ func (vm *VM) sendCreate(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 //   meta: contract meta set by send create block.
 func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, meta *ledger.ContractMeta) (*vm_db.VmAccountBlock, bool, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveCreate"}, time.Now())
-	quotaLeft := quota.CalcCreateQuota(sendBlock.Fee)
+	quotaLeft := quota.QuotaForCreateContractResponse
 	// Check contract address collision.
 	prev, err := db.PrevAccountBlock()
 	util.DealWithErr(err)
@@ -506,8 +507,8 @@ func (vm *VM) sendCall(db vm_db.VmDb, block *ledger.AccountBlock, useQuota bool,
 		}
 		util.SubBalance(db, &block.TokenId, block.Amount)
 	}
-	q, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
-	vm.updateBlock(db, block, nil, q, qUsed)
+	qStakeUsed, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
+	vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
 	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
@@ -540,10 +541,10 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		// check quota
 		quotaUsed := p.GetReceiveQuota(vm.gasTable)
 		if quotaUsed > 0 {
-			quotaTotal, _, err := quota.CalcQuotaForBlock(
+			quotaTotal, _, err := quota.GetQuotaForBlock(
 				db,
 				block.AccountAddress,
-				getPledgeAmount(db),
+				getStakeBeneficialAmount(db),
 				block.Difficulty,
 				vm.latestSnapshotHeight)
 			if err != nil {
@@ -583,10 +584,10 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		return &vm_db.VmAccountBlock{block, db}, noRetry, err
 	}
 	// check can make transaction
-	quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
+	quotaTotal, quotaAddition, err := quota.GetQuotaForBlock(
 		db,
 		block.AccountAddress,
-		getPledgeAmount(db),
+		getStakeBeneficialAmount(db),
 		block.Difficulty,
 		vm.latestSnapshotHeight)
 	util.DealWithErr(err)
@@ -603,8 +604,8 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 	util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 	// do transfer transaction if account code size is zero
 	if meta == nil {
-		q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, nil)
-		vm.updateBlock(db, block, nil, q, qUsed)
+		qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, nil)
+		vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
 		return &vm_db.VmAccountBlock{block, db}, noRetry, nil
 	}
 	// run code
@@ -613,8 +614,8 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 	c.setCallCode(block.AccountAddress, code)
 	_, err = c.run(vm)
 	if err == nil {
-		q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, nil)
-		vm.updateBlock(db, block, err, q, qUsed)
+		qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, nil)
+		vm.updateBlock(db, block, err, qStakeUsed, qUsed)
 		db, err = vm.doSendBlockList(db)
 		if err == nil {
 			block.Data = getReceiveCallData(db, err)
@@ -636,8 +637,8 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 		}
 		// Contract receive out of quota, current block is first unconfirmed block, refund with no quota
 		refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund)
-		q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err)
-		vm.updateBlock(db, block, err, q, qUsed)
+		qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err)
+		vm.updateBlock(db, block, err, qStakeUsed, qUsed)
 		if refundFlag {
 			var refundErr error
 			if db, refundErr = vm.doSendBlockList(db); refundErr != nil {
@@ -653,8 +654,8 @@ func (vm *VM) receiveCall(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *
 	}
 
 	refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund)
-	q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err)
-	vm.updateBlock(db, block, err, q, qUsed)
+	qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err)
+	vm.updateBlock(db, block, err, qStakeUsed, qUsed)
 	if refundFlag {
 		var refundErr error
 		if db, refundErr = vm.doSendBlockList(db); refundErr != nil {
@@ -736,11 +737,11 @@ func (vm *VM) sendReward(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 		}
 	}
 	if block.AccountAddress != types.AddressGovernance &&
-		block.AccountAddress != types.AddressAssert {
+		block.AccountAddress != types.AddressAsset {
 		return nil, util.ErrInvalidMethodParam
 	}
-	q, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
-	vm.updateBlock(db, block, nil, q, qUsed)
+	qStakeUsed, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
+	vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
 	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
@@ -759,8 +760,8 @@ func (vm *VM) sendRefund(db vm_db.VmDb, block *ledger.AccountBlock, useQuota boo
 		return nil, util.ErrInsufficientBalance
 	}
 	util.SubBalance(db, &block.TokenId, block.Amount)
-	q, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
-	vm.updateBlock(db, block, nil, q, qUsed)
+	qStakeUsed, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
+	vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
 	return &vm_db.VmAccountBlock{block, db}, nil
 }
 
@@ -771,10 +772,10 @@ func (vm *VM) receiveReward(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 	quotaAddition := uint64(0)
 	var err error
 	if !types.IsBuiltinContractAddrInUse(block.AccountAddress) {
-		quotaTotal, quotaAddition, err = quota.CalcQuotaForBlock(
+		quotaTotal, quotaAddition, err = quota.GetQuotaForBlock(
 			db,
 			block.AccountAddress,
-			getPledgeAmount(db),
+			getStakeBeneficialAmount(db),
 			block.Difficulty,
 			vm.latestSnapshotHeight)
 		util.DealWithErr(err)
@@ -789,18 +790,18 @@ func (vm *VM) receiveReward(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 		}
 	}
 	util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
-	q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, nil)
-	vm.updateBlock(db, block, nil, q, qUsed)
+	qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, nil)
+	vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
 	return &vm_db.VmAccountBlock{block, db}, noRetry, nil
 }
 
 func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, meta *ledger.ContractMeta) (*vm_db.VmAccountBlock, bool, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveRefund"}, time.Now())
 	// check can make transaction
-	quotaTotal, quotaAddition, err := quota.CalcQuotaForBlock(
+	quotaTotal, quotaAddition, err := quota.GetQuotaForBlock(
 		db,
 		block.AccountAddress,
-		getPledgeAmount(db),
+		getStakeBeneficialAmount(db),
 		block.Difficulty,
 		vm.latestSnapshotHeight)
 	util.DealWithErr(err)
@@ -814,8 +815,8 @@ func (vm *VM) receiveRefund(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 		return nil, retry, err
 	}
 	util.AddBalance(db, &sendBlock.TokenId, sendBlock.Amount)
-	q, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, nil)
-	vm.updateBlock(db, block, nil, q, qUsed)
+	qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, quotaLeft, nil)
+	vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
 	return &vm_db.VmAccountBlock{block, db}, noRetry, nil
 }
 
@@ -831,8 +832,8 @@ func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract)
 	return nil, nil
 }
 
-func (vm *VM) updateBlock(db vm_db.VmDb, block *ledger.AccountBlock, err error, q, qUsed uint64) {
-	block.Quota = q
+func (vm *VM) updateBlock(db vm_db.VmDb, block *ledger.AccountBlock, err error, qStakeUsed, qUsed uint64) {
+	block.Quota = qStakeUsed
 	block.QuotaUsed = qUsed
 	if block.IsReceiveBlock() {
 		block.LogHash = db.GetLogListHash()
@@ -918,10 +919,10 @@ func (vm *VM) OffChainReader(db vm_db.VmDb, code []byte, data []byte) (result []
 	return c.run(vm)
 }
 
-func getPledgeAmount(db vm_db.VmDb) *big.Int {
-	pledgeAmount, err := db.GetPledgeBeneficialAmount(db.Address())
+func getStakeBeneficialAmount(db vm_db.VmDb) *big.Int {
+	stakeBeneficialAmount, err := db.GetStakeBeneficialAmount(db.Address())
 	util.DealWithErr(err)
-	return pledgeAmount
+	return stakeBeneficialAmount
 }
 
 func useQuotaForSend(block *ledger.AccountBlock, db vm_db.VmDb, quotaLeft uint64, gasTable *util.QuotaTable) (uint64, error) {
@@ -929,11 +930,11 @@ func useQuotaForSend(block *ledger.AccountBlock, db vm_db.VmDb, quotaLeft uint64
 	if err != nil {
 		return quotaLeft, err
 	}
-	quotaRatio, err := getQuotaRatioForS(db, block.ToAddress)
+	quotaMultiplier, err := getQuotaMultiplierForS(db, block.ToAddress)
 	if err != nil {
 		return quotaLeft, err
 	}
-	cost, err = util.MultipleCost(cost, quotaRatio)
+	cost, err = util.MultipleCost(cost, quotaMultiplier)
 	if err != nil {
 		return quotaLeft, err
 	}

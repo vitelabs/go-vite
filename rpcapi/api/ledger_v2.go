@@ -553,22 +553,22 @@ func calcPoWDifficulty(c chain.Chain, param CalcPoWDifficultyParam) (result *Cal
 	qc, _, isCongestion := quota.CalcQc(db, sb.Height)
 
 	// get current quota
-	var pledgeAmount *big.Int
+	var stakeAmount *big.Int
 	var q types.Quota
-	if param.UsePledgeQuota {
-		pledgeAmount, err = c.GetPledgeBeneficialAmount(param.SelfAddr)
+	if param.UseStakeQuota {
+		stakeAmount, err = c.GetStakeBeneficialAmount(param.SelfAddr)
 		if err != nil {
 			return nil, err
 		}
-		q, err := quota.GetPledgeQuota(db, param.SelfAddr, pledgeAmount, sb.Height)
+		q, err := quota.GetQuota(db, param.SelfAddr, stakeAmount, sb.Height)
 		if err != nil {
 			return nil, err
 		}
 		if q.Current() >= quotaRequired {
-			return &CalcPoWDifficultyResult{quotaRequired, Uint64ToString(quotaRequired), "", Float64ToString(float64(quotaRequired)/float64(quota.QuotaForUtps), 4), bigIntToString(qc), isCongestion}, nil
+			return &CalcPoWDifficultyResult{quotaRequired, Uint64ToString(quotaRequired), "", Float64ToString(float64(quotaRequired)/float64(quota.QuotaPerUt), 4), bigIntToString(qc), isCongestion}, nil
 		}
 	} else {
-		pledgeAmount = big.NewInt(0)
+		stakeAmount = big.NewInt(0)
 		q = types.NewQuota(0, 0, 0, 0, false)
 	}
 	// calc difficulty if current quota is not enough
@@ -584,7 +584,7 @@ func calcPoWDifficulty(c chain.Chain, param CalcPoWDifficultyParam) (result *Cal
 		d.Mul(d, multipleDivision)
 		d.Div(d, big.NewInt(int64(param.Multiple)))
 	}
-	return &CalcPoWDifficultyResult{quotaRequired, Uint64ToString(quotaRequired), d.String(), Float64ToString(float64(quotaRequired)/float64(quota.QuotaForUtps), 4), bigIntToString(qc), isCongestion}, nil
+	return &CalcPoWDifficultyResult{quotaRequired, Uint64ToString(quotaRequired), d.String(), Float64ToString(float64(quotaRequired)/float64(quota.QuotaPerUt), 4), bigIntToString(qc), isCongestion}, nil
 }
 
 type GetQuotaRequiredParam struct {
@@ -634,5 +634,5 @@ func calcQuotaRequired(c chain.Chain, param CalcQuotaRequiredParam) (*CalcQuotaR
 	if err != nil {
 		return nil, err
 	}
-	return &CalcQuotaRequiredResult{Uint64ToString(quotaRequired), Float64ToString(float64(quotaRequired)/float64(quota.QuotaForUtps), 4)}, nil
+	return &CalcQuotaRequiredResult{Uint64ToString(quotaRequired), Float64ToString(float64(quotaRequired)/float64(quota.QuotaPerUt), 4)}, nil
 }

@@ -30,7 +30,7 @@ func (md *MethodDexFundDeposit) GetRefundData(sendBlock *ledger.AccountBlock, sb
 }
 
 func (md *MethodDexFundDeposit) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundDeposit) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -68,7 +68,7 @@ func (md *MethodDexFundWithdraw) GetRefundData(sendBlock *ledger.AccountBlock, s
 }
 
 func (md *MethodDexFundWithdraw) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundWithdraw) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -130,7 +130,7 @@ func (md *MethodDexFundOpenNewMarket) GetRefundData(sendBlock *ledger.AccountBlo
 }
 
 func (md *MethodDexFundOpenNewMarket) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundOpenNewMarket) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -175,7 +175,7 @@ func (md MethodDexFundOpenNewMarket) DoReceive(db vm_db.VmDb, block *ledger.Acco
 			return []*ledger.AccountBlock{
 				{
 					AccountAddress: types.AddressDexFund,
-					ToAddress:      types.AddressAssert,
+					ToAddress:      types.AddressAsset,
 					BlockType:      ledger.BlockTypeSendCall,
 					TokenId:        ledger.ViteTokenId,
 					Amount:         big.NewInt(0),
@@ -200,7 +200,7 @@ func (md *MethodDexFundPlaceOrder) GetRefundData(sendBlock *ledger.AccountBlock,
 }
 
 func (md *MethodDexFundPlaceOrder) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundPlaceOrder) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -238,7 +238,7 @@ func (md *MethodDexFundSettleOrders) GetRefundData(sendBlock *ledger.AccountBloc
 }
 
 func (md *MethodDexFundSettleOrders) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundSettleOrders) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -303,7 +303,7 @@ func (md *MethodDexFundTriggerPeriodJob) GetRefundData(sendBlock *ledger.Account
 }
 
 func (md *MethodDexFundTriggerPeriodJob) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundTriggerPeriodJob) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -398,7 +398,7 @@ func (md *MethodDexFundStakeForMining) GetRefundData(sendBlock *ledger.AccountBl
 }
 
 func (md *MethodDexFundStakeForMining) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundStakeForMining) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -426,7 +426,7 @@ func (md *MethodDexFundStakeForMining) DoSend(db vm_db.VmDb, block *ledger.Accou
 func (md MethodDexFundStakeForMining) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var param = new(dex.ParamStakeForMining)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
-	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForMining, param.ActionType, sendBlock.AccountAddress, param.Amount, nodeConfig.params.PledgeHeight); err != nil {
+	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForMining, param.ActionType, sendBlock.AccountAddress, param.Amount, nodeConfig.params.StakeHeight); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	} else {
 		return appendBlocks, nil
@@ -446,7 +446,7 @@ func (md *MethodDexFundStakeForVIP) GetRefundData(sendBlock *ledger.AccountBlock
 }
 
 func (md *MethodDexFundStakeForVIP) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundStakeForVIP) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -490,7 +490,7 @@ func (md *MethodDexFundStakeForSVIP) GetRefundData(sendBlock *ledger.AccountBloc
 }
 
 func (md *MethodDexFundStakeForSVIP) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundStakeForSVIP) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -534,7 +534,7 @@ func (md *MethodDexFundDelegateStakeCallback) GetRefundData(sendBlock *ledger.Ac
 }
 
 func (md *MethodDexFundDelegateStakeCallback) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundDelegateStakeCallback) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -616,7 +616,7 @@ func (md *MethodDexFundCancelDelegateStakeCallback) GetRefundData(sendBlock *led
 }
 
 func (md *MethodDexFundCancelDelegateStakeCallback) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundCancelDelegateStakeCallback) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -698,7 +698,7 @@ func (md *MethodDexFundGetTokenInfoCallback) GetRefundData(sendBlock *ledger.Acc
 }
 
 func (md *MethodDexFundGetTokenInfoCallback) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundGetTokenInfoCallback) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -706,7 +706,7 @@ func (md *MethodDexFundGetTokenInfoCallback) GetReceiveQuota(gasTable *util.Quot
 }
 
 func (md *MethodDexFundGetTokenInfoCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.AccountAddress != types.AddressAssert {
+	if block.AccountAddress != types.AddressAsset {
 		return dex.InvalidSourceAddressErr
 	}
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamGetTokenInfoCallback), md.MethodName, block.Data)
@@ -765,7 +765,7 @@ func (md *MethodDexFundDexAdminConfig) GetRefundData(sendBlock *ledger.AccountBl
 }
 
 func (md *MethodDexFundDexAdminConfig) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundDexAdminConfig) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -820,7 +820,7 @@ func (md *MethodDexFundTradeAdminConfig) GetRefundData(sendBlock *ledger.Account
 }
 
 func (md *MethodDexFundTradeAdminConfig) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundTradeAdminConfig) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -864,7 +864,7 @@ func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.A
 				return []*ledger.AccountBlock{
 					{
 						AccountAddress: types.AddressDexFund,
-						ToAddress:      types.AddressAssert,
+						ToAddress:      types.AddressAsset,
 						BlockType:      ledger.BlockTypeSendCall,
 						TokenId:        ledger.ViteTokenId,
 						Amount:         big.NewInt(0),
@@ -909,7 +909,7 @@ func (md *MethodDexFundMarketAdminConfig) GetRefundData(sendBlock *ledger.Accoun
 }
 
 func (md *MethodDexFundMarketAdminConfig) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundMarketAdminConfig) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -976,7 +976,7 @@ func (md *MethodDexFundTransferTokenOwnership) GetRefundData(sendBlock *ledger.A
 }
 
 func (md *MethodDexFundTransferTokenOwnership) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundTransferTokenOwnership) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -1008,7 +1008,7 @@ func (md MethodDexFundTransferTokenOwnership) DoReceive(db vm_db.VmDb, block *le
 		return []*ledger.AccountBlock{
 			{
 				AccountAddress: types.AddressDexFund,
-				ToAddress:      types.AddressAssert,
+				ToAddress:      types.AddressAsset,
 				BlockType:      ledger.BlockTypeSendCall,
 				TokenId:        ledger.ViteTokenId,
 				Amount:         big.NewInt(0),
@@ -1032,7 +1032,7 @@ func (md *MethodDexFundNotifyTime) GetRefundData(sendBlock *ledger.AccountBlock,
 }
 
 func (md *MethodDexFundNotifyTime) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundNotifyTime) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -1073,7 +1073,7 @@ func (md *MethodDexFundCreateNewInviter) GetRefundData(sendBlock *ledger.Account
 }
 
 func (md *MethodDexFundCreateNewInviter) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundCreateNewInviter) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -1114,7 +1114,7 @@ func (md *MethodDexFundBindInviteCode) GetRefundData(sendBlock *ledger.AccountBl
 }
 
 func (md *MethodDexFundBindInviteCode) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundBindInviteCode) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -1166,7 +1166,7 @@ func (md *MethodDexFundEndorseVx) GetRefundData(sendBlock *ledger.AccountBlock, 
 }
 
 func (md *MethodDexFundEndorseVx) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundEndorseVx) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -1200,7 +1200,7 @@ func (md *MethodDexFundSettleMakerMinedVx) GetRefundData(sendBlock *ledger.Accou
 }
 
 func (md *MethodDexFundSettleMakerMinedVx) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundSettleMakerMinedVx) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -1293,7 +1293,7 @@ func (md *MethodDexFundConfigMarketAgents) GetRefundData(sendBlock *ledger.Accou
 }
 
 func (md *MethodDexFundConfigMarketAgents) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundConfigMarketAgents) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -1352,7 +1352,7 @@ func (md *MethodDexFundPlaceAgentOrder) GetRefundData(sendBlock *ledger.AccountB
 }
 
 func (md *MethodDexFundPlaceAgentOrder) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexFundPlaceAgentOrder) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {

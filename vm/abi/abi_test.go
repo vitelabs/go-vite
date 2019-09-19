@@ -21,7 +21,7 @@ const jsondata = `
 	{ "type" : "function", "name" : "balance", "constant" : true },
 	{ "type" : "function", "name" : "send", "constant" : false, "inputs" : [ { "name" : "amount", "type" : "uint256" } ] },
 	{ "type" : "event", "name" : "Transfer", "anonymous" : false, "inputs" : [ { "indexed" : true, "name" : "from", "type" : "address" }, { "indexed" : true, "name" : "to", "type" : "address" }, { "name" : "value", "type" : "uint256" } ] },
-	{ "type" : "variable", "name" : "register", "inputs" : [ { "name" : "node", "type" : "address" }, { "name" : "amount", "type" : "uint256" }, { "name" : "withdrawTime", "type" : "int64" }  ] }
+	{ "type" : "variable", "name" : "register", "inputs" : [ { "name" : "node", "type" : "address" }, { "name" : "amount", "type" : "uint256" }, { "name" : "expirationTime", "type" : "int64" }  ] }
 ]`
 
 const jsondata2 = `
@@ -75,7 +75,7 @@ func TestReader(t *testing.T) {
 			"register": {"register", []Argument{
 				{"node", typeAddress, false},
 				{"amount", typeUint256, false},
-				{"withdrawTime", typeInt64, false},
+				{"expirationTime", typeInt64, false},
 			}},
 		},
 	}
@@ -817,8 +817,8 @@ func TestPackEvent(t *testing.T) {
 		data      []byte
 	}{
 		{
-			`[{"type":"event","name":"mint","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}]`,
-			"mint",
+			`[{"type":"event","name":"issue","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}]`,
+			"issue",
 			[]interface{}{ledger.ViteTokenId},
 			[]types.Hash{
 				{63, 157, 204, 0, 213, 233, 41, 4, 1, 66, 195, 251, 43, 103, 163, 190, 27, 14, 145, 233, 141, 172, 24, 213, 188, 43, 120, 23, 164, 207, 236, 182},

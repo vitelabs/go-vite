@@ -17,52 +17,52 @@ var (
 	noBid             = uint8(0)
 )
 
-type MethodPledge struct {
+type MethodStake struct {
 	MethodName string
 }
 
-func (p *MethodPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (p *MethodStake) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodPledge) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+func (p *MethodStake) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (p *MethodPledge) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+func (p *MethodStake) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
 	return gasTable.StakeQuota, nil
 }
-func (p *MethodPledge) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+func (p *MethodStake) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if !util.IsViteToken(block.TokenId) ||
-		block.Amount.Cmp(pledgeAmountMin) < 0 {
+		block.Amount.Cmp(stakeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
-	beneficialAddr := new(types.Address)
-	if err := abi.ABIQuota.UnpackMethod(beneficialAddr, p.MethodName, block.Data); err != nil {
+	beneficiary := new(types.Address)
+	if err := abi.ABIQuota.UnpackMethod(beneficiary, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIQuota.PackMethod(p.MethodName, *beneficialAddr)
+	block.Data, _ = abi.ABIQuota.PackMethod(p.MethodName, *beneficiary)
 	return nil
 }
-func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	beneficialAddr := new(types.Address)
-	abi.ABIQuota.UnpackMethod(beneficialAddr, p.MethodName, sendBlock.Data)
-	pledgeKey, oldPledge := getPledgeInfo(db, sendBlock.AccountAddress, *beneficialAddr, noDelegate, noDelegateAddress, noBid, block.Height)
+func (p *MethodStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	beneficiary := new(types.Address)
+	abi.ABIQuota.UnpackMethod(beneficiary, p.MethodName, sendBlock.Data)
+	stakeInfoKey, oldStakeInfo := getStakeInfo(db, sendBlock.AccountAddress, *beneficiary, noDelegate, noDelegateAddress, noBid, block.Height)
 	var amount *big.Int
-	if oldPledge != nil {
-		amount = oldPledge.Amount
+	if oldStakeInfo != nil {
+		amount = oldStakeInfo.Amount
 	} else {
 		amount = big.NewInt(0)
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, amount, getPledgeWithdrawHeight(vm, nodeConfig.params.PledgeHeight), beneficialAddr, noDelegate, noDelegateAddress, noBid)
-	util.SetValue(db, pledgeKey, pledgeInfo)
+	stakeInfo, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, amount, getStakeExpirationHeight(vm, nodeConfig.params.StakeHeight), beneficiary, noDelegate, noDelegateAddress, noBid)
+	util.SetValue(db, stakeInfoKey, stakeInfo)
 
-	beneficialKey := abi.GetStakeBeneficialKey(*beneficialAddr)
+	beneficialKey := abi.GetStakeBeneficialKey(*beneficiary)
 	oldBeneficialData := util.GetValue(db, beneficialKey)
 	var beneficialAmount *big.Int
 	if len(oldBeneficialData) > 0 {
@@ -78,8 +78,8 @@ func (p *MethodPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 	return nil, nil
 }
 
-func getPledgeInfo(db vm_db.VmDb, pledgeAddr types.Address, beneficialAddr types.Address, agent bool, agentAddr types.Address, bid uint8, currentIndex uint64) ([]byte, *types.StakeInfo) {
-	iterator, err := db.NewStorageIterator(abi.GetStakeInfoKeyPrefix(pledgeAddr))
+func getStakeInfo(db vm_db.VmDb, stakeAddr types.Address, beneficiary types.Address, isDelegated bool, delegateAddr types.Address, bid uint8, currentIndex uint64) ([]byte, *types.StakeInfo) {
+	iterator, err := db.NewStorageIterator(abi.GetStakeInfoKeyPrefix(stakeAddr))
 	util.DealWithErr(err)
 	defer iterator.Release()
 	maxIndex := uint64(0)
@@ -93,48 +93,48 @@ func getPledgeInfo(db vm_db.VmDb, pledgeAddr types.Address, beneficialAddr types
 		if !abi.IsStakeInfoKey(iterator.Key()) {
 			continue
 		}
-		pledgeInfo := new(types.StakeInfo)
-		abi.ABIQuota.UnpackVariable(pledgeInfo, abi.VariableNameStakeInfo, iterator.Value())
-		if pledgeInfo.Beneficiary == beneficialAddr && pledgeInfo.IsDelegated == agent &&
-			pledgeInfo.DelegateAddress == agentAddr && pledgeInfo.Bid == bid {
-			return iterator.Key(), pledgeInfo
+		stakeInfo := new(types.StakeInfo)
+		abi.ABIQuota.UnpackVariable(stakeInfo, abi.VariableNameStakeInfo, iterator.Value())
+		if stakeInfo.Beneficiary == beneficiary && stakeInfo.IsDelegated == isDelegated &&
+			stakeInfo.DelegateAddress == delegateAddr && stakeInfo.Bid == bid {
+			return iterator.Key(), stakeInfo
 		}
 		maxIndex = helper.Max(maxIndex, abi.GetIndexFromStakeInfoKey(iterator.Key()))
 	}
 	if maxIndex < currentIndex {
-		return abi.GetStakeInfoKey(pledgeAddr, currentIndex), nil
+		return abi.GetStakeInfoKey(stakeAddr, currentIndex), nil
 	}
-	return abi.GetStakeInfoKey(pledgeAddr, maxIndex+1), nil
+	return abi.GetStakeInfoKey(stakeAddr, maxIndex+1), nil
 }
 
-func getPledgeWithdrawHeight(vm vmEnvironment, height uint64) uint64 {
+func getStakeExpirationHeight(vm vmEnvironment, height uint64) uint64 {
 	return vm.GlobalStatus().SnapshotBlock().Height + height
 }
 
-func pledgeNotDue(oldPledge *types.StakeInfo, vm vmEnvironment) bool {
-	return oldPledge.ExpirationHeight > vm.GlobalStatus().SnapshotBlock().Height
+func stakeNotDue(oldStakeInfo *types.StakeInfo, vm vmEnvironment) bool {
+	return oldStakeInfo.ExpirationHeight > vm.GlobalStatus().SnapshotBlock().Height
 }
 
-type MethodCancelPledge struct {
+type MethodCancelStake struct {
 	MethodName string
 }
 
-func (p *MethodCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (p *MethodCancelStake) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodCancelPledge) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+func (p *MethodCancelStake) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	return []byte{}, false
 }
 
-func (p *MethodCancelPledge) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+func (p *MethodCancelStake) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
 	return gasTable.CancelStakeQuota, nil
 }
-func (p *MethodCancelPledge) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+func (p *MethodCancelStake) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodCancelStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -142,22 +142,22 @@ func (p *MethodCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) e
 	if err := abi.ABIQuota.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if param.Amount.Cmp(pledgeAmountMin) < 0 {
+	if param.Amount.Cmp(stakeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = abi.ABIQuota.PackMethod(p.MethodName, param.Beneficiary, param.Amount)
 	return nil
 }
 
-func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodCancelStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
-	pledgeKey, oldPledge := getPledgeInfo(db, sendBlock.AccountAddress, param.Beneficiary, noDelegate, noDelegateAddress, noBid, block.Height)
-	if oldPledge == nil || pledgeNotDue(oldPledge, vm) || oldPledge.Amount.Cmp(param.Amount) < 0 {
+	stakeInfoKey, oldStakeInfo := getStakeInfo(db, sendBlock.AccountAddress, param.Beneficiary, noDelegate, noDelegateAddress, noBid, block.Height)
+	if oldStakeInfo == nil || stakeNotDue(oldStakeInfo, vm) || oldStakeInfo.Amount.Cmp(param.Amount) < 0 {
 		return nil, util.ErrInvalidMethodParam
 	}
-	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
-	if oldPledge.Amount.Sign() != 0 && oldPledge.Amount.Cmp(pledgeAmountMin) < 0 {
+	oldStakeInfo.Amount.Sub(oldStakeInfo.Amount, param.Amount)
+	if oldStakeInfo.Amount.Sign() != 0 && oldStakeInfo.Amount.Cmp(stakeAmountMin) < 0 {
 		return nil, util.ErrInvalidMethodParam
 	}
 
@@ -170,18 +170,18 @@ func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	}
 	oldBeneficial.Amount.Sub(oldBeneficial.Amount, param.Amount)
 
-	if oldPledge.Amount.Sign() == 0 {
-		util.SetValue(db, pledgeKey, nil)
+	if oldStakeInfo.Amount.Sign() == 0 {
+		util.SetValue(db, stakeInfoKey, nil)
 	} else {
-		pledgeInfo, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, oldPledge.Amount, oldPledge.ExpirationHeight, oldPledge.Beneficiary, noDelegate, noDelegateAddress, noBid)
-		util.SetValue(db, pledgeKey, pledgeInfo)
+		stakeInfo, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, oldStakeInfo.Amount, oldStakeInfo.ExpirationHeight, oldStakeInfo.Beneficiary, noDelegate, noDelegateAddress, noBid)
+		util.SetValue(db, stakeInfoKey, stakeInfo)
 	}
 
 	if oldBeneficial.Amount.Sign() == 0 {
 		util.SetValue(db, beneficialKey, nil)
 	} else {
-		pledgeBeneficial, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, oldBeneficial.Amount)
-		util.SetValue(db, beneficialKey, pledgeBeneficial)
+		stakeBeneficialAmount, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, oldBeneficial.Amount)
+		util.SetValue(db, beneficialKey, stakeBeneficialAmount)
 	}
 	return []*ledger.AccountBlock{
 		{
@@ -195,58 +195,58 @@ func (p *MethodCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	}, nil
 }
 
-type MethodAgentPledge struct {
+type MethodDelegateStake struct {
 	MethodName string
 }
 
-func (p *MethodAgentPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (p *MethodDelegateStake) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodAgentPledge) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+func (p *MethodDelegateStake) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	param := new(abi.ParamDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	callbackData, _ := abi.ABIQuota.PackCallback(p.MethodName, param.StakeAddress, param.Beneficiary, sendBlock.Amount, param.Bid, false)
 	return callbackData, true
 }
 
-func (p *MethodAgentPledge) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+func (p *MethodDelegateStake) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
 	return gasTable.DelegateStakeQuota, nil
 }
-func (p *MethodAgentPledge) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+func (p *MethodDelegateStake) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodAgentPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodDelegateStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if !util.IsViteToken(block.TokenId) ||
-		block.Amount.Cmp(pledgeAmountMin) < 0 {
+		block.Amount.Cmp(stakeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamDelegateStake)
 	if err := abi.ABIQuota.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if param.StakeHeight < nodeConfig.params.PledgeHeight || param.StakeHeight > stakeHeightMax {
+	if param.StakeHeight < nodeConfig.params.StakeHeight || param.StakeHeight > stakeHeightMax {
 		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = abi.ABIQuota.PackMethod(p.MethodName, param.StakeAddress, param.Beneficiary, param.Bid, param.StakeHeight)
 	return nil
 }
-func (p *MethodAgentPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodDelegateStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
-	pledgeKey, oldPledge := getPledgeInfo(db, param.StakeAddress, param.Beneficiary, delegate, sendBlock.AccountAddress, param.Bid, block.Height)
+	stakeInfoKey, oldStakeInfo := getStakeInfo(db, param.StakeAddress, param.Beneficiary, delegate, sendBlock.AccountAddress, param.Bid, block.Height)
 	var amount *big.Int
-	oldWithdrawHeight := uint64(0)
-	if oldPledge != nil {
-		amount = oldPledge.Amount
-		oldWithdrawHeight = oldPledge.ExpirationHeight
+	oldExpirationHeight := uint64(0)
+	if oldStakeInfo != nil {
+		amount = oldStakeInfo.Amount
+		oldExpirationHeight = oldStakeInfo.ExpirationHeight
 	} else {
 		amount = big.NewInt(0)
 	}
 	amount.Add(amount, sendBlock.Amount)
-	pledgeInfo, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, amount, helper.Max(oldWithdrawHeight, getPledgeWithdrawHeight(vm, param.StakeHeight)), param.Beneficiary, delegate, sendBlock.AccountAddress, param.Bid)
-	util.SetValue(db, pledgeKey, pledgeInfo)
+	stakeInfo, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, amount, helper.Max(oldExpirationHeight, getStakeExpirationHeight(vm, param.StakeHeight)), param.Beneficiary, delegate, sendBlock.AccountAddress, param.Bid)
+	util.SetValue(db, stakeInfoKey, stakeInfo)
 
 	beneficialKey := abi.GetStakeBeneficialKey(param.Beneficiary)
 	oldBeneficialData := util.GetValue(db, beneficialKey)
@@ -275,30 +275,30 @@ func (p *MethodAgentPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock,
 	}, nil
 }
 
-type MethodAgentCancelPledge struct {
+type MethodCancelDelegateStake struct {
 	MethodName string
 }
 
-func (p *MethodAgentCancelPledge) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (p *MethodCancelDelegateStake) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodAgentCancelPledge) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+func (p *MethodCancelDelegateStake) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	param := new(abi.ParamCancelDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	callbackData, _ := abi.ABIQuota.PackCallback(p.MethodName, param.StakeAddress, param.Beneficiary, param.Amount, param.Bid, false)
 	return callbackData, true
 }
 
-func (p *MethodAgentCancelPledge) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+func (p *MethodCancelDelegateStake) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
 	return gasTable.CancelDelegateStakeQuota, nil
 }
 
-func (p *MethodAgentCancelPledge) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+func (p *MethodCancelDelegateStake) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodAgentCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodCancelDelegateStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -306,22 +306,22 @@ func (p *MethodAgentCancelPledge) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 	if err := abi.ABIQuota.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
-	if param.Amount.Cmp(pledgeAmountMin) < 0 {
+	if param.Amount.Cmp(stakeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = abi.ABIQuota.PackMethod(p.MethodName, param.StakeAddress, param.Beneficiary, param.Amount, param.Bid)
 	return nil
 }
 
-func (p *MethodAgentCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodCancelDelegateStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
-	pledgeKey, oldPledge := getPledgeInfo(db, param.StakeAddress, param.Beneficiary, delegate, sendBlock.AccountAddress, param.Bid, block.Height)
-	if oldPledge == nil || pledgeNotDue(oldPledge, vm) || oldPledge.Amount.Cmp(param.Amount) < 0 {
+	stakeInfoKey, oldStakeInfo := getStakeInfo(db, param.StakeAddress, param.Beneficiary, delegate, sendBlock.AccountAddress, param.Bid, block.Height)
+	if oldStakeInfo == nil || stakeNotDue(oldStakeInfo, vm) || oldStakeInfo.Amount.Cmp(param.Amount) < 0 {
 		return nil, util.ErrInvalidMethodParam
 	}
-	oldPledge.Amount.Sub(oldPledge.Amount, param.Amount)
-	if oldPledge.Amount.Sign() != 0 && oldPledge.Amount.Cmp(pledgeAmountMin) < 0 {
+	oldStakeInfo.Amount.Sub(oldStakeInfo.Amount, param.Amount)
+	if oldStakeInfo.Amount.Sign() != 0 && oldStakeInfo.Amount.Cmp(stakeAmountMin) < 0 {
 		return nil, util.ErrInvalidMethodParam
 	}
 
@@ -334,18 +334,18 @@ func (p *MethodAgentCancelPledge) DoReceive(db vm_db.VmDb, block *ledger.Account
 	}
 	oldBeneficial.Amount.Sub(oldBeneficial.Amount, param.Amount)
 
-	if oldPledge.Amount.Sign() == 0 {
-		util.SetValue(db, pledgeKey, nil)
+	if oldStakeInfo.Amount.Sign() == 0 {
+		util.SetValue(db, stakeInfoKey, nil)
 	} else {
-		pledgeInfo, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, oldPledge.Amount, oldPledge.ExpirationHeight, oldPledge.Beneficiary, delegate, oldPledge.DelegateAddress, param.Bid)
-		util.SetValue(db, pledgeKey, pledgeInfo)
+		stakeInfo, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, oldStakeInfo.Amount, oldStakeInfo.ExpirationHeight, oldStakeInfo.Beneficiary, delegate, oldStakeInfo.DelegateAddress, param.Bid)
+		util.SetValue(db, stakeInfoKey, stakeInfo)
 	}
 
 	if oldBeneficial.Amount.Sign() == 0 {
 		util.SetValue(db, beneficialKey, nil)
 	} else {
-		pledgeBeneficial, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, oldBeneficial.Amount)
-		util.SetValue(db, beneficialKey, pledgeBeneficial)
+		stakeBeneficialAmount, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, oldBeneficial.Amount)
+		util.SetValue(db, beneficialKey, stakeBeneficialAmount)
 	}
 
 	callbackData, _ := abi.ABIQuota.PackCallback(p.MethodName, param.StakeAddress, param.Beneficiary, param.Amount, param.Bid, true)

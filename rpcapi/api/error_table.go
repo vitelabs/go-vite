@@ -42,7 +42,7 @@ var (
 	}
 
 	ErrVmIdCollision = JsonRpc2Error{
-		Message: util.ErrIdCollision.Error(),
+		Message: util.ErrIDCollision.Error(),
 		Code:    -35003,
 	}
 	ErrVmInvaildBlockData = JsonRpc2Error{
@@ -59,8 +59,8 @@ var (
 		Code:    -35006,
 	}
 
-	ErrVmInvalidConfirmTime = JsonRpc2Error{
-		Message: util.ErrInvalidConfirmTime.Error(),
+	ErrVmInvalidResponseLatency = JsonRpc2Error{
+		Message: util.ErrInvalidResponseLatency.Error(),
 		Code:    -35007,
 	}
 
@@ -74,8 +74,8 @@ var (
 		Code:    -35009,
 	}
 
-	ErrVmInvalidQuotaRatio = JsonRpc2Error{
-		Message: util.ErrInvalidQuotaRatio.Error(),
+	ErrVmInvalidQuotaMultiplier = JsonRpc2Error{
+		Message: util.ErrInvalidQuotaMultiplier.Error(),
 		Code:    -35010,
 	}
 	ErrVmPoWNotSupported = JsonRpc2Error{
@@ -85,6 +85,10 @@ var (
 	ErrVmQuotaLimitReached = JsonRpc2Error{
 		Message: util.ErrBlockQuotaLimitReached.Error(),
 		Code:    -35012,
+	}
+	ErrVmInvalidRandomDegree = JsonRpc2Error{
+		Message: util.ErrInvalidRandomDegree.Error(),
+		Code:    -35013,
 	}
 
 	// -36001 ~ -36999 verifier_account
@@ -177,12 +181,13 @@ func init() {
 	concernedErrorMap[ErrVmInvaildBlockData.Error()] = ErrVmInvaildBlockData
 	concernedErrorMap[ErrVmCalPoWTwice.Error()] = ErrVmCalPoWTwice
 	concernedErrorMap[ErrVmMethodNotFound.Error()] = ErrVmMethodNotFound
-	concernedErrorMap[ErrVmInvalidConfirmTime.Error()] = ErrVmInvalidConfirmTime
+	concernedErrorMap[ErrVmInvalidResponseLatency.Error()] = ErrVmInvalidResponseLatency
 	concernedErrorMap[ErrVmContractNotExists.Error()] = ErrVmContractNotExists
 	concernedErrorMap[ErrVmNoReliableStatus.Error()] = ErrVmNoReliableStatus
-	concernedErrorMap[ErrVmInvalidQuotaRatio.Error()] = ErrVmInvalidQuotaRatio
+	concernedErrorMap[ErrVmInvalidQuotaMultiplier.Error()] = ErrVmInvalidQuotaMultiplier
 	concernedErrorMap[ErrVmPoWNotSupported.Error()] = ErrVmPoWNotSupported
 	concernedErrorMap[ErrVmQuotaLimitReached.Error()] = ErrVmQuotaLimitReached
+	concernedErrorMap[ErrVmInvalidRandomDegree.Error()] = ErrVmInvalidRandomDegree
 
 	concernedErrorMap[ErrVerifyAccountAddr.Error()] = ErrVerifyAccountAddr
 	concernedErrorMap[ErrVerifyHash.Error()] = ErrVerifyHash

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	jsonAssert = `
+	jsonAsset = `
 	[
 		{"type":"function","name":"Mint","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"isOwnerBurnOnly","type":"bool"}]},
 		{"type":"function","name":"IssueToken","inputs":[{"name":"isReIssuable","type":"bool"},{"name":"tokenName","type":"string"},{"name":"tokenSymbol","type":"string"},{"name":"totalSupply","type":"uint256"},{"name":"decimals","type":"uint8"},{"name":"maxSupply","type":"uint256"},{"name":"isOwnerBurnOnly","type":"bool"}]},
@@ -62,8 +62,8 @@ const (
 )
 
 var (
-	// ABIAssert is abi definition of assert contract
-	ABIAssert, _ = abi.JSONToABIContract(strings.NewReader(jsonAssert))
+	// ABIAsset is abi definition of asset contract
+	ABIAsset, _ = abi.JSONToABIContract(strings.NewReader(jsonAsset))
 )
 
 type ParamIssue struct {
@@ -136,7 +136,7 @@ func DeleteTokenID(oldIDList []byte, tokenID types.TokenTypeId) []byte {
 
 // GetTokenByID query token info by id
 func GetTokenByID(db StorageDatabase, tokenID types.TokenTypeId) (*types.TokenInfo, error) {
-	if *db.Address() != types.AddressAssert {
+	if *db.Address() != types.AddressAsset {
 		return nil, util.ErrAddressNotMatch
 	}
 	data, err := db.GetValue(GetTokenInfoKey(tokenID))
@@ -152,7 +152,7 @@ func GetTokenByID(db StorageDatabase, tokenID types.TokenTypeId) (*types.TokenIn
 
 // GetTokenMap query all token info map
 func GetTokenMap(db StorageDatabase) (map[types.TokenTypeId]*types.TokenInfo, error) {
-	if *db.Address() != types.AddressAssert {
+	if *db.Address() != types.AddressAsset {
 		return nil, util.ErrAddressNotMatch
 	}
 	iterator, err := db.NewStorageIterator(nil)
@@ -181,7 +181,7 @@ func GetTokenMap(db StorageDatabase) (map[types.TokenTypeId]*types.TokenInfo, er
 
 // GetTokenMapByOwner query token info map by owner
 func GetTokenMapByOwner(db StorageDatabase, owner types.Address) (tokenInfoMap map[types.TokenTypeId]*types.TokenInfo, err error) {
-	if *db.Address() != types.AddressAssert {
+	if *db.Address() != types.AddressAsset {
 		return nil, util.ErrAddressNotMatch
 	}
 	tokenIDList, err := db.GetValue(GetTokenIDListKey(owner))
@@ -204,6 +204,6 @@ func parseTokenInfo(data []byte) (*types.TokenInfo, error) {
 		return nil, util.ErrDataNotExist
 	}
 	tokenInfo := new(types.TokenInfo)
-	err := ABIAssert.UnpackVariable(tokenInfo, VariableNameTokenInfo, data)
+	err := ABIAsset.UnpackVariable(tokenInfo, VariableNameTokenInfo, data)
 	return tokenInfo, err
 }

@@ -1,58 +1,48 @@
 package util
 
-type VMError struct {
-	errMsg     string
-	costAllGas bool
-}
-
-func (e VMError) Error() string {
-	return e.errMsg
-}
-func (e VMError) CostAllGas() bool {
-	return e.costAllGas
-}
+import "errors"
 
 var (
-	ErrInvalidMethodParam        = VMError{"invalid method param", false}
-	ErrInvalidQuotaRatio         = VMError{"invalid quota ratio", false}
-	ErrRewardIsNotDrained        = VMError{"reward is not drained", false}
-	ErrInsufficientBalance       = VMError{"insufficient balance for transfer", false}
-	ErrCalcPoWTwice              = VMError{"calc PoW twice referring to one snapshot block", false}
-	ErrAbiMethodNotFound         = VMError{"abi: method not found", false}
-	ErrInvalidConfirmTime        = VMError{"invalid confirm time", false}
-	ErrInvalidSeedCount          = VMError{"invalid seed count", false}
-	ErrAddressNotMatch           = VMError{"current address not match", false}
-	ErrTransactionTypeNotSupport = VMError{"transaction type not supported", false}
-	ErrVersionNotSupport         = VMError{"feature not supported in current snapshot height", false}
-	ErrBlockTypeNotSupported     = VMError{"block type not supported", true}
-	ErrDataNotExist              = VMError{"data not exist", false}
-	ErrContractNotExists         = VMError{"contract not exists", false}
-	ErrNoReliableStatus          = VMError{"no reliable status", false}
+	ErrInvalidMethodParam        = errors.New("invalid method param")
+	ErrInvalidQuotaMultiplier    = errors.New("invalid quota multiplier")
+	ErrRewardIsNotDrained        = errors.New("reward is not drained")
+	ErrInsufficientBalance       = errors.New("insufficient balance for transfer")
+	ErrCalcPoWTwice              = errors.New("calc PoW twice referring to one snapshot block")
+	ErrAbiMethodNotFound         = errors.New("abi: method not found")
+	ErrInvalidResponseLatency    = errors.New("invalid response latency")
+	ErrInvalidRandomDegree       = errors.New("invalid random degree")
+	ErrAddressNotMatch           = errors.New("current address not match")
+	ErrTransactionTypeNotSupport = errors.New("transaction type not supported")
+	ErrVersionNotSupport         = errors.New("feature not supported in current snapshot height")
+	ErrBlockTypeNotSupported     = errors.New("block type not supported")
+	ErrDataNotExist              = errors.New("data not exist")
+	ErrContractNotExists         = errors.New("contract not exists")
+	ErrNoReliableStatus          = errors.New("no reliable status")
 
-	ErrAddressCollision = VMError{"contract address collision", false}
-	ErrIdCollision      = VMError{"id collision", false}
-	ErrRewardNotDue     = VMError{"reward not due", false}
+	ErrAddressCollision = errors.New("contract address collision")
+	ErrIDCollision      = errors.New("id collision")
+	ErrRewardNotDue     = errors.New("reward not due")
 
-	ErrExecutionReverted = VMError{"execution reverted", false}
-	ErrDepth             = VMError{"max call depth exceeded", false}
+	ErrExecutionReverted = errors.New("execution reverted")
+	ErrDepth             = errors.New("max call depth exceeded")
 
-	ErrGasUintOverflow          = VMError{"gas uint64 overflow", true}
-	ErrMemSizeOverflow          = VMError{"memory size uint64 overflow", true}
-	ErrReturnDataOutOfBounds    = VMError{"vm: return data out of bounds", true}
-	ErrBlockQuotaLimitReached   = VMError{"quota limit for block reached", true}
-	ErrAccountQuotaLimitReached = VMError{"quota limit for account reached", true}
-	ErrOutOfQuota               = VMError{"out of quota", true}
-	ErrInvalidUnconfirmedQuota  = VMError{"calc quota failed, invalid unconfirmed quota", true}
+	ErrGasUintOverflow          = errors.New("gas uint64 overflow")
+	ErrMemSizeOverflow          = errors.New("memory size uint64 overflow")
+	ErrReturnDataOutOfBounds    = errors.New("vm: return data out of bounds")
+	ErrBlockQuotaLimitReached   = errors.New("quota limit for block reached")
+	ErrAccountQuotaLimitReached = errors.New("quota limit for account reached")
+	ErrOutOfQuota               = errors.New("out of quota")
+	ErrInvalidUnconfirmedQuota  = errors.New("calc quota failed, invalid unconfirmed quota")
 
-	ErrStackLimitReached      = VMError{"stack limit reached", true}
-	ErrStackUnderflow         = VMError{"stack underflow", true}
-	ErrInvalidJumpDestination = VMError{"invalid jump destination", true}
-	ErrInvalidOpCode          = VMError{"invalid opcode", true}
+	ErrStackLimitReached      = errors.New("stack limit reached")
+	ErrStackUnderflow         = errors.New("stack underflow")
+	ErrInvalidJumpDestination = errors.New("invalid jump destination")
+	ErrInvalidOpCode          = errors.New("invalid opcode")
 
-	ErrChainForked          = VMError{"chain forked", false}
-	ErrContractCreationFail = VMError{"contract creation failed", false}
+	ErrChainForked          = errors.New("chain forked")
+	ErrContractCreationFail = errors.New("contract creation failed")
 
-	ErrExecutionCanceled = VMError{"vm execution canceled", false}
+	ErrExecutionCanceled = errors.New("vm execution canceled")
 )
 
 // DealWithErr panics if err is not nil.

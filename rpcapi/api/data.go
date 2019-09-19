@@ -36,7 +36,7 @@ func (p *DataApi) GetPledgeListByPage(snapshotHash types.Hash, lastKey string, c
 	if err != nil {
 		return nil, err
 	}
-	list, lastKeyBytes, err := p.chain.GetPledgeListByPage(snapshotHash, lastKeyBytes, count)
+	list, lastKeyBytes, err := p.chain.GetStakeListByPage(snapshotHash, lastKeyBytes, count)
 	if err != nil {
 		return nil, err
 	}

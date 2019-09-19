@@ -5,19 +5,20 @@ import (
 )
 
 const (
-	quotaForCreateContract uint64 = 1000000 // Quota limit for create contract.
-	quotaLimitForBlock     uint64 = 1000000 // Quota limit for single block
-	quotaForSection        uint64 = 280
-	sectionLen             int    = 3571
-	QuotaForUtps           uint64 = 21000 // 21000 quota =  1 ut
+	// QuotaForCreateContractResponse defines available quota for create contract response block
+	QuotaForCreateContractResponse uint64 = 1000000
+	// quotaLimitForBlock defines max available quota for an account block
+	quotaLimitForBlock uint64 = 1000000
+	// QuotaPerUt defines quota amount of 1 unit transaction
+	QuotaPerUt uint64 = 21000
 
+	quotaForSection     uint64 = 280
+	sectionLen          int    = 3571
 	precForFloat        uint   = 64
 	outOfQuotaBlockTime uint64 = 75
-
-	qcGap uint64 = 21000 * 74
-
-	qcIndexMinMainnet uint64 = 51
-	qcIndexMaxMainnet uint64 = 500
+	qcGap               uint64 = 21000 * 74
+	qcIndexMinMainnet   uint64 = 51
+	qcIndexMaxMainnet   uint64 = 500
 )
 
 var (
@@ -476,7 +477,7 @@ var (
 		500: big.NewInt(536000000050),
 	}
 
-	pledgeAmountListMainnet = []string{
+	stakeAmountListMainnet = []string{
 		"0",
 		"134000000000000000000",
 		"267000000000000000000",
@@ -4050,7 +4051,7 @@ var (
 		"2027355000000000000000000",
 		"2313978000000000000000000",
 	}
-	pledgeAmountListTestnet = []string{
+	stakeAmountListTestnet = []string{
 		"0",
 		"1000000000000000000",
 		"1000000000000000000",

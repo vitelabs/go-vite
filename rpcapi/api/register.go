@@ -62,19 +62,19 @@ type RegistrationInfo struct {
 	CancelTime     int64         `json:"cancelTime"`
 }
 
-type byRegistrationWithdrawHeight []*types.Registration
+type byRegistrationExpirationHeight []*types.Registration
 
-func (a byRegistrationWithdrawHeight) Len() int      { return len(a) }
-func (a byRegistrationWithdrawHeight) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a byRegistrationWithdrawHeight) Less(i, j int) bool {
-	if a[i].WithdrawHeight == a[j].WithdrawHeight {
-		if a[i].CancelTime == a[j].CancelTime {
+func (a byRegistrationExpirationHeight) Len() int      { return len(a) }
+func (a byRegistrationExpirationHeight) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byRegistrationExpirationHeight) Less(i, j int) bool {
+	if a[i].ExpirationHeight == a[j].ExpirationHeight {
+		if a[i].RevokeTime == a[j].RevokeTime {
 			return a[i].Name > a[j].Name
 		} else {
-			return a[i].CancelTime > a[j].CancelTime
+			return a[i].RevokeTime > a[j].RevokeTime
 		}
 	}
-	return a[i].WithdrawHeight > a[j].WithdrawHeight
+	return a[i].ExpirationHeight > a[j].ExpirationHeight
 }
 
 // Deprecated: use contract_getSBPList
@@ -93,16 +93,16 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 	}
 	targetList := make([]*RegistrationInfo, len(list))
 	if len(list) > 0 {
-		sort.Sort(byRegistrationWithdrawHeight(list))
+		sort.Sort(byRegistrationExpirationHeight(list))
 		for i, info := range list {
 			targetList[i] = &RegistrationInfo{
 				Name:           info.Name,
-				NodeAddr:       info.NodeAddr,
+				NodeAddr:       info.BlockProducingAddress,
 				PledgeAddr:     info.StakeAddress,
 				PledgeAmount:   *bigIntToString(info.Amount),
-				WithdrawHeight: Uint64ToString(info.WithdrawHeight),
-				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
-				CancelTime:     info.CancelTime,
+				WithdrawHeight: Uint64ToString(info.ExpirationHeight),
+				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.ExpirationHeight),
+				CancelTime:     info.RevokeTime,
 			}
 		}
 	}
@@ -151,7 +151,7 @@ func (r *RegisterApi) GetAvailableReward(gid types.Gid, name string) (*Reward, e
 	if err != nil {
 		return nil, err
 	}
-	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, sb)
+	_, _, reward, drained, err := contracts.CalcReward(util.NewVMConsensusReader(r.cs.SBPReader()), db, info, sb)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func (r *RegisterApi) GetRewardByDay(gid types.Gid, timestamp int64) (map[string
 	if err != nil {
 		return nil, err
 	}
-	m, _, err := contracts.CalcRewardByCycle(db, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
+	m, _, err := contracts.CalcRewardByCycle(db, util.NewVMConsensusReader(r.cs.SBPReader()), timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (r *RegisterApi) GetRewardByIndex(gid types.Gid, indexStr string) (*RewardI
 	if err != nil {
 		return nil, err
 	}
-	m, err := contracts.CalcRewardByIndex(db, util.NewVmConsensusReader(r.cs.SBPReader()), index)
+	m, err := contracts.CalcRewardByIndex(db, util.NewVMConsensusReader(r.cs.SBPReader()), index)
 	if err != nil {
 		return nil, err
 	}

@@ -30,7 +30,7 @@ func (md *MethodDexTradePlaceOrder) GetRefundData(sendBlock *ledger.AccountBlock
 }
 
 func (md *MethodDexTradePlaceOrder) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexTradePlaceOrder) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -82,7 +82,7 @@ func (md *MethodDexTradeCancelOrder) GetRefundData(sendBlock *ledger.AccountBloc
 }
 
 func (md *MethodDexTradeCancelOrder) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexTradeCancelOrder) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -113,7 +113,7 @@ func (md *MethodDexTradeSyncNewMarket) GetRefundData(sendBlock *ledger.AccountBl
 }
 
 func (md *MethodDexTradeSyncNewMarket) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexTradeSyncNewMarket) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -153,7 +153,7 @@ func (md *MethodDexTradeClearExpiredOrders) GetRefundData(sendBlock *ledger.Acco
 }
 
 func (md *MethodDexTradeClearExpiredOrders) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexTradeClearExpiredOrders) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
@@ -197,7 +197,7 @@ func (md *MethodDexTradeCancelOrderByTransactionHash) GetRefundData(sendBlock *l
 }
 
 func (md *MethodDexTradeCancelOrderByTransactionHash) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.TxGasCost(data, gasTable)
+	return util.RequestQuotaCost(data, gasTable)
 }
 
 func (md *MethodDexTradeCancelOrderByTransactionHash) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
