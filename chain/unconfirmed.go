@@ -47,8 +47,8 @@ func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, che
 	if len(blocks) <= 0 {
 		return nil
 	}
-	// check is fork point
-	if fork.IsForkPoint(snapshotBlock.Height) {
+	// check is active fork point
+	if fork.IsActiveForkPoint(snapshotBlock.Height) {
 		return blocks
 	}
 

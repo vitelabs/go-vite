@@ -160,7 +160,7 @@ func (flusher *Flusher) Recover() error {
 	redoLogList, stores, err := flusher.loadRedo(flusher.fd)
 	if err != nil || len(redoLogList) <= 0 {
 		flusher.cleanRedoLog()
-		return nil
+		return err
 	}
 
 	flusher.beforeRecover(stores, redoLogList)

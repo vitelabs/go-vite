@@ -382,8 +382,7 @@ func getSnapshotGroupPledgeAmount(db vm_db.VmDb, reader util.ConsensusReader, ge
 		return SbpStakeAmountPreMainnet, 0, nil
 	}
 	if forkIndex == 0 {
-		forkHeight := fork.GetLeafFork()
-		forkSb, err := db.GetSnapshotBlockByHeight(forkHeight)
+		forkSb, err := db.GetSnapshotBlockByHeight(fork.GetLeafForkPoint().Height)
 		if err != nil {
 			return nil, forkIndex, err
 		}
