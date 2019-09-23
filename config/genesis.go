@@ -162,7 +162,7 @@ type TokenInfo struct {
 	Owner           types.Address
 	MaxSupply       *big.Int
 	OwnerBurnOnly   bool // Deprecated
-	IsOwnerBurnOnly bool `json:"OwnerBurnOnly"`
+	IsOwnerBurnOnly bool
 	IsReIssuable    bool
 }
 type StakeInfo struct {
