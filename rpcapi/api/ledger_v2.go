@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 )
@@ -241,12 +240,7 @@ func (l *LedgerApi) SendRawTransaction(block *AccountBlock) error {
 		return dex.InvalidOrderPriceErr
 	}
 
-	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(l.chain, l.vite.Consensus()))
-	err = v.VerifyNetAb(lb)
-	if err != nil {
-		return err
-	}
-	result, err := v.VerifyRPCAccBlock(lb, latestSb)
+	result, err := l.vite.Verifier().VerifyRPCAccountBlock(lb, latestSb)
 	if err != nil {
 		return err
 	}

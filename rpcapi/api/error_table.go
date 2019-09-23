@@ -112,6 +112,30 @@ var (
 		Message: verifier.ErrVerifyRPCBlockPendingState.Error(),
 		Code:    -36006,
 	}
+	ErrVerifyDependentSendBlockNotExists = JsonRpc2Error{
+		Message: verifier.ErrVerifyDependentSendBlockNotExists.Error(),
+		Code:    -36007,
+	}
+	ErrVerifyPowQualificationNotEnough = JsonRpc2Error{
+		Message: verifier.ErrVerifyPowNotEligible.Error(),
+		Code:    -36008,
+	}
+	ErrVerifyProducerIllegal = JsonRpc2Error{
+		Message: verifier.ErrVerifyProducerIllegal.Error(),
+		Code:    -36009,
+	}
+	ErrVerifyBlockFieldData = JsonRpc2Error{
+		Message: verifier.ErrVerifyBlockFieldData.Error(),
+		Code:    -36010,
+	}
+	ErrVerifyIsAlreadyReceived = JsonRpc2Error{
+		Message: verifier.ErrVerifySendIsAlreadyReceived.Error(),
+		Code:    -36011,
+	}
+	ErrVerifyVmResultInconsistent = JsonRpc2Error{
+		Message: verifier.ErrVerifyVmResultInconsistent.Error(),
+		Code:    -36012,
+	}
 
 	// -37001 ~ -37999 contracts_dex
 	ErrComposeOrderIdFail = JsonRpc2Error{
@@ -163,6 +187,11 @@ var (
 		Code:    -37012,
 	}
 
+	ErrDexFundUserNotExists = JsonRpc2Error{
+		Message: dex.DexFundUserNotExists.Error(),
+		Code:    -37013,
+	}
+
 	concernedErrorMap map[string]JsonRpc2Error
 )
 
@@ -190,6 +219,12 @@ func init() {
 	concernedErrorMap[ErrVerifyNonce.Error()] = ErrVerifyNonce
 	concernedErrorMap[ErrVerifyPrevBlock.Error()] = ErrVerifyPrevBlock
 	concernedErrorMap[ErrVerifyRPCBlockIsPending.Error()] = ErrVerifyRPCBlockIsPending
+	concernedErrorMap[ErrVerifyDependentSendBlockNotExists.Error()] = ErrVerifyDependentSendBlockNotExists
+	concernedErrorMap[ErrVerifyPowQualificationNotEnough.Error()] = ErrVerifyPowQualificationNotEnough
+	concernedErrorMap[ErrVerifyProducerIllegal.Error()] = ErrVerifyProducerIllegal
+	concernedErrorMap[ErrVerifyBlockFieldData.Error()] = ErrVerifyBlockFieldData
+	concernedErrorMap[ErrVerifyIsAlreadyReceived.Error()] = ErrVerifyIsAlreadyReceived
+	concernedErrorMap[ErrVerifyVmResultInconsistent.Error()] = ErrVerifyVmResultInconsistent
 
 	concernedErrorMap[ErrComposeOrderIdFail.Error()] = ErrComposeOrderIdFail
 	concernedErrorMap[ErrDexInvalidOrderType.Error()] = ErrDexInvalidOrderType
@@ -203,6 +238,8 @@ func init() {
 	concernedErrorMap[ErrDexCancelOrderInvalidStatus.Error()] = ErrDexCancelOrderInvalidStatus
 	concernedErrorMap[ErrDexTradeMarketInvalidQuoteToken.Error()] = ErrDexTradeMarketInvalidQuoteToken
 	concernedErrorMap[ErrDexTradeMarketInvalidTokenPair.Error()] = ErrDexTradeMarketInvalidTokenPair
+	concernedErrorMap[ErrDexFundUserNotExists.Error()] = ErrDexFundUserNotExists
+
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {
