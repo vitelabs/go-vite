@@ -65,6 +65,7 @@ func (c StatsApi) Index2Time(i uint64, level int) map[string]time.Time {
 }
 
 func (c StatsApi) GetHourSBPStats(startIdx uint64, endIdx uint64) ([]map[string]interface{}, error) {
+	c.log.Info("GetHourSBPStats", "startIdx", startIdx, "endIdx", endIdx)
 	var result []map[string]interface{}
 	reader := c.cs.SBPReader()
 
@@ -98,6 +99,7 @@ type PeriodStats struct {
 }
 
 func (c StatsApi) GetPeriodSBPStats(startIdx uint64, endIdx uint64) ([]*PeriodStats, error) {
+	c.log.Info("GetPeriodSBPStats", "startIdx", startIdx, "endIdx", endIdx)
 	if endIdx > startIdx && endIdx-startIdx > 48 {
 		return nil, errors.New("max step is 48")
 	}
@@ -122,6 +124,7 @@ func (c StatsApi) GetPeriodSBPStats(startIdx uint64, endIdx uint64) ([]*PeriodSt
 }
 
 func (c StatsApi) GetDaySBPStats(startIdx uint64, endIdx uint64) ([]map[string]interface{}, error) {
+	c.log.Info("GetDaySBPStats", "startIdx", startIdx, "endIdx", endIdx)
 	var result []map[string]interface{}
 	reader := c.cs.SBPReader()
 	timeIndex := reader.GetDayTimeIndex()

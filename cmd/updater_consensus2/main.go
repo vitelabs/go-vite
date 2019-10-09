@@ -1,21 +1,22 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
-
-	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/consensus/cdb"
 )
 
-var hash = flag.String("hash", "", "hash")
+var index = flag.Uint64("index", 0, "index")
 var dir = flag.String("dataDir", "", "consensus data dir")
 
 func main() {
 	flag.Parse()
-
+	if *index == 0 {
+		panic("error index")
+	}
 	if *dir == "" {
 		panic("err dir")
 	}
@@ -25,14 +26,16 @@ func main() {
 	}
 
 	db := cdb.NewConsensusDB(d)
-	addrList, err := db.GetElectionResultByHash(types.HexToHashPanic(*hash))
+	point, err := db.GetPointByHeight(cdb.IndexPointDay, *index)
 	if err != nil {
 		panic(err)
 	}
-	for k, v := range addrList {
-		fmt.Println(k, v)
+	bytes, err := json.Marshal(point)
+	if err != nil {
+		panic(err)
 	}
-	err = db.DeleteElectionResultByHash(types.HexToHashPanic(*hash))
+	fmt.Println(string(bytes))
+	err = db.DeletePointByHeight(cdb.IndexPointDay, *index)
 	if err != nil {
 		panic(err)
 	}
