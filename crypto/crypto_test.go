@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"testing"
 
@@ -128,4 +129,23 @@ func TestX25519ComputeSecret(t *testing.T) {
 	}
 
 	fmt.Println("x25519 secret", hex.EncodeToString(b1))
+}
+
+func BenchmarkVerifySig(b *testing.B) {
+	publicKey, privateKey, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(err)
+	}
+
+	buf := make([]byte, 4096)
+	_, _ = rand.Read(buf)
+	sign := ed25519.Sign(privateKey, buf)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err = VerifySig(publicKey, buf, sign)
+		if err != nil {
+			panic(err)
+		}
+	}
 }

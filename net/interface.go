@@ -254,5 +254,6 @@ type Net interface {
 	Stop() error
 	Info() NodeInfo
 	Nodes() []*vnode.Node
+	PeerCount() int
 	PeerKey() ed25519.PrivateKey
 }

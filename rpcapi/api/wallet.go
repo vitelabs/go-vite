@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -13,6 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
@@ -186,37 +186,12 @@ func (m WalletApi) IsAddrUnlocked(entropyStore string, addr types.Address) bool 
 	return manager.IsAddrUnlocked(addr)
 }
 
-func (m WalletApi) IsUnlocked(entropyStore string) bool {
-	return m.wallet.IsUnlocked(entropyStore)
-}
-
 func (m WalletApi) RefreshCache() {
 	m.wallet.RefreshCache()
 }
 
 func (m WalletApi) ExtractMnemonic(entropyStore string, passphrase string) (string, error) {
 	return m.wallet.ExtractMnemonic(entropyStore, passphrase)
-}
-
-func (m WalletApi) Unlock(entropyStore string, passphrase string) error {
-	manager, e := m.wallet.GetEntropyStoreManager(entropyStore)
-	if e != nil {
-		return e
-	}
-	err := manager.Unlock(passphrase)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m WalletApi) Lock(entropyStore string) error {
-	manager, e := m.wallet.GetEntropyStoreManager(entropyStore)
-	if e != nil {
-		return e
-	}
-	manager.Lock()
-	return nil
 }
 
 func (m WalletApi) FindAddrWithPassphrase(entropyStore string, passphrase string, addr types.Address) (findResult *FindAddrResult, e error) {
