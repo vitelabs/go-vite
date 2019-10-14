@@ -6,10 +6,10 @@ import (
 	"math/big"
 )
 
-func (vdb *vmDb) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
+func (vdb *vmDb) GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error) {
 	if vdb.latestSnapshotBlockHash == nil {
 		return nil, errors.New("no context, vdb.latestSnapshotBlockHash is nil")
 	}
 
-	return vdb.chain.GetPledgeBeneficialAmount(*addr)
+	return vdb.chain.GetStakeBeneficialAmount(*addr)
 }

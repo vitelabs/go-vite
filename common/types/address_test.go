@@ -78,15 +78,15 @@ func TestAddressValid(t *testing.T) {
 		t.Fail()
 	}
 
-	if !IsValidHexAddress(AddressPledge.String()) {
+	if !IsValidHexAddress(AddressQuota.String()) {
 		t.Fail()
 	}
 
-	if !IsValidHexAddress(AddressConsensusGroup.String()) {
+	if !IsValidHexAddress(AddressGovernance.String()) {
 		t.Fail()
 	}
 
-	if !IsValidHexAddress(AddressMintage.String()) {
+	if !IsValidHexAddress(AddressAsset.String()) {
 		t.Fail()
 	}
 

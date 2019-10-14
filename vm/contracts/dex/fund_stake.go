@@ -23,7 +23,7 @@ func HandleStakeAction(db vm_db.VmDb, stakeType uint8, actionType uint8, address
 			return []*ledger.AccountBlock{
 				{
 					AccountAddress: types.AddressDexFund,
-					ToAddress:      types.AddressPledge,
+					ToAddress:      types.AddressQuota,
 					BlockType:      ledger.BlockTypeSendCall,
 					Amount:         amount,
 					TokenId:        ledger.ViteTokenId,
@@ -47,7 +47,7 @@ func DoCancelStake(db vm_db.VmDb, address types.Address, stakeType uint8, amount
 		return []*ledger.AccountBlock{
 			{
 				AccountAddress: types.AddressDexFund,
-				ToAddress:      types.AddressPledge,
+				ToAddress:      types.AddressQuota,
 				BlockType:      ledger.BlockTypeSendCall,
 				TokenId:        ledger.ViteTokenId,
 				Amount:         big.NewInt(0),
@@ -70,11 +70,11 @@ func stakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, amount 
 	if _, err := ReduceAccount(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err
 	} else {
-		var stakeMethod = abi.MethodNameAgentPledgeV2
-		if  !IsLeafFork(db) {
-			stakeMethod = abi.MethodNameAgentPledge
+		var stakeMethod = abi.MethodNameDelegateStakeV2
+		if !IsLeafFork(db) {
+			stakeMethod = abi.MethodNameDelegateStake
 		}
-		if stakeData, err := abi.ABIPledge.PackMethod(stakeMethod, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
+		if stakeData, err := abi.ABIQuota.PackMethod(stakeMethod, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
 			return nil, err
 		} else {
 			return stakeData, err
@@ -101,11 +101,11 @@ func cancelStakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, a
 			return nil, SuperVIPStakingNotExistsErr
 		}
 	}
-	var cancelStakeMethod = abi.MethodNameAgentCancelPledgeV2
-	if  !IsLeafFork(db) {
-		cancelStakeMethod = abi.MethodNameAgentCancelPledge
+	var cancelStakeMethod = abi.MethodNameCancelDelegateStakeV2
+	if !IsLeafFork(db) {
+		cancelStakeMethod = abi.MethodNameCancelDelegateStake
 	}
-	if cancelStakeData, err := abi.ABIPledge.PackMethod(cancelStakeMethod, address, types.AddressDexFund, amount, uint8(stakeType)); err != nil {
+	if cancelStakeData, err := abi.ABIQuota.PackMethod(cancelStakeMethod, address, types.AddressDexFund, amount, uint8(stakeType)); err != nil {
 		return nil, err
 	} else {
 		return cancelStakeData, err

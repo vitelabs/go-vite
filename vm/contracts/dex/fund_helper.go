@@ -102,12 +102,12 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 				Data:           syncData,
 			}
 		}
-		if burnData, err = cabi.ABIMintage.PackMethod(cabi.MethodNameBurn); err != nil {
+		if burnData, err = cabi.ABIAsset.PackMethod(cabi.MethodNameBurn); err != nil {
 			panic(err)
 		} else {
 			newMarketFeeBurnBlock = &ledger.AccountBlock{
 				AccountAddress: types.AddressDexFund,
-				ToAddress:      types.AddressMintage,
+				ToAddress:      types.AddressAsset,
 				BlockType:      ledger.BlockTypeSendCall,
 				TokenId:        ledger.ViteTokenId,
 				Amount:         NewMarketFeeBurnAmount,
@@ -123,7 +123,7 @@ func OnNewMarketPending(db vm_db.VmDb, param *ParamOpenNewMarket, marketInfo *Ma
 	if err = AddToPendingNewMarkets(db, param.TradeToken, param.QuoteToken); err != nil {
 		return
 	}
-	if data, err = abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, param.TradeToken, uint8(GetTokenForNewMarket)); err != nil {
+	if data, err = abi.ABIAsset.PackMethod(abi.MethodNameGetTokenInfo, param.TradeToken, uint8(GetTokenForNewMarket)); err != nil {
 		panic(err)
 	} else {
 		return
@@ -192,7 +192,7 @@ func OnNewMarketGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId
 
 func OnSetQuoteTokenPending(db vm_db.VmDb, token types.TokenTypeId, quoteTokenType uint8) []byte {
 	AddToPendingSetQuotes(db, token, quoteTokenType)
-	if data, err := abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, token, uint8(GetTokenForSetQuote)); err != nil {
+	if data, err := abi.ABIAsset.PackMethod(abi.MethodNameGetTokenInfo, token, uint8(GetTokenForSetQuote)); err != nil {
 		panic(err)
 	} else {
 		return data
@@ -218,7 +218,7 @@ func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tokenId types.TokenTypeId) (err
 
 func OnTransferTokenOwnerPending(db vm_db.VmDb, token types.TokenTypeId, origin, new types.Address) []byte {
 	AddToPendingTransferTokenOwners(db, token, origin, new)
-	if data, err := abi.ABIMintage.PackMethod(abi.MethodNameGetTokenInfo, token, uint8(GetTokenForTransferOwner)); err != nil {
+	if data, err := abi.ABIAsset.PackMethod(abi.MethodNameGetTokenInfo, token, uint8(GetTokenForTransferOwner)); err != nil {
 		panic(err)
 	} else {
 		return data

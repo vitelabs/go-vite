@@ -47,7 +47,7 @@ func main() {
 
 	sHash := types.HexToHashPanic(*hash)
 
-	db, err := state.NewStorageDatabase(sHash, types.AddressConsensusGroup)
+	db, err := state.NewStorageDatabase(sHash, types.AddressGovernance)
 	if err != nil {
 		panic(err)
 	}

@@ -71,7 +71,7 @@ func (v *VmDebugApi) Init() (*VmAccountInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		if len(onroadList) > 0 && onroadList[0].FromAddress == types.AddressMintage && onroadList[0].Height == "2" {
+		if len(onroadList) > 0 && onroadList[0].FromAddress == types.AddressAsset && onroadList[0].Height == "2" {
 			err = v.testapi.ReceiveOnroadTx(CreateReceiveTxParms{
 				SelfAddr:   *v.vite.Config().GenesisAccountAddress,
 				FromHash:   onroadList[0].Hash,
