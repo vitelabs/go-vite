@@ -30,8 +30,8 @@ func GetConsensusGroupList() ([]*types.ConsensusGroupInfo, error) {
 		VoteConditionId:        0,
 		VoteConditionParam:     nil,
 		Owner:                  types.Address{},
-		PledgeAmount:           nil,
-		WithdrawHeight:         0,
+		StakeAmount:            nil,
+		ExpirationHeight:       0,
 	}
 
 	return []*types.ConsensusGroupInfo{info}, nil

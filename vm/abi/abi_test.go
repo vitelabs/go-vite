@@ -21,7 +21,7 @@ const jsondata = `
 	{ "type" : "function", "name" : "balance", "constant" : true },
 	{ "type" : "function", "name" : "send", "constant" : false, "inputs" : [ { "name" : "amount", "type" : "uint256" } ] },
 	{ "type" : "event", "name" : "Transfer", "anonymous" : false, "inputs" : [ { "indexed" : true, "name" : "from", "type" : "address" }, { "indexed" : true, "name" : "to", "type" : "address" }, { "name" : "value", "type" : "uint256" } ] },
-	{ "type" : "variable", "name" : "register", "inputs" : [ { "name" : "node", "type" : "address" }, { "name" : "amount", "type" : "uint256" }, { "name" : "withdrawTime", "type" : "int64" }  ] }
+	{ "type" : "variable", "name" : "register", "inputs" : [ { "name" : "node", "type" : "address" }, { "name" : "amount", "type" : "uint256" }, { "name" : "expirationTime", "type" : "int64" }  ] }
 ]`
 
 const jsondata2 = `
@@ -47,20 +47,20 @@ func TestReader(t *testing.T) {
 	typeInt64, _ := NewType("int64")
 	typeAddress, _ := NewType("address")
 	exp := ABIContract{
-		Constructor: Method{
+		Constructor: newMethod(
 			"", []Argument{
 				{"owner", typeAddress, false},
 			}, nil,
-		},
+		),
 		Methods: map[string]Method{
-			"balance": {
+			"balance": newMethod(
 				"balance", nil, nil,
-			},
-			"send": {
+			),
+			"send": newMethod(
 				"send", []Argument{
 					{"amount", typeUint256, false},
 				}, nil,
-			},
+			),
 		},
 		Events: map[string]Event{
 			"Transfer": {
@@ -75,7 +75,7 @@ func TestReader(t *testing.T) {
 			"register": {"register", []Argument{
 				{"node", typeAddress, false},
 				{"amount", typeUint256, false},
-				{"withdrawTime", typeInt64, false},
+				{"expirationTime", typeInt64, false},
 			}},
 		},
 	}
@@ -215,7 +215,7 @@ func TestTestSlice(t *testing.T) {
 
 func TestMethodSignature(t *testing.T) {
 	String, _ := NewType("string")
-	m := Method{"foo", []Argument{{"bar", String, false}, {"baz", String, false}}, nil}
+	m := newMethod("foo", []Argument{{"bar", String, false}, {"baz", String, false}}, nil)
 	exp := "foo(string,string)"
 	if m.Sig() != exp {
 		t.Error("signature mismatch", exp, "!=", m.Sig())
@@ -227,7 +227,7 @@ func TestMethodSignature(t *testing.T) {
 	}
 
 	uintt, _ := NewType("uint256")
-	m = Method{"foo", []Argument{{"bar", uintt, false}}, nil}
+	m = newMethod("foo", []Argument{{"bar", uintt, false}}, nil)
 	exp = "foo(uint256)"
 	if m.Sig() != exp {
 		t.Error("signature mismatch", exp, "!=", m.Sig())
@@ -817,8 +817,8 @@ func TestPackEvent(t *testing.T) {
 		data      []byte
 	}{
 		{
-			`[{"type":"event","name":"mint","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}]`,
-			"mint",
+			`[{"type":"event","name":"issue","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}]`,
+			"issue",
 			[]interface{}{ledger.ViteTokenId},
 			[]types.Hash{
 				{63, 157, 204, 0, 213, 233, 41, 4, 1, 66, 195, 251, 43, 103, 163, 190, 27, 14, 145, 233, 141, 172, 24, 213, 188, 43, 120, 23, 164, 207, 236, 182},

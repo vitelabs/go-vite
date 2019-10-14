@@ -11,17 +11,19 @@ import (
 	"math/big"
 )
 
-type NodeConfig struct {
-	params ContractsParams
+type nodeConfigParams struct {
+	params contractsParams
 }
 
-var nodeConfig NodeConfig
+var nodeConfig nodeConfigParams
 
+// InitContractsConfig init params of built-in contracts.This method is
+// supposed be called when the node started.
 func InitContractsConfig(isTestParam bool) {
 	if isTestParam {
-		nodeConfig.params = ContractsParamsTest
+		nodeConfig.params = contractsParamsTest
 	} else {
-		nodeConfig.params = ContractsParamsMainNet
+		nodeConfig.params = contractsParamsMainNet
 	}
 }
 
@@ -30,16 +32,17 @@ type vmEnvironment interface {
 	ConsensusReader() util.ConsensusReader
 }
 
+// BuiltinContractMethod defines interfaces of built-in contract method
 type BuiltinContractMethod interface {
 	GetFee(block *ledger.AccountBlock) (*big.Int, error)
 	// calc and use quota, check tx data
 	DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error
 	// quota for doSend block
-	GetSendQuota(data []byte, gasTable *util.GasTable) (uint64, error)
+	GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
 	// check status, update state
 	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error)
 	// receive block quota
-	GetReceiveQuota(gasTable *util.GasTable) uint64
+	GetReceiveQuota(gasTable *util.QuotaTable) uint64
 	// refund data at receive error
 	GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool)
 }
@@ -58,41 +61,41 @@ var (
 
 func newSimpleContracts() map[types.Address]*builtinContract {
 	return map[types.Address]*builtinContract{
-		types.AddressPledge: {
+		types.AddressQuota: {
 			map[string]BuiltinContractMethod{
-				cabi.MethodNamePledge:       &MethodPledge{cabi.MethodNamePledge},
-				cabi.MethodNameCancelPledge: &MethodCancelPledge{cabi.MethodNameCancelPledge},
+				cabi.MethodNameStake:       &MethodStake{cabi.MethodNameStake},
+				cabi.MethodNameCancelStake: &MethodCancelStake{cabi.MethodNameCancelStake},
 			},
-			cabi.ABIPledge,
+			cabi.ABIQuota,
 		},
-		types.AddressConsensusGroup: {
+		types.AddressGovernance: {
 			map[string]BuiltinContractMethod{
-				cabi.MethodNameRegister:           &MethodRegister{cabi.MethodNameRegister},
-				cabi.MethodNameCancelRegister:     &MethodCancelRegister{cabi.MethodNameCancelRegister},
-				cabi.MethodNameReward:             &MethodReward{cabi.MethodNameReward},
-				cabi.MethodNameUpdateRegistration: &MethodUpdateRegistration{cabi.MethodNameUpdateRegistration},
-				cabi.MethodNameVote:               &MethodVote{cabi.MethodNameVote},
-				cabi.MethodNameCancelVote:         &MethodCancelVote{cabi.MethodNameCancelVote},
+				cabi.MethodNameRegister:                    &MethodRegister{cabi.MethodNameRegister},
+				cabi.MethodNameRevoke:                      &MethodRevoke{cabi.MethodNameRevoke},
+				cabi.MethodNameWithdrawReward:              &MethodWithdrawReward{cabi.MethodNameWithdrawReward},
+				cabi.MethodNameUpdateBlockProducingAddress: &MethodUpdateBlockProducingAddress{cabi.MethodNameUpdateBlockProducingAddress},
+				cabi.MethodNameVote:                        &MethodVote{cabi.MethodNameVote},
+				cabi.MethodNameCancelVote:                  &MethodCancelVote{cabi.MethodNameCancelVote},
 			},
-			cabi.ABIConsensusGroup,
+			cabi.ABIGovernance,
 		},
-		types.AddressMintage: {
+		types.AddressAsset: {
 			map[string]BuiltinContractMethod{
-				cabi.MethodNameMint:            &MethodMint{cabi.MethodNameMint},
-				cabi.MethodNameIssue:           &MethodIssue{cabi.MethodNameIssue},
-				cabi.MethodNameBurn:            &MethodBurn{cabi.MethodNameBurn},
-				cabi.MethodNameTransferOwner:   &MethodTransferOwner{cabi.MethodNameTransferOwner},
-				cabi.MethodNameChangeTokenType: &MethodChangeTokenType{cabi.MethodNameChangeTokenType},
+				cabi.MethodNameIssue:             &MethodIssue{cabi.MethodNameIssue},
+				cabi.MethodNameReIssue:           &MethodReIssue{cabi.MethodNameReIssue},
+				cabi.MethodNameBurn:              &MethodBurn{cabi.MethodNameBurn},
+				cabi.MethodNameTransferOwnership: &MethodTransferOwnership{cabi.MethodNameTransferOwnership},
+				cabi.MethodNameDisableReIssue:    &MethodDisableReIssue{cabi.MethodNameDisableReIssue},
 			},
-			cabi.ABIMintage,
+			cabi.ABIAsset,
 		},
 	}
 }
 func newDexContracts() map[types.Address]*builtinContract {
 	contracts := newSimpleContracts()
-	contracts[types.AddressPledge].m[cabi.MethodNameAgentPledge] = &MethodAgentPledge{cabi.MethodNameAgentPledge}
-	contracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledge] = &MethodAgentCancelPledge{cabi.MethodNameAgentCancelPledge}
-	contracts[types.AddressMintage].m[cabi.MethodNameGetTokenInfo] = &MethodGetTokenInfo{cabi.MethodNameGetTokenInfo}
+	contracts[types.AddressQuota].m[cabi.MethodNameDelegateStake] = &MethodDelegateStake{cabi.MethodNameDelegateStake}
+	contracts[types.AddressQuota].m[cabi.MethodNameCancelDelegateStake] = &MethodCancelDelegateStake{cabi.MethodNameCancelDelegateStake}
+	contracts[types.AddressAsset].m[cabi.MethodNameGetTokenInfo] = &MethodGetTokenInfo{cabi.MethodNameGetTokenInfo}
 	contracts[types.AddressDexFund] = &builtinContract{
 		map[string]BuiltinContractMethod{
 			cabi.MethodNameDexFundUserDeposit:          &MethodDexFundDeposit{cabi.MethodNameDexFundUserDeposit},
@@ -142,19 +145,19 @@ func newDexAgentContracts() map[types.Address]*builtinContract {
 func newLeafContracts() map[types.Address]*builtinContract {
 	contracts := newDexAgentContracts()
 
-	contracts[types.AddressPledge].m[cabi.MethodNamePledgeV2] = &MethodPledge{cabi.MethodNamePledgeV2}
-	contracts[types.AddressPledge].m[cabi.MethodNameCancelPledgeV2] = &MethodCancelPledge{cabi.MethodNameCancelPledgeV2}
-	contracts[types.AddressPledge].m[cabi.MethodNameAgentPledgeV2] = &MethodAgentPledge{cabi.MethodNameAgentPledgeV2}
-	contracts[types.AddressPledge].m[cabi.MethodNameAgentCancelPledgeV2] = &MethodAgentCancelPledge{cabi.MethodNameAgentCancelPledgeV2}
+	contracts[types.AddressQuota].m[cabi.MethodNameStakeV2] = &MethodStake{cabi.MethodNameStakeV2}
+	contracts[types.AddressQuota].m[cabi.MethodNameCancelStakeV2] = &MethodCancelStake{cabi.MethodNameCancelStakeV2}
+	contracts[types.AddressQuota].m[cabi.MethodNameDelegateStakeV2] = &MethodDelegateStake{cabi.MethodNameDelegateStakeV2}
+	contracts[types.AddressQuota].m[cabi.MethodNameCancelDelegateStakeV2] = &MethodCancelDelegateStake{cabi.MethodNameCancelDelegateStakeV2}
 
-	contracts[types.AddressConsensusGroup].m[cabi.MethodNameUpdateRegistrationV2] = &MethodUpdateRegistration{cabi.MethodNameUpdateRegistrationV2}
-	contracts[types.AddressConsensusGroup].m[cabi.MethodNameCancelRegisterV2] = &MethodCancelRegister{cabi.MethodNameCancelRegisterV2}
-	contracts[types.AddressConsensusGroup].m[cabi.MethodNameRewardV2] = &MethodReward{cabi.MethodNameRewardV2}
+	contracts[types.AddressGovernance].m[cabi.MethodNameUpdateBlockProducintAddressV2] = &MethodUpdateBlockProducingAddress{cabi.MethodNameUpdateBlockProducintAddressV2}
+	contracts[types.AddressGovernance].m[cabi.MethodNameRevokeV2] = &MethodRevoke{cabi.MethodNameRevokeV2}
+	contracts[types.AddressGovernance].m[cabi.MethodNameWithdrawRewardV2] = &MethodWithdrawReward{cabi.MethodNameWithdrawRewardV2}
 
-	contracts[types.AddressMintage].m[cabi.MethodNameMintV2] = &MethodMint{cabi.MethodNameMintV2}
-	contracts[types.AddressMintage].m[cabi.MethodNameIssueV2] = &MethodIssue{cabi.MethodNameIssueV2}
-	contracts[types.AddressMintage].m[cabi.MethodNameChangeTokenTypeV2] = &MethodChangeTokenType{cabi.MethodNameChangeTokenTypeV2}
-	contracts[types.AddressMintage].m[cabi.MethodNameTransferOwnerV2] = &MethodTransferOwner{cabi.MethodNameTransferOwnerV2}
+	contracts[types.AddressAsset].m[cabi.MethodNameIssueV2] = &MethodIssue{cabi.MethodNameIssueV2}
+	contracts[types.AddressAsset].m[cabi.MethodNameReIssueV2] = &MethodReIssue{cabi.MethodNameReIssueV2}
+	contracts[types.AddressAsset].m[cabi.MethodNameDisableReIssueV2] = &MethodDisableReIssue{cabi.MethodNameDisableReIssueV2}
+	contracts[types.AddressAsset].m[cabi.MethodNameTransferOwnershipV2] = &MethodTransferOwnership{cabi.MethodNameTransferOwnershipV2}
 
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundDeposit] = &MethodDexFundDeposit{cabi.MethodNameDexFundDeposit}
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundWithdraw] = &MethodDexFundWithdraw{cabi.MethodNameDexFundWithdraw}
@@ -188,6 +191,7 @@ func newLeafContracts() map[types.Address]*builtinContract {
 	return contracts
 }
 
+// GetBuiltinContractMethod finds method instance of built-in contract method by address and method id
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
 	if fork.IsLeafFork(sbHeight) {

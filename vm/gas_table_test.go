@@ -7,7 +7,7 @@ import (
 )
 
 func TestMemoryGasCost(t *testing.T) {
-	vm := &VM{gasTable: util.GasTableByHeight(1)}
+	vm := &VM{gasTable: util.QuotaTableByHeight(1)}
 	size := uint64(0xffffffffe0)
 	v, _, err := memoryGasCost(vm, &memory{}, size)
 	if err != nil {

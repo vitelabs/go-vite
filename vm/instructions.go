@@ -795,7 +795,7 @@ func opCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte,
 	tokenID, _ := types.BigToTokenTypeId(tokenIDBig)
 	data := mem.get(inOffset.Int64(), inSize.Int64())
 	vm.AppendBlock(
-		util.MakeSendBlock(
+		util.MakeRequestBlock(
 			c.block.AccountAddress,
 			toAddress,
 			ledger.BlockTypeSendCall,

@@ -222,8 +222,8 @@ func (cRw *chainRw) CalVoteDetails(gid types.Gid, info *core.GroupInfo, block le
 func (cRw *chainRw) genVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *VoteDetails {
 	var addrs []types.Address
 	for _, v := range infos {
-		if v.NodeName == registration.Name {
-			addrs = append(addrs, v.VoterAddr)
+		if v.SbpName == registration.Name {
+			addrs = append(addrs, v.VoteAddr)
 		}
 	}
 	balanceMap, _ := cRw.rw.GetConfirmedBalanceList(addrs, id, snapshotHash)
@@ -234,10 +234,10 @@ func (cRw *chainRw) genVoteDetails(snapshotHash types.Hash, registration *types.
 	return &VoteDetails{
 		Vote: core.Vote{
 			Name:    registration.Name,
-			Addr:    registration.NodeAddr,
+			Addr:    registration.BlockProducingAddress,
 			Balance: balanceTotal,
 		},
-		CurrentAddr:  registration.NodeAddr,
+		CurrentAddr:  registration.BlockProducingAddress,
 		RegisterList: registration.HisAddrList,
 		Addr:         balanceMap,
 	}

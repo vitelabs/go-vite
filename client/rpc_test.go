@@ -230,7 +230,7 @@ var RawUrl = "http://118.25.182.202:48132"
 //		BlockType:      ledger.BlockTypeSendCall,
 //		ToAddr:         &to,
 //		Data:           []byte("hello world"),
-//		UsePledgeQuota: false,
+//		UseStakeQuota: false,
 //	})
 //
 //	if e != nil {

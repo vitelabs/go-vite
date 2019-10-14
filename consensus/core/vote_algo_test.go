@@ -33,8 +33,8 @@ func TestAlgo_FilterVotes(t *testing.T) {
 		VoteConditionId:        0,
 		VoteConditionParam:     nil,
 		Owner:                  types.Address{},
-		PledgeAmount:           nil,
-		WithdrawHeight:         0,
+		StakeAmount:            nil,
+		ExpirationHeight:       0,
 	})
 	ag := NewAlgo(info)
 	printResult(ag, 1000, 25)
@@ -64,8 +64,8 @@ func TestAlgo_FilterVotes2(t *testing.T) {
 		VoteConditionId:        0,
 		VoteConditionParam:     nil,
 		Owner:                  types.Address{},
-		PledgeAmount:           nil,
-		WithdrawHeight:         0,
+		StakeAmount:            nil,
+		ExpirationHeight:       0,
 	})
 	ag := NewAlgo(info)
 	var votes []*Vote
@@ -203,8 +203,8 @@ func TestAlgo_FilterVotes3(t *testing.T) {
 		VoteConditionId:        0,
 		VoteConditionParam:     nil,
 		Owner:                  types.Address{},
-		PledgeAmount:           nil,
-		WithdrawHeight:         0,
+		StakeAmount:            nil,
+		ExpirationHeight:       0,
 	})
 	ag := NewAlgo(info)
 	var votes []*Vote

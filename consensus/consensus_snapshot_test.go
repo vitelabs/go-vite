@@ -45,8 +45,8 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 		VoteConditionId:        0,
 		VoteConditionParam:     nil,
 		Owner:                  types.Address{},
-		PledgeAmount:           nil,
-		WithdrawHeight:         0,
+		StakeAmount:            nil,
+		ExpirationHeight:       0,
 	}
 
 	info := core.NewGroupInfo(simpleGenesis, group)
@@ -62,50 +62,50 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 	voteTime := cs.GenProofTime(0)
 	mock_chain.EXPECT().GetSnapshotHeaderBeforeTime(gomock.Eq(&voteTime)).Return(b1, nil)
 	registers := []*types.Registration{{
-		Name:           "s1",
-		NodeAddr:       common.MockAddress(0),
-		PledgeAddr:     common.MockAddress(0),
-		Amount:         nil,
-		WithdrawHeight: 0,
-		RewardTime:     0,
-		CancelTime:     0,
-		HisAddrList:    nil,
+		Name:                  "s1",
+		BlockProducingAddress: common.MockAddress(0),
+		StakeAddress:          common.MockAddress(0),
+		Amount:                nil,
+		ExpirationHeight:      0,
+		RewardTime:            0,
+		RevokeTime:            0,
+		HisAddrList:           nil,
 	}, {
-		Name:           "s2",
-		NodeAddr:       common.MockAddress(1),
-		PledgeAddr:     common.MockAddress(1),
-		Amount:         nil,
-		WithdrawHeight: 0,
-		RewardTime:     0,
-		CancelTime:     0,
-		HisAddrList:    nil,
+		Name:                  "s2",
+		BlockProducingAddress: common.MockAddress(1),
+		StakeAddress:          common.MockAddress(1),
+		Amount:                nil,
+		ExpirationHeight:      0,
+		RewardTime:            0,
+		RevokeTime:            0,
+		HisAddrList:           nil,
 	}, {
-		Name:           "s3",
-		NodeAddr:       common.MockAddress(2),
-		PledgeAddr:     common.MockAddress(2),
-		Amount:         nil,
-		WithdrawHeight: 0,
-		RewardTime:     0,
-		CancelTime:     0,
-		HisAddrList:    nil,
+		Name:                  "s3",
+		BlockProducingAddress: common.MockAddress(2),
+		StakeAddress:          common.MockAddress(2),
+		Amount:                nil,
+		ExpirationHeight:      0,
+		RewardTime:            0,
+		RevokeTime:            0,
+		HisAddrList:           nil,
 	}}
 	votes := []*types.VoteInfo{
 		{
-			VoterAddr: common.MockAddress(11),
-			NodeName:  "s1",
+			VoteAddr: common.MockAddress(11),
+			SbpName:  "s1",
 		},
 		{
-			VoterAddr: common.MockAddress(12),
-			NodeName:  "s1",
+			VoteAddr: common.MockAddress(12),
+			SbpName:  "s1",
 		}, {
-			VoterAddr: common.MockAddress(21),
-			NodeName:  "s2",
+			VoteAddr: common.MockAddress(21),
+			SbpName:  "s2",
 		}, {
-			VoterAddr: common.MockAddress(31),
-			NodeName:  "s3",
+			VoteAddr: common.MockAddress(31),
+			SbpName:  "s3",
 		}, {
-			VoterAddr: common.MockAddress(32),
-			NodeName:  "s3",
+			VoteAddr: common.MockAddress(32),
+			SbpName:  "s3",
 		}}
 
 	S1balances := make(map[types.Address]*big.Int)
@@ -200,8 +200,8 @@ func TestChainSnapshotAAAA(t *testing.T) {
 		panic(err)
 	}
 	for _, v := range votes {
-		if v.NodeName == "N4Q.org" {
-			fmt.Println(v.VoterAddr)
+		if v.SbpName == "N4Q.org" {
+			fmt.Println(v.VoteAddr)
 		}
 	}
 }

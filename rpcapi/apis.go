@@ -87,14 +87,14 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 		return rpc.API{
 			Namespace: "mintage",
 			Version:   "1.0",
-			Service:   api.NewMintageApi(vite),
+			Service:   api.NewAssetApi(vite),
 			Public:    true,
 		}
 	case "pledge":
 		return rpc.API{
 			Namespace: "pledge",
 			Version:   "1.0",
-			Service:   api.NewPledgeApi(vite),
+			Service:   api.NewQuotaApi(vite),
 			Public:    true,
 		}
 	case "dexfund":

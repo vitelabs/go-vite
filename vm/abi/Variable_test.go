@@ -67,7 +67,7 @@ var jsonVariableTransfer = []byte(`{
   "type": "variable"
 }`)
 
-var jsonVariablePledge = []byte(`{
+var jsonVariableStake = []byte(`{
   "inputs": [{
        "name": "who", "type": "address"
     }, {
@@ -75,7 +75,7 @@ var jsonVariablePledge = []byte(`{
     }, {
        "name": "currency", "type": "bytes3"
   }],
-  "name": "Pledge",
+  "name": "Stake",
   "type": "variable"
 }`)
 
@@ -95,7 +95,7 @@ var jsonVariableMixedCase = []byte(`{
 var variableTransferData1 = "000000000000000000000000Ce0d46d924CC8437c806721496599FC3FFA268000000000000000000000000CA35B7D915458EF540ADE6068DFE2F44E8FA733C0000000000000000000000000000000000000000000000000000000000000f4240"
 
 // "0x00Ce0d46d924CC8437c806721496599FC3FFA268", 2218516807680, "usd"
-var variablePledgeData1 = "000000000000000000000000Ce0d46d924CC8437c806721496599FC3FFA268000000000000000000000000000000000000000000000000000000020489e800007573640000000000000000000000000000000000000000000000000000000000"
+var variableStakeData1 = "000000000000000000000000Ce0d46d924CC8437c806721496599FC3FFA268000000000000000000000000000000000000000000000000000000020489e800007573640000000000000000000000000000000000000000000000000000000000"
 
 // 1000000,2218516807680,1000001
 var variableMixedCaseData1 = "00000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000020489e8000000000000000000000000000000000000000000000000000000000000000f4241"
@@ -137,13 +137,13 @@ func TestVariableTuple(t *testing.T) {
 		To    types.Address
 	}
 
-	type VariablePledge struct {
+	type VariableStake struct {
 		Who      types.Address
 		Wad      *big.Int
 		Currency [3]byte
 	}
 
-	type BadVariablePledge struct {
+	type BadVariableStake struct {
 		Who      string
 		Wad      int
 		Currency [3]byte
@@ -213,63 +213,63 @@ func TestVariableTuple(t *testing.T) {
 		"struct: abi tag in 'Value' is empty",
 		"Can not unpack ERC20 Transfer variable with an empty tag",
 	}, {
-		variablePledgeData1,
-		&VariablePledge{},
-		&VariablePledge{
+		variableStakeData1,
+		&VariableStake{},
+		&VariableStake{
 			addr1,
 			bigintExpected2,
 			[3]byte{'u', 's', 'd'}},
-		jsonVariablePledge,
+		jsonVariableStake,
 		"",
-		"Can unpack Pledge variable into structure",
+		"Can unpack Stake variable into structure",
 	}, {
-		variablePledgeData1,
+		variableStakeData1,
 		&[]interface{}{&types.Address{}, &typeBigint, &[3]byte{}},
 		&[]interface{}{
 			&addr1,
 			&bigintExpected2,
 			&[3]byte{'u', 's', 'd'}},
-		jsonVariablePledge,
+		jsonVariableStake,
 		"",
-		"Can unpack Pledge variable into slice",
+		"Can unpack Stake variable into slice",
 	}, {
-		variablePledgeData1,
+		variableStakeData1,
 		&[3]interface{}{&types.Address{}, &typeBigint, &[3]byte{}},
 		&[3]interface{}{
 			&addr1,
 			&bigintExpected2,
 			&[3]byte{'u', 's', 'd'}},
-		jsonVariablePledge,
+		jsonVariableStake,
 		"",
-		"Can unpack Pledge variable into an array",
+		"Can unpack Stake variable into an array",
 	}, {
-		variablePledgeData1,
+		variableStakeData1,
 		&[]interface{}{new(int), 0, 0},
 		&[]interface{}{},
-		jsonVariablePledge,
+		jsonVariableStake,
 		"abi: cannot unmarshal types.Address in to int",
-		"Can not unpack Pledge variable into slice with wrong types",
+		"Can not unpack Stake variable into slice with wrong types",
 	}, {
-		variablePledgeData1,
-		&BadVariablePledge{},
-		&BadVariablePledge{},
-		jsonVariablePledge,
+		variableStakeData1,
+		&BadVariableStake{},
+		&BadVariableStake{},
+		jsonVariableStake,
 		"abi: cannot unmarshal types.Address in to string",
-		"Can not unpack Pledge variable into struct with wrong filed types",
+		"Can not unpack Stake variable into struct with wrong filed types",
 	}, {
-		variablePledgeData1,
+		variableStakeData1,
 		&[]interface{}{types.Address{}, new(big.Int)},
 		&[]interface{}{},
-		jsonVariablePledge,
+		jsonVariableStake,
 		"abi: insufficient number of elements in the list/array for unpack, want 3, got 2",
-		"Can not unpack Pledge variable into too short slice",
+		"Can not unpack Stake variable into too short slice",
 	}, {
-		variablePledgeData1,
+		variableStakeData1,
 		new(map[string]interface{}),
 		&[]interface{}{},
-		jsonVariablePledge,
+		jsonVariableStake,
 		"abi: cannot unmarshal tuple into map[string]interface {}",
-		"Can not unpack Pledge variable into map",
+		"Can not unpack Stake variable into map",
 	}, {
 		variableMixedCaseData1,
 		&VariableMixedCase{},

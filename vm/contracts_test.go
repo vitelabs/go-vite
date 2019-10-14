@@ -23,9 +23,9 @@ func TestContractsRefund(t *testing.T) {
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
 
-	addr2 := types.AddressConsensusGroup
-	nodeName := "s1"
-	locHashRegister, _ := types.BytesToHash(abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID))
+	addr2 := types.AddressGovernance
+	sbpName := "s1"
+	locHashRegister, _ := types.BytesToHash(abi.GetRegistrationInfoKey(sbpName, types.SNAPSHOT_GID))
 	registrationDataOld := db.storageMap[addr2][ToKey(locHashRegister.Bytes())]
 	db.addr = addr2
 	contractBalance, _ := db.GetBalance(&ledger.ViteTokenId)
@@ -33,7 +33,7 @@ func TestContractsRefund(t *testing.T) {
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr6, _, _ := types.CreateAddress()
 	db.accountBlockMap[addr6] = make(map[types.Hash]*ledger.AccountBlock)
-	block13Data, err := abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr6)
+	block13Data, err := abi.ABIGovernance.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, sbpName, addr6)
 	if err != nil {
 		panic(err)
 	}
@@ -57,7 +57,7 @@ func TestContractsRefund(t *testing.T) {
 	balance1.Sub(balance1, block13.Amount)
 	if sendRegisterBlock == nil ||
 		len(sendRegisterBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		sendRegisterBlock.AccountBlock.Quota != vm.gasTable.RegisterGas ||
+		sendRegisterBlock.AccountBlock.Quota != vm.gasTable.RegisterQuota ||
 		sendRegisterBlock.AccountBlock.Quota != sendRegisterBlock.AccountBlock.QuotaUsed ||
 		!bytes.Equal(sendRegisterBlock.AccountBlock.Data, block13Data) ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
@@ -131,7 +131,7 @@ func TestContractsRegister(t *testing.T) {
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
 
-	reader := util.NewVmConsensusReader(newConsensusReaderTest(db.GetGenesisSnapshotBlock().Timestamp.Unix(), 24*3600))
+	reader := util.NewVMConsensusReader(newConsensusReaderTest(db.GetGenesisSnapshotBlock().Timestamp.Unix(), 24*3600))
 	// register
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr6, privateKey6, _ := types.CreateAddress()
@@ -139,9 +139,9 @@ func TestContractsRegister(t *testing.T) {
 	publicKey6 := ed25519.PublicKey(privateKey6.PubByte())
 	db.accountBlockMap[addr6] = make(map[types.Hash]*ledger.AccountBlock)
 	db.accountBlockMap[addr7] = make(map[types.Hash]*ledger.AccountBlock)
-	addr2 := types.AddressConsensusGroup
-	nodeName := "super1"
-	block13Data, err := abi.ABIConsensusGroup.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, nodeName, addr7)
+	addr2 := types.AddressGovernance
+	sbpName := "super1"
+	block13Data, err := abi.ABIGovernance.PackMethod(abi.MethodNameRegister, types.SNAPSHOT_GID, sbpName, addr7)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -162,7 +162,7 @@ func TestContractsRegister(t *testing.T) {
 	balance1.Sub(balance1, block13.Amount)
 	if sendRegisterBlock == nil ||
 		len(sendRegisterBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		sendRegisterBlock.AccountBlock.Quota != vm.gasTable.RegisterGas ||
+		sendRegisterBlock.AccountBlock.Quota != vm.gasTable.RegisterQuota ||
 		sendRegisterBlock.AccountBlock.Quota != sendRegisterBlock.AccountBlock.QuotaUsed ||
 		!bytes.Equal(sendRegisterBlock.AccountBlock.Data, block13Data) ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
@@ -180,10 +180,10 @@ func TestContractsRegister(t *testing.T) {
 	}
 	vm = NewVM(reader)
 	//vm.Debug = true
-	locHashRegister := abi.GetRegisterKey(nodeName, types.SNAPSHOT_GID)
+	locHashRegister := abi.GetRegistrationInfoKey(sbpName, types.SNAPSHOT_GID)
 	hisAddrList := []types.Address{addr7}
-	withdrawHeight := snapshot2.Height + 3600*24*90
-	registrationData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr7, addr1, block13.Amount, withdrawHeight, snapshot2.Timestamp.Unix(), int64(0), hisAddrList)
+	expirationHeight := snapshot2.Height + 3600*24*90
+	registrationData, _ := abi.ABIGovernance.PackVariable(abi.VariableNameRegistrationInfo, sbpName, addr7, addr1, block13.Amount, expirationHeight, snapshot2.Timestamp.Unix(), int64(0), hisAddrList)
 	db.addr = addr2
 	receiveRegisterBlock, isRetry, err := vm.RunV2(db, block21, sendRegisterBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	if receiveRegisterBlock == nil ||
@@ -200,7 +200,7 @@ func TestContractsRegister(t *testing.T) {
 	db.accountBlockMap[addr2][hash21] = receiveRegisterBlock.AccountBlock
 
 	// update registration
-	block14Data, err := abi.ABIConsensusGroup.PackMethod(abi.MethodNameUpdateRegistration, types.SNAPSHOT_GID, nodeName, addr6)
+	block14Data, err := abi.ABIGovernance.PackMethod(abi.MethodNameUpdateBlockProducingAddress, types.SNAPSHOT_GID, sbpName, addr6)
 	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{
 		Height:         4,
@@ -220,7 +220,7 @@ func TestContractsRegister(t *testing.T) {
 	sendRegisterBlock2, isRetry, err := vm.RunV2(db, block14, nil, nil)
 	if sendRegisterBlock2 == nil ||
 		len(sendRegisterBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		sendRegisterBlock2.AccountBlock.Quota != vm.gasTable.UpdateRegistrationGas ||
+		sendRegisterBlock2.AccountBlock.Quota != vm.gasTable.UpdateBlockProducingAddressQuota ||
 		sendRegisterBlock2.AccountBlock.Quota != sendRegisterBlock2.AccountBlock.QuotaUsed ||
 		!bytes.Equal(sendRegisterBlock2.AccountBlock.Data, block14Data) ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
@@ -240,7 +240,7 @@ func TestContractsRegister(t *testing.T) {
 	vm = NewVM(reader)
 	//vm.Debug = true
 	hisAddrList = append(hisAddrList, addr6)
-	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, block13.Amount, withdrawHeight, snapshot2.Timestamp.Unix(), int64(0), hisAddrList)
+	registrationData, _ = abi.ABIGovernance.PackVariable(abi.VariableNameRegistrationInfo, sbpName, addr6, addr1, block13.Amount, expirationHeight, snapshot2.Timestamp.Unix(), int64(0), hisAddrList)
 	db.addr = addr2
 	receiveRegisterBlock2, isRetry, err := vm.RunV2(db, block22, sendRegisterBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	if receiveRegisterBlock2 == nil ||
@@ -256,7 +256,7 @@ func TestContractsRegister(t *testing.T) {
 	db.accountBlockMap[addr2][hash22] = receiveRegisterBlock2.AccountBlock
 
 	// get contracts data
-	db.addr = types.AddressConsensusGroup
+	db.addr = types.AddressGovernance
 	if registerList, _ := abi.GetCandidateList(db, types.SNAPSHOT_GID); len(registerList) != 3 || len(registerList[0].Name) == 0 {
 		t.Fatalf("get register list failed")
 	}
@@ -273,7 +273,7 @@ func TestContractsRegister(t *testing.T) {
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot5)
 
 	hash15 := types.DataHash([]byte{1, 5})
-	block15Data, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelRegister, types.SNAPSHOT_GID, nodeName)
+	block15Data, _ := abi.ABIGovernance.PackMethod(abi.MethodNameRevoke, types.SNAPSHOT_GID, sbpName)
 	block15 := &ledger.AccountBlock{
 		Height:         5,
 		ToAddress:      addr2,
@@ -292,7 +292,7 @@ func TestContractsRegister(t *testing.T) {
 	sendCancelRegisterBlock, isRetry, err := vm.RunV2(db, block15, nil, nil)
 	if sendCancelRegisterBlock == nil ||
 		len(sendCancelRegisterBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		sendCancelRegisterBlock.AccountBlock.Quota != vm.gasTable.CancelRegisterGas ||
+		sendCancelRegisterBlock.AccountBlock.Quota != vm.gasTable.RevokeQuota ||
 		sendCancelRegisterBlock.AccountBlock.Quota != sendCancelRegisterBlock.AccountBlock.QuotaUsed ||
 		!bytes.Equal(sendCancelRegisterBlock.AccountBlock.Data, block15Data) ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
@@ -312,7 +312,7 @@ func TestContractsRegister(t *testing.T) {
 	//vm.Debug = true
 	db.addr = addr2
 	receiveCancelRegisterBlock, isRetry, err := vm.RunV2(db, block23, sendCancelRegisterBlock.AccountBlock, NewTestGlobalStatus(0, snapshot5))
-	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), snapshot2.Timestamp.Unix(), snapshot5.Timestamp.Unix(), hisAddrList)
+	registrationData, _ = abi.ABIGovernance.PackVariable(abi.VariableNameRegistrationInfo, sbpName, addr6, addr1, helper.Big0, uint64(0), snapshot2.Timestamp.Unix(), snapshot5.Timestamp.Unix(), hisAddrList)
 	if receiveCancelRegisterBlock == nil ||
 		len(receiveCancelRegisterBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
@@ -360,7 +360,7 @@ func TestContractsRegister(t *testing.T) {
 	// TODO reward
 	// Reward
 	hash17 := types.DataHash([]byte{1, 7})
-	block17Data, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameReward, types.SNAPSHOT_GID, nodeName, addr1)
+	block17Data, _ := abi.ABIGovernance.PackMethod(abi.MethodNameWithdrawReward, types.SNAPSHOT_GID, sbpName, addr1)
 	block17 := &ledger.AccountBlock{
 		Height:         7,
 		ToAddress:      addr2,
@@ -379,7 +379,7 @@ func TestContractsRegister(t *testing.T) {
 	sendRewardBlock, isRetry, err := vm.RunV2(db, block17, nil, nil)
 	if sendRewardBlock == nil ||
 		len(sendRewardBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		sendRewardBlock.AccountBlock.Quota != vm.gasTable.RewardGas ||
+		sendRewardBlock.AccountBlock.Quota != vm.gasTable.WithdrawRewardQuota ||
 		sendRewardBlock.AccountBlock.Quota != sendRewardBlock.AccountBlock.QuotaUsed ||
 		!bytes.Equal(sendRewardBlock.AccountBlock.Data, block17Data) ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 {
@@ -399,7 +399,7 @@ func TestContractsRegister(t *testing.T) {
 	//vm.Debug = true
 	db.addr = addr2
 	receiveRewardBlock, isRetry, err := vm.RunV2(db, block25, sendRewardBlock.AccountBlock, NewTestGlobalStatus(0, snapshot5))
-	registrationData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, nodeName, addr6, addr1, helper.Big0, uint64(0), int64(snapshot5.Timestamp.Unix()-2-24*3600), snapshot5.Timestamp.Unix(), hisAddrList)
+	registrationData, _ = abi.ABIGovernance.PackVariable(abi.VariableNameRegistrationInfo, sbpName, addr6, addr1, helper.Big0, uint64(0), int64(snapshot5.Timestamp.Unix()-2-24*3600), snapshot5.Timestamp.Unix(), hisAddrList)
 	if receiveRewardBlock == nil ||
 		len(receiveRewardBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
@@ -419,9 +419,9 @@ func TestContractsVote(t *testing.T) {
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
 	// vote
-	addr3 := types.AddressConsensusGroup
-	nodeName := "s1"
-	block13Data, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameVote, types.SNAPSHOT_GID, nodeName)
+	addr3 := types.AddressGovernance
+	sbpName := "s1"
+	block13Data, _ := abi.ABIGovernance.PackMethod(abi.MethodNameVote, types.SNAPSHOT_GID, sbpName)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
@@ -442,7 +442,7 @@ func TestContractsVote(t *testing.T) {
 	if sendVoteBlock == nil ||
 		len(sendVoteBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(sendVoteBlock.AccountBlock.Data, block13Data) ||
-		sendVoteBlock.AccountBlock.Quota != vm.gasTable.VoteGas ||
+		sendVoteBlock.AccountBlock.Quota != vm.gasTable.VoteQuota ||
 		sendVoteBlock.AccountBlock.Quota != sendVoteBlock.AccountBlock.QuotaUsed {
 		t.Fatalf("send vote transaction error")
 	}
@@ -460,8 +460,8 @@ func TestContractsVote(t *testing.T) {
 	//vm.Debug = true
 	db.addr = addr3
 	receiveVoteBlock, isRetry, err := vm.RunV2(db, block31, sendVoteBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	voteKey := abi.GetVoteKey(addr1, types.SNAPSHOT_GID)
-	voteData, _ := abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, nodeName)
+	voteKey := abi.GetVoteInfoKey(addr1, types.SNAPSHOT_GID)
+	voteData, _ := abi.ABIGovernance.PackVariable(abi.VariableNameVoteInfo, sbpName)
 	if receiveVoteBlock == nil ||
 		len(receiveVoteBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr3][ToKey(voteKey)], voteData) ||
@@ -476,8 +476,8 @@ func TestContractsVote(t *testing.T) {
 
 	addr4, _ := types.BytesToAddress(helper.HexToBytes("e5bf58cacfb74cf8c49a1d5e59d3919c9a4cb9ed"))
 	db.accountBlockMap[addr4] = make(map[types.Hash]*ledger.AccountBlock)
-	nodeName2 := "s2"
-	block14Data, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameVote, types.SNAPSHOT_GID, nodeName2)
+	sbpName2 := "s2"
+	block14Data, _ := abi.ABIGovernance.PackMethod(abi.MethodNameVote, types.SNAPSHOT_GID, sbpName2)
 	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{
 		Height:         4,
@@ -498,7 +498,7 @@ func TestContractsVote(t *testing.T) {
 	if sendVoteBlock2 == nil ||
 		len(sendVoteBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(sendVoteBlock2.AccountBlock.Data, block14Data) ||
-		sendVoteBlock2.AccountBlock.Quota != vm.gasTable.VoteGas ||
+		sendVoteBlock2.AccountBlock.Quota != vm.gasTable.VoteQuota ||
 		sendVoteBlock2.AccountBlock.Quota != sendVoteBlock2.AccountBlock.QuotaUsed {
 		t.Fatalf("send vote transaction 2 error")
 	}
@@ -517,7 +517,7 @@ func TestContractsVote(t *testing.T) {
 	//vm.Debug = true
 	db.addr = addr3
 	receiveVoteBlock2, isRetry, err := vm.RunV2(db, block32, sendVoteBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	voteData, _ = abi.ABIConsensusGroup.PackVariable(abi.VariableNameVoteStatus, nodeName2)
+	voteData, _ = abi.ABIGovernance.PackVariable(abi.VariableNameVoteInfo, sbpName2)
 	if receiveVoteBlock2 == nil ||
 		len(receiveVoteBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr3][ToKey(voteKey)], voteData) ||
@@ -530,13 +530,13 @@ func TestContractsVote(t *testing.T) {
 	db.accountBlockMap[addr3][hash32] = receiveVoteBlock2.AccountBlock
 
 	// get contracts data
-	db.addr = types.AddressConsensusGroup
-	if voteList, _ := abi.GetVoteList(db, types.SNAPSHOT_GID); len(voteList) != 1 || voteList[0].NodeName != nodeName2 {
+	db.addr = types.AddressGovernance
+	if voteList, _ := abi.GetVoteList(db, types.SNAPSHOT_GID); len(voteList) != 1 || voteList[0].SbpName != sbpName2 {
 		t.Fatalf("get vote list failed")
 	}
 
 	// cancel vote
-	block15Data, _ := abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelVote, types.SNAPSHOT_GID)
+	block15Data, _ := abi.ABIGovernance.PackMethod(abi.MethodNameCancelVote, types.SNAPSHOT_GID)
 	hash15 := types.DataHash([]byte{1, 5})
 	block15 := &ledger.AccountBlock{
 		Height:         5,
@@ -557,7 +557,7 @@ func TestContractsVote(t *testing.T) {
 	if sendCancelVoteBlock == nil ||
 		len(sendCancelVoteBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(sendCancelVoteBlock.AccountBlock.Data, block15Data) ||
-		sendCancelVoteBlock.AccountBlock.Quota != vm.gasTable.CancelVoteGas ||
+		sendCancelVoteBlock.AccountBlock.Quota != vm.gasTable.CancelVoteQuota ||
 		sendCancelVoteBlock.AccountBlock.Quota != sendCancelVoteBlock.AccountBlock.QuotaUsed {
 		t.Fatalf("send cancel vote transaction error")
 	}
@@ -588,23 +588,23 @@ func TestContractsVote(t *testing.T) {
 	db.accountBlockMap[addr3][hash33] = receiveCancelVoteBlock.AccountBlock
 }
 
-func TestContractsPledge(t *testing.T) {
+func TestContractsStake(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
-	// pledge
+	// stake
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr4, _, _ := types.CreateAddress()
 	db.accountBlockMap[addr4] = make(map[types.Hash]*ledger.AccountBlock)
-	addr5 := types.AddressPledge
-	pledgeAmount := new(big.Int).Set(new(big.Int).Mul(big.NewInt(1000), util.AttovPerVite))
-	block13Data, err := abi.ABIPledge.PackMethod(abi.MethodNamePledge, addr4)
+	addr5 := types.AddressQuota
+	stakeAmount := new(big.Int).Set(new(big.Int).Mul(big.NewInt(1000), util.AttovPerVite))
+	block13Data, err := abi.ABIQuota.PackMethod(abi.MethodNameStake, addr4)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
 		ToAddress:      addr5,
 		AccountAddress: addr1,
-		Amount:         pledgeAmount,
+		Amount:         stakeAmount,
 		TokenId:        ledger.ViteTokenId,
 		BlockType:      ledger.BlockTypeSendCall,
 		Fee:            big.NewInt(0),
@@ -615,17 +615,17 @@ func TestContractsPledge(t *testing.T) {
 	vm := NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
-	sendPledgeBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
-	balance1.Sub(balance1, pledgeAmount)
-	if sendPledgeBlock == nil ||
-		len(sendPledgeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	sendStakeBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
+	balance1.Sub(balance1, stakeAmount)
+	if sendStakeBlock == nil ||
+		len(sendStakeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		!bytes.Equal(sendPledgeBlock.AccountBlock.Data, block13Data) ||
-		sendPledgeBlock.AccountBlock.Quota != vm.gasTable.PledgeGas ||
-		sendPledgeBlock.AccountBlock.Quota != sendPledgeBlock.AccountBlock.QuotaUsed {
-		t.Fatalf("send pledge transaction error")
+		!bytes.Equal(sendStakeBlock.AccountBlock.Data, block13Data) ||
+		sendStakeBlock.AccountBlock.Quota != vm.gasTable.StakeQuota ||
+		sendStakeBlock.AccountBlock.Quota != sendStakeBlock.AccountBlock.QuotaUsed {
+		t.Fatalf("send stake transaction error")
 	}
-	db.accountBlockMap[addr1][hash13] = sendPledgeBlock.AccountBlock
+	db.accountBlockMap[addr1][hash13] = sendStakeBlock.AccountBlock
 
 	hash51 := types.DataHash([]byte{5, 1})
 	block51 := &ledger.AccountBlock{
@@ -638,32 +638,32 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr5
-	receivePledgeBlock, isRetry, err := vm.RunV2(db, block51, sendPledgeBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	beneficialKey := abi.GetPledgeBeneficialKey(addr4)
-	pledgeKey := abi.GetPledgeKey(addr1, 1)
-	withdrawHeight := snapshot2.Height + 3600*24*3
-	pledgeInfoBytes, _ := abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, pledgeAmount, withdrawHeight, addr4, false, types.Address{}, uint8(0))
-	if receivePledgeBlock == nil ||
-		len(receivePledgeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], pledgeInfoBytes) ||
-		!bytes.Equal(db.storageMap[addr5][ToKey(beneficialKey)], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
-		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
-		len(receivePledgeBlock.AccountBlock.Data) != 33 ||
-		receivePledgeBlock.AccountBlock.Data[32] != byte(0) ||
-		receivePledgeBlock.AccountBlock.Quota != 0 ||
-		receivePledgeBlock.AccountBlock.Quota != receivePledgeBlock.AccountBlock.QuotaUsed {
-		t.Fatalf("receive pledge transaction error")
+	receiveStakeBlock, isRetry, err := vm.RunV2(db, block51, sendStakeBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
+	beneficialKey := abi.GetStakeBeneficialKey(addr4)
+	stakeInfoKey := abi.GetStakeInfoKey(addr1, 1)
+	expirationHeight := snapshot2.Height + 3600*24*3
+	stakeInfoBytes, _ := abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, stakeAmount, expirationHeight, addr4, false, types.Address{}, uint8(0))
+	if receiveStakeBlock == nil ||
+		len(receiveStakeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+		!bytes.Equal(db.storageMap[addr5][ToKey(stakeInfoKey)], stakeInfoBytes) ||
+		!bytes.Equal(db.storageMap[addr5][ToKey(beneficialKey)], helper.LeftPadBytes(stakeAmount.Bytes(), helper.WordSize)) ||
+		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(stakeAmount) != 0 ||
+		len(receiveStakeBlock.AccountBlock.Data) != 33 ||
+		receiveStakeBlock.AccountBlock.Data[32] != byte(0) ||
+		receiveStakeBlock.AccountBlock.Quota != 0 ||
+		receiveStakeBlock.AccountBlock.Quota != receiveStakeBlock.AccountBlock.QuotaUsed {
+		t.Fatalf("receive stake transaction error")
 	}
 	db.accountBlockMap[addr5] = make(map[types.Hash]*ledger.AccountBlock)
-	db.accountBlockMap[addr5][hash51] = receivePledgeBlock.AccountBlock
+	db.accountBlockMap[addr5][hash51] = receiveStakeBlock.AccountBlock
 
-	block14Data, _ := abi.ABIPledge.PackMethod(abi.MethodNamePledge, addr4)
+	block14Data, _ := abi.ABIQuota.PackMethod(abi.MethodNameStake, addr4)
 	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{
 		Height:         4,
 		ToAddress:      addr5,
 		AccountAddress: addr1,
-		Amount:         pledgeAmount,
+		Amount:         stakeAmount,
 		TokenId:        ledger.ViteTokenId,
 		BlockType:      ledger.BlockTypeSendCall,
 		Fee:            big.NewInt(0),
@@ -674,17 +674,17 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
-	sendPledgeBlock2, isRetry, err := vm.RunV2(db, block14, nil, nil)
-	balance1.Sub(balance1, pledgeAmount)
-	if sendPledgeBlock2 == nil ||
-		len(sendPledgeBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		!bytes.Equal(sendPledgeBlock2.AccountBlock.Data, block14Data) ||
+	sendStakeBlock2, isRetry, err := vm.RunV2(db, block14, nil, nil)
+	balance1.Sub(balance1, stakeAmount)
+	if sendStakeBlock2 == nil ||
+		len(sendStakeBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+		!bytes.Equal(sendStakeBlock2.AccountBlock.Data, block14Data) ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		sendPledgeBlock2.AccountBlock.Quota != vm.gasTable.PledgeGas ||
-		sendPledgeBlock2.AccountBlock.Quota != sendPledgeBlock2.AccountBlock.QuotaUsed {
-		t.Fatalf("send pledge transaction 2 error")
+		sendStakeBlock2.AccountBlock.Quota != vm.gasTable.StakeQuota ||
+		sendStakeBlock2.AccountBlock.Quota != sendStakeBlock2.AccountBlock.QuotaUsed {
+		t.Fatalf("send stake transaction 2 error")
 	}
-	db.accountBlockMap[addr1][hash14] = sendPledgeBlock2.AccountBlock
+	db.accountBlockMap[addr1][hash14] = sendStakeBlock2.AccountBlock
 
 	hash52 := types.DataHash([]byte{5, 2})
 	block52 := &ledger.AccountBlock{
@@ -698,33 +698,33 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr5
-	receivePledgeBlock2, isRetry, err := vm.RunV2(db, block52, sendPledgeBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	newPledgeAmount := new(big.Int).Add(pledgeAmount, pledgeAmount)
-	pledgeInfoBytes, _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, newPledgeAmount, withdrawHeight, addr4, false, types.Address{}, uint8(0))
-	if receivePledgeBlock2 == nil ||
-		len(receivePledgeBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], pledgeInfoBytes) ||
-		!bytes.Equal(db.storageMap[addr5][ToKey(beneficialKey)], helper.LeftPadBytes(newPledgeAmount.Bytes(), helper.WordSize)) ||
-		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(newPledgeAmount) != 0 ||
-		len(receivePledgeBlock2.AccountBlock.Data) != 33 ||
-		receivePledgeBlock2.AccountBlock.Data[32] != byte(0) ||
-		receivePledgeBlock2.AccountBlock.Quota != 0 ||
-		receivePledgeBlock2.AccountBlock.Quota != receivePledgeBlock2.AccountBlock.QuotaUsed {
-		t.Fatalf("receive pledge transaction 2 error")
+	receiveStakeBlock2, isRetry, err := vm.RunV2(db, block52, sendStakeBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
+	newStakeAmount := new(big.Int).Add(stakeAmount, stakeAmount)
+	stakeInfoBytes, _ = abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, newStakeAmount, expirationHeight, addr4, false, types.Address{}, uint8(0))
+	if receiveStakeBlock2 == nil ||
+		len(receiveStakeBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+		!bytes.Equal(db.storageMap[addr5][ToKey(stakeInfoKey)], stakeInfoBytes) ||
+		!bytes.Equal(db.storageMap[addr5][ToKey(beneficialKey)], helper.LeftPadBytes(newStakeAmount.Bytes(), helper.WordSize)) ||
+		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(newStakeAmount) != 0 ||
+		len(receiveStakeBlock2.AccountBlock.Data) != 33 ||
+		receiveStakeBlock2.AccountBlock.Data[32] != byte(0) ||
+		receiveStakeBlock2.AccountBlock.Quota != 0 ||
+		receiveStakeBlock2.AccountBlock.Quota != receiveStakeBlock2.AccountBlock.QuotaUsed {
+		t.Fatalf("receive stake transaction 2 error")
 	}
-	db.accountBlockMap[addr5][hash52] = receivePledgeBlock2.AccountBlock
+	db.accountBlockMap[addr5][hash52] = receiveStakeBlock2.AccountBlock
 
 	// get contracts data
-	db.addr = types.AddressPledge
-	if pledgeAmount, _ := db.GetPledgeBeneficialAmount(&addr4); pledgeAmount.Cmp(newPledgeAmount) != 0 {
-		t.Fatalf("get pledge beneficial amount failed")
+	db.addr = types.AddressQuota
+	if stakeAmount, _ := db.GetStakeBeneficialAmount(&addr4); stakeAmount.Cmp(newStakeAmount) != 0 {
+		t.Fatalf("get stake beneficial amount failed")
 	}
-	if pledgeInfoList, _, _ := abi.GetPledgeInfoList(db, addr1); len(pledgeInfoList) != 1 ||
-		pledgeInfoList[0].BeneficialAddr != addr4 || pledgeInfoList[0].Amount.Cmp(newPledgeAmount) != 0 {
-		t.Fatalf("get pledge amount failed")
+	if stakeInfoList, _, _ := abi.GetStakeInfoList(db, addr1); len(stakeInfoList) != 1 ||
+		stakeInfoList[0].Beneficiary != addr4 || stakeInfoList[0].Amount.Cmp(newStakeAmount) != 0 {
+		t.Fatalf("get stake amount failed")
 	}
 
-	// cancel pledge
+	// cancel stake
 	for i := uint64(1); i <= uint64(3600*24*3); i++ {
 		timei := time.Unix(timestamp+100+int64(i), 0)
 		snapshoti := &ledger.SnapshotBlock{Height: 2 + i, Timestamp: &timei, Hash: types.DataHash([]byte{10, byte(2 + i)})}
@@ -732,7 +732,7 @@ func TestContractsPledge(t *testing.T) {
 	}
 	currentSnapshot := db.snapshotBlockList[len(db.snapshotBlockList)-1]
 
-	block15Data, _ := abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, addr4, big.NewInt(10))
+	block15Data, _ := abi.ABIQuota.PackMethod(abi.MethodNameCancelStake, addr4, big.NewInt(10))
 	hash15 := types.DataHash([]byte{1, 5})
 	block15 := &ledger.AccountBlock{
 		Height:         5,
@@ -748,13 +748,13 @@ func TestContractsPledge(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr1
-	sendCancelPledgeBlock, isRetry, err := vm.RunV2(db, block15, nil, nil)
-	if sendCancelPledgeBlock != nil || isRetry ||
+	sendCancelStakeBlock, isRetry, err := vm.RunV2(db, block15, nil, nil)
+	if sendCancelStakeBlock != nil || isRetry ||
 		err == nil || err.Error() != util.ErrInvalidMethodParam.Error() {
-		t.Fatalf("send invalid cancel pledge transaction error")
+		t.Fatalf("send invalid cancel stake transaction error")
 	}
 
-	block15Data, _ = abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, addr4, pledgeAmount)
+	block15Data, _ = abi.ABIQuota.PackMethod(abi.MethodNameCancelStake, addr4, stakeAmount)
 	block15 = &ledger.AccountBlock{
 		Height:         5,
 		ToAddress:      addr5,
@@ -770,15 +770,15 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
-	sendCancelPledgeBlock, isRetry, err = vm.RunV2(db, block15, nil, nil)
-	if sendCancelPledgeBlock == nil ||
-		len(sendCancelPledgeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		!bytes.Equal(sendCancelPledgeBlock.AccountBlock.Data, block15Data) ||
-		sendCancelPledgeBlock.AccountBlock.Quota != vm.gasTable.CancelPledgeGas ||
-		sendCancelPledgeBlock.AccountBlock.Quota != sendCancelPledgeBlock.AccountBlock.QuotaUsed {
-		t.Fatalf("send cancel pledge transaction error")
+	sendCancelStakeBlock, isRetry, err = vm.RunV2(db, block15, nil, nil)
+	if sendCancelStakeBlock == nil ||
+		len(sendCancelStakeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+		!bytes.Equal(sendCancelStakeBlock.AccountBlock.Data, block15Data) ||
+		sendCancelStakeBlock.AccountBlock.Quota != vm.gasTable.CancelStakeQuota ||
+		sendCancelStakeBlock.AccountBlock.Quota != sendCancelStakeBlock.AccountBlock.QuotaUsed {
+		t.Fatalf("send cancel stake transaction error")
 	}
-	db.accountBlockMap[addr1][hash15] = sendCancelPledgeBlock.AccountBlock
+	db.accountBlockMap[addr1][hash15] = sendCancelStakeBlock.AccountBlock
 
 	hash53 := types.DataHash([]byte{5, 3})
 	block53 := &ledger.AccountBlock{
@@ -792,27 +792,27 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr5
-	receiveCancelPledgeBlock, isRetry, err := vm.RunV2(db, block53, sendCancelPledgeBlock.AccountBlock, NewTestGlobalStatus(0, currentSnapshot))
-	pledgeInfoBytes, _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeInfo, pledgeAmount, withdrawHeight, addr4, false, types.Address{}, uint8(0))
-	if receiveCancelPledgeBlock == nil ||
-		len(receiveCancelPledgeBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
-		!bytes.Equal(db.storageMap[addr5][ToKey(pledgeKey)], pledgeInfoBytes) ||
-		!bytes.Equal(db.storageMap[addr5][ToKey(beneficialKey)], helper.LeftPadBytes(pledgeAmount.Bytes(), helper.WordSize)) ||
-		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
-		len(receiveCancelPledgeBlock.AccountBlock.Data) != 33 ||
-		receiveCancelPledgeBlock.AccountBlock.Data[32] != byte(0) ||
-		receiveCancelPledgeBlock.AccountBlock.Quota != 0 ||
-		receiveCancelPledgeBlock.AccountBlock.SendBlockList[0].ToAddress != addr1 ||
-		receiveCancelPledgeBlock.AccountBlock.SendBlockList[0].Amount.Cmp(pledgeAmount) != 0 ||
-		receiveCancelPledgeBlock.AccountBlock.SendBlockList[0].Fee.Sign() != 0 ||
-		len(receiveCancelPledgeBlock.AccountBlock.SendBlockList[0].Data) != 0 {
-		t.Fatalf("receive cancel pledge transaction error")
+	receiveCancelStakeBlock, isRetry, err := vm.RunV2(db, block53, sendCancelStakeBlock.AccountBlock, NewTestGlobalStatus(0, currentSnapshot))
+	stakeInfoBytes, _ = abi.ABIQuota.PackVariable(abi.VariableNameStakeInfo, stakeAmount, expirationHeight, addr4, false, types.Address{}, uint8(0))
+	if receiveCancelStakeBlock == nil ||
+		len(receiveCancelStakeBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
+		!bytes.Equal(db.storageMap[addr5][ToKey(stakeInfoKey)], stakeInfoBytes) ||
+		!bytes.Equal(db.storageMap[addr5][ToKey(beneficialKey)], helper.LeftPadBytes(stakeAmount.Bytes(), helper.WordSize)) ||
+		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(stakeAmount) != 0 ||
+		len(receiveCancelStakeBlock.AccountBlock.Data) != 33 ||
+		receiveCancelStakeBlock.AccountBlock.Data[32] != byte(0) ||
+		receiveCancelStakeBlock.AccountBlock.Quota != 0 ||
+		receiveCancelStakeBlock.AccountBlock.SendBlockList[0].ToAddress != addr1 ||
+		receiveCancelStakeBlock.AccountBlock.SendBlockList[0].Amount.Cmp(stakeAmount) != 0 ||
+		receiveCancelStakeBlock.AccountBlock.SendBlockList[0].Fee.Sign() != 0 ||
+		len(receiveCancelStakeBlock.AccountBlock.SendBlockList[0].Data) != 0 {
+		t.Fatalf("receive cancel stake transaction error")
 	}
-	db.accountBlockMap[addr5][hash53] = receiveCancelPledgeBlock.AccountBlock
+	db.accountBlockMap[addr5][hash53] = receiveCancelStakeBlock.AccountBlock
 	hash54 := types.DataHash([]byte{5, 4})
-	receiveCancelPledgeBlock.AccountBlock.SendBlockList[0].Hash = hash54
-	receiveCancelPledgeBlock.AccountBlock.SendBlockList[0].PrevHash = hash53
-	db.accountBlockMap[addr5][hash54] = receiveCancelPledgeBlock.AccountBlock.SendBlockList[0]
+	receiveCancelStakeBlock.AccountBlock.SendBlockList[0].Hash = hash54
+	receiveCancelStakeBlock.AccountBlock.SendBlockList[0].PrevHash = hash53
+	db.accountBlockMap[addr5][hash54] = receiveCancelStakeBlock.AccountBlock.SendBlockList[0]
 
 	hash16 := types.DataHash([]byte{1, 6})
 	block16 := &ledger.AccountBlock{
@@ -826,17 +826,17 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
-	receiveCancelPledgeRefundBlock, isRetry, err := vm.RunV2(db, block16, receiveCancelPledgeBlock.AccountBlock.SendBlockList[0], NewTestGlobalStatus(0, currentSnapshot))
-	balance1.Add(balance1, pledgeAmount)
-	if receiveCancelPledgeRefundBlock == nil ||
-		len(receiveCancelPledgeRefundBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	receiveCancelStakeRefundBlock, isRetry, err := vm.RunV2(db, block16, receiveCancelStakeBlock.AccountBlock.SendBlockList[0], NewTestGlobalStatus(0, currentSnapshot))
+	balance1.Add(balance1, stakeAmount)
+	if receiveCancelStakeRefundBlock == nil ||
+		len(receiveCancelStakeRefundBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		receiveCancelPledgeRefundBlock.AccountBlock.Quota != 21000 {
-		t.Fatalf("receive cancel pledge refund transaction error")
+		receiveCancelStakeRefundBlock.AccountBlock.Quota != 21000 {
+		t.Fatalf("receive cancel stake refund transaction error")
 	}
-	db.accountBlockMap[addr1][hash16] = receiveCancelPledgeRefundBlock.AccountBlock
+	db.accountBlockMap[addr1][hash16] = receiveCancelStakeRefundBlock.AccountBlock
 
-	block17Data, _ := abi.ABIPledge.PackMethod(abi.MethodNameCancelPledge, addr4, pledgeAmount)
+	block17Data, _ := abi.ABIQuota.PackMethod(abi.MethodNameCancelStake, addr4, stakeAmount)
 	hash17 := types.DataHash([]byte{1, 7})
 	block17 := &ledger.AccountBlock{
 		Height:         17,
@@ -853,14 +853,14 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
-	sendCancelPledgeBlock2, isRetry, err := vm.RunV2(db, block17, nil, nil)
-	if sendCancelPledgeBlock2 == nil ||
-		len(sendCancelPledgeBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		!bytes.Equal(sendCancelPledgeBlock2.AccountBlock.Data, block17Data) ||
-		sendCancelPledgeBlock2.AccountBlock.Quota != vm.gasTable.CancelPledgeGas {
-		t.Fatalf("send cancel pledge transaction 2 error")
+	sendCancelStakeBlock2, isRetry, err := vm.RunV2(db, block17, nil, nil)
+	if sendCancelStakeBlock2 == nil ||
+		len(sendCancelStakeBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+		!bytes.Equal(sendCancelStakeBlock2.AccountBlock.Data, block17Data) ||
+		sendCancelStakeBlock2.AccountBlock.Quota != vm.gasTable.CancelStakeQuota {
+		t.Fatalf("send cancel stake transaction 2 error")
 	}
-	db.accountBlockMap[addr1][hash17] = sendCancelPledgeBlock2.AccountBlock
+	db.accountBlockMap[addr1][hash17] = sendCancelStakeBlock2.AccountBlock
 
 	hash55 := types.DataHash([]byte{5, 5})
 	block55 := &ledger.AccountBlock{
@@ -874,26 +874,26 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr5
-	receiveCancelPledgeBlock2, isRetry, err := vm.RunV2(db, block55, sendCancelPledgeBlock2.AccountBlock, NewTestGlobalStatus(0, currentSnapshot))
-	if receiveCancelPledgeBlock2 == nil ||
-		len(receiveCancelPledgeBlock2.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
-		len(db.storageMap[addr5][ToKey(pledgeKey)]) != 0 ||
+	receiveCancelStakeBlock2, isRetry, err := vm.RunV2(db, block55, sendCancelStakeBlock2.AccountBlock, NewTestGlobalStatus(0, currentSnapshot))
+	if receiveCancelStakeBlock2 == nil ||
+		len(receiveCancelStakeBlock2.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
+		len(db.storageMap[addr5][ToKey(stakeInfoKey)]) != 0 ||
 		len(db.storageMap[addr5][ToKey(beneficialKey)]) != 0 ||
 		db.balanceMap[addr5][ledger.ViteTokenId].Cmp(helper.Big0) != 0 ||
-		len(receiveCancelPledgeBlock2.AccountBlock.Data) != 33 ||
-		receiveCancelPledgeBlock2.AccountBlock.Data[32] != byte(0) ||
-		receiveCancelPledgeBlock2.AccountBlock.Quota != 0 ||
-		receiveCancelPledgeBlock.AccountBlock.SendBlockList[0].ToAddress != addr1 ||
-		receiveCancelPledgeBlock.AccountBlock.SendBlockList[0].Amount.Cmp(pledgeAmount) != 0 ||
-		receiveCancelPledgeBlock.AccountBlock.SendBlockList[0].Fee.Sign() != 0 ||
-		len(receiveCancelPledgeBlock.AccountBlock.SendBlockList[0].Data) != 0 {
-		t.Fatalf("receive cancel pledge transaction 2 error")
+		len(receiveCancelStakeBlock2.AccountBlock.Data) != 33 ||
+		receiveCancelStakeBlock2.AccountBlock.Data[32] != byte(0) ||
+		receiveCancelStakeBlock2.AccountBlock.Quota != 0 ||
+		receiveCancelStakeBlock.AccountBlock.SendBlockList[0].ToAddress != addr1 ||
+		receiveCancelStakeBlock.AccountBlock.SendBlockList[0].Amount.Cmp(stakeAmount) != 0 ||
+		receiveCancelStakeBlock.AccountBlock.SendBlockList[0].Fee.Sign() != 0 ||
+		len(receiveCancelStakeBlock.AccountBlock.SendBlockList[0].Data) != 0 {
+		t.Fatalf("receive cancel stake transaction 2 error")
 	}
-	db.accountBlockMap[addr5][hash55] = receiveCancelPledgeBlock2.AccountBlock
+	db.accountBlockMap[addr5][hash55] = receiveCancelStakeBlock2.AccountBlock
 	hash56 := types.DataHash([]byte{5, 6})
-	receiveCancelPledgeBlock2.AccountBlock.SendBlockList[0].Hash = hash56
-	receiveCancelPledgeBlock2.AccountBlock.SendBlockList[0].PrevHash = hash55
-	db.accountBlockMap[addr5][hash56] = receiveCancelPledgeBlock2.AccountBlock.SendBlockList[0]
+	receiveCancelStakeBlock2.AccountBlock.SendBlockList[0].Hash = hash56
+	receiveCancelStakeBlock2.AccountBlock.SendBlockList[0].PrevHash = hash55
+	db.accountBlockMap[addr5][hash56] = receiveCancelStakeBlock2.AccountBlock.SendBlockList[0]
 
 	hash18 := types.DataHash([]byte{1, 8})
 	block18 := &ledger.AccountBlock{
@@ -907,24 +907,24 @@ func TestContractsPledge(t *testing.T) {
 	vm = NewVM(nil)
 	//vm.Debug = true
 	db.addr = addr1
-	balance1.Add(balance1, pledgeAmount)
-	receiveCancelPledgeRefundBlock2, isRetry, err := vm.RunV2(db, block18, receiveCancelPledgeBlock2.AccountBlock.SendBlockList[0], NewTestGlobalStatus(0, currentSnapshot))
-	if receiveCancelPledgeRefundBlock2 == nil ||
-		len(receiveCancelPledgeRefundBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	balance1.Add(balance1, stakeAmount)
+	receiveCancelStakeRefundBlock2, isRetry, err := vm.RunV2(db, block18, receiveCancelStakeBlock2.AccountBlock.SendBlockList[0], NewTestGlobalStatus(0, currentSnapshot))
+	if receiveCancelStakeRefundBlock2 == nil ||
+		len(receiveCancelStakeRefundBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		receiveCancelPledgeRefundBlock2.AccountBlock.Quota != 21000 {
-		t.Fatalf("receive cancel pledge refund transaction 2 error")
+		receiveCancelStakeRefundBlock2.AccountBlock.Quota != 21000 {
+		t.Fatalf("receive cancel stake refund transaction 2 error")
 	}
-	db.accountBlockMap[addr1][hash18] = receiveCancelPledgeRefundBlock2.AccountBlock
+	db.accountBlockMap[addr1][hash18] = receiveCancelStakeRefundBlock2.AccountBlock
 }
 
-func TestContractsMintageV2(t *testing.T) {
+func TestContractsAssetV2(t *testing.T) {
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
-	// mint
+	// issue
 	balance1 := new(big.Int).Set(viteTotalSupply)
-	addr2 := types.AddressMintage
+	addr2 := types.AddressAsset
 	isReIssuable := true
 	tokenName := "test token"
 	tokenSymbol := "T"
@@ -933,16 +933,16 @@ func TestContractsMintageV2(t *testing.T) {
 	decimals := uint8(3)
 	ownerBurnOnly := true
 	fee := new(big.Int).Mul(big.NewInt(1e3), util.AttovPerVite)
-	pledgeAmount := big.NewInt(0)
+	stakeAmount := big.NewInt(0)
 	balance1.Sub(balance1, fee)
-	balance1.Sub(balance1, pledgeAmount)
-	block13Data, err := abi.ABIMintage.PackMethod(abi.MethodNameMint, isReIssuable, tokenName, tokenSymbol, totalSupply, decimals, maxSupply, ownerBurnOnly)
+	balance1.Sub(balance1, stakeAmount)
+	block13Data, err := abi.ABIAsset.PackMethod(abi.MethodNameIssue, isReIssuable, tokenName, tokenSymbol, totalSupply, decimals, maxSupply, ownerBurnOnly)
 	hash13 := types.DataHash([]byte{1, 3})
 	block13 := &ledger.AccountBlock{
 		Height:         3,
 		ToAddress:      addr2,
 		AccountAddress: addr1,
-		Amount:         pledgeAmount,
+		Amount:         stakeAmount,
 		TokenId:        ledger.ViteTokenId,
 		BlockType:      ledger.BlockTypeSendCall,
 		Fee:            fee,
@@ -952,17 +952,17 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm := NewVM(nil)
 	db.addr = addr1
-	sendMintageBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
-	if sendMintageBlock == nil ||
-		len(sendMintageBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	sendIssueBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
+	if sendIssueBlock == nil ||
+		len(sendIssueBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		!bytes.Equal(sendMintageBlock.AccountBlock.Data, block13Data) ||
-		sendMintageBlock.AccountBlock.Amount.Cmp(pledgeAmount) != 0 ||
-		sendMintageBlock.AccountBlock.Fee.Cmp(fee) != 0 ||
-		sendMintageBlock.AccountBlock.Quota != vm.gasTable.MintGas {
-		t.Fatalf("send mint transaction error")
+		!bytes.Equal(sendIssueBlock.AccountBlock.Data, block13Data) ||
+		sendIssueBlock.AccountBlock.Amount.Cmp(stakeAmount) != 0 ||
+		sendIssueBlock.AccountBlock.Fee.Cmp(fee) != 0 ||
+		sendIssueBlock.AccountBlock.Quota != vm.gasTable.IssueQuota {
+		t.Fatalf("send issue transaction error")
 	}
-	db.accountBlockMap[addr1][hash13] = sendMintageBlock.AccountBlock
+	db.accountBlockMap[addr1][hash13] = sendIssueBlock.AccountBlock
 
 	hash21 := types.DataHash([]byte{2, 1})
 	block21 := &ledger.AccountBlock{
@@ -974,32 +974,32 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr2
-	receiveMintageBlock, isRetry, err := vm.RunV2(db, block21, sendMintageBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	tokenID := receiveMintageBlock.AccountBlock.SendBlockList[0].TokenId
-	key := abi.GetMintageKey(tokenID)
-	tokenInfoData, _ := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
-	if receiveMintageBlock == nil ||
-		len(receiveMintageBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
+	receiveIssueBlock, isRetry, err := vm.RunV2(db, block21, sendIssueBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
+	tokenID := receiveIssueBlock.AccountBlock.SendBlockList[0].TokenId
+	key := abi.GetTokenInfoKey(tokenID)
+	tokenInfoData, _ := abi.ABIAsset.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
+	if receiveIssueBlock == nil ||
+		len(receiveIssueBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
-		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
-		len(receiveMintageBlock.AccountBlock.Data) != 33 ||
-		receiveMintageBlock.AccountBlock.Data[32] != byte(0) ||
-		receiveMintageBlock.AccountBlock.Quota != 0 ||
-		receiveMintageBlock.AccountBlock.SendBlockList[0].Amount.Cmp(totalSupply) != 0 ||
-		receiveMintageBlock.AccountBlock.SendBlockList[0].ToAddress != addr1 ||
-		receiveMintageBlock.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendReward ||
-		receiveMintageBlock.AccountBlock.SendBlockList[0].TokenId != tokenID ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(stakeAmount) != 0 ||
+		len(receiveIssueBlock.AccountBlock.Data) != 33 ||
+		receiveIssueBlock.AccountBlock.Data[32] != byte(0) ||
+		receiveIssueBlock.AccountBlock.Quota != 0 ||
+		receiveIssueBlock.AccountBlock.SendBlockList[0].Amount.Cmp(totalSupply) != 0 ||
+		receiveIssueBlock.AccountBlock.SendBlockList[0].ToAddress != addr1 ||
+		receiveIssueBlock.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendReward ||
+		receiveIssueBlock.AccountBlock.SendBlockList[0].TokenId != tokenID ||
 		len(db.logList) != 1 ||
-		db.logList[0].Topics[0] != abi.ABIMintage.Events[abi.EventNameMint].Id() ||
+		db.logList[0].Topics[0] != abi.ABIAsset.Events[util.FirstToLower(abi.MethodNameIssue)].Id() ||
 		!bytes.Equal(db.logList[0].Topics[1].Bytes(), helper.LeftPadBytes(tokenID.Bytes(), 32)) {
-		t.Fatalf("receive mint transaction error")
+		t.Fatalf("receive issue transaction error")
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
-	db.accountBlockMap[addr2][hash21] = receiveMintageBlock.AccountBlock
+	db.accountBlockMap[addr2][hash21] = receiveIssueBlock.AccountBlock
 	hash22 := types.DataHash([]byte{2, 2})
-	receiveMintageBlock.AccountBlock.SendBlockList[0].Hash = hash22
-	receiveMintageBlock.AccountBlock.SendBlockList[0].PrevHash = hash21
-	db.accountBlockMap[addr2][hash22] = receiveMintageBlock.AccountBlock.SendBlockList[0]
+	receiveIssueBlock.AccountBlock.SendBlockList[0].Hash = hash22
+	receiveIssueBlock.AccountBlock.SendBlockList[0].PrevHash = hash21
+	db.accountBlockMap[addr2][hash22] = receiveIssueBlock.AccountBlock.SendBlockList[0]
 
 	hash14 := types.DataHash([]byte{1, 4})
 	block14 := &ledger.AccountBlock{
@@ -1013,18 +1013,18 @@ func TestContractsMintageV2(t *testing.T) {
 	vm = NewVM(nil)
 	db.addr = addr1
 	tokenBalance := new(big.Int).Set(totalSupply)
-	receiveMintageRewardBlock, isRetry, err := vm.RunV2(db, block14, receiveMintageBlock.AccountBlock.SendBlockList[0], nil)
-	if receiveMintageRewardBlock == nil ||
-		len(receiveMintageRewardBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	receiveIssueRewardBlock, isRetry, err := vm.RunV2(db, block14, receiveIssueBlock.AccountBlock.SendBlockList[0], nil)
+	if receiveIssueRewardBlock == nil ||
+		len(receiveIssueRewardBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][tokenID].Cmp(tokenBalance) != 0 ||
-		receiveMintageRewardBlock.AccountBlock.Quota != 21000 {
-		t.Fatalf("receive mintage reward transaction error")
+		receiveIssueRewardBlock.AccountBlock.Quota != 21000 {
+		t.Fatalf("receive issue reward transaction error")
 	}
-	db.accountBlockMap[addr1][hash14] = receiveMintageRewardBlock.AccountBlock
+	db.accountBlockMap[addr1][hash14] = receiveIssueRewardBlock.AccountBlock
 
 	// get contracts data
-	db.addr = types.AddressMintage
-	if tokenInfo, _ := abi.GetTokenById(db, tokenID); tokenInfo == nil || tokenInfo.TokenName != tokenName {
+	db.addr = types.AddressAsset
+	if tokenInfo, _ := abi.GetTokenByID(db, tokenID); tokenInfo == nil || tokenInfo.TokenName != tokenName {
 		t.Fatalf("get token by id failed")
 	}
 	if tokenMap, _ := abi.GetTokenMap(db); len(tokenMap) != 2 || tokenMap[tokenID].TokenName != tokenName {
@@ -1035,11 +1035,11 @@ func TestContractsMintageV2(t *testing.T) {
 		t.Fatalf("get token map by owner failed")
 	}
 
-	// issue
+	// reIssue
 	addr3, _, _ := types.CreateAddress()
-	db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(addr3))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressQuota][ToKey(abi.GetStakeBeneficialKey(addr3))], _ = abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 	reIssueAmount := big.NewInt(1000)
-	block15Data, err := abi.ABIMintage.PackMethod(abi.MethodNameIssue, tokenID, reIssueAmount, addr3)
+	block15Data, err := abi.ABIAsset.PackMethod(abi.MethodNameReIssue, tokenID, reIssueAmount, addr3)
 	hash15 := types.DataHash([]byte{1, 5})
 	block15 := &ledger.AccountBlock{
 		Height:         5,
@@ -1055,16 +1055,16 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr1
-	sendIssueBlock, isRetry, err := vm.RunV2(db, block15, nil, nil)
-	if sendIssueBlock == nil ||
-		len(sendIssueBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	sendReIssueBlock, isRetry, err := vm.RunV2(db, block15, nil, nil)
+	if sendReIssueBlock == nil ||
+		len(sendReIssueBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		!bytes.Equal(sendIssueBlock.AccountBlock.Data, block15Data) ||
-		sendIssueBlock.AccountBlock.Amount.Cmp(big.NewInt(0)) != 0 ||
-		sendIssueBlock.AccountBlock.Quota != vm.gasTable.IssueGas {
-		t.Fatalf("send issue transaction error")
+		!bytes.Equal(sendReIssueBlock.AccountBlock.Data, block15Data) ||
+		sendReIssueBlock.AccountBlock.Amount.Cmp(big.NewInt(0)) != 0 ||
+		sendReIssueBlock.AccountBlock.Quota != vm.gasTable.ReIssueQuota {
+		t.Fatalf("send reIssue transaction error")
 	}
-	db.accountBlockMap[addr1][hash15] = sendIssueBlock.AccountBlock
+	db.accountBlockMap[addr1][hash15] = sendReIssueBlock.AccountBlock
 
 	hash23 := types.DataHash([]byte{2, 3})
 	block23 := &ledger.AccountBlock{
@@ -1077,31 +1077,31 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr2
-	receiveIssueBlock, isRetry, err := vm.RunV2(db, block23, sendIssueBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
+	receiveReIssueBlock, isRetry, err := vm.RunV2(db, block23, sendReIssueBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
 	totalSupply = totalSupply.Add(totalSupply, reIssueAmount)
-	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
-	if receiveIssueBlock == nil ||
-		len(receiveIssueBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
+	tokenInfoData, _ = abi.ABIAsset.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
+	if receiveReIssueBlock == nil ||
+		len(receiveReIssueBlock.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
-		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
-		len(receiveIssueBlock.AccountBlock.Data) != 33 ||
-		receiveIssueBlock.AccountBlock.Data[32] != byte(0) ||
-		receiveIssueBlock.AccountBlock.Quota != 0 ||
-		receiveIssueBlock.AccountBlock.SendBlockList[0].Amount.Cmp(reIssueAmount) != 0 ||
-		receiveIssueBlock.AccountBlock.SendBlockList[0].ToAddress != addr3 ||
-		receiveIssueBlock.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendReward ||
-		receiveIssueBlock.AccountBlock.SendBlockList[0].TokenId != tokenID ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(stakeAmount) != 0 ||
+		len(receiveReIssueBlock.AccountBlock.Data) != 33 ||
+		receiveReIssueBlock.AccountBlock.Data[32] != byte(0) ||
+		receiveReIssueBlock.AccountBlock.Quota != 0 ||
+		receiveReIssueBlock.AccountBlock.SendBlockList[0].Amount.Cmp(reIssueAmount) != 0 ||
+		receiveReIssueBlock.AccountBlock.SendBlockList[0].ToAddress != addr3 ||
+		receiveReIssueBlock.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendReward ||
+		receiveReIssueBlock.AccountBlock.SendBlockList[0].TokenId != tokenID ||
 		len(db.logList) != 2 ||
-		db.logList[1].Topics[0] != abi.ABIMintage.Events[abi.EventNameIssue].Id() ||
+		db.logList[1].Topics[0] != abi.ABIAsset.Events[util.FirstToLower(abi.MethodNameReIssue)].Id() ||
 		!bytes.Equal(db.logList[1].Topics[1].Bytes(), helper.LeftPadBytes(tokenID.Bytes(), 32)) {
-		t.Fatalf("receive issue transaction error")
+		t.Fatalf("receive reIssue transaction error")
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
-	db.accountBlockMap[addr2][hash23] = receiveIssueBlock.AccountBlock
+	db.accountBlockMap[addr2][hash23] = receiveReIssueBlock.AccountBlock
 	hash24 := types.DataHash([]byte{2, 4})
-	receiveIssueBlock.AccountBlock.SendBlockList[0].Hash = hash24
-	receiveIssueBlock.AccountBlock.SendBlockList[0].PrevHash = hash23
-	db.accountBlockMap[addr2][hash24] = receiveIssueBlock.AccountBlock.SendBlockList[0]
+	receiveReIssueBlock.AccountBlock.SendBlockList[0].Hash = hash24
+	receiveReIssueBlock.AccountBlock.SendBlockList[0].PrevHash = hash23
+	db.accountBlockMap[addr2][hash24] = receiveReIssueBlock.AccountBlock.SendBlockList[0]
 
 	hash31 := types.DataHash([]byte{3, 1})
 	block31 := &ledger.AccountBlock{
@@ -1113,18 +1113,18 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr3
-	receiveIssueRewardBlock, isRetry, err := vm.RunV2(db, block31, receiveIssueBlock.AccountBlock.SendBlockList[0], nil)
-	if receiveIssueRewardBlock == nil ||
-		len(receiveIssueRewardBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	receiveReIssueRewardBlock, isRetry, err := vm.RunV2(db, block31, receiveReIssueBlock.AccountBlock.SendBlockList[0], nil)
+	if receiveReIssueRewardBlock == nil ||
+		len(receiveReIssueRewardBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr3][tokenID].Cmp(reIssueAmount) != 0 ||
-		receiveIssueRewardBlock.AccountBlock.Quota != 21000 {
-		t.Fatalf("receive issue reward transaction error")
+		receiveReIssueRewardBlock.AccountBlock.Quota != 21000 {
+		t.Fatalf("receive reIssue reward transaction error")
 	}
 	db.accountBlockMap[addr3] = make(map[types.Hash]*ledger.AccountBlock)
-	db.accountBlockMap[addr3][hash31] = receiveIssueRewardBlock.AccountBlock
+	db.accountBlockMap[addr3][hash31] = receiveReIssueRewardBlock.AccountBlock
 
 	// burn
-	block16Data, err := abi.ABIMintage.PackMethod(abi.MethodNameBurn)
+	block16Data, err := abi.ABIAsset.PackMethod(abi.MethodNameBurn)
 	hash16 := types.DataHash([]byte{1, 6})
 	burnAmount := big.NewInt(1000)
 	block16 := &ledger.AccountBlock{
@@ -1150,7 +1150,7 @@ func TestContractsMintageV2(t *testing.T) {
 		db.balanceMap[addr1][tokenID].Cmp(tokenBalance) != 0 ||
 		!bytes.Equal(sendBurnBlock.AccountBlock.Data, block16Data) ||
 		sendBurnBlock.AccountBlock.Amount.Cmp(burnAmount) != 0 ||
-		sendBurnBlock.AccountBlock.Quota != vm.gasTable.BurnGas {
+		sendBurnBlock.AccountBlock.Quota != vm.gasTable.BurnQuota {
 		t.Fatalf("send burn transaction error")
 	}
 	db.accountBlockMap[addr1][hash16] = sendBurnBlock.AccountBlock
@@ -1167,17 +1167,17 @@ func TestContractsMintageV2(t *testing.T) {
 	vm = NewVM(nil)
 	db.addr = addr2
 	receiveBurnBlock, isRetry, err := vm.RunV2(db, block25, sendBurnBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
+	tokenInfoData, _ = abi.ABIAsset.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
 	if receiveBurnBlock == nil ||
 		len(receiveBurnBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
-		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(stakeAmount) != 0 ||
 		db.balanceMap[addr2][tokenID].Cmp(helper.Big0) != 0 ||
 		len(receiveBurnBlock.AccountBlock.Data) != 33 ||
 		receiveBurnBlock.AccountBlock.Data[32] != byte(0) ||
 		receiveBurnBlock.AccountBlock.Quota != 0 ||
 		len(db.logList) != 3 ||
-		db.logList[2].Topics[0] != abi.ABIMintage.Events[abi.EventNameBurn].Id() ||
+		db.logList[2].Topics[0] != abi.ABIAsset.Events[util.FirstToLower(abi.MethodNameBurn)].Id() ||
 		!bytes.Equal(db.logList[2].Topics[1].Bytes(), helper.LeftPadBytes(tokenID.Bytes(), 32)) ||
 		!bytes.Equal(db.logList[2].Data, append(helper.LeftPadBytes(addr1.Bytes(), 32), helper.LeftPadBytes(burnAmount.Bytes(), 32)...)) {
 		t.Fatalf("receive burn transaction error")
@@ -1186,7 +1186,7 @@ func TestContractsMintageV2(t *testing.T) {
 	db.accountBlockMap[addr2][hash25] = receiveBurnBlock.AccountBlock
 
 	// transfer owner
-	block17Data, err := abi.ABIMintage.PackMethod(abi.MethodNameTransferOwner, tokenID, addr3)
+	block17Data, err := abi.ABIAsset.PackMethod(abi.MethodNameTransferOwnership, tokenID, addr3)
 	hash17 := types.DataHash([]byte{1, 7})
 	block17 := &ledger.AccountBlock{
 		Height:         7,
@@ -1202,17 +1202,17 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr1
-	sendTransferOwnerBlock, isRetry, err := vm.RunV2(db, block17, nil, nil)
-	if sendTransferOwnerBlock == nil ||
-		len(sendTransferOwnerBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	sendTransferOwnershipBlock, isRetry, err := vm.RunV2(db, block17, nil, nil)
+	if sendTransferOwnershipBlock == nil ||
+		len(sendTransferOwnershipBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
 		db.balanceMap[addr1][tokenID].Cmp(tokenBalance) != 0 ||
-		!bytes.Equal(sendTransferOwnerBlock.AccountBlock.Data, block17Data) ||
-		sendTransferOwnerBlock.AccountBlock.Amount.Cmp(helper.Big0) != 0 ||
-		sendTransferOwnerBlock.AccountBlock.Quota != vm.gasTable.TransferOwnerGas {
+		!bytes.Equal(sendTransferOwnershipBlock.AccountBlock.Data, block17Data) ||
+		sendTransferOwnershipBlock.AccountBlock.Amount.Cmp(helper.Big0) != 0 ||
+		sendTransferOwnershipBlock.AccountBlock.Quota != vm.gasTable.TransferOwnershipQuota {
 		t.Fatalf("send transfer owner transaction error")
 	}
-	db.accountBlockMap[addr1][hash17] = sendTransferOwnerBlock.AccountBlock
+	db.accountBlockMap[addr1][hash17] = sendTransferOwnershipBlock.AccountBlock
 
 	hash26 := types.DataHash([]byte{2, 6})
 	block26 := &ledger.AccountBlock{
@@ -1225,26 +1225,26 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr2
-	receiveTransferOwnerBlock, isRetry, err := vm.RunV2(db, block26, sendTransferOwnerBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
-	if receiveTransferOwnerBlock == nil ||
-		len(receiveTransferOwnerBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	receiveTransferOwnershipBlock, isRetry, err := vm.RunV2(db, block26, sendTransferOwnershipBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
+	tokenInfoData, _ = abi.ABIAsset.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, isReIssuable, maxSupply, ownerBurnOnly, uint16(0))
+	if receiveTransferOwnershipBlock == nil ||
+		len(receiveTransferOwnershipBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
-		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(stakeAmount) != 0 ||
 		db.balanceMap[addr2][tokenID].Cmp(helper.Big0) != 0 ||
-		len(receiveTransferOwnerBlock.AccountBlock.Data) != 33 ||
-		receiveTransferOwnerBlock.AccountBlock.Data[32] != byte(0) ||
-		receiveTransferOwnerBlock.AccountBlock.Quota != 0 ||
+		len(receiveTransferOwnershipBlock.AccountBlock.Data) != 33 ||
+		receiveTransferOwnershipBlock.AccountBlock.Data[32] != byte(0) ||
+		receiveTransferOwnershipBlock.AccountBlock.Quota != 0 ||
 		len(db.logList) != 4 ||
-		db.logList[3].Topics[0] != abi.ABIMintage.Events[abi.EventNameTransferOwner].Id() ||
+		db.logList[3].Topics[0] != abi.ABIAsset.Events[util.FirstToLower(abi.MethodNameTransferOwnership)].Id() ||
 		!bytes.Equal(db.logList[3].Topics[1].Bytes(), helper.LeftPadBytes(tokenID.Bytes(), 32)) ||
 		!bytes.Equal(db.logList[3].Data, helper.LeftPadBytes(addr3.Bytes(), 32)) {
 		t.Fatalf("receive transfer owner transaction error")
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
-	db.accountBlockMap[addr2][hash26] = receiveTransferOwnerBlock.AccountBlock
+	db.accountBlockMap[addr2][hash26] = receiveTransferOwnershipBlock.AccountBlock
 
-	db.addr = types.AddressMintage
+	db.addr = types.AddressAsset
 	if tokenMap, _ := abi.GetTokenMapByOwner(db, addr1); len(tokenMap) != 0 {
 		t.Fatalf("get token map by owner failed")
 	}
@@ -1253,7 +1253,7 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 
 	// change token type
-	block32Data, err := abi.ABIMintage.PackMethod(abi.MethodNameChangeTokenType, tokenID)
+	block32Data, err := abi.ABIAsset.PackMethod(abi.MethodNameDisableReIssue, tokenID)
 	hash32 := types.DataHash([]byte{3, 2})
 	block32 := &ledger.AccountBlock{
 		Height:         2,
@@ -1269,15 +1269,15 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr3
-	sendChangeTokenTypeBlock, isRetry, err := vm.RunV2(db, block32, nil, nil)
-	if sendChangeTokenTypeBlock == nil ||
-		len(sendChangeTokenTypeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
-		!bytes.Equal(sendChangeTokenTypeBlock.AccountBlock.Data, block32Data) ||
-		sendChangeTokenTypeBlock.AccountBlock.Amount.Cmp(helper.Big0) != 0 ||
-		sendChangeTokenTypeBlock.AccountBlock.Quota != vm.gasTable.ChangeTokenTypeGas {
+	sendDisableReIssueBlock, isRetry, err := vm.RunV2(db, block32, nil, nil)
+	if sendDisableReIssueBlock == nil ||
+		len(sendDisableReIssueBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+		!bytes.Equal(sendDisableReIssueBlock.AccountBlock.Data, block32Data) ||
+		sendDisableReIssueBlock.AccountBlock.Amount.Cmp(helper.Big0) != 0 ||
+		sendDisableReIssueBlock.AccountBlock.Quota != vm.gasTable.DisableReIssueQuota {
 		t.Fatalf("send change token type transaction error")
 	}
-	db.accountBlockMap[addr3][hash32] = sendChangeTokenTypeBlock.AccountBlock
+	db.accountBlockMap[addr3][hash32] = sendDisableReIssueBlock.AccountBlock
 
 	hash27 := types.DataHash([]byte{2, 7})
 	block27 := &ledger.AccountBlock{
@@ -1290,25 +1290,25 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr2
-	receiveChangeTokenTypeBlock, isRetry, err := vm.RunV2(db, block27, sendChangeTokenTypeBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	tokenInfoData, _ = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, false, big.NewInt(0), false, uint16(0))
-	if receiveChangeTokenTypeBlock == nil ||
-		len(receiveChangeTokenTypeBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	receiveDisableReIssueBlock, isRetry, err := vm.RunV2(db, block27, sendDisableReIssueBlock.AccountBlock, NewTestGlobalStatus(0, snapshot2))
+	tokenInfoData, _ = abi.ABIAsset.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr3, false, big.NewInt(0), false, uint16(0))
+	if receiveDisableReIssueBlock == nil ||
+		len(receiveDisableReIssueBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(key)], tokenInfoData) ||
-		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(stakeAmount) != 0 ||
 		db.balanceMap[addr2][tokenID].Cmp(helper.Big0) != 0 ||
-		len(receiveChangeTokenTypeBlock.AccountBlock.Data) != 33 ||
-		receiveChangeTokenTypeBlock.AccountBlock.Data[32] != byte(0) ||
-		receiveChangeTokenTypeBlock.AccountBlock.Quota != 0 ||
+		len(receiveDisableReIssueBlock.AccountBlock.Data) != 33 ||
+		receiveDisableReIssueBlock.AccountBlock.Data[32] != byte(0) ||
+		receiveDisableReIssueBlock.AccountBlock.Quota != 0 ||
 		len(db.logList) != 5 ||
-		db.logList[4].Topics[0] != abi.ABIMintage.Events[abi.EventNameChangeTokenType].Id() ||
+		db.logList[4].Topics[0] != abi.ABIAsset.Events[util.FirstToLower(abi.MethodNameDisableReIssue)].Id() ||
 		!bytes.Equal(db.logList[4].Topics[1].Bytes(), helper.LeftPadBytes(tokenID.Bytes(), 32)) {
 		t.Fatalf("receive change token type transaction error")
 	}
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
-	db.accountBlockMap[addr2][hash27] = receiveChangeTokenTypeBlock.AccountBlock
+	db.accountBlockMap[addr2][hash27] = receiveDisableReIssueBlock.AccountBlock
 
-	db.addr = types.AddressMintage
+	db.addr = types.AddressAsset
 	if tokenMap, _ := abi.GetTokenMapByOwner(db, addr3); len(tokenMap) != 1 {
 		t.Fatalf("get token map by owner failed")
 	}
@@ -1316,16 +1316,16 @@ func TestContractsMintageV2(t *testing.T) {
 		t.Fatalf("get token map by owner failed")
 	}
 
-	// mint again
+	// issue again
 	balance1.Sub(balance1, fee)
-	balance1.Sub(balance1, pledgeAmount)
-	block18Data, err := abi.ABIMintage.PackMethod(abi.MethodNameMint, isReIssuable, tokenName, tokenSymbol, totalSupply, decimals, maxSupply, ownerBurnOnly)
+	balance1.Sub(balance1, stakeAmount)
+	block18Data, err := abi.ABIAsset.PackMethod(abi.MethodNameIssue, isReIssuable, tokenName, tokenSymbol, totalSupply, decimals, maxSupply, ownerBurnOnly)
 	hash18 := types.DataHash([]byte{1, 8})
 	block18 := &ledger.AccountBlock{
 		Height:         8,
 		ToAddress:      addr2,
 		AccountAddress: addr1,
-		Amount:         pledgeAmount,
+		Amount:         stakeAmount,
 		TokenId:        ledger.ViteTokenId,
 		BlockType:      ledger.BlockTypeSendCall,
 		Fee:            fee,
@@ -1335,17 +1335,17 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr1
-	sendMintageBlock2, isRetry, err := vm.RunV2(db, block18, nil, nil)
-	if sendMintageBlock2 == nil ||
-		len(sendMintageBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
+	sendIssueBlock2, isRetry, err := vm.RunV2(db, block18, nil, nil)
+	if sendIssueBlock2 == nil ||
+		len(sendIssueBlock2.AccountBlock.SendBlockList) != 0 || isRetry || err != nil ||
 		db.balanceMap[addr1][ledger.ViteTokenId].Cmp(balance1) != 0 ||
-		!bytes.Equal(sendMintageBlock2.AccountBlock.Data, block18Data) ||
-		sendMintageBlock2.AccountBlock.Amount.Cmp(pledgeAmount) != 0 ||
-		sendMintageBlock2.AccountBlock.Fee.Cmp(fee) != 0 ||
-		sendMintageBlock2.AccountBlock.Quota != vm.gasTable.MintGas {
-		t.Fatalf("send mint transaction 2 error")
+		!bytes.Equal(sendIssueBlock2.AccountBlock.Data, block18Data) ||
+		sendIssueBlock2.AccountBlock.Amount.Cmp(stakeAmount) != 0 ||
+		sendIssueBlock2.AccountBlock.Fee.Cmp(fee) != 0 ||
+		sendIssueBlock2.AccountBlock.Quota != vm.gasTable.IssueQuota {
+		t.Fatalf("send issue transaction 2 error")
 	}
-	db.accountBlockMap[addr1][hash18] = sendMintageBlock2.AccountBlock
+	db.accountBlockMap[addr1][hash18] = sendIssueBlock2.AccountBlock
 
 	hash28 := types.DataHash([]byte{2, 8})
 	block28 := &ledger.AccountBlock{
@@ -1358,31 +1358,31 @@ func TestContractsMintageV2(t *testing.T) {
 	}
 	vm = NewVM(nil)
 	db.addr = addr2
-	receiveMintageBlock2, isRetry, err := vm.RunV2(db, block28, sendMintageBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
-	newTokenID := receiveMintageBlock2.AccountBlock.SendBlockList[0].TokenId
-	newKey := abi.GetMintageKey(newTokenID)
-	newTokenInfoData, _ := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(1))
-	if receiveMintageBlock2 == nil ||
-		len(receiveMintageBlock2.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
+	receiveIssueBlock2, isRetry, err := vm.RunV2(db, block28, sendIssueBlock2.AccountBlock, NewTestGlobalStatus(0, snapshot2))
+	newTokenID := receiveIssueBlock2.AccountBlock.SendBlockList[0].TokenId
+	newKey := abi.GetTokenInfoKey(newTokenID)
+	newTokenInfoData, _ := abi.ABIAsset.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, addr1, isReIssuable, maxSupply, ownerBurnOnly, uint16(1))
+	if receiveIssueBlock2 == nil ||
+		len(receiveIssueBlock2.AccountBlock.SendBlockList) != 1 || isRetry || err != nil ||
 		!bytes.Equal(db.storageMap[addr2][ToKey(newKey)], newTokenInfoData) ||
-		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(pledgeAmount) != 0 ||
-		len(receiveMintageBlock2.AccountBlock.Data) != 33 ||
-		receiveMintageBlock2.AccountBlock.Data[32] != byte(0) ||
-		receiveMintageBlock2.AccountBlock.Quota != 0 ||
-		receiveMintageBlock2.AccountBlock.SendBlockList[0].Amount.Cmp(totalSupply) != 0 ||
-		receiveMintageBlock2.AccountBlock.SendBlockList[0].ToAddress != addr1 ||
-		receiveMintageBlock2.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendReward ||
-		receiveMintageBlock2.AccountBlock.SendBlockList[0].TokenId != newTokenID ||
+		db.balanceMap[addr2][ledger.ViteTokenId].Cmp(stakeAmount) != 0 ||
+		len(receiveIssueBlock2.AccountBlock.Data) != 33 ||
+		receiveIssueBlock2.AccountBlock.Data[32] != byte(0) ||
+		receiveIssueBlock2.AccountBlock.Quota != 0 ||
+		receiveIssueBlock2.AccountBlock.SendBlockList[0].Amount.Cmp(totalSupply) != 0 ||
+		receiveIssueBlock2.AccountBlock.SendBlockList[0].ToAddress != addr1 ||
+		receiveIssueBlock2.AccountBlock.SendBlockList[0].BlockType != ledger.BlockTypeSendReward ||
+		receiveIssueBlock2.AccountBlock.SendBlockList[0].TokenId != newTokenID ||
 		len(db.logList) != 6 ||
-		db.logList[5].Topics[0] != abi.ABIMintage.Events[abi.EventNameMint].Id() ||
+		db.logList[5].Topics[0] != abi.ABIAsset.Events[util.FirstToLower(abi.MethodNameIssue)].Id() ||
 		!bytes.Equal(db.logList[5].Topics[1].Bytes(), helper.LeftPadBytes(newTokenID.Bytes(), 32)) {
-		t.Fatalf("receive mint transaction 2 error")
+		t.Fatalf("receive issue transaction 2 error")
 	}
-	db.accountBlockMap[addr2][hash28] = receiveMintageBlock2.AccountBlock
+	db.accountBlockMap[addr2][hash28] = receiveIssueBlock2.AccountBlock
 	hash2a := types.DataHash([]byte{2, 10})
-	receiveMintageBlock2.AccountBlock.SendBlockList[0].Hash = hash2a
-	receiveMintageBlock2.AccountBlock.SendBlockList[0].PrevHash = hash28
-	db.accountBlockMap[addr2][hash2a] = receiveMintageBlock2.AccountBlock.SendBlockList[0]
+	receiveIssueBlock2.AccountBlock.SendBlockList[0].Hash = hash2a
+	receiveIssueBlock2.AccountBlock.SendBlockList[0].PrevHash = hash28
+	db.accountBlockMap[addr2][hash2a] = receiveIssueBlock2.AccountBlock.SendBlockList[0]
 }
 
 func TestCheckTokenName(t *testing.T) {
@@ -1417,15 +1417,15 @@ func TestGenesisBlockData(t *testing.T) {
 	decimals := uint8(18)
 	totalSupply := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9))
 	viteAddress, _, _ := types.CreateAddress()
-	mintageData, err := abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, true, helper.Tt256m1, false, uint16(0))
+	issueData, err := abi.ABIAsset.PackVariable(abi.VariableNameTokenInfo, tokenName, tokenSymbol, totalSupply, decimals, viteAddress, true, helper.Tt256m1, false, uint16(0))
 	if err != nil {
-		t.Fatalf("pack mintage variable error, %v", err)
+		t.Fatalf("pack issue data error, %v", err)
 	}
 	fmt.Println("-------------mintage genesis block-------------")
-	fmt.Printf("address: %v\n", hex.EncodeToString(types.AddressMintage.Bytes()))
+	fmt.Printf("address: %v\n", hex.EncodeToString(types.AddressAsset.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v\n}\n",
-		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressMintage.Bytes()), 1, big.NewInt(0), big.NewInt(0))
-	fmt.Printf("Storage:{\n\t%v:%v\n}\n", hex.EncodeToString(abi.GetMintageKey(ledger.ViteTokenId)), hex.EncodeToString(mintageData))
+		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressAsset.Bytes()), 1, big.NewInt(0), big.NewInt(0))
+	fmt.Printf("Storage:{\n\t%v:%v\n}\n", hex.EncodeToString(abi.GetTokenInfoKey(ledger.ViteTokenId)), hex.EncodeToString(issueData))
 
 	fmt.Println("-------------vite owner genesis block-------------")
 	fmt.Println("address: viteAddress")
@@ -1433,11 +1433,11 @@ func TestGenesisBlockData(t *testing.T) {
 		ledger.BlockTypeReceive, 1, totalSupply, big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n\t$balance:ledger.ViteTokenId:%v\n}\n", totalSupply)
 
-	conditionRegisterData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, new(big.Int).Mul(big.NewInt(1e5), util.AttovPerVite), ledger.ViteTokenId, uint64(3600*24*90))
+	conditionRegisterData, err := abi.ABIGovernance.PackVariable(abi.VariableNameRegisterStakeParam, new(big.Int).Mul(big.NewInt(1e5), util.AttovPerVite), ledger.ViteTokenId, uint64(3600*24*90))
 	if err != nil {
 		t.Fatalf("pack register condition variable error, %v", err)
 	}
-	snapshotConsensusGroupData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
+	snapshotConsensusGroupData, err := abi.ABIGovernance.PackVariable(abi.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(1),
 		int64(3),
@@ -1456,7 +1456,7 @@ func TestGenesisBlockData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pack consensus group data variable error, %v", err)
 	}
-	commonConsensusGroupData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
+	commonConsensusGroupData, err := abi.ABIGovernance.PackVariable(abi.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		int64(1),
@@ -1476,23 +1476,23 @@ func TestGenesisBlockData(t *testing.T) {
 		t.Fatalf("pack consensus group data variable error, %v", err)
 	}
 	fmt.Println("-------------snapshot consensus group and common consensus group genesis block-------------")
-	fmt.Printf("address:%v\n", hex.EncodeToString(types.AddressConsensusGroup.Bytes()))
+	fmt.Printf("address:%v\n", hex.EncodeToString(types.AddressGovernance.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
-		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
-	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(abi.GetConsensusGroupKey(types.SNAPSHOT_GID)), hex.EncodeToString(snapshotConsensusGroupData), hex.EncodeToString(abi.GetConsensusGroupKey(types.DELEGATE_GID)), hex.EncodeToString(commonConsensusGroupData))
+		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressGovernance.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
+	fmt.Printf("Storage:{\n\t%v:%v,\n\t%v:%v}\n", hex.EncodeToString(abi.GetConsensusGroupInfoKey(types.SNAPSHOT_GID)), hex.EncodeToString(snapshotConsensusGroupData), hex.EncodeToString(abi.GetConsensusGroupInfoKey(types.DELEGATE_GID)), hex.EncodeToString(commonConsensusGroupData))
 
 	fmt.Println("-------------snapshot consensus group and common consensus group register genesis block-------------")
-	fmt.Printf("address:%v\n", hex.EncodeToString(types.AddressConsensusGroup.Bytes()))
+	fmt.Printf("address:%v\n", hex.EncodeToString(types.AddressGovernance.Bytes()))
 	fmt.Printf("AccountBlock{\n\tBlockType: %v,\n\tAccountAddress: %v,\n\tHeight: %v,\n\tAmount: %v,\n\tTokenId:ledger.ViteTokenId,\n\tQuota:0,\n\tFee:%v,\n\tData:%v,\n}\n",
-		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressConsensusGroup.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
+		ledger.BlockTypeReceive, hex.EncodeToString(types.AddressGovernance.Bytes()), 1, big.NewInt(0), big.NewInt(0), []byte{})
 	fmt.Printf("Storage:{\n")
 	for i := 1; i <= 25; i++ {
 		addr, _, _ := types.CreateAddress()
-		registerData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, "node"+strconv.Itoa(i), addr, addr, helper.Big0, uint64(1), int64(1), int64(0), []types.Address{addr})
+		registerData, err := abi.ABIGovernance.PackVariable(abi.VariableNameRegistrationInfo, "node"+strconv.Itoa(i), addr, addr, helper.Big0, uint64(1), int64(1), int64(0), []types.Address{addr})
 		if err != nil {
 			t.Fatalf("pack registration variable error, %v", err)
 		}
-		snapshotKey := abi.GetRegisterKey("snapshotNode1", types.SNAPSHOT_GID)
+		snapshotKey := abi.GetRegistrationInfoKey("snapshotNode1", types.SNAPSHOT_GID)
 		fmt.Printf("\t%v: %v\n", hex.EncodeToString(snapshotKey), hex.EncodeToString(registerData))
 	}
 	fmt.Println("}")

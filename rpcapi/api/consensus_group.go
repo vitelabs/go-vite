@@ -2,7 +2,6 @@ package api
 
 import (
 	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
@@ -70,28 +69,22 @@ func newConsensusGroup(source *types.ConsensusGroupInfo, sbHeight uint64) *Conse
 		RegisterConditionId: source.RegisterConditionId,
 		VoteConditionId:     source.VoteConditionId,
 		Owner:               source.Owner,
-		WithdrawHeight:      Uint64ToString(source.WithdrawHeight),
+		WithdrawHeight:      Uint64ToString(source.ExpirationHeight),
 	}
-	if source.PledgeAmount != nil {
-		target.PledgeAmount = *bigIntToString(source.PledgeAmount)
+	if source.StakeAmount != nil {
+		target.PledgeAmount = *bigIntToString(source.StakeAmount)
 	}
-	if param, err := abi.GetRegisterOfPledgeInfo(source.RegisterConditionParam); err == nil {
+	if param, err := abi.GetRegisterStakeParamOfConsensusGroup(source.RegisterConditionParam); err == nil {
 		target.RegisterConditionParam = &RegisterConditionParam{
-			PledgeToken:  param.PledgeToken,
-			PledgeHeight: Uint64ToString(param.PledgeHeight)}
-		// TODO delete following code after hardfork
-		if !fork.IsLeafFork(sbHeight) {
-			target.RegisterConditionParam.PledgeAmount = *bigIntToString(contracts.SbpStakeAmountPreMainnet)
-		} else {
-			target.RegisterConditionParam.PledgeAmount = *bigIntToString(contracts.SbpStakeAmountMainnet)
-		}
-
+			PledgeToken:  param.StakeToken,
+			PledgeHeight: Uint64ToString(param.StakeHeight)}
+		target.RegisterConditionParam.PledgeAmount = *bigIntToString(contracts.SbpStakeAmountMainnet)
 	}
 	return target
 }
 
 func (c *ConsensusGroupApi) GetConsensusGroupById(gid types.Gid) (*ConsensusGroup, error) {
-	db, err := getVmDb(c.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(c.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -107,11 +100,11 @@ func (c *ConsensusGroupApi) GetConsensusGroupById(gid types.Gid) (*ConsensusGrou
 }
 
 func (c *ConsensusGroupApi) GetConsensusGroupList() ([]*ConsensusGroup, error) {
-	db, err := getVmDb(c.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(c.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
-	list, err := abi.GetActiveConsensusGroupList(db)
+	list, err := abi.GetConsensusGroupList(db)
 	if err != nil {
 		return nil, err
 	}
