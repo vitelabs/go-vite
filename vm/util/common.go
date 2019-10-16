@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"sort"
 	"unicode"
@@ -136,12 +135,6 @@ func PrintMap(m map[string][]byte) string {
 		result = result[:len(result)-2]
 	}
 	return result
-}
-
-// NewLog generate vm log
-func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog {
-	topics, data, _ := c.PackEvent(name, params...)
-	return &ledger.VmLog{Topics: topics, Data: data}
 }
 
 // CheckFork check whether current snapshot block height is over certain hard fork

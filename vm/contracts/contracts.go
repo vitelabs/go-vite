@@ -215,3 +215,9 @@ func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeigh
 	}
 	return nil, addrExists, nil
 }
+
+// NewLog generate vm log
+func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog {
+	topics, data, _ := c.PackEvent(name, params...)
+	return &ledger.VmLog{Topics: topics, Data: data}
+}

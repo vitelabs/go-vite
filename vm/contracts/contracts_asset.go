@@ -117,7 +117,7 @@ func (p *MethodIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendB
 	nextV, _ = abi.ABIAsset.PackVariable(abi.VariableNameTokenIndex, nextIndex+1)
 	util.SetValue(db, nextIndexKey, nextV)
 
-	db.AddLog(util.NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), tokenID))
+	db.AddLog(NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), tokenID))
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,
@@ -188,7 +188,7 @@ func (p *MethodReIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sen
 		oldTokenInfo.Index)
 	util.SetValue(db, abi.GetTokenInfoKey(param.TokenId), newTokenInfo)
 
-	db.AddLog(util.NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), param.TokenId))
+	db.AddLog(NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), param.TokenId))
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: block.AccountAddress,
@@ -245,7 +245,7 @@ func (p *MethodBurn) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBl
 	util.SubBalance(db, &sendBlock.TokenId, sendBlock.Amount)
 	util.SetValue(db, abi.GetTokenInfoKey(sendBlock.TokenId), newTokenInfo)
 
-	db.AddLog(util.NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), sendBlock.TokenId, sendBlock.AccountAddress, sendBlock.Amount))
+	db.AddLog(NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), sendBlock.TokenId, sendBlock.AccountAddress, sendBlock.Amount))
 	return nil, nil
 }
 
@@ -308,7 +308,7 @@ func (p *MethodTransferOwnership) DoReceive(db vm_db.VmDb, block *ledger.Account
 	newIDList := util.GetValue(db, newKey)
 	util.SetValue(db, newKey, abi.AppendTokenID(newIDList, param.TokenId))
 
-	db.AddLog(util.NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), param.TokenId, param.NewOwner))
+	db.AddLog(NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), param.TokenId, param.NewOwner))
 	return nil, nil
 }
 
@@ -361,7 +361,7 @@ func (p *MethodDisableReIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlo
 		oldTokenInfo.Index)
 	util.SetValue(db, abi.GetTokenInfoKey(*tokenID), newTokenInfo)
 
-	db.AddLog(util.NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), *tokenID))
+	db.AddLog(NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), *tokenID))
 	return nil, nil
 }
 
