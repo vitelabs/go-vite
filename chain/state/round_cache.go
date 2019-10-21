@@ -341,6 +341,8 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 		// set prevRoundData.lastSnapshotBlock
 		prevRoundData.lastSnapshotBlock = lastSnapshotBlock
 
+		//fmt.Printf("buildCurrentData %d, %s\n", lastSnapshotBlock.Height, lastSnapshotBlock.Hash)
+
 		prevRoundData.mu.Unlock()
 
 	}
@@ -468,6 +470,7 @@ func (cache *RoundCache) GetSnapshotViteBalanceList(snapshotHash types.Hash, add
 	if currentData == nil {
 		return nil, nil, nil
 	}
+	//fmt.Printf("GetSnapshotViteBalanceList %s\n", snapshotHash)
 
 	balanceMap := make(map[types.Address]*big.Int)
 	var notFoundAddressList []types.Address
@@ -495,6 +498,7 @@ func (cache *RoundCache) StorageIterator(snapshotHash types.Hash) interfaces.Sto
 	if currentData == nil {
 		return nil
 	}
+	//fmt.Printf("StorageIterator %s\n", snapshotHash)
 
 	return NewTransformIterator(currentData.NewIterator(util.BytesPrefix(makeStorageKey(nil))), 1)
 }
