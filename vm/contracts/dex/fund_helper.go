@@ -367,6 +367,8 @@ func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, 
 	var vipReduceFeeRate int32 = 0
 	if _, ok := GetSuperVIPStaking(db, address); ok {
 		vipReduceFeeRate = BaseFeeRate
+	} else if _, ok := GetSuperVIPAgentStaking(db, address); ok {
+		vipReduceFeeRate = BaseFeeRate
 	} else if _, ok := GetVIPStaking(db, address); ok {
 		vipReduceFeeRate = VipReduceFeeRate
 	}
@@ -513,6 +515,14 @@ func IsLeafFork(db vm_db.VmDb) bool {
 		panic(err)
 	} else {
 		return fork.IsLeafFork(latestSb.Height)
+	}
+}
+
+func IsLushFork(db vm_db.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return fork.IsLushFork(latestSb.Height)
 	}
 }
 

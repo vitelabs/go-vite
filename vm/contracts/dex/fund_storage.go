@@ -50,8 +50,9 @@ var (
 	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
-	vipStakingKeyPrefix      = []byte("pldVip:")   // vipStaking: types.Address
-	superVIPStakingKeyPrefix = []byte("pldSpVip:") // superVIPStaking: types.Address
+	vipStakingKeyPrefix           = []byte("pldVip:")    // vipStaking: types.Address
+	superVIPStakingKeyPrefix      = []byte("pldSpVip:")  // superVIPStaking: types.Address
+	superVIPAgentStakingKeyPrefix = []byte("spVipAtSt:") // superVIPAgentStaking: types.Address
 
 	miningStakingsKeyPrefix     = []byte("pldsVx:")  // miningStakings: types.Address
 	dexMiningStakingsKey        = []byte("pldsVxS:") // dexMiningStakings
@@ -129,6 +130,7 @@ const (
 	StakeForMining = iota + 1
 	StakeForVIP
 	StakeForSuperVIP
+	StakeForAgentSuperVIP
 )
 
 const (
@@ -241,9 +243,23 @@ type ParamStakeForVIP struct {
 	ActionType uint8 // 1: stake 2: cancel stake
 }
 
-type ParamDelegateStakeCallBack struct {
+type ParamStakeForAgentVIP struct {
+	ActionType uint8 // 1: stake 2: cancel stake
+	Principal  types.Address
+}
+
+type ParamDelegateStakeCallback struct {
 	StakeAddress types.Address
 	Beneficiary  types.Address
+	Amount       *big.Int
+	Bid          uint8
+	Success      bool
+}
+
+type ParamDelegateAgentStakeCallback struct {
+	StakeAddress types.Address
+	Beneficiary  types.Address
+	Principal    types.Address
 	Amount       *big.Int
 	Bid          uint8
 	Success      bool
@@ -529,6 +545,24 @@ func (pv *VIPStaking) DeSerialize(data []byte) error {
 	}
 }
 
+type VIPAgentStaking struct {
+	dexproto.VIPAgentStaking
+}
+
+func (pv *VIPAgentStaking) Serialize() (data []byte, err error) {
+	return proto.Marshal(&pv.VIPAgentStaking)
+}
+
+func (pv *VIPAgentStaking) DeSerialize(data []byte) error {
+	vIPAgentStaking := dexproto.VIPAgentStaking{}
+	if err := proto.Unmarshal(data, &vIPAgentStaking); err != nil {
+		return err
+	} else {
+		pv.VIPAgentStaking = vIPAgentStaking
+		return nil
+	}
+}
+
 type MiningStakings struct {
 	dexproto.MiningStakings
 }
@@ -728,7 +762,7 @@ func getDexFeesByKey(db vm_db.VmDb, feeKey []byte) (*DexFeesByPeriod, bool) {
 //get all dexFeeses that not divided yet
 func GetNotFinishDividendDexFeesByPeriodMap(db vm_db.VmDb, periodId uint64) map[uint64]*DexFeesByPeriod {
 	var (
-		dexFeesByPeriods  = make(map[uint64]*DexFeesByPeriod)
+		dexFeesByPeriods = make(map[uint64]*DexFeesByPeriod)
 		dexFeesByPeriod  *DexFeesByPeriod
 		ok, everFound    bool
 	)
@@ -1495,6 +1529,24 @@ func GetSuperVIPStakingKey(address types.Address) []byte {
 	return append(superVIPStakingKeyPrefix, address.Bytes()...)
 }
 
+func GetSuperVIPAgentStaking(db vm_db.VmDb, address types.Address) (superVIPAgentStaking *VIPAgentStaking, ok bool) {
+	superVIPAgentStaking = &VIPAgentStaking{}
+	ok = deserializeFromDb(db, GetSuperVIPAgentStakingKey(address), superVIPAgentStaking)
+	return
+}
+
+func SaveSuperVIPAgentStaking(db vm_db.VmDb, address types.Address, superVIPStaking *VIPStaking) {
+	serializeToDb(db, GetSuperVIPAgentStakingKey(address), superVIPStaking)
+}
+
+func DeleteSuperVIPAgentStaking(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetSuperVIPAgentStakingKey(address), nil)
+}
+
+func GetSuperVIPAgentStakingKey(address types.Address) []byte {
+	return append(superVIPAgentStakingKeyPrefix, address.Bytes()...)
+}
+
 func GetMiningStakings(db vm_db.VmDb, address types.Address) (miningStakings *MiningStakings, ok bool) {
 	miningStakings = &MiningStakings{}
 	ok = deserializeFromDb(db, GetMiningStakingsKey(address), miningStakings)
@@ -1739,6 +1791,14 @@ func IsMarketGrantedToAgent(db vm_db.VmDb, principal, agent types.Address, marke
 }
 
 func GetGrantedMarketToAgentKey(principal types.Address, marketId int32) []byte {
+	re := make([]byte, len(grantedMarketToAgentKeyPrefix)+types.AddressSize+3)
+	copy(re[:], grantedMarketToAgentKeyPrefix)
+	copy(re[len(grantedMarketToAgentKeyPrefix):], principal.Bytes())
+	copy(re[len(grantedMarketToAgentKeyPrefix)+types.AddressSize:], Uint32ToBytes(uint32(marketId))[1:])
+	return re
+}
+
+func GetDelegateKey(principal types.Address, marketId int32) []byte {
 	re := make([]byte, len(grantedMarketToAgentKeyPrefix)+types.AddressSize+3)
 	copy(re[:], grantedMarketToAgentKeyPrefix)
 	copy(re[len(grantedMarketToAgentKeyPrefix):], principal.Bytes())

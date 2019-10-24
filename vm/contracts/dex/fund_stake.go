@@ -63,7 +63,7 @@ func stakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, amount 
 			return nil, VIPStakingExistsErr
 		}
 	} else if stakeType == StakeForSuperVIP {
-		if _, ok := GetSuperVIPStaking(db, address); ok {
+		if IsSuperVIP(db, address) {
 			return nil, SuperVipStakingExistsErr
 		}
 	}
@@ -110,6 +110,92 @@ func cancelStakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, a
 	} else {
 		return cancelStakeData, err
 	}
+}
+
+func HandleStakeAgentAction(db vm_db.VmDb, stakeType uint8, param *ParamStakeForAgentVIP, address types.Address, amount *big.Int, stakeHeight uint64) ([]*ledger.AccountBlock, error) {
+	var (
+		methodData []byte
+		err        error
+	)
+	if param.ActionType == Stake {
+		if methodData, err = stakeAgentRequest(db, address, stakeType, param.Principal, amount, stakeHeight); err != nil {
+			return []*ledger.AccountBlock{}, err
+		} else {
+			return []*ledger.AccountBlock{
+				{
+					AccountAddress: types.AddressDexFund,
+					ToAddress:      types.AddressQuota,
+					BlockType:      ledger.BlockTypeSendCall,
+					Amount:         amount,
+					TokenId:        ledger.ViteTokenId,
+					Data:           methodData,
+				},
+			}, nil
+		}
+	} else {
+		return DoCancelAgentStake(db, stakeType, address, param.Principal, amount)
+	}
+}
+
+func stakeAgentRequest(db vm_db.VmDb, address types.Address, stakeType uint8, principal types.Address, amount *big.Int, stakeHeight uint64) ([]byte, error) {
+	if stakeType == StakeForAgentSuperVIP {
+		// check principal is superVIP
+		if IsSuperVIP(db, principal) {
+			return nil, SuperVipStakingExistsErr
+		}
+	}
+	if _, err := ReduceAccount(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
+		return nil, err
+	} else {
+		if stakeData, err := abi.ABIQuota.PackMethod(abi.MethodNameDelegateStakeV3, address, types.AddressDexFund, principal, stakeType, stakeHeight); err != nil {
+			return nil, err
+		} else {
+			return stakeData, err
+		}
+	}
+}
+
+func DoCancelAgentStake(db vm_db.VmDb, stakeType uint8, address, principal types.Address, amount *big.Int) ([]*ledger.AccountBlock, error) {
+	var (
+		methodData []byte
+		err        error
+	)
+	if methodData, err = cancelAgentStakeRequest(db, stakeType, address, principal, amount); err != nil {
+		return []*ledger.AccountBlock{}, err
+	} else {
+		return []*ledger.AccountBlock{
+			{
+				AccountAddress: types.AddressDexFund,
+				ToAddress:      types.AddressQuota,
+				BlockType:      ledger.BlockTypeSendCall,
+				TokenId:        ledger.ViteTokenId,
+				Amount:         big.NewInt(0),
+				Data:           methodData,
+			},
+		}, nil
+	}
+}
+
+func cancelAgentStakeRequest(db vm_db.VmDb, stakeType uint8, address, principal types.Address, amount *big.Int) ([]byte, error) {
+	if stakeType == StakeForAgentSuperVIP {
+		if _, ok := GetSuperVIPAgentStaking(db, address); !ok {
+			return nil, SuperVIPAgentStakingNotExistsErr
+		}
+	}
+	if cancelAgentStakeData, err := abi.ABIQuota.PackMethod(abi.MethodNameCancelDelegateStakeV3, address, types.AddressDexFund, principal, amount, uint8(stakeType)); err != nil {
+		return nil, err
+	} else {
+		return cancelAgentStakeData, err
+	}
+}
+
+func IsSuperVIP(db vm_db.VmDb, address types.Address) bool {
+	if _, ok := GetSuperVIPStaking(db, address); ok {
+		return true
+	} else if _, ok = GetSuperVIPAgentStaking(db, address); ok {
+		return true
+	}
+	return false
 }
 
 func OnMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {

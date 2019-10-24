@@ -109,6 +109,11 @@ message VIPStaking {
     int32 StakedTimes = 2; // Staked times in case duplicate stake happen
 }
 
+message VIPAgentStaking {
+    int64 Timestamp = 1;
+    repeated bytes AgentsStaked = 2; // Staked agents in case duplicate stake happen
+}
+
 message MiningStakingByPeriod {
     uint64 Period = 1; // last snapshot height in period
     bytes Amount = 2;

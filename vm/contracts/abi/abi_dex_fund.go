@@ -54,7 +54,11 @@ const (
 
         {"type":"function","name":"StakeForSVIP", "inputs":[{"name":"actionType","type":"uint8"}]},
 		{"type":"function","name":"ConfigMarketAgents", "inputs":[{"name":"actionType","type":"uint8"},{"name":"agent","type":"address"},{"name":"tradeTokens","type":"tokenId[]"},{"name":"quoteTokens","type":"tokenId[]"}]},		
-        {"type":"function","name":"PlaceAgentOrder", "inputs":[{"name":"principal","type":"address"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"uint8"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}]}
+        {"type":"function","name":"PlaceAgentOrder", "inputs":[{"name":"principal","type":"address"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"uint8"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}]},
+		
+		{"type":"function","name":"LockVxForDividend", "inputs":[{"name":"actionType","type":"uint8"},{"name":"amount","type":"uint256"}]},
+		{"type":"function","name":"StakeForAgentSVIP", "inputs":[{"name":"actionType","type":"uint8"},{"name":"principal","type":"address"}]}
+   
     ]`
 
 	// deprecated version
@@ -108,6 +112,10 @@ const (
 	MethodNameDexFundStakeForSVIP       = "StakeForSVIP"
 	MethodNameDexFundConfigMarketAgents = "ConfigMarketAgents"
 	MethodNameDexFundPlaceAgentOrder    = "PlaceAgentOrder"
+
+	//v1.1
+	MethodNameDexFundLockVxForDividend    = "LockVxForDividend"
+	MethodNameDexFundStakeForAgentSVIP = "StakeForAgentSVIP"
 )
 
 var (

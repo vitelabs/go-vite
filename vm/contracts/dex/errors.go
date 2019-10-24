@@ -40,8 +40,9 @@ var (
 	StakingAmountLeavedNotValidErr = errors.New("staking amount leaved not valid")
 	VIPStakingExistsErr            = errors.New("VIP staking exists")
 	VIPStakingNotExistsErr         = errors.New("VIP staking not exists")
-	SuperVipStakingExistsErr       = errors.New("super VIP Staking exists")
-	SuperVIPStakingNotExistsErr    = errors.New("super VIP Staking not exists")
+	SuperVipStakingExistsErr       = errors.New("super VIP staking exists")
+	SuperVIPStakingNotExistsErr    = errors.New("super VIP staking not exists")
+	SuperVIPAgentStakingNotExistsErr    = errors.New("super VIP agent staking not exists")
 
 	InvalidSourceAddressErr          = errors.New("invalid source address")
 	InvalidAmountForStakeCallbackErr = errors.New("invalid amount for stake callback")

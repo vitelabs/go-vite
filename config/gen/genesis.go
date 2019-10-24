@@ -68,6 +68,10 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 				Height:  9413600,
 				Version: 5,
 			},
+			LushFork: &config.ForkPoint{
+				Height:  15413600,
+				Version: 6,
+			},
 		}
 	}
 }

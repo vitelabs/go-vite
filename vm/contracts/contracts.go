@@ -57,6 +57,7 @@ var (
 	dexContracts      = newDexContracts()
 	dexAgentContracts = newDexAgentContracts()
 	leafContracts     = newLeafContracts()
+	lushContracts     = newLushContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
@@ -191,10 +192,23 @@ func newLeafContracts() map[types.Address]*builtinContract {
 	return contracts
 }
 
+func newLushContracts() map[types.Address]*builtinContract {
+	contracts := newLeafContracts()
+
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundLockVxForDividend] = &MethodDexFundDeposit{cabi.MethodNameDexFundLockVxForDividend}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundStakeForAgentSVIP] = &MethodDexFundStakeForAgentSVIP{cabi.MethodNameDexFundStakeForAgentSVIP}
+	contracts[types.AddressQuota].m[cabi.MethodNameDelegateAgentStake] = &MethodDelegateAgentStake{cabi.MethodNameDelegateAgentStake}
+	contracts[types.AddressQuota].m[cabi.MethodNameCancelDelegateAgentStake] = &MethodCancelDelegateAgentStake{cabi.MethodNameCancelDelegateAgentStake}
+
+	return contracts
+}
+
 // GetBuiltinContractMethod finds method instance of built-in contract method by address and method id
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if fork.IsLeafFork(sbHeight) {
+	if fork.IsLushFork(sbHeight) {
+		contractsMap = lushContracts
+	} else if fork.IsLeafFork(sbHeight) {
 		contractsMap = leafContracts
 	} else if fork.IsStemFork(sbHeight) {
 		contractsMap = dexAgentContracts

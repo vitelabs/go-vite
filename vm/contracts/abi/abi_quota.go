@@ -43,6 +43,9 @@ const (
 	MethodNameDelegateStakeV2       = "DelegateStake"
 	MethodNameCancelDelegateStake   = "AgentCancelPledge"
 	MethodNameCancelDelegateStakeV2 = "CancelDelegateStake"
+
+	MethodNameDelegateStakeV3       = "DelegateStakeV3"
+	MethodNameCancelDelegateStakeV3 = "CancelDelegateStakeV3"
 	VariableNameStakeInfo           = "stakeInfo"
 	VariableNameStakeBeneficial     = "stakeBeneficial"
 )
