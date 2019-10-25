@@ -127,7 +127,7 @@ func DoFeesDividend(db vm_db.VmDb, periodId uint64) error {
 			}
 			AddFeeDividendEvent(db, address, feeSumWtTk.Token, userVxAmount, userFeeDividend[feeSumWtTk.Token])
 		}
-		if err = UpdateFund(db, address, userFeeDividend); err != nil {
+		if err = BatchUpdateFund(db, address, userFeeDividend); err != nil {
 			return err
 		}
 	}
@@ -180,7 +180,7 @@ func DoOperatorFeesDividend(db vm_db.VmDb, periodId uint64) error {
 				AddOperatorFeeDividendEvent(db, addr, mkFee)
 			}
 		}
-		UpdateFund(db, addr, userFund)
+		BatchUpdateFund(db, addr, userFund)
 	}
 	return nil
 }

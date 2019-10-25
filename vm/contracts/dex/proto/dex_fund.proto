@@ -7,6 +7,17 @@ message Account {
     bytes Token = 1;
     bytes Available = 2;
     bytes Locked   = 3;
+    bytes VxLocked = 4; // lock for dividend, will release after 7 days
+    bytes VxUnlocking = 5;
+}
+
+message VxUnlock {
+    uint64 PeriodId = 1;
+    bytes Amount = 2;
+}
+
+message VxUnlocks {
+    repeated VxUnlock Unlocks = 1;
 }
 
 //storage

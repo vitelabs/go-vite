@@ -39,6 +39,8 @@ var (
 	marketIdKey                         = []byte("mkId:")
 	orderIdSerialNoKey                  = []byte("orIdSl:")
 
+	vxUnlocksKeyPrefix = []byte("vxUl:")
+
 	timeOracleKey       = []byte("tmA:")
 	periodJobTriggerKey = []byte("tgA:")
 
@@ -581,6 +583,24 @@ func (psv *MiningStakings) DeSerialize(data []byte) error {
 	}
 }
 
+type VxUnlocks struct {
+	dexproto.VxUnlocks
+}
+
+func (vu *VxUnlocks) Serialize() (data []byte, err error) {
+	return proto.Marshal(&vu.VxUnlocks)
+}
+
+func (vu *VxUnlocks) DeSerialize(data []byte) error {
+	vxUnlocks := dexproto.VxUnlocks{}
+	if err := proto.Unmarshal(data, &vxUnlocks); err != nil {
+		return err
+	} else {
+		vu.VxUnlocks = vxUnlocks
+		return nil
+	}
+}
+
 func GetAccountByToken(fund *Fund, token types.TokenTypeId) (account *dexproto.Account, exists bool) {
 	for _, a := range fund.Accounts {
 		if bytes.Equal(token.Bytes(), a.Token) {
@@ -628,20 +648,69 @@ func SaveFund(db vm_db.VmDb, address types.Address, fund *Fund) {
 	serializeToDb(db, GetFundKey(address), fund)
 }
 
-func ReduceAccount(db vm_db.VmDb, address types.Address, tokenId []byte, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
+func ReduceAccount(db vm_db.VmDb, address types.Address, tokenId []byte, amount *big.Int) (*dexproto.Account, error) {
+	return updateFund(db, address, tokenId, amount, func(acc *dexproto.Account, amount *big.Int) (*dexproto.Account, error) {
+		available := new(big.Int).SetBytes(acc.Available)
+		if available.Cmp(amount) < 0 {
+			return nil, ExceedFundAvailableErr
+		} else {
+			acc.Available = available.Sub(available, amount).Bytes()
+		}
+		return acc, nil
+	})
+}
+
+func LockVxForDividend(db vm_db.VmDb, address types.Address, amount *big.Int) (*dexproto.Account, error) {
+	return updateFund(db, address, VxTokenId.Bytes(), amount, func(acc *dexproto.Account, amount *big.Int) (*dexproto.Account, error) {
+		available := new(big.Int).SetBytes(acc.Available)
+		if available.Cmp(amount) < 0 {
+			return nil, ExceedFundAvailableErr
+		} else {
+			acc.Available = available.Sub(available, amount).Bytes()
+			acc.VxLocked = AddBigInt(acc.VxLocked, amount.Bytes())
+		}
+		return acc, nil
+	})
+}
+
+func TryUnlockVxForDividend(db vm_db.VmDb, address types.Address, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
+	if updatedAcc, err = updateFund(db, address, VxTokenId.Bytes(), amount, func(acc *dexproto.Account, amount *big.Int) (*dexproto.Account, error) {
+		vxLocked := new(big.Int).SetBytes(acc.VxLocked)
+		if vxLocked.Cmp(amount) < 0 {
+			return nil, ExceedFundAvailableErr
+		} else {
+			acc.VxLocked = vxLocked.Sub(vxLocked, amount).Bytes()
+			acc.VxUnlocking = AddBigInt(acc.VxUnlocking, amount.Bytes())
+		}
+		return acc, nil
+	}); err != nil {
+		return
+	}
+	return
+}
+
+func FinishUnlockVxForDividend(db vm_db.VmDb, address types.Address, amount *big.Int) (*dexproto.Account, error) {
+	return updateFund(db, address, VxTokenId.Bytes(), amount, func(acc *dexproto.Account, amt *big.Int) (*dexproto.Account, error) {
+		vxUnlocking := new(big.Int).SetBytes(acc.VxUnlocking)
+		if vxUnlocking.Cmp(amt) < 0 {
+			return nil, ExceedFundAvailableErr
+		} else {
+			acc.VxUnlocking = vxUnlocking.Sub(vxUnlocking, amt).Bytes()
+			acc.Available = AddBigInt(acc.Available, amt.Bytes())
+		}
+		return acc, nil
+	})
+}
+
+func updateFund(db vm_db.VmDb, address types.Address, tokenId []byte, amount *big.Int, updateAccFunc func(*dexproto.Account, *big.Int) (*dexproto.Account, error)) (updatedAcc *dexproto.Account, err error) {
 	if fund, ok := GetFund(db, address); ok {
 		var foundAcc bool
 		for _, acc := range fund.Accounts {
 			if bytes.Equal(acc.Token, tokenId) {
 				foundAcc = true
-				available := new(big.Int).SetBytes(acc.Available)
-				if available.Cmp(amount) < 0 {
-					err = ExceedFundAvailableErr
+				if updatedAcc, err = updateAccFunc(acc, amount); err != nil {
 					return
-				} else {
-					acc.Available = available.Sub(available, amount).Bytes()
 				}
-				updatedAcc = acc
 				break
 			}
 		}
@@ -656,7 +725,7 @@ func ReduceAccount(db vm_db.VmDb, address types.Address, tokenId []byte, amount 
 	return
 }
 
-func UpdateFund(db vm_db.VmDb, address types.Address, accounts map[types.TokenTypeId]*big.Int) error {
+func BatchUpdateFund(db vm_db.VmDb, address types.Address, accounts map[types.TokenTypeId]*big.Int) error {
 	userFund, _ := GetFund(db, address)
 	for _, acc := range userFund.Accounts {
 		if tk, err := types.BytesToTokenTypeId(acc.Token); err != nil {
@@ -1798,12 +1867,36 @@ func GetGrantedMarketToAgentKey(principal types.Address, marketId int32) []byte 
 	return re
 }
 
-func GetDelegateKey(principal types.Address, marketId int32) []byte {
-	re := make([]byte, len(grantedMarketToAgentKeyPrefix)+types.AddressSize+3)
-	copy(re[:], grantedMarketToAgentKeyPrefix)
-	copy(re[len(grantedMarketToAgentKeyPrefix):], principal.Bytes())
-	copy(re[len(grantedMarketToAgentKeyPrefix)+types.AddressSize:], Uint32ToBytes(uint32(marketId))[1:])
-	return re
+func AddVxUnlock(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount *big.Int) {
+	unlocks := &VxUnlocks{}
+	currentPeriodId := GetCurrentPeriodId(db, reader)
+	var updated bool
+	if ok := deserializeFromDb(db, GetVxUnlocksKey(address), unlocks); ok {
+		size := len(unlocks.Unlocks)
+		if unlocks.Unlocks[size-1].PeriodId == currentPeriodId {
+			unlocks.Unlocks[size-1].Amount = AddBigInt(unlocks.Unlocks[size-1].Amount, amount.Bytes())
+			updated = false
+		}
+	}
+	if !updated {
+		newUnlock := &dexproto.VxUnlock{}
+		newUnlock.Amount = amount.Bytes()
+		newUnlock.PeriodId = currentPeriodId
+		unlocks.Unlocks = append(unlocks.Unlocks, newUnlock)
+	}
+	serializeToDb(db, GetVxUnlocksKey(address), unlocks)
+}
+
+func UpdateVxUnlocks(db vm_db.VmDb, address types.Address, unlocks *VxUnlocks) {
+	if len(unlocks.Unlocks) == 0 {
+		setValueToDb(db, GetVxUnlocksKey(address), nil)
+	} else {
+		setValueToDb(db, GetVxUnlocksKey(address), unlocks)
+	}
+}
+
+func GetVxUnlocksKey(address types.Address) []byte {
+	return append(vxUnlocksKeyPrefix, address.Bytes()...)
 }
 
 func deserializeFromDb(db vm_db.VmDb, key []byte, serializable SerializableDex) bool {
