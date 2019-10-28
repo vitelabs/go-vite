@@ -34,7 +34,7 @@ type Plugins struct {
 
 func NewPlugins(chainDir string, chain Chain) (*Plugins, error) {
 
-	// default open PluginKeyOnRoadInfo
+	// default open PluginKeyOnRoadInfo & PluginKeyFilterToken
 	onroadInfoStore, onroadInfoErr := chain_db.NewStore(path.Join(chainDir, PluginKeyOnRoadInfo), PluginKeyOnRoadInfo)
 	if onroadInfoErr != nil {
 		return nil, onroadInfoErr

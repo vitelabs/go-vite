@@ -171,7 +171,9 @@ func (c *chain) Init() error {
 
 	// reconstruct the plugins
 	if c.chainCfg.OpenPlugins {
-		c.plugins.GetPlugin(chain_plugins.PluginKeyOnRoadInfo).RebuildData(c.flusher)
+		if err := c.plugins.GetPlugin(chain_plugins.PluginKeyOnRoadInfo).RebuildData(c.flusher); err != nil {
+			return err
+		}
 	}
 
 	c.log.Info("Complete initialization", "method", "Init")

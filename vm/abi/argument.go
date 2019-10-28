@@ -63,6 +63,7 @@ func (arguments Arguments) LengthNonIndexed() int {
 
 // NonIndexed returns the arguments with indexed arguments filtered out
 func (arguments Arguments) NonIndexed() Arguments {
+	// TODO optimize
 	var ret []Argument
 	for _, arg := range arguments {
 		if !arg.Indexed {

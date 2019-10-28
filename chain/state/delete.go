@@ -42,7 +42,7 @@ func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 			snapshotHeight += 1
 
 			for _, accountBlock := range seg.AccountBlocks {
-				if !hasBuiltInContract && types.IsBuiltinContractAddr(accountBlock.AccountAddress) {
+				if !hasBuiltInContract && sDB.shouldCacheContractData(accountBlock.AccountAddress) {
 					hasBuiltInContract = true
 				}
 			}
@@ -89,7 +89,7 @@ func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.Sna
 			for _, accountBlock := range seg.AccountBlocks {
 				addrMap[accountBlock.AccountAddress] = struct{}{}
 
-				if !hasBuiltInContract && types.IsBuiltinContractAddr(accountBlock.AccountAddress) {
+				if !hasBuiltInContract && sDB.shouldCacheContractData(accountBlock.AccountAddress) {
 					hasBuiltInContract = true
 				}
 
@@ -598,7 +598,7 @@ func (sDB *StateDB) deleteHistoryKey(batch interfaces.Batch, key []byte) {
 	if err != nil {
 		panic(err)
 	}
-	if types.IsBuiltinContractAddr(addr) {
+	if sDB.shouldCacheContractData(addr) {
 		sDB.cache.Delete(snapshotValuePrefix + string(addrBytes) + string(sDB.parseStorageKey(key)))
 	}
 }
