@@ -44,8 +44,12 @@ var (
 	timeOracleKey       = []byte("tmA:")
 	periodJobTriggerKey = []byte("tgA:")
 
-	VxFundKeyPrefix = []byte("vxF:")  // vxFund:types.Address
+	vxFundKeyPrefix = []byte("vxF:")  // vxFund:types.Address
 	vxSumFundsKey   = []byte("vxFS:") // vxFundSum
+
+	vxAutoLockSwitch = []byte("vxALS:")
+	vxLockedFundsKeyPrefix = []byte("vxlF:")
+	vxLockedSumFundsKey    = []byte("vxlFS:") // vxLockedFundSum
 
 	lastJobPeriodIdWithBizTypeKey = []byte("ljpBId:")
 	normalMineStartedKey          = []byte("nmst:")
@@ -89,6 +93,9 @@ var (
 	NewMarketFeeDonateAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(4000))
 	NewMarketFeeBurnAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(5000))
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
+
+	VxLockThreshold      = new(big.Int).Set(commonTokenPow)
+	VxUnlockScheduleDays = 6 // T+7 schedule
 
 	StakeForMiningMinAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
 	StakeForVIPAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
@@ -184,6 +191,8 @@ const (
 	MineVxForFeeJob
 	MineVxForStakingJob
 	MineVxForMakerAndMaintainerJob
+
+	FinishVxUnlock
 )
 
 const (
@@ -195,6 +204,11 @@ const (
 const (
 	GrantAgent = iota + 1
 	RevokeAgent
+)
+
+const (
+	LockVx = iota + 1
+	UnlockVx
 )
 
 type QuoteTokenTypeInfo struct {
@@ -324,6 +338,11 @@ type ParamConfigMarketAgents struct {
 	Agent       types.Address
 	TradeTokens []types.TokenTypeId
 	QuoteTokens []types.TokenTypeId
+}
+
+type ParamLockVxForDividend struct {
+	ActionType uint8 // 1: lockVx 2: unlockVx
+	Amount     *big.Int
 }
 
 type Fund struct {
@@ -649,47 +668,48 @@ func SaveFund(db vm_db.VmDb, address types.Address, fund *Fund) {
 }
 
 func ReduceAccount(db vm_db.VmDb, address types.Address, tokenId []byte, amount *big.Int) (*dexproto.Account, error) {
-	return updateFund(db, address, tokenId, amount, func(acc *dexproto.Account, amount *big.Int) (*dexproto.Account, error) {
+	return updateFund(db, address, tokenId, amount, func(acc *dexproto.Account, amt *big.Int) (*dexproto.Account, error) {
 		available := new(big.Int).SetBytes(acc.Available)
-		if available.Cmp(amount) < 0 {
+		if available.Cmp(amt) < 0 {
 			return nil, ExceedFundAvailableErr
 		} else {
-			acc.Available = available.Sub(available, amount).Bytes()
+			acc.Available = available.Sub(available, amt).Bytes()
 		}
 		return acc, nil
 	})
 }
 
 func LockVxForDividend(db vm_db.VmDb, address types.Address, amount *big.Int) (*dexproto.Account, error) {
-	return updateFund(db, address, VxTokenId.Bytes(), amount, func(acc *dexproto.Account, amount *big.Int) (*dexproto.Account, error) {
+	return updateFund(db, address, VxTokenId.Bytes(), amount, func(acc *dexproto.Account, amt *big.Int) (*dexproto.Account, error) {
 		available := new(big.Int).SetBytes(acc.Available)
-		if available.Cmp(amount) < 0 {
+		if available.Cmp(amt) < 0 {
 			return nil, ExceedFundAvailableErr
 		} else {
-			acc.Available = available.Sub(available, amount).Bytes()
-			acc.VxLocked = AddBigInt(acc.VxLocked, amount.Bytes())
+			acc.Available = available.Sub(available, amt).Bytes()
+			acc.VxLocked = AddBigInt(acc.VxLocked, amt.Bytes())
 		}
 		return acc, nil
 	})
 }
 
-func TryUnlockVxForDividend(db vm_db.VmDb, address types.Address, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
-	if updatedAcc, err = updateFund(db, address, VxTokenId.Bytes(), amount, func(acc *dexproto.Account, amount *big.Int) (*dexproto.Account, error) {
+func ScheduleVxUnlockForDividend(db vm_db.VmDb, address types.Address, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
+	return updateFund(db, address, VxTokenId.Bytes(), amount, func(acc *dexproto.Account, amt *big.Int) (*dexproto.Account, error) {
 		vxLocked := new(big.Int).SetBytes(acc.VxLocked)
-		if vxLocked.Cmp(amount) < 0 {
+		if vxLocked.Cmp(amt) < 0 {
 			return nil, ExceedFundAvailableErr
 		} else {
-			acc.VxLocked = vxLocked.Sub(vxLocked, amount).Bytes()
-			acc.VxUnlocking = AddBigInt(acc.VxUnlocking, amount.Bytes())
+			vxLocked.Sub(vxLocked, amt)
+			if vxLocked.Sign() != 0 && vxLocked.Cmp(VxDividendThreshold) < 0 {
+				return nil, LockedVxAmountLeavedNotValidErr
+			}
+			acc.VxLocked = vxLocked.Bytes()
+			acc.VxUnlocking = AddBigInt(acc.VxUnlocking, amt.Bytes())
 		}
 		return acc, nil
-	}); err != nil {
-		return
-	}
-	return
+	})
 }
 
-func FinishUnlockVxForDividend(db vm_db.VmDb, address types.Address, amount *big.Int) (*dexproto.Account, error) {
+func FinishVxUnlockForDividend(db vm_db.VmDb, address types.Address, amount *big.Int) (*dexproto.Account, error) {
 	return updateFund(db, address, VxTokenId.Bytes(), amount, func(acc *dexproto.Account, amt *big.Int) (*dexproto.Account, error) {
 		vxUnlocking := new(big.Int).SetBytes(acc.VxUnlocking)
 		if vxUnlocking.Cmp(amt) < 0 {
@@ -1001,6 +1021,30 @@ func GetUserFeesKey(address []byte) []byte {
 	return append(userFeeKeyPrefix, address...)
 }
 
+func GetVxFundsWithForkCheck(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, ok bool) {
+	if IsLushFork(db) {
+		return GetVxLockedFunds(db, address)
+	} else {
+		return GetVxFunds(db, address)
+	}
+}
+
+func SaveVxFundsWithForkCheck(db vm_db.VmDb, address []byte, vxFunds *VxFunds) {
+	if IsLushFork(db) {
+		SaveVxLockedFunds(db, address, vxFunds)
+	} else {
+		SaveVxFunds(db, address, vxFunds)
+	}
+}
+
+func DeleteVxFundsWithForkCheck(db vm_db.VmDb, address []byte) {
+	if IsLushFork(db) {
+		DeleteVxLockedFunds(db, address)
+	} else {
+		DeleteVxFunds(db, address)
+	}
+}
+
 func GetVxFunds(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, ok bool) {
 	vxFunds = &VxFunds{}
 	ok = deserializeFromDb(db, GetVxFundsKey(address), vxFunds)
@@ -1048,7 +1092,57 @@ func DeleteVxFunds(db vm_db.VmDb, address []byte) {
 }
 
 func GetVxFundsKey(address []byte) []byte {
-	return append(VxFundKeyPrefix, address...)
+	return append(vxFundKeyPrefix, address...)
+}
+
+func GetVxLockedFunds(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, ok bool) {
+	vxFunds = &VxFunds{}
+	ok = deserializeFromDb(db, GetVxLockedFundsKey(address), vxFunds)
+	return
+}
+
+func SaveVxLockedFunds(db vm_db.VmDb, address []byte, vxFunds *VxFunds) {
+	serializeToDb(db, GetVxLockedFundsKey(address), vxFunds)
+}
+
+func DeleteVxLockedFunds(db vm_db.VmDb, address []byte) {
+	setValueToDb(db, GetVxLockedFundsKey(address), nil)
+}
+
+func GetVxLockedFundsKey(address []byte) []byte {
+	return append(vxLockedFundsKeyPrefix, address...)
+}
+
+func SetVxAutoLockSwitch(db vm_db.VmDb, address []byte, allow bool) {
+	if allow {
+		setValueToDb(db, GetVxAutoLockSwitchKey(address), []byte{1})
+	} else {
+		setValueToDb(db, GetVxAutoLockSwitchKey(address), nil)
+	}
+}
+
+func IsVxAutoLock(db vm_db.VmDb, address []byte) bool {
+	return len(getValueFromDb(db, GetVxAutoLockSwitchKey(address))) > 0
+}
+
+func GetVxAutoLockSwitchKey(address []byte) []byte {
+	return append(vxAutoLockSwitch, address...)
+}
+
+func GetVxSumFundsWithForkCheck(db vm_db.VmDb) (vxSumFunds *VxFunds, ok bool) {
+	if IsLushFork(db) {
+		return GetVxLockedSumFunds(db)
+	} else {
+		return GetVxSumFunds(db)
+	}
+}
+
+func SaveVxSumFundsWithForkCheck(db vm_db.VmDb, vxSumFunds *VxFunds) {
+	if IsLushFork(db) {
+		SaveVxLockedSumFunds(db, vxSumFunds)
+	} else {
+		SaveVxSumFunds(db, vxSumFunds)
+	}
 }
 
 func GetVxSumFunds(db vm_db.VmDb) (vxSumFunds *VxFunds, ok bool) {
@@ -1059,6 +1153,16 @@ func GetVxSumFunds(db vm_db.VmDb) (vxSumFunds *VxFunds, ok bool) {
 
 func SaveVxSumFunds(db vm_db.VmDb, vxSumFunds *VxFunds) {
 	serializeToDb(db, vxSumFundsKey, vxSumFunds)
+}
+
+func GetVxLockedSumFunds(db vm_db.VmDb) (vxLockedSumFunds *VxFunds, ok bool) {
+	vxLockedSumFunds = &VxFunds{}
+	ok = deserializeFromDb(db, vxLockedSumFundsKey, vxLockedSumFunds)
+	return
+}
+
+func SaveVxLockedSumFunds(db vm_db.VmDb, vxLockedSumFunds *VxFunds) {
+	serializeToDb(db, vxLockedSumFundsKey, vxLockedSumFunds)
 }
 
 func SaveMakerMiningPoolByPeriodId(db vm_db.VmDb, periodId uint64, amount *big.Int) {
@@ -1891,7 +1995,7 @@ func UpdateVxUnlocks(db vm_db.VmDb, address types.Address, unlocks *VxUnlocks) {
 	if len(unlocks.Unlocks) == 0 {
 		setValueToDb(db, GetVxUnlocksKey(address), nil)
 	} else {
-		setValueToDb(db, GetVxUnlocksKey(address), unlocks)
+		serializeToDb(db, GetVxUnlocksKey(address), unlocks)
 	}
 }
 

@@ -118,7 +118,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 			minedAmt := new(big.Int).Add(vxMinedForBase, vxMinedForInvite)
 			if minedAmt.Sign() > 0 {
 				updatedAcc := DepositAccount(db, address, VxTokenId, minedAmt)
-				if err = OnDepositVx(db, reader, address, minedAmt, updatedAcc); err != nil {
+				if err = OnVxMined(db, reader, address, minedAmt, updatedAcc); err != nil {
 					return nil, err
 				}
 			}
@@ -205,7 +205,7 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 		minedAmt, finished := DivideByProportion(dexMiningStakedAmount, stakedAmt, dividedStakedAmountSum, amountToMine, amtLeavedToMine)
 		if minedAmt.Sign() > 0 {
 			updatedAcc := DepositAccount(db, address, VxTokenId, minedAmt)
-			if err = OnDepositVx(db, reader, address, minedAmt, updatedAcc); err != nil {
+			if err = OnVxMined(db, reader, address, minedAmt, updatedAcc); err != nil {
 				return amtLeavedToMine, err
 			}
 			AddMinedVxForStakingEvent(db, address, stakedAmt, minedAmt)
@@ -228,7 +228,7 @@ func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader ut
 		maintainer := GetMaintainer(db)
 		amtForMaintainer, _ := amtForMakerAndMaintainer[MineForMaintainer]
 		updatedAcc := DepositAccount(db, *maintainer, VxTokenId, amtForMaintainer)
-		if err := OnDepositVx(db, reader, *maintainer, amtForMaintainer, updatedAcc); err != nil {
+		if err := OnVxMined(db, reader, *maintainer, amtForMaintainer, updatedAcc); err != nil {
 			return err
 		}
 		AddMinedVxForOperationEvent(db, MineForMaintainer, *maintainer, amtForMaintainer)

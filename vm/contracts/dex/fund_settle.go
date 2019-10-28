@@ -261,22 +261,36 @@ func SettleOperatorFees(db vm_db.VmDb, reader util.ConsensusReader, feeActions [
 }
 
 func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
-	return doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
+	if IsLushFork(db) {
+		return nil
+	} else {
+		return doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
+	}
 }
 
 func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
-	return doSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
+	if IsLushFork(db) {
+		return  nil
+	} else {
+		return doSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
+	}
 }
 
 func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.AccountSettle, updatedVxAccount *dexproto.Account) error {
-	amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
-	return doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
+	if IsLushFork(db) {
+		return  nil
+	} else {
+		amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
+		return doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
+	}
 }
 
-func splitDividendPool(dividend *dexproto.FeeForDividend) (toDividendAmt, rolledAmount *big.Int) {
-	toDividendAmt = new(big.Int).SetBytes(CalculateAmountForRate(dividend.DividendPoolAmount, PerPeriodDividendRate)) // %1
-	rolledAmount = new(big.Int).Sub(new(big.Int).SetBytes(dividend.DividendPoolAmount), toDividendAmt)                // 99%
-	return
+func OnVxMined(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
+	if !IsLushFork(db) || IsVxAutoLock(db, address.Bytes()) {
+		return doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
+	} else {
+		return nil
+	}
 }
 
 // only settle validAmount and amount changed from previous period
@@ -288,10 +302,10 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 		originFundsLen        int
 		needUpdate            bool
 	)
-	vxFunds, _ = GetVxFunds(db, addressBytes)
+	vxFunds, _ = GetVxFundsWithForkCheck(db, addressBytes)
 	periodId = GetCurrentPeriodId(db, reader)
 	originFundsLen = len(vxFunds.Funds)
-	userNewAmt = new(big.Int).SetBytes(AddBigInt(updatedVxAccount.Available, updatedVxAccount.Locked))
+	userNewAmt = getUserNewVxAmtWithForkCheck(db, updatedVxAccount)
 	if originFundsLen == 0 { //need append new period
 		if IsValidVxAmountForDividend(userNewAmt) {
 			fundByPeriod := &dexproto.VxFundByPeriod{Period: periodId, Amount: userNewAmt.Bytes()}
@@ -339,13 +353,13 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 	}
 
 	if len(vxFunds.Funds) > 0 && needUpdate {
-		SaveVxFunds(db, addressBytes, vxFunds)
+		SaveVxFundsWithForkCheck(db, addressBytes, vxFunds)
 	} else if len(vxFunds.Funds) == 0 && originFundsLen > 0 {
-		DeleteVxFunds(db, addressBytes)
+		DeleteVxFundsWithForkCheck(db, addressBytes)
 	}
 
 	if sumChange != nil && sumChange.Sign() != 0 {
-		vxSumFunds, _ := GetVxSumFunds(db)
+		vxSumFunds, _ := GetVxSumFundsWithForkCheck(db)
 		sumFundsLen := len(vxSumFunds.Funds)
 		if sumFundsLen == 0 {
 			if sumChange.Sign() > 0 {
@@ -365,9 +379,23 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 				vxSumFunds.Funds = append(vxSumFunds.Funds, &dexproto.VxFundByPeriod{Amount: sumRes.Bytes(), Period: periodId})
 			}
 		}
-		SaveVxSumFunds(db, vxSumFunds)
+		SaveVxSumFundsWithForkCheck(db, vxSumFunds)
 	}
 	return nil
+}
+
+func getUserNewVxAmtWithForkCheck(db vm_db.VmDb, updatedVxAcc *dexproto.Account) *big.Int {
+	if IsLushFork(db) {
+		return new(big.Int).SetBytes(updatedVxAcc.Locked)
+	} else {
+		return new(big.Int).SetBytes(AddBigInt(updatedVxAcc.Available, updatedVxAcc.Locked))
+	}
+}
+
+func splitDividendPool(dividend *dexproto.FeeForDividend) (toDividendAmt, rolledAmount *big.Int) {
+	toDividendAmt = new(big.Int).SetBytes(CalculateAmountForRate(dividend.DividendPoolAmount, PerPeriodDividendRate)) // %1
+	rolledAmount = new(big.Int).Sub(new(big.Int).SetBytes(dividend.DividendPoolAmount), toDividendAmt)                // 99%
+	return
 }
 
 func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.Address]*types.Address, fee []byte) (bool, *types.Address, []byte) {

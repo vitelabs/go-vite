@@ -332,12 +332,15 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 		return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("job periodId for biz %d  not equals to expected id %d", param.BizType, lastPeriodId+1), sendBlock)
 	}
 	dex.AddPeriodWithBizEvent(db, param.PeriodId, param.BizType)
-	if param.BizType <= dex.OperatorFeeDividendJob {
+	var blocks []*ledger.AccountBlock
+	if param.BizType <= dex.OperatorFeeDividendJob || param.BizType == dex.FinishVxUnlock {
 		switch param.BizType {
 		case dex.FeeDividendJob:
-			err = dex.DoFeesDividend(db, param.PeriodId)
+			blocks, err = dex.DoFeesDividend(db, param.PeriodId)
 		case dex.OperatorFeeDividendJob:
 			err = dex.DoOperatorFeesDividend(db, param.PeriodId)
+		case dex.FinishVxUnlock:
+			err = dex.DoFinishVxUnlock(db, param.PeriodId)
 		}
 		if err != nil {
 			return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
@@ -382,7 +385,7 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 		dex.SaveVxMinePool(db, vxPoolLeaved)
 	}
 	dex.SaveLastJobPeriodIdByBizType(db, param.PeriodId, param.BizType)
-	return nil, nil
+	return blocks, nil
 }
 
 type MethodDexFundStakeForMining struct {
@@ -731,77 +734,6 @@ func (md MethodDexFundCancelDelegateStakeCallback) DoReceive(db vm_db.VmDb, bloc
 			}
 		}
 		dex.DepositAccount(db, param.StakeAddress, ledger.ViteTokenId, sendBlock.Amount)
-	}
-	return nil, nil
-}
-
-type MethodDexFunDelegateStakeV3Callback struct {
-	MethodName string
-}
-
-func (md *MethodDexFunDelegateStakeV3Callback) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (md *MethodDexFunDelegateStakeV3Callback) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
-	return []byte{}, false
-}
-
-func (md *MethodDexFunDelegateStakeV3Callback) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
-	return util.RequestQuotaCost(data, gasTable)
-}
-
-func (md *MethodDexFunDelegateStakeV3Callback) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
-	return gasTable.DexFundDelegateAgentStakeCallbackQuota
-}
-
-func (md *MethodDexFunDelegateStakeV3Callback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
-	if block.AccountAddress != types.AddressQuota {
-		return dex.InvalidSourceAddressErr
-	}
-	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateAgentStakeCallback), md.MethodName, block.Data)
-}
-
-func (md MethodDexFunDelegateStakeV3Callback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var callbackParam = new(dex.ParamDelegateAgentStakeCallback)
-	cabi.ABIDexFund.UnpackMethod(callbackParam, md.MethodName, sendBlock.Data)
-	if callbackParam.Success {
-		switch callbackParam.Bid {
-		case dex.StakeForAgentSuperVIP:
-			//TODO support multi agent for superVIPAgentStaking struct
-			if dex.IsSuperVIP(db, callbackParam.Principal) {
-				if superVIPAgentStaking, ok := dex.GetSuperVIPAgentStaking(db, callbackParam.Principal); ok {
-					superVIPAgentStaking.StakedTimes = superVIPAgentStaking.StakedTimes + 1
-					dex.SaveSuperVIPStaking(db, callbackParam.StakeAddress, superVIPStaking)
-				} else {
-					superVIPAgentStaking.Timestamp = dex.GetTimestampInt64(db)
-					superVIPAgentStaking.StakedTimes = 1
-					dex.SaveSuperVIPStaking(db, callbackParam.StakeAddress, superVIPStaking)
-				}
-				dex.DoCancelAgentStake(db, dex.StakeForAgentSuperVIP, callbackParam.StakeAddress, callbackParam.Principal, callbackParam.Amount)
-			}
-			if superVIPStaking, ok := dex.GetSuperVIPStaking(db, callbackParam.StakeAddress); ok { //duplicate staking for super vip
-
-			} else {
-
-			}
-		}
-	} else {
-		switch callbackParam.Bid {
-		case dex.StakeForMining:
-			if callbackParam.Amount.Cmp(sendBlock.Amount) != 0 {
-				panic(dex.InvalidAmountForStakeCallbackErr)
-			}
-		case dex.StakeForVIP:
-			if dex.StakeForVIPAmount.Cmp(sendBlock.Amount) != 0 {
-				panic(dex.InvalidAmountForStakeCallbackErr)
-			}
-		case dex.StakeForSuperVIP:
-			if dex.StakeForSuperVIPAmount.Cmp(sendBlock.Amount) != 0 {
-				panic(dex.InvalidAmountForStakeCallbackErr)
-			}
-		}
-		dex.DepositAccount(db, callbackParam.StakeAddress, ledger.ViteTokenId, sendBlock.Amount)
 	}
 	return nil, nil
 }
@@ -1379,7 +1311,7 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 				amt.Set(poolAmt)
 			}
 			acc := dex.DepositAccount(db, addr, dex.VxTokenId, amt)
-			if err = dex.OnDepositVx(db, vm.ConsensusReader(), addr, amt, acc); err != nil {
+			if err = dex.OnVxMined(db, vm.ConsensusReader(), addr, amt, acc); err != nil {
 				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			}
 			poolAmt.Sub(poolAmt, amt)
@@ -1501,6 +1433,59 @@ func (md MethodDexFundPlaceAgentOrder) DoReceive(db vm_db.VmDb, block *ledger.Ac
 	} else {
 		return blocks, nil
 	}
+}
+
+type MethodDexFundLockVxForDividend struct {
+	MethodName string
+}
+
+func (md *MethodDexFundLockVxForDividend) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundLockVxForDividend) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexFundLockVxForDividend) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+	return util.RequestQuotaCost(data, gasTable)
+}
+
+func (md *MethodDexFundLockVxForDividend) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+	return gasTable.DexFunLockVxForDividendQuota
+}
+
+func (md *MethodDexFundLockVxForDividend) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	param := new(dex.ParamLockVxForDividend)
+	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
+		return err
+	} else if param.ActionType != dex.LockVx && param.ActionType != dex.UnlockVx || param.Amount.Cmp(dex.VxLockThreshold) < 0 {
+		return dex.InvalidInputParamErr
+	}
+	return nil
+}
+
+func (md MethodDexFundLockVxForDividend) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var (
+		param = new(dex.ParamLockVxForDividend)
+		err   error
+	)
+	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
+		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+	}
+	switch param.ActionType {
+	case dex.LockVx:
+		if _, err = dex.LockVxForDividend(db, sendBlock.AccountAddress, param.Amount); err != nil {
+			return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+		}
+	case dex.UnlockVx:
+		if _, err = dex.ScheduleVxUnlockForDividend(db, sendBlock.AccountAddress, param.Amount); err != nil {
+			return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+		} else {
+			dex.AddVxUnlock(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount)
+		}
+	}
+	return nil, nil
 }
 
 func handleDexReceiveErr(logger log15.Logger, method string, err error, sendBlock *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {

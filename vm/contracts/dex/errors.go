@@ -71,5 +71,7 @@ var (
 
 	MultiMarketsInOneActionErr = errors.New("multi markets one action")
 
+	LockedVxAmountLeavedNotValidErr = errors.New("locked vx amount leaved not valid")
+
 	InternalErr = errors.New("internal error")
 )
