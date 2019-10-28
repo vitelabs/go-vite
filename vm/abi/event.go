@@ -1,6 +1,7 @@
 package abi
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,8 +13,10 @@ import (
 // holds type information (inputs) about the yielded output. Anonymous events
 // don't get the signature canonical representation as the first LOG topic.
 type Event struct {
-	Name   string
-	Inputs Arguments
+	Name             string
+	Inputs           Arguments
+	IndexedInputs    Arguments
+	NonIndexedInputs Arguments
 }
 
 func (e Event) String() string {
@@ -44,7 +47,7 @@ func (e Event) Pack(args ...interface{}) ([]types.Hash, []byte, error) {
 	if len(args) != len(e.Inputs) {
 		return nil, nil, errArgLengthMismatch(args, e.Inputs)
 	}
-	topics := make([]types.Hash, e.Inputs.LengthIndexed()+1)
+	topics := make([]types.Hash, len(e.IndexedInputs)+1)
 	topics[0] = e.Id()
 	var nonIndexedArgList []interface{}
 	topicIndex := 1
@@ -65,7 +68,7 @@ func (e Event) Pack(args ...interface{}) ([]types.Hash, []byte, error) {
 		}
 	}
 	if len(nonIndexedArgList) > 0 {
-		d, err := e.Inputs.NonIndexed().Pack(nonIndexedArgList...)
+		d, err := e.NonIndexedInputs.Pack(nonIndexedArgList...)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -76,7 +79,7 @@ func (e Event) Pack(args ...interface{}) ([]types.Hash, []byte, error) {
 }
 
 func (e Event) DirectUnPack(topics []types.Hash, data []byte) ([]interface{}, error) {
-	nonIndexedParams, err := e.Inputs.NonIndexed().DirectUnpack(data)
+	nonIndexedParams, err := e.NonIndexedInputs.DirectUnpack(data)
 	if err != nil {
 		return nil, err
 	}
@@ -101,4 +104,22 @@ func (e Event) DirectUnPack(topics []types.Hash, data []byte) ([]interface{}, er
 		}
 	}
 	return args, nil
+}
+
+func (e *Event) UnmarshalJSON(data []byte) error {
+	var fields struct {
+		Type    string
+		Name    string
+		Inputs  []Argument
+		Outputs []Argument
+	}
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	indexed, nonIndexed := getEventInputs(fields.Inputs)
+	e.Name = fields.Name
+	e.Inputs = fields.Inputs
+	e.IndexedInputs = indexed
+	e.NonIndexedInputs = nonIndexed
+	return nil
 }
