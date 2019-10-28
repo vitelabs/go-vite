@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -36,7 +37,9 @@ func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if err != nil {
 		return err
 	}
-	if err = checkToken(*param); err != nil {
+	sb, err := db.LatestSnapshotBlock()
+	util.DealWithErr(err)
+	if err = checkToken(*param, sb.Height); err != nil {
 		return err
 	}
 	block.Data, _ = abi.ABIAsset.PackMethod(
@@ -51,12 +54,17 @@ func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	return nil
 }
 
-func checkToken(param abi.ParamIssue) error {
-	if param.TotalSupply.Sign() <= 0 ||
-		param.TotalSupply.Cmp(helper.Tt256m1) > 0 ||
-		param.TotalSupply.Cmp(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(param.Decimals)), nil)) < 0 ||
+func checkToken(param abi.ParamIssue, sbHeight uint64) error {
+	if param.TotalSupply.Cmp(helper.Tt256m1) > 0 ||
 		len(param.TokenName) == 0 || len(param.TokenName) > tokenNameLengthMax ||
 		len(param.TokenSymbol) == 0 || len(param.TokenSymbol) > tokenSymbolLengthMax {
+		return util.ErrInvalidMethodParam
+	}
+	if !fork.IsEarthFork(sbHeight) && (param.TotalSupply.Sign() <= 0 ||
+		param.TotalSupply.Cmp(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(param.Decimals)), nil)) < 0) {
+		return util.ErrInvalidMethodParam
+	}
+	if fork.IsEarthFork(sbHeight) && !param.IsReIssuable && param.TotalSupply.Sign() <= 0 {
 		return util.ErrInvalidMethodParam
 	}
 	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenName); !ok {
