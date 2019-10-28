@@ -657,7 +657,7 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 			}
 
 			if verified == false {
-				if err = s.verifier.VerifyNetAb(ab); err != nil {
+				if err = s.verifier.VerifyNetAccountBlock(ab); err != nil {
 					break
 				}
 			}
@@ -673,7 +673,7 @@ func (s *cacheReader) read(c interfaces.Segment) (chunk *Chunk, fatal bool, err 
 			}
 
 			if verified == false {
-				if err = s.verifier.VerifyNetSb(sb); err != nil {
+				if err = s.verifier.VerifyNetSnapshotBlock(sb); err != nil {
 					break
 				}
 			}

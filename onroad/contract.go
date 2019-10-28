@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/fork"
+	"sort"
 	"strconv"
 	"sync"
 
@@ -38,7 +39,7 @@ type ContractWorker struct {
 
 	contractTaskProcessors []*ContractTaskProcessor
 
-	blackList      map[types.Address]bool
+	blackList      map[types.Address]inferiorState
 	blackListMutex sync.RWMutex
 
 	workingAddrList      map[types.Address]bool
@@ -61,7 +62,7 @@ func NewContractWorker(manager *Manager) *ContractWorker {
 		isCancel:     atomic.NewBool(false),
 		newBlockCond: common.NewTimeoutCond(),
 
-		blackList:             make(map[types.Address]bool),
+		blackList:             make(map[types.Address]inferiorState),
 		workingAddrList:       make(map[types.Address]bool),
 		selectivePendingCache: &sync.Map{},
 
@@ -108,6 +109,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 		log.Info(fmt.Sprintf("getAndSortAllAddrQuota len %v", len(w.contractTaskPQueue)))
 
 		// 3. register listening events, including addContractLis and addSnapshotEventLis
+		log.Info("addContractLis", "gid", w.gid, "event", "accountEvent")
 		w.manager.addContractLis(w.gid, func(address types.Address) {
 			if w.isContractInBlackList(address) {
 				return
@@ -120,32 +122,39 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 
 			if !w.isCancel.Load() {
 				w.pushContractTask(c)
-				signalLog.Info(fmt.Sprintf("signal to %v and wake it up", address))
+				signalLog.Info(fmt.Sprintf("signal to %v and wake it up", address), "event", "accountEvent")
 				w.wakeupOneTp()
 			}
 		})
 
 		log.Info("addSnapshotEventLis", "gid", w.gid, "event", "snapshotEvent")
 		w.manager.addSnapshotEventLis(w.gid, func(latestHeight uint64) {
+			pendingTask := make([]*contractTask, len(w.contractAddressList))
+			count := 0
 			for _, addr := range w.contractAddressList {
-				if w.isContractInBlackList(addr) {
-					continue
-				}
-				count := w.releaseContractCallers(addr, RETRY)
-				if count <= 0 {
-					continue
-				}
+				if pushContractTask, callerCount := w.releaseContract(addr); pushContractTask {
+					signalLog.Info(fmt.Sprintf("release contract %v RETRY callers len %v", addr, callerCount), "snapshot", latestHeight, "event", "snapshotEvent")
 
-				q := w.GetStakeQuota(addr)
-				c := &contractTask{
-					Addr:  addr,
-					Quota: q,
+					q := w.GetStakeQuota(addr)
+					pendingTask[count] = &contractTask{Addr: addr, Quota: q}
+					count++
 				}
-				if !w.isCancel.Load() {
-					w.pushContractTask(c)
-					signalLog.Info(fmt.Sprintf("snapshot line changed, signal to %v to release RETRY callers, len %v", addr, count), "snapshot", latestHeight, "event", "snapshotEvent")
-					w.wakeupOneTp()
+			}
+			sortedTask := pendingTask[0:count]
+			sort.Slice(sortedTask, func(i, j int) bool {
+				if sortedTask[i].Quota > sortedTask[j].Quota {
+					return true
 				}
+				return false
+			})
+			for _, task := range sortedTask {
+				if w.isCancel.Load() {
+					break
+				}
+				signalLog.Info(fmt.Sprintf("push contract %v %v", task.Addr, task.Quota), "snapshot", latestHeight, "event", "snapshotEvent")
+
+				w.pushContractTask(task)
+				w.wakeupOneTp()
 			}
 		})
 
@@ -170,6 +179,7 @@ func (w *ContractWorker) Stop() {
 	w.statusMutex.Lock()
 	defer w.statusMutex.Unlock()
 	if w.status == start {
+		log.Info("removeContractLis", "gid", w.gid, "event", "accountEvent")
 		w.manager.removeContractLis(w.gid)
 
 		log.Info("removeSnapshotEventLis", "gid", w.gid, "event", "snapshotEvent")
@@ -284,26 +294,46 @@ func (w *ContractWorker) removeContractFromWorkingList(addr types.Address) {
 func (w *ContractWorker) clearContractBlackList() {
 	w.blackListMutex.Lock()
 	defer w.blackListMutex.Unlock()
-	w.blackList = make(map[types.Address]bool)
+	w.blackList = make(map[types.Address]inferiorState)
 }
 
-// Don't deal with it for this around of blocks-generating period
-func (w *ContractWorker) addContractIntoBlackList(addr types.Address) {
+// Don't deal with it for this around of blocks-generating period if is OUT state
+func (w *ContractWorker) restrictContract(addr types.Address, state inferiorState) {
 	w.blackListMutex.Lock()
-	w.blackList[addr] = true
+	w.blackList[addr] = state
 	w.blackListMutex.Unlock()
-
-	w.selectivePendingCache.Delete(addr)
+	if state == OUT {
+		w.selectivePendingCache.Delete(addr)
+	}
 }
 
 func (w *ContractWorker) isContractInBlackList(addr types.Address) bool {
 	w.blackListMutex.RLock()
 	defer w.blackListMutex.RUnlock()
 	_, ok := w.blackList[addr]
-	if ok {
-		w.log.Info("isContractInBlackList", "addr", addr, "in", ok)
-	}
+	/*if ok {
+		w.log.Info("isContractInBlackList", "addr", addr, "state", s)
+	}*/
 	return ok
+}
+
+func (w *ContractWorker) releaseContract(addr types.Address) (pushContractTask bool, releaseCallerCount int) {
+	w.blackListMutex.Lock()
+	defer w.blackListMutex.Unlock()
+	s, ok := w.blackList[addr]
+	if ok {
+		if s == OUT {
+			return false, 0
+		}
+		if s == RETRY {
+			delete(w.blackList, addr)
+		}
+	}
+	count := w.releaseContractCallers(addr, RETRY)
+	if !ok && count <= 0 {
+		return false, 0
+	}
+	return true, count
 }
 
 func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger.AccountBlock {
@@ -347,11 +377,11 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 		}
 	}
 
-	w.log.Info(fmt.Sprintf("acquire new %v, current %v revert %v", addNewCount, p.Len(), revertHappened), "contract", contractAddr, "waitSBCallerLen", p.lenOfCallersByState(RETRY))
+	w.log.Info(fmt.Sprintf("acquire new %v current %v, revert[%v]", addNewCount, p.Len(), revertHappened), "contract", contractAddr, "waitSBCallerLen", p.lenOfCallersByState(RETRY))
 	return p.getOnePending()
 }
 
-func (w *ContractWorker) addContractCallerToInferiorList(contract, caller types.Address, state inferiorState) {
+func (w *ContractWorker) restrictContractCaller(contract, caller types.Address, state inferiorState) {
 	value, ok := w.selectivePendingCache.Load(contract)
 	if ok && value != nil {
 		value.(*callerPendingMap).addIntoInferiorList(caller, state)
