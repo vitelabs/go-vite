@@ -348,6 +348,10 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		loc        = stack.back(0)
 		locHash, _ = types.BigToHash(loc)
 	)
+	c.storageModified = c.storageModified + 1
+	if c.storageModified > contractModifyStorageMax {
+		return 0, true, util.ErrStorageModifyLimitReached
+	}
 
 	currentValue := util.GetValue(c.db, locHash.Bytes())
 	if bytes.Equal(currentValue, newValue.Bytes()) {

@@ -12,26 +12,28 @@ var (
 )
 
 type contract struct {
-	jumpdests  destinations
-	data       []byte
-	code       []byte
-	codeAddr   types.Address
-	block      *ledger.AccountBlock
-	db         vm_db.VmDb
-	sendBlock  *ledger.AccountBlock
-	quotaLeft  uint64
-	intPool    *intPool
-	returnData []byte
+	jumpdests       destinations
+	data            []byte
+	code            []byte
+	codeAddr        types.Address
+	block           *ledger.AccountBlock
+	db              vm_db.VmDb
+	sendBlock       *ledger.AccountBlock
+	quotaLeft       uint64
+	intPool         *intPool
+	returnData      []byte
+	storageModified uint8
 }
 
 func newContract(block *ledger.AccountBlock, db vm_db.VmDb, sendBlock *ledger.AccountBlock, data []byte, quotaLeft uint64) *contract {
 	return &contract{
-		block:     block,
-		db:        db,
-		sendBlock: sendBlock,
-		data:      data,
-		quotaLeft: quotaLeft,
-		jumpdests: make(destinations),
+		block:           block,
+		db:              db,
+		sendBlock:       sendBlock,
+		data:            data,
+		quotaLeft:       quotaLeft,
+		jumpdests:       make(destinations),
+		storageModified: 0,
 	}
 }
 

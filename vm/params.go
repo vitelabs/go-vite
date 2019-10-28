@@ -10,15 +10,18 @@ const (
 	callDepth  uint16 = 512  // Maximum Depth of call.
 	stackLimit uint64 = 1024 // Maximum size of VM stack allowed.
 
-	getAccountBlockByHeightLimit uint64 = 256
+	maxCodeSize       int    = 24575 // Maximum bytecode to permit for a contract
+	offChainReaderGas uint64 = 1000000
 
-	maxCodeSize       = 24575 // Maximum bytecode to permit for a contract
-	offChainReaderGas = 1000000
+	snapshotCountMin         uint8 = 0
+	snapshotCountMax         uint8 = 75
+	snapshotWithSeedCountMin uint8 = 0
+	snapshotWithSeedCountMax uint8 = 75
 
-	snapshotCountMin         = 0
-	snapshotCountMax         = 75
-	snapshotWithSeedCountMin = 0
-	snapshotWithSeedCountMax = 75
+	contractModifyStorageMax uint8 = 100
+
+	retry   = true
+	noRetry = false
 )
 
 var (
