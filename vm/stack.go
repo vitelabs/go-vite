@@ -44,8 +44,8 @@ func (st *stack) back(n int) *big.Int {
 	return st.data[st.len()-n-1]
 }
 
-func (st *stack) dup(pool *intPool, n int) {
-	st.push(pool.get().Set(st.data[st.len()-n]))
+func (st *stack) dup(pool *util.IntPool, n int) {
+	st.push(pool.Get().Set(st.data[st.len()-n]))
 }
 
 func (st *stack) swap(n int) {
