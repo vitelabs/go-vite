@@ -148,3 +148,7 @@ func CheckFork(db dbInterface, f func(uint64) bool) bool {
 func FirstToLower(str string) string {
 	return string(unicode.ToLower(rune(str[0]))) + str[1:]
 }
+
+func ComputeSendBlockHash(receiveBlock *ledger.AccountBlock, sendBlock *ledger.AccountBlock, index uint8) types.Hash {
+	return sendBlock.ComputeSendHash(receiveBlock, index)
+}
