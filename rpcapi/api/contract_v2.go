@@ -95,7 +95,7 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	if param.Addr != nil {
 		param.SelfAddr = *param.Addr
 	}
-	prevHash, err := getPrevBlockHash(c.chain, types.AddressConsensusGroup)
+	prevHash, err := getPrevBlockHash(c.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -152,13 +152,13 @@ type QuotaInfo struct {
 }
 
 func (p *ContractApi) GetQuotaByAccount(addr types.Address) (*QuotaInfo, error) {
-	amount, q, err := p.chain.GetPledgeQuota(addr)
+	amount, q, err := p.chain.GetStakeQuota(addr)
 	if err != nil {
 		return nil, err
 	}
 	return &QuotaInfo{
 		CurrentQuota: Uint64ToString(q.Current()),
-		MaxQuota:     Uint64ToString(q.PledgeQuotaPerSnapshotBlock() * util.OneRound),
+		MaxQuota:     Uint64ToString(q.StakeQuotaPerSnapshotBlock() * util.QuotaAccumulationBlockCount),
 		StakeAmount:  bigIntToString(amount)}, nil
 }
 
@@ -179,28 +179,28 @@ type StakeInfo struct {
 	Bid              uint8         `json:"bid"`
 }
 
-func NewStakeInfo(addr types.Address, info *types.PledgeInfo, snapshotBlock *ledger.SnapshotBlock) *StakeInfo {
+func NewStakeInfo(addr types.Address, info *types.StakeInfo, snapshotBlock *ledger.SnapshotBlock) *StakeInfo {
 	return &StakeInfo{
 		*bigIntToString(info.Amount),
-		info.BeneficialAddr,
-		Uint64ToString(info.WithdrawHeight),
-		getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.WithdrawHeight),
-		info.Agent,
-		info.AgentAddress,
+		info.Beneficiary,
+		Uint64ToString(info.ExpirationHeight),
+		getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.ExpirationHeight),
+		info.IsDelegated,
+		info.DelegateAddress,
 		addr,
 		info.Bid}
 }
 
 func (p *ContractApi) GetStakeList(address types.Address, pageIndex int, pageSize int) (*StakeInfoList, error) {
-	db, err := getVmDb(p.chain, types.AddressPledge)
+	db, err := getVmDb(p.chain, types.AddressQuota)
 	if err != nil {
 		return nil, err
 	}
-	list, amount, err := abi.GetPledgeInfoList(db, address)
+	list, amount, err := abi.GetStakeInfoList(db, address)
 	if err != nil {
 		return nil, err
 	}
-	sort.Sort(byWithdrawHeight(list))
+	sort.Sort(byExpirationHeight(list))
 	startHeight, endHeight := pageIndex*pageSize, (pageIndex+1)*pageSize
 	if startHeight >= len(list) {
 		return &StakeInfoList{*bigIntToString(amount), len(list), []*StakeInfo{}}, nil
@@ -229,7 +229,7 @@ func (p *ContractApi) GetStakeListBySearchKey(snapshotHash types.Hash, lastKey s
 	if err != nil {
 		return nil, err
 	}
-	list, lastKeyBytes, err := p.chain.GetPledgeListByPage(snapshotHash, lastKeyBytes, size)
+	list, lastKeyBytes, err := p.chain.GetStakeListByPage(snapshotHash, lastKeyBytes, size)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +239,7 @@ func (p *ContractApi) GetStakeListBySearchKey(snapshotHash types.Hash, lastKey s
 		return nil, err
 	}
 	for i, info := range list {
-		targetList[i] = NewStakeInfo(info.PledgeAddress, info, snapshotBlock)
+		targetList[i] = NewStakeInfo(info.StakeAddress, info, snapshotBlock)
 	}
 	return &StakeInfoListBySearchKey{targetList, hex.EncodeToString(lastKeyBytes)}, nil
 }
@@ -249,7 +249,7 @@ func (p *ContractApi) GetRequiredStakeAmount(qStr string) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	amount, err := quota.CalcPledgeAmountByQuota(q)
+	amount, err := quota.CalcStakeAmountByQuota(q)
 	if err != nil {
 		return nil, err
 	}
@@ -259,12 +259,12 @@ func (p *ContractApi) GetRequiredStakeAmount(qStr string) (*string, error) {
 type StakeQueryParams struct {
 	StakeAddress    types.Address `json:"stakeAddress"`
 	DelegateAddress types.Address `json:"delegateAddress"`
-	BeneficialAddr  types.Address `json:"beneficiary"`
+	Beneficiary     types.Address `json:"beneficiary"`
 	Bid             uint8         `json:"bid"`
 }
 
 func (p *ContractApi) GetDelegatedStakeInfo(params StakeQueryParams) (*StakeInfo, error) {
-	db, err := getVmDb(p.chain, types.AddressPledge)
+	db, err := getVmDb(p.chain, types.AddressQuota)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +272,7 @@ func (p *ContractApi) GetDelegatedStakeInfo(params StakeQueryParams) (*StakeInfo
 	if err != nil {
 		return nil, err
 	}
-	info, err := abi.GetPledgeInfo(db, params.StakeAddress, params.BeneficialAddr, params.DelegateAddress, true, params.Bid)
+	info, err := abi.GetStakeInfo(db, params.StakeAddress, params.Beneficiary, params.DelegateAddress, true, params.Bid)
 	if err != nil {
 		return nil, err
 	}
@@ -283,29 +283,29 @@ func (p *ContractApi) GetDelegatedStakeInfo(params StakeQueryParams) (*StakeInfo
 }
 
 type SBPInfo struct {
-	Name           string        `json:"name"`
-	NodeAddr       types.Address `json:"blockProducingAddress"`
-	PledgeAddr     types.Address `json:"stakeAddress"`
-	PledgeAmount   string        `json:"stakeAmount"`
-	WithdrawHeight string        `json:"expirationHeight"`
-	WithdrawTime   int64         `json:"expirationTime"`
-	CancelTime     int64         `json:"revokeTime"`
+	Name                  string        `json:"name"`
+	BlockProducingAddress types.Address `json:"blockProducingAddress"`
+	StakeAddr             types.Address `json:"stakeAddress"`
+	StakeAmount           string        `json:"stakeAmount"`
+	ExpirationHeight      string        `json:"expirationHeight"`
+	ExpirationTime        int64         `json:"expirationTime"`
+	RevokeTime            int64         `json:"revokeTime"`
 }
 
 func newSBPInfo(info *types.Registration, sb *ledger.SnapshotBlock) *SBPInfo {
 	return &SBPInfo{
-		Name:           info.Name,
-		NodeAddr:       info.NodeAddr,
-		PledgeAddr:     info.PledgeAddr,
-		PledgeAmount:   *bigIntToString(info.Amount),
-		WithdrawHeight: Uint64ToString(info.WithdrawHeight),
-		WithdrawTime:   getWithdrawTime(sb.Timestamp, sb.Height, info.WithdrawHeight),
-		CancelTime:     info.CancelTime,
+		Name:                  info.Name,
+		BlockProducingAddress: info.BlockProducingAddress,
+		StakeAddr:             info.StakeAddress,
+		StakeAmount:           *bigIntToString(info.Amount),
+		ExpirationHeight:      Uint64ToString(info.ExpirationHeight),
+		ExpirationTime:        getWithdrawTime(sb.Timestamp, sb.Height, info.ExpirationHeight),
+		RevokeTime:            info.RevokeTime,
 	}
 }
 
 func (r *ContractApi) GetSBPList(stakeAddress types.Address) ([]*SBPInfo, error) {
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +319,7 @@ func (r *ContractApi) GetSBPList(stakeAddress types.Address) ([]*SBPInfo, error)
 	}
 	targetList := make([]*SBPInfo, len(list))
 	if len(list) > 0 {
-		sort.Sort(byRegistrationWithdrawHeight(list))
+		sort.Sort(byRegistrationExpirationHeight(list))
 		for i, info := range list {
 			targetList[i] = newSBPInfo(info, sb)
 		}
@@ -352,7 +352,7 @@ func ToSBPReward(source *contracts.Reward) *SBPReward {
 	}
 }
 func (r *ContractApi) GetSBPRewardPendingWithdrawal(name string) (*SBPReward, error) {
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +367,7 @@ func (r *ContractApi) GetSBPRewardPendingWithdrawal(name string) (*SBPReward, er
 	if err != nil {
 		return nil, err
 	}
-	_, _, reward, drained, err := contracts.CalcReward(util.NewVmConsensusReader(r.cs.SBPReader()), db, info, sb)
+	_, _, reward, drained, err := contracts.CalcReward(util.NewVMConsensusReader(r.cs.SBPReader()), db, info, sb)
 	if err != nil {
 		return nil, err
 	}
@@ -384,11 +384,11 @@ type SBPRewardInfo struct {
 }
 
 func (r *ContractApi) GetSBPRewardByTimestamp(timestamp int64) (*SBPRewardInfo, error) {
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
-	m, index, err := contracts.CalcRewardByDay(db, util.NewVmConsensusReader(r.cs.SBPReader()), timestamp)
+	m, index, err := contracts.CalcRewardByCycle(db, util.NewVMConsensusReader(r.cs.SBPReader()), timestamp)
 	if err != nil {
 		return nil, err
 	}
@@ -405,11 +405,11 @@ func (r *ContractApi) GetSBPRewardByCycle(cycle string) (*SBPRewardInfo, error) 
 	if err != nil {
 		return nil, err
 	}
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
-	m, err := contracts.CalcRewardByDayIndex(db, util.NewVmConsensusReader(r.cs.SBPReader()), index)
+	m, err := contracts.CalcRewardByIndex(db, util.NewVMConsensusReader(r.cs.SBPReader()), index)
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +422,7 @@ func (r *ContractApi) GetSBPRewardByCycle(cycle string) (*SBPRewardInfo, error) 
 }
 
 func (r *ContractApi) GetSBP(name string) (*SBPInfo, error) {
-	db, err := getVmDb(r.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(r.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -438,9 +438,9 @@ func (r *ContractApi) GetSBP(name string) (*SBPInfo, error) {
 }
 
 type SBPVoteInfo struct {
-	Name     string        `json:"sbpName"`
-	NodeAddr types.Address `json:"blockProducingAddress"`
-	VoteNum  string        `json:"votes"`
+	Name                  string        `json:"sbpName"`
+	BlockProducingAddress types.Address `json:"blockProducingAddress"`
+	VoteNum               string        `json:"votes"`
 }
 
 func (r *ContractApi) GetSBPVoteList() ([]*SBPVoteInfo, error) {
@@ -463,7 +463,7 @@ type VotedSBPInfo struct {
 }
 
 func (v *ContractApi) GetVotedSBP(addr types.Address) (*VotedSBPInfo, error) {
-	db, err := getVmDb(v.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(v.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -476,14 +476,14 @@ func (v *ContractApi) GetVotedSBP(addr types.Address) (*VotedSBPInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		active, err := abi.IsActiveRegistration(db, voteInfo.NodeName, types.SNAPSHOT_GID)
+		active, err := abi.IsActiveRegistration(db, voteInfo.SbpName, types.SNAPSHOT_GID)
 		if err != nil {
 			return nil, err
 		}
 		if active {
-			return &VotedSBPInfo{voteInfo.NodeName, NodeStatusActive, *bigIntToString(balance)}, nil
+			return &VotedSBPInfo{voteInfo.SbpName, NodeStatusActive, *bigIntToString(balance)}, nil
 		} else {
-			return &VotedSBPInfo{voteInfo.NodeName, NodeStatusInActive, *bigIntToString(balance)}, nil
+			return &VotedSBPInfo{voteInfo.SbpName, NodeStatusInActive, *bigIntToString(balance)}, nil
 		}
 	}
 	return nil, nil
@@ -545,7 +545,7 @@ func (a byName) Less(i, j int) bool {
 }
 
 func (m *ContractApi) GetTokenInfoList(pageIndex int, pageSize int) (*TokenInfoList, error) {
-	db, err := getVmDb(m.chain, types.AddressMintage)
+	db, err := getVmDb(m.chain, types.AddressAsset)
 	if err != nil {
 		return nil, err
 	}
@@ -564,11 +564,11 @@ func (m *ContractApi) GetTokenInfoList(pageIndex int, pageSize int) (*TokenInfoL
 }
 
 func (m *ContractApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
-	db, err := getVmDb(m.chain, types.AddressMintage)
+	db, err := getVmDb(m.chain, types.AddressAsset)
 	if err != nil {
 		return nil, err
 	}
-	tokenInfo, err := abi.GetTokenById(db, tokenId)
+	tokenInfo, err := abi.GetTokenByID(db, tokenId)
 	if err != nil {
 		return nil, err
 	}
@@ -579,7 +579,7 @@ func (m *ContractApi) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo
 }
 
 func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
-	db, err := getVmDb(m.chain, types.AddressMintage)
+	db, err := getVmDb(m.chain, types.AddressAsset)
 	if err != nil {
 		return nil, err
 	}
@@ -591,5 +591,5 @@ func (m *ContractApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenI
 	for tokenId, tokenInfo := range tokenMap {
 		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
 	}
-	return checkGenesisToken(db, owner, m.vite.Config().MintageInfo.TokenInfoMap, tokenList)
+	return checkGenesisToken(db, owner, m.vite.Config().AssetInfo.TokenInfoMap, tokenList)
 }

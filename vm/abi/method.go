@@ -16,8 +16,15 @@ import (
 // Input specifies the required input parameters for this gives method.
 type Method struct {
 	Name    string
+	id      []byte
 	Inputs  Arguments
 	Outputs Arguments
+}
+
+func newMethod(name string, inputs, outputs Arguments) Method {
+	m := Method{Name: name, Inputs: inputs, Outputs: outputs}
+	m.id = types.DataHash([]byte(m.Sig())).Bytes()[:4]
+	return m
 }
 
 // Sig returns the methods string signature according to the ABI spec.
@@ -44,5 +51,5 @@ func (method Method) String() string {
 }
 
 func (method Method) Id() []byte {
-	return types.DataHash([]byte(method.Sig())).Bytes()[:4]
+	return method.id
 }

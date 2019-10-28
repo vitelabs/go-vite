@@ -7,20 +7,19 @@ type QuotaInfo struct {
 }
 
 type Quota struct {
-	current                     uint64
-	pledgeQuotaPerSnapshotBlock uint64
-	avg                         uint64
-	snapshotCurrent             uint64
-	blocked                     bool
-	blockReleaseHeight          uint64
+	current                    uint64
+	stakeQuotaPerSnapshotBlock uint64
+	avg                        uint64
+	snapshotCurrent            uint64
+	blocked                    bool
 }
 
-func NewQuota(pledgeQuota, current, avg, snapshotCurrent uint64, blocked bool, blockReleaseHeight uint64) Quota {
-	return Quota{current, pledgeQuota, avg, snapshotCurrent, blocked, blockReleaseHeight}
+func NewQuota(stakeQuota, current, avg, snapshotCurrent uint64, blocked bool) Quota {
+	return Quota{current, stakeQuota, avg, snapshotCurrent, blocked}
 }
 
-func (q *Quota) PledgeQuotaPerSnapshotBlock() uint64 {
-	return q.pledgeQuotaPerSnapshotBlock
+func (q *Quota) StakeQuotaPerSnapshotBlock() uint64 {
+	return q.stakeQuotaPerSnapshotBlock
 }
 
 // Current quota of a single account
@@ -39,8 +38,4 @@ func (q *Quota) Avg() uint64 {
 
 func (q *Quota) Blocked() bool {
 	return q.blocked
-}
-
-func (q *Quota) BlockReleaseHeight() uint64 {
-	return q.blockReleaseHeight
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
+	"math/big"
 )
 
 func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
@@ -40,13 +41,13 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 	// write unsaved balance
 	unsavedBalanceMap := vmDb.GetUnsavedBalanceMap()
+	redoLog.BalanceMap = make(map[types.TokenTypeId]*big.Int, len(unsavedBalanceMap))
 
 	for tokenTypeId, balance := range unsavedBalanceMap {
 		// set latest balance
 		sDB.writeBalance(batch, chain_utils.CreateBalanceKey(accountBlock.AccountAddress, tokenTypeId), balance.Bytes())
+		redoLog.BalanceMap[tokenTypeId] = balance
 	}
-
-	redoLog.BalanceMap = unsavedBalanceMap
 
 	// write unsaved code
 	unsavedCode := vmDb.GetUnsavedContractCode()
@@ -268,7 +269,7 @@ func (sDB *StateDB) writeHistoryKey(batch interfaces.Batch, key, value []byte) {
 	if err != nil {
 		panic(err)
 	}
-	if types.IsBuiltinContractAddr(addr) {
+	if sDB.shouldCacheContractData(addr) {
 		sDB.cache.Set(snapshotValuePrefix+string(addrBytes)+string(sDB.parseStorageKey(key)), sDB.copyValue(value), cache.NoExpiration)
 	}
 }

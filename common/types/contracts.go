@@ -19,32 +19,32 @@ type ConsensusGroupInfo struct {
 	VoteConditionId        uint8
 	VoteConditionParam     []byte
 	Owner                  Address
-	PledgeAmount           *big.Int
-	WithdrawHeight         uint64
+	StakeAmount            *big.Int
+	ExpirationHeight       uint64
 }
 
 func (groupInfo *ConsensusGroupInfo) IsActive() bool {
-	return groupInfo.WithdrawHeight > 0
+	return groupInfo.ExpirationHeight > 0
 }
 
 type VoteInfo struct {
-	VoterAddr Address
-	NodeName  string
+	VoteAddr Address
+	SbpName  string
 }
 
 type Registration struct {
-	Name           string
-	NodeAddr       Address
-	PledgeAddr     Address
-	Amount         *big.Int
-	WithdrawHeight uint64
-	RewardTime     int64
-	CancelTime     int64
-	HisAddrList    []Address
+	Name                  string
+	BlockProducingAddress Address
+	StakeAddress          Address
+	Amount                *big.Int
+	ExpirationHeight      uint64
+	RewardTime            int64
+	RevokeTime            int64
+	HisAddrList           []Address
 }
 
 func (r *Registration) IsActive() bool {
-	return r.CancelTime == 0
+	return r.RevokeTime == 0
 }
 
 type TokenInfo struct {
@@ -59,12 +59,12 @@ type TokenInfo struct {
 	Index         uint16   `json:"index"`
 }
 
-type PledgeInfo struct {
-	Amount         *big.Int `json:"amount"`
-	WithdrawHeight uint64   `json:"withdrawHeight"`
-	BeneficialAddr Address  `json:"beneficialAddr"`
-	Agent          bool     `json:"agent"`
-	AgentAddress   Address  `json:"agentAddr"`
-	Bid            uint8    `json:"bid"`
-	PledgeAddress  Address  `json:"pledgeAddr"`
+type StakeInfo struct {
+	Amount           *big.Int `json:"amount"`
+	ExpirationHeight uint64   `json:"withdrawHeight"`
+	Beneficiary      Address  `json:"beneficialAddr"`
+	IsDelegated      bool     `json:"agent"`
+	DelegateAddress  Address  `json:"agentAddr"`
+	Bid              uint8    `json:"bid"`
+	StakeAddress     Address  `json:"pledgeAddr"`
 }

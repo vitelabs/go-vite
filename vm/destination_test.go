@@ -138,10 +138,10 @@ func TestGetCodeWithoutAuxCodeAndParams(t *testing.T) {
 
 func TestContainsCertainStatusCode(t *testing.T) {
 	testCases := []struct {
-		name         string
-		code         string
-		confirmTimes bool
-		seedCount    bool
+		name             string
+		code             string
+		snapshot         bool
+		snapshotWithSeed bool
 	}{
 		{
 			"normal_contains_confirmtimes",
@@ -170,10 +170,10 @@ func TestContainsCertainStatusCode(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		codeB, _ := hex.DecodeString(testCase.code)
-		confirmTimes, seedCount := ContainsCertainStatusCode(codeB)
-		if confirmTimes != testCase.confirmTimes || seedCount != testCase.seedCount {
+		requireSnapshot, requireSnapshotWithSeed := ContainsCertainStatusCode(codeB)
+		if requireSnapshot != testCase.snapshot || requireSnapshotWithSeed != testCase.snapshotWithSeed {
 			t.Fatalf("name: %v, contains certain status code failed,\n expected: [%v, %v]\n got: [%v, %v]",
-				testCase.name, testCase.confirmTimes, testCase.seedCount, confirmTimes, seedCount)
+				testCase.name, testCase.snapshot, testCase.snapshotWithSeed, requireSnapshot, requireSnapshotWithSeed)
 		}
 	}
 }

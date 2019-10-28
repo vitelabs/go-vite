@@ -14,8 +14,8 @@ type mockChain interface {
 	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error)
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
-	GetPledgeQuota(addr types.Address) (*types.Quota, error)
-	GetPledgeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error)
+	GetStakeQuota(addr types.Address) (*types.Quota, error)
+	GetStakeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error)
 	IsGenesisAccountBlock(hash types.Hash) bool
 	InsertAccountBlock(b *ledger.AccountBlock) error
 	PrepareDeleteAccountBlocks(b *ledger.AccountBlock) error
@@ -109,9 +109,9 @@ func (db *ChainDb) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.Account
 	return nil, nil
 }
 
-func (db *ChainDb) GetPledgeQuota(addr types.Address) (*types.Quota, error) { return nil, nil }
+func (db *ChainDb) GetStakeQuota(addr types.Address) (*types.Quota, error) { return nil, nil }
 
-func (db *ChainDb) GetPledgeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error) {
+func (db *ChainDb) GetStakeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error) {
 	return nil, nil
 }
 

@@ -15,10 +15,10 @@ const (
 	maxCodeSize       = 24575 // Maximum bytecode to permit for a contract
 	offChainReaderGas = 1000000
 
-	confirmTimeMin = 0
-	confirmTimeMax = 75
-	seedCountMin   = 0
-	seedCountMax   = 75
+	snapshotCountMin         = 0
+	snapshotCountMax         = 75
+	snapshotWithSeedCountMin = 0
+	snapshotWithSeedCountMax = 75
 )
 
 var (

@@ -32,6 +32,14 @@ func initFork() {
 		DexFeeFork: &config.ForkPoint{Height: 250, Version: 3},
 		StemFork:   &config.ForkPoint{Height: 300, Version: 4},
 		LeafFork:   &config.ForkPoint{Height: 400, Version: 5}})
+	fork.SetActiveChecker(mockActiveChecker{})
+}
+
+type mockActiveChecker struct {
+}
+
+func (m mockActiveChecker) IsForkActive(point fork.ForkPointItem) bool {
+	return true
 }
 
 func TestVmRun(t *testing.T) {
@@ -83,7 +91,7 @@ func TestVmRun(t *testing.T) {
 
 	// receive create
 	addr2 := sendCreateBlock.AccountBlock.ToAddress
-	db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressQuota][ToKey(abi.GetStakeBeneficialKey(addr2))], _ = abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 	balance2 := big.NewInt(0)
 
 	hash21 := types.DataHash([]byte{2, 1})
@@ -303,10 +311,10 @@ func TestCall(t *testing.T) {
 	db.contractMetaMap[addr3] = &ledger.ContractMeta{Gid: types.DELEGATE_GID, SendConfirmedTimes: 2, QuotaRatio: 10}
 
 	db.accountBlockMap[addr2] = make(map[types.Hash]*ledger.AccountBlock)
-	db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(addr2))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressQuota][ToKey(abi.GetStakeBeneficialKey(addr2))], _ = abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 
 	db.accountBlockMap[addr3] = make(map[types.Hash]*ledger.AccountBlock)
-	db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(addr3))], _ = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressQuota][ToKey(abi.GetStakeBeneficialKey(addr3))], _ = abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 
 	vm := NewVM(nil)
 	//vm.Debug = true
@@ -524,7 +532,7 @@ func TestVmInterpreter(t *testing.T) {
 			}
 			vm := NewVM(nil)
 			vm.i = newInterpreter(1, false)
-			vm.gasTable = util.GasTableByHeight(1)
+			vm.gasTable = util.QuotaTableByHeight(1)
 			vm.globalStatus = NewTestGlobalStatus(testCase.Seed, &sb)
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)

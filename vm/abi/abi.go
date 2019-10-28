@@ -196,27 +196,15 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 	for _, field := range fields {
 		switch field.Type {
 		case "constructor":
-			abi.Constructor = Method{
-				Inputs: field.Inputs,
-			}
+			abi.Constructor = newMethod("", field.Inputs, nil)
 			// empty defaults to function according to the abi spec
 		case "function", "":
-			abi.Methods[field.Name] = Method{
-				Name:   field.Name,
-				Inputs: field.Inputs,
-			}
+			abi.Methods[field.Name] = newMethod(field.Name, field.Inputs, nil)
 		case "callback":
 			name := getCallBackName(field.Name)
-			abi.Callbacks[name] = Method{
-				Name:   name,
-				Inputs: field.Inputs,
-			}
+			abi.Callbacks[name] = newMethod(name, field.Inputs, nil)
 		case "offchain":
-			abi.OffChains[field.Name] = Method{
-				Name:    field.Name,
-				Inputs:  field.Inputs,
-				Outputs: field.Outputs,
-			}
+			abi.OffChains[field.Name] = newMethod(field.Name, field.Inputs, field.Outputs)
 		case "event":
 			abi.Events[field.Name] = Event{
 				Name:   field.Name,

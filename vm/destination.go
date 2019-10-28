@@ -100,34 +100,36 @@ func containsAuxCode(code []byte) bool {
 }
 
 var (
-	auxCodePrefixWithFE          = []byte{0xfe, 0xa1, 0x65, 'b', 'z', 'z', 'r', '0', 0x58, 0x20}
-	pushCheckCount               = 3
-	statusCodeListOfConfirmTimes = []opCode{HEIGHT, TIMESTAMP, DELEGATECALL, EXTCODESIZE, EXTCODECOPY}
-	statusCodeListOfSeedCount    = []opCode{SEED, RANDOM}
+	auxCodePrefixWithFE                   = []byte{0xfe, 0xa1, 0x65, 'b', 'z', 'z', 'r', '0', 0x58, 0x20}
+	pushCheckCount                        = 3
+	statusCodeListRequireSnapshot         = []opCode{HEIGHT, TIMESTAMP, DELEGATECALL, EXTCODESIZE, EXTCODECOPY}
+	statusCodeListRequireSnapshotWithSeed = []opCode{SEED, RANDOM}
 )
 
-func ContainsCertainStatusCode(code []byte) (containsConfirmTimeCode, containsSeedCountCode bool) {
+// ContainsCertainStatusCode method checks whether the input code contains
+// certain op codes that read cross chain data.
+func ContainsCertainStatusCode(code []byte) (requireSnapshot, requireSnapshotWithSeed bool) {
 	if len(code) == 0 {
 		return false, false
 	}
 	resultCode := getCodeWithoutAuxCodeAndParams(code)
 	m := codeBitmap(resultCode)
-	containsConfirmTimeCode = false
-	containsSeedCountCode = false
+	requireSnapshot = false
+	requireSnapshotWithSeed = false
 	for i := uint64(0); i < uint64(len(resultCode)); i++ {
 		if m.codeSegment(i) {
-			for _, c := range statusCodeListOfConfirmTimes {
+			for _, c := range statusCodeListRequireSnapshot {
 				if opCode(resultCode[i]) == c {
-					containsConfirmTimeCode = true
-					if containsSeedCountCode {
+					requireSnapshot = true
+					if requireSnapshotWithSeed {
 						return
 					}
 				}
 			}
-			for _, c := range statusCodeListOfSeedCount {
+			for _, c := range statusCodeListRequireSnapshotWithSeed {
 				if opCode(resultCode[i]) == c {
-					containsSeedCountCode = true
-					if containsConfirmTimeCode {
+					requireSnapshotWithSeed = true
+					if requireSnapshot {
 						return
 					}
 				}

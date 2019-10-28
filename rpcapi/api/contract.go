@@ -55,9 +55,6 @@ func (c *ContractApi) GetCreateContractData(param CreateContractDataParam) ([]by
 	if err != nil {
 		return nil, err
 	}
-	if !util.IsValidQuotaRatio(param.QuotaRatio) {
-		return nil, util.ErrInvalidQuotaRatio
-	}
 	if len(param.Params) > 0 {
 		data := util.GetCreateContractData(
 			helper.JoinBytes(code, param.Params),

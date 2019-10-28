@@ -10,7 +10,7 @@ import (
 )
 
 func GetConsensusReader(vite *vite.Vite) *util.VMConsensusReader {
-	return util.NewVmConsensusReader(vite.Consensus().SBPReader())
+	return util.NewVMConsensusReader(vite.Consensus().SBPReader())
 }
 
 func AmountBytesToString(amt []byte) string {

@@ -114,7 +114,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 			if w.isContractInBlackList(address) {
 				return
 			}
-			q := w.GetPledgeQuota(address)
+			q := w.GetStakeQuota(address)
 			c := &contractTask{
 				Addr:  address,
 				Quota: q,
@@ -135,7 +135,7 @@ func (w *ContractWorker) Start(accEvent producerevent.AccountStartEvent) {
 				if pushContractTask, callerCount := w.releaseContract(addr); pushContractTask {
 					signalLog.Info(fmt.Sprintf("release contract %v RETRY callers len %v", addr, callerCount), "snapshot", latestHeight, "event", "snapshotEvent")
 
-					q := w.GetPledgeQuota(addr)
+					q := w.GetStakeQuota(addr)
 					pendingTask[count] = &contractTask{Addr: addr, Quota: q}
 					count++
 				}
@@ -215,7 +215,7 @@ func (w ContractWorker) Status() int {
 }
 
 func (w *ContractWorker) getAndSortAllAddrQuota() {
-	quotas := w.GetPledgeQuotas(w.contractAddressList)
+	quotas := w.GetStakeQuotas(w.contractAddressList)
 
 	w.contractTaskPQueue = make([]*contractTask, len(quotas))
 	i := 0
@@ -397,14 +397,14 @@ func (w *ContractWorker) releaseContractCallers(contract types.Address, state in
 	return count
 }
 
-// GetPledgeQuota returns the available quota the contract can use at current.
-func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
+// GetStakeQuota returns the available quota the contract can use at current.
+func (w *ContractWorker) GetStakeQuota(addr types.Address) uint64 {
 	if types.IsBuiltinContractAddrInUseWithoutQuota(addr) {
 		return math.MaxUint64
 	}
-	_, quota, err := w.manager.Chain().GetPledgeQuota(addr)
+	_, quota, err := w.manager.Chain().GetStakeQuota(addr)
 	if err != nil {
-		w.log.Error("GetPledgeQuota err", "error", err)
+		w.log.Error("GetStakeQuota err", "error", err)
 	}
 	if quota == nil {
 		return 0
@@ -412,8 +412,8 @@ func (w *ContractWorker) GetPledgeQuota(addr types.Address) uint64 {
 	return quota.Current()
 }
 
-// GetPledgeQuotas returns the available quota the contract can use at current in batch.
-func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[types.Address]uint64 {
+// GetStakeQuotas returns the available quota the contract can use at current in batch.
+func (w *ContractWorker) GetStakeQuotas(beneficialList []types.Address) map[types.Address]uint64 {
 	quotas := make(map[types.Address]uint64)
 	if w.gid == types.DELEGATE_GID {
 		commonContractAddressList := make([]types.Address, 0, len(beneficialList))
@@ -424,9 +424,9 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 				commonContractAddressList = append(commonContractAddressList, addr)
 			}
 		}
-		commonQuotas, err := w.manager.Chain().GetPledgeQuotas(commonContractAddressList)
+		commonQuotas, err := w.manager.Chain().GetStakeQuotas(commonContractAddressList)
 		if err != nil {
-			w.log.Error("GetPledgeQuotas err", "error", err)
+			w.log.Error("GetStakeQuotas err", "error", err)
 		} else {
 			for k, v := range commonQuotas {
 				if v == nil {
@@ -436,9 +436,9 @@ func (w *ContractWorker) GetPledgeQuotas(beneficialList []types.Address) map[typ
 			}
 		}
 	} else {
-		quotasMap, qRrr := w.manager.Chain().GetPledgeQuotas(beneficialList)
+		quotasMap, qRrr := w.manager.Chain().GetStakeQuotas(beneficialList)
 		if qRrr != nil {
-			w.log.Error("GetPledgeQuotas err", "error", qRrr)
+			w.log.Error("GetStakeQuotas err", "error", qRrr)
 		} else {
 			for k, v := range quotasMap {
 				if v == nil {

@@ -29,7 +29,7 @@ var GenesisJson = `{
   "GenesisAccountAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
   "ForkPoints": {
   },
-  "ConsensusGroupInfo": {
+  "GovernanceInfo": {
     "ConsensusGroupInfoMap":{
       "00000000000000000001":{
         "NodeCount": 1,
@@ -42,15 +42,15 @@ var GenesisJson = `{
         "CountingTokenId":"tti_5649544520544f4b454e6e40",
         "RegisterConditionId":1,
         "RegisterConditionParam":{
-          "PledgeAmount": 100000000000000000000000,
-          "PledgeHeight": 1,
-          "PledgeToken": "tti_5649544520544f4b454e6e40"
+          "StakeAmount": 100000000000000000000000,
+          "StakeHeight": 1,
+          "StakeToken": "tti_5649544520544f4b454e6e40"
         },
         "VoteConditionId":1,
         "VoteConditionParam":{},
         "Owner":"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
-        "PledgeAmount":0,
-        "WithdrawHeight":1
+        "StakeAmount":0,
+        "ExpirationHeight":1
       },
       "00000000000000000002":{
         "NodeCount": 1,
@@ -63,33 +63,33 @@ var GenesisJson = `{
         "CountingTokenId":"tti_5649544520544f4b454e6e40",
         "RegisterConditionId":1,
         "RegisterConditionParam":{
-          "PledgeAmount": 100000000000000000000000,
-          "PledgeHeight": 1,
-          "PledgeToken": "tti_5649544520544f4b454e6e40"
+          "StakeAmount": 100000000000000000000000,
+          "StakeHeight": 1,
+          "StakeToken": "tti_5649544520544f4b454e6e40"
         },
         "VoteConditionId":1,
         "VoteConditionParam":{},
         "Owner":"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
-        "PledgeAmount":0,
-        "WithdrawHeight":1
+        "StakeAmount":0,
+        "ExpirationHeight":1
       }
     },
 
     "RegistrationInfoMap":{
       "00000000000000000001":{
         "s1":{
-          "NodeAddr":"vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a",
-          "PledgeAddr":"vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a",
+          "BlockProducingAddress":"vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a",
+          "StakeAddress":"vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a",
           "Amount":100000000000000000000000,
-          "WithdrawHeight":7776000,
+          "ExpirationHeight":7776000,
           "RewardTime":1,
-          "CancelTime":0,
-          "HisAddrList":["vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a"]
+          "RevokeTime":0,
+          "HistoryAddressList":["vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a"]
         }
       }
     }
   },
-  "MintageInfo":{
+  "AssetInfo":{
     "TokenInfoMap":{
       "tti_5649544520544f4b454e6e40":{
         "TokenName":"Vite Token",
@@ -97,11 +97,8 @@ var GenesisJson = `{
         "TotalSupply":1000000000000000000000000000,
         "Decimals":18,
         "Owner":"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
-        "PledgeAmount":0,
-        "PledgeAddr":"vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
-        "WithdrawHeight":0,
         "MaxSupply":115792089237316195423570985008687907853269984665640564039457584007913129639935,
-        "OwnerBurnOnly":false,
+        "IsOwnerBurnOnly":false,
         "IsReIssuable":true
       }
     },
@@ -115,32 +112,32 @@ var GenesisJson = `{
       }
     ]
   },
-  "PledgeInfo": {
-    "PledgeInfoMap": {
+  "QuotaInfo": {
+    "StakeInfoMap": {
       "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a": [
         {
           "Amount": 1000000000000000000000,
-          "WithdrawHeight": 259200,
-          "BeneficialAddr": "vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a"
+          "ExpirationHeight": 259200,
+          "Beneficiary": "vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a"
         },
         {
           "Amount": 1000000000000000000000,
-          "WithdrawHeight": 259200,
-          "BeneficialAddr": "vite_ce18b99b46c70c8e6bf34177d0c5db956a8c3ea7040a1c1e25"
+          "ExpirationHeight": 259200,
+          "Beneficiary": "vite_ce18b99b46c70c8e6bf34177d0c5db956a8c3ea7040a1c1e25"
         },
         {
           "Amount": 1000000000000000000000,
-          "WithdrawHeight": 259200,
-          "BeneficialAddr": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a"
+          "ExpirationHeight": 259200,
+          "Beneficiary": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a"
         },
         {
           "Amount": 1000000000000000000000,
-          "WithdrawHeight": 259200,
-          "BeneficialAddr": "vite_56fd05b23ff26cd7b0a40957fb77bde60c9fd6ebc35f809c23"
+          "ExpirationHeight": 259200,
+          "Beneficiary": "vite_56fd05b23ff26cd7b0a40957fb77bde60c9fd6ebc35f809c23"
         }
       ]
     },
-    "PledgeBeneficialMap":{
+    "StakeBeneficialMap":{
       "vite_360232b0378111b122685a15e612143dc9a89cfa7e803f4b5a":1000000000000000000000,
       "vite_ce18b99b46c70c8e6bf34177d0c5db956a8c3ea7040a1c1e25":1000000000000000000000,
       "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a":1000000000000000000000,
