@@ -17,21 +17,30 @@ const (
 		{"type":"variable","name":"registerStakeParam","inputs":[{"name":"stakeAmount","type":"uint256"},{"name":"stakeToken","type":"tokenId"},{"name":"stakeHeight","type":"uint64"}]},
 		
 		{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
+		{"type":"function","name":"RegisterSBP", "inputs":[{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"},{"name":"rewardWithdrawAddress","type":"address"}]},
 		
 		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
 		{"type":"function","name":"UpdateBlockProducingAddress", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
-		
+		{"type":"function","name":"UpdateSBPBlockProducingAddress", "inputs":[{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
+    	
+		{"type":"function","name":"UpdateSBPRewardWithdrawAddress", "inputs":[{"name":"sbpName","type":"string"},{"name":"rewardWithdrawAddress","type":"address"}]},
+    
 		{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}, {"name":"sbpName","type":"string"}]},
 		{"type":"function","name":"Revoke","inputs":[{"name":"gid","type":"gid"}, {"name":"sbpName","type":"string"}]},
+		{"type":"function","name":"RevokeSBP","inputs":[{"name":"sbpName","type":"string"}]},
 
 		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"receiveAddress","type":"address"}]},
 		{"type":"function","name":"WithdrawReward","inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"receiveAddress","type":"address"}]},
+		{"type":"function","name":"WithdrawSBPReward","inputs":[{"name":"sbpName","type":"string"},{"name":"receiveAddress","type":"address"}]},
 		
 		{"type":"variable","name":"registrationInfo","inputs":[{"name":"name","type":"string"},{"name":"blockProducingAddress","type":"address"},{"name":"stakeAddress","type":"address"},{"name":"amount","type":"uint256"},{"name":"expirationHeight","type":"uint64"},{"name":"rewardTime","type":"int64"},{"name":"revokeTime","type":"int64"},{"name":"hisAddrList","type":"address[]"}]},
 		{"type":"variable","name":"registeredHisName","inputs":[{"name":"name","type":"string"}]},
 		
 		{"type":"function","name":"Vote", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"}]},
+		{"type":"function","name":"VoteForSBP", "inputs":[{"name":"sbpName","type":"string"}]},
 		{"type":"function","name":"CancelVote","inputs":[{"name":"gid","type":"gid"}]},
+		{"type":"function","name":"CancelSBPVoting","inputs":[]},
+
 		{"type":"variable","name":"voteInfo","inputs":[{"name":"sbpName","type":"string"}]}
 	]`
 
