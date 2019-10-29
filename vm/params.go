@@ -18,7 +18,7 @@ const (
 	snapshotWithSeedCountMin uint8 = 0
 	snapshotWithSeedCountMax uint8 = 75
 
-	contractModifyStorageMax uint8 = 100
+	contractModifyStorageMax int = 100
 
 	retry   = true
 	noRetry = false

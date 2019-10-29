@@ -22,7 +22,7 @@ type contract struct {
 	quotaLeft       uint64
 	intPool         *intPool
 	returnData      []byte
-	storageModified uint8
+	storageModified map[string]interface{}
 }
 
 func newContract(block *ledger.AccountBlock, db vm_db.VmDb, sendBlock *ledger.AccountBlock, data []byte, quotaLeft uint64) *contract {
@@ -33,7 +33,7 @@ func newContract(block *ledger.AccountBlock, db vm_db.VmDb, sendBlock *ledger.Ac
 		data:            data,
 		quotaLeft:       quotaLeft,
 		jumpdests:       make(destinations),
-		storageModified: 0,
+		storageModified: make(map[string]interface{}),
 	}
 }
 

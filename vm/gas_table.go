@@ -348,8 +348,8 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		loc        = stack.back(0)
 		locHash, _ = types.BigToHash(loc)
 	)
-	c.storageModified = c.storageModified + 1
-	if c.storageModified > contractModifyStorageMax {
+	c.storageModified[loc.String()] = struct{}{}
+	if len(c.storageModified) > contractModifyStorageMax {
 		return 0, true, util.ErrStorageModifyLimitReached
 	}
 
