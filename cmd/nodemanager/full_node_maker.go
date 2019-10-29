@@ -3,15 +3,15 @@ package nodemanager
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-
+	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -196,6 +196,20 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 	if tag := ctx.GlobalString(utils.InfluxDBHostTagFlag.Name); len(tag) > 0 {
 		cfg.InfluxDBHostTag = &tag
+	}
+
+	// plugin
+	if ctx.GlobalIsSet(utils.PluginsOnRoadInfoFlag.Name) {
+		if len(cfg.PluginsList) <= 0 {
+			cfg.PluginsList = make([]string, 0)
+		}
+		cfg.PluginsList = append(cfg.PluginsList, chain_plugins.PluginKeyOnRoadInfo)
+	}
+	if ctx.GlobalIsSet(utils.PluginsFilterTokenFlag.Name) {
+		if len(cfg.PluginsList) <= 0 {
+			cfg.PluginsList = make([]string, 0)
+		}
+		cfg.PluginsList = append(cfg.PluginsList, chain_plugins.PluginKeyFilterToken)
 	}
 }
 

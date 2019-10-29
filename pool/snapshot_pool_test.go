@@ -198,7 +198,7 @@ package pool
 ////	panic("implement me")
 ////}
 ////
-////func (*mockSnapshotS) VerifyNetSb(block *ledger.SnapshotBlock) error {
+////func (*mockSnapshotS) VerifyNetSnapshotBlock(block *ledger.SnapshotBlock) error {
 ////	panic("implement me")
 ////}
 ////

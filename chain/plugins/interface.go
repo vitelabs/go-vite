@@ -27,6 +27,8 @@ type Chain interface {
 type Plugin interface {
 	SetStore(store *chain_db.Store)
 
+	GetStore() *chain_db.Store
+
 	InsertAccountBlock(*leveldb.Batch, *ledger.AccountBlock) error
 
 	InsertSnapshotBlock(*leveldb.Batch, *ledger.SnapshotBlock, []*ledger.AccountBlock) error
@@ -36,4 +38,6 @@ type Plugin interface {
 	DeleteSnapshotBlocks(*leveldb.Batch, []*ledger.SnapshotChunk) error
 
 	RemoveNewUnconfirmed(*leveldb.Batch, []*ledger.AccountBlock) error
+
+	RebuildData(flusher *chain_flusher.Flusher) error
 }

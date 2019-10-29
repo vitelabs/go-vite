@@ -127,6 +127,12 @@ var (
 	exportFlags = []cli.Flag{
 		utils.ExportSbHeightFlags,
 	}
+
+	// Chain_plugins
+	pluginsFlags = []cli.Flag{
+		utils.PluginsOnRoadInfoFlag,
+		utils.PluginsFilterTokenFlag,
+	}
 )
 
 func init() {
@@ -161,7 +167,7 @@ func init() {
 	//Import: Please add the New Flags here
 	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags,
 		ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags,
-		vmFlags, netFlags, statFlags, metricsFlags, ledgerFlags, exportFlags)
+		vmFlags, netFlags, statFlags, metricsFlags, ledgerFlags, exportFlags, pluginsFlags)
 
 	app.Before = beforeAction
 	app.Action = action

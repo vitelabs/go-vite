@@ -14,14 +14,12 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vitepb"
 	"math/big"
+	"os"
 	"strconv"
 	"sync"
 )
 
-var (
-	oLog          = log15.New("plugin", "onroad_info")
-	updateInfoErr = errors.New("conflict, fail to update onroad info")
-)
+var updateInfoErr = errors.New("conflict, fail to update onroad info")
 
 type OnRoadInfo struct {
 	chain Chain
@@ -29,6 +27,8 @@ type OnRoadInfo struct {
 	unconfirmedCache map[types.Address]map[types.Hash]*ledger.AccountBlock
 	store            *chain_db.Store
 	mu               sync.RWMutex
+
+	log log15.Logger
 }
 
 func newOnRoadInfo(store *chain_db.Store, chain Chain) Plugin {
@@ -37,15 +37,42 @@ func newOnRoadInfo(store *chain_db.Store, chain Chain) Plugin {
 
 		store:            store,
 		unconfirmedCache: make(map[types.Address]map[types.Hash]*ledger.AccountBlock),
+
+		log: log15.New("plugin", "onroad_info"),
 	}
 	return or
+}
+
+func (or *OnRoadInfo) GetStore() *chain_db.Store {
+	return or.store
 }
 
 func (or *OnRoadInfo) SetStore(store *chain_db.Store) {
 	or.store = store
 }
 
-func (or *OnRoadInfo) reBuildOnRoadInfo(flusher *chain_flusher.Flusher) error {
+func (or *OnRoadInfo) RebuildData(flusher *chain_flusher.Flusher) error {
+	if err := or.GetStore().Close(); err != nil {
+		return err
+	}
+
+	// remove data
+	os.RemoveAll(or.GetStore().GetDbDir())
+
+	or.log.Info("OnRoadInfo RebuildData remove dbDir" + or.GetStore().GetDbDir())
+
+	// set new store
+	store, err := chain_db.NewStore(or.GetStore().GetDbDir(), PluginKeyOnRoadInfo)
+	if err != nil {
+		return err
+	}
+
+	or.store = store
+
+	or.log.Info("OnRoadInfo RebuildData new dbDir:" + or.GetStore().GetDbDir())
+
+	flusher.ReplaceStore(or.store.Id(), store)
+
 	addrOnRoadMap, err := or.chain.LoadAllOnRoad()
 	if err != nil {
 		return err
@@ -80,11 +107,16 @@ func (or *OnRoadInfo) reBuildOnRoadInfo(flusher *chain_flusher.Flusher) error {
 			if err := or.writeMeta(batch, key, om); err != nil {
 				return err
 			}
+			or.log.Info(fmt.Sprintf("writeMeta %v [%+v,%d,%s]", addr, tkId, om.Number, om.TotalAmount.String()))
 		}
-		or.store.WriteDirectly(batch)
+
+		or.store.WriteSnapshot(batch, nil)
+
 		// flush to disk
 		flusher.Flush()
+
 	}
+	or.log.Info("OnRoadInfo RebuildData data success")
 
 	return nil
 }
@@ -95,7 +127,7 @@ func (or *OnRoadInfo) InsertSnapshotBlock(batch *leveldb.Batch, snapshotBlock *l
 	or.removeUnconfirmed(confirmedBlocks)
 
 	if err := or.flushWriteBySnapshotLine(batch, excludePairTrades(or.chain, confirmedBlocks)); err != nil {
-		oLog.Error(fmt.Sprintf("flushWriteBySnapshotLine err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
+		or.log.Error(fmt.Sprintf("flushWriteBySnapshotLine err:%v, sb[%v %v]", err, snapshotBlock.Height, snapshotBlock.Hash), "method", "InsertSnapshotBlock")
 		// TODO redo the plugin onroad_info
 	}
 
@@ -133,7 +165,7 @@ func (or *OnRoadInfo) DeleteSnapshotBlocks(batch *leveldb.Batch, chunks []*ledge
 				heightStr += strconv.FormatUint(v.SnapshotBlock.Height, 10) + ","
 			}
 		}
-		oLog.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v, sb[%v]", err, heightStr), "method", "DeleteSnapshotBlocks")
+		or.log.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v, sb[%v]", err, heightStr), "method", "DeleteSnapshotBlocks")
 		// TODO redo the plugin onroad_info
 	}
 	return nil
@@ -158,7 +190,7 @@ func (or *OnRoadInfo) RemoveNewUnconfirmed(rollbackBatch *leveldb.Batch, allUnco
 	}
 
 	if err := or.flushDeleteBySnapshotLine(rollbackBatch, excludePairTrades(or.chain, pendingRollBackList)); err != nil {
-		oLog.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v", err), "method", "RemoveNewUnconfirmed")
+		or.log.Error(fmt.Sprintf("flushDeleteBySnapshotLine err:%v", err), "method", "RemoveNewUnconfirmed")
 		// TODO redo the plugin onroad_info
 	}
 
@@ -322,7 +354,7 @@ func (or *OnRoadInfo) GetAccountInfo(addr *types.Address) (*ledger.AccountInfo, 
 		diffNum := num.Add(num, &signOm.number)
 		diffAmount := om.TotalAmount.Add(&om.TotalAmount, &signOm.amount)
 
-		oLog.Info(fmt.Sprintf("add unconfirmed info addr=%v tk=%v result[%v %v]\n", addr, tkId, diffNum.String(), diffAmount.String()), "method", "GetAccountInfo")
+		or.log.Info(fmt.Sprintf("add unconfirmed info addr=%v tk=%v result[%v %v]\n", addr, tkId, diffNum.String(), diffAmount.String()), "method", "GetAccountInfo")
 
 		if diffAmount.Sign() < 0 || diffNum.Sign() < 0 || (diffAmount.Sign() > 0 && diffNum.Sign() == 0) {
 			return nil, errors.New("conflict, fail to get onroad info")

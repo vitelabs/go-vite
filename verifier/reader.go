@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
-type consensus interface {
+type cssConsensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
 	SBPReader() core.SBPStatReader
 }
