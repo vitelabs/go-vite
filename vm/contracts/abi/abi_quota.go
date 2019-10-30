@@ -38,25 +38,33 @@ const (
 
 		{"type":"variable","name":"stakeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"expirationHeight","type":"uint64"},{"name":"beneficiary","type":"address"},{"name":"isDelegated","type":"bool"},{"name":"delegateAddress","type":"address"},{"name":"bid","type":"uint8"}]},
 
+		{"type":"variable","name":"stakeInfoV2","inputs":[{"name":"amount","type":"uint256"},{"name":"expirationHeight","type":"uint64"},{"name":"beneficiary","type":"address"},{"name":"id","type":"bytes32"}]},
+
 		{"type":"variable","name":"stakeBeneficial","inputs":[{"name":"amount","type":"uint256"}]}
 	]`
 
-	MethodNameStake                 = "Pledge"
-	MethodNameStakeV2               = "Stake"
-	MethodNameCancelStake           = "CancelPledge"
-	MethodNameCancelStakeV2         = "CancelStake"
-	MethodNameDelegateStake         = "AgentPledge"
-	MethodNameDelegateStakeV2       = "DelegateStake"
-	MethodNameCancelDelegateStake   = "AgentCancelPledge"
-	MethodNameCancelDelegateStakeV2 = "CancelDelegateStake"
-	VariableNameStakeInfo           = "stakeInfo"
-	VariableNameStakeBeneficial     = "stakeBeneficial"
+	MethodNameStake                   = "Pledge"
+	MethodNameStakeV2                 = "Stake"
+	MethodNameStakeV3                 = "StakeForQuota"
+	MethodNameCancelStake             = "CancelPledge"
+	MethodNameCancelStakeV2           = "CancelStake"
+	MethodNameCancelStakeV3           = "CancelQuotaStaking"
+	MethodNameDelegateStake           = "AgentPledge"
+	MethodNameDelegateStakeV2         = "DelegateStake"
+	MethodNameCancelDelegateStake     = "AgentCancelPledge"
+	MethodNameCancelDelegateStakeV2   = "CancelDelegateStake"
+	MethodNameStakeWithCallback       = "StakeForQuotaWithCallback"
+	MethodNameCancelStakeWithCallback = "CancelQuotaStakingWithCallback"
+	VariableNameStakeInfo             = "stakeInfo"
+	VariableNameStakeInfoV2           = "stakeInfoV2"
+	VariableNameStakeBeneficial       = "stakeBeneficial"
 )
 
 var (
 	// ABIQuota is abi definition of quota contract
-	ABIQuota, _      = abi.JSONToABIContract(strings.NewReader(jsonQuota))
-	stakeInfoKeySize = types.AddressSize + 8
+	ABIQuota, _        = abi.JSONToABIContract(strings.NewReader(jsonQuota))
+	stakeInfoKeySize   = types.AddressSize + 8
+	stakeInfoValueSize = 192
 )
 
 // VariableStakeBeneficial defines variable of stake beneficial amount in quota contract

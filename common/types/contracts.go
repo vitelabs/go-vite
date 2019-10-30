@@ -35,6 +35,7 @@ type VoteInfo struct {
 type Registration struct {
 	Name                  string
 	BlockProducingAddress Address
+	RewardWithdrawAddress Address
 	StakeAddress          Address
 	Amount                *big.Int
 	ExpirationHeight      uint64

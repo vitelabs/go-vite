@@ -59,6 +59,7 @@ const (
 	MethodNameDisableReIssue      = "ChangeTokenType"
 	MethodNameDisableReIssueV2    = "DisableReIssue"
 	MethodNameGetTokenInfo        = "GetTokenInfo"
+	MethodNameGetTokenInfoV3      = "GetTokenInformation"
 	VariableNameTokenInfo         = "tokenInfo"
 	VariableNameTokenIndex        = "tokenIndex"
 )
