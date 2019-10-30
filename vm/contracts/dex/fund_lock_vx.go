@@ -8,6 +8,9 @@ import (
 )
 
 func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
+	if !IsLushFork(db) {
+		return nil
+	}
 	iterator, err := db.NewStorageIterator(vxUnlocksKeyPrefix)
 	if err != nil {
 		panic(err)
@@ -29,7 +32,7 @@ func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
 		if len(vxUnlocksKey) != 25 {
 			panic(fmt.Errorf("invalid vx unlocks key"))
 		}
-		address, _ := types.BytesToAddress(vxUnlocksKey[5:])
+		address, _ := types.BytesToAddress(vxUnlocksKey[len(vxUnlocksKeyPrefix):])
 		unlocks := &VxUnlocks{}
 		if err := unlocks.DeSerialize(vxUnlocksValue); err != nil {
 			panic(err)
@@ -38,8 +41,10 @@ func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
 		var amount = new(big.Int)
 		for _, ul := range unlocks.Unlocks {
 			if ul.PeriodId+uint64(VxUnlockScheduleDays) <= periodId {
-				i++
 				amount.Add(amount, new(big.Int).SetBytes(ul.Amount))
+				i++
+			} else {
+				break
 			}
 		}
 		if i > 0 {

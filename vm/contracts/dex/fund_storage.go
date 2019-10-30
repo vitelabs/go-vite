@@ -47,9 +47,9 @@ var (
 	vxFundKeyPrefix = []byte("vxF:")  // vxFund:types.Address
 	vxSumFundsKey   = []byte("vxFS:") // vxFundSum
 
-	vxAutoLockSwitch = []byte("vxALS:")
-	vxLockedFundsKeyPrefix = []byte("vxlF:")
-	vxLockedSumFundsKey    = []byte("vxlFS:") // vxLockedFundSum
+	autoLockMinedVxKeyPrefix = []byte("aLMVx:")
+	vxLockedFundsKeyPrefix   = []byte("vxlF:")
+	vxLockedSumFundsKey      = []byte("vxlFS:") // vxLockedFundSum
 
 	lastJobPeriodIdWithBizTypeKey = []byte("ljpBId:")
 	normalMineStartedKey          = []byte("nmst:")
@@ -112,9 +112,13 @@ var (
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
 	usdMineThreshold     = big.NewInt(20000)                                  // 0.02USD
 
-	RateSumForFeeMine                = "0.6"                                             // 15% * 4
-	RateForStakingMine               = "0.2"                                             // 20%
-	RateSumForMakerAndMaintainerMine = "0.2"                                             // 10% + 10%
+	RateSumForFeeMine                = "0.6" // 15% * 4
+	RateForStakingMine               = "0.2" // 20%
+	RateSumForMakerAndMaintainerMine = "0.2" // 10% + 10%
+	RateSumForFeeMineNew             = "0.65"
+	RateForStakingMineNew            = "0.1"                                             // 10%
+	RateSumForMakerMineNew           = "0.15"                                            // 15%
+	RateSumForMaintainerNew          = "0.1"                                             // 10%
 	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 
 	ViteTokenDecimals int32 = 18
@@ -209,6 +213,10 @@ const (
 const (
 	LockVx = iota + 1
 	UnlockVx
+)
+
+const (
+	AutoLockMinedVx = iota + 1
 )
 
 type QuoteTokenTypeInfo struct {
@@ -343,6 +351,11 @@ type ParamConfigMarketAgents struct {
 type ParamLockVxForDividend struct {
 	ActionType uint8 // 1: lockVx 2: unlockVx
 	Amount     *big.Int
+}
+
+type ParamSwitchConfig struct {
+	SwitchType uint8 // 1: autoLockMinedVx
+	Enable     bool
 }
 
 type Fund struct {
@@ -789,6 +802,27 @@ func DepositAccount(db vm_db.VmDb, address types.Address, token types.TokenTypeI
 	return
 }
 
+func LockMinedVx(db vm_db.VmDb, address types.Address, amount *big.Int) (updatedAcc *dexproto.Account) {
+	userFund, _ := GetFund(db, address)
+	var foundVxAcc bool
+	for _, acc := range userFund.Accounts {
+		if bytes.Equal(acc.Token, VxTokenId.Bytes()) {
+			acc.VxLocked = AddBigInt(acc.VxLocked, amount.Bytes())
+			updatedAcc = acc
+			foundVxAcc = true
+			break
+		}
+	}
+	if !foundVxAcc {
+		updatedAcc = &dexproto.Account{}
+		updatedAcc.Token = VxTokenId.Bytes()
+		updatedAcc.VxLocked = amount.Bytes()
+		userFund.Accounts = append(userFund.Accounts, updatedAcc)
+	}
+	SaveFund(db, address, userFund)
+	return
+}
+
 func GetUserFundsByPage(db abi.StorageDatabase, lastAddress types.Address, count int) (funds []*Fund, err error) {
 	var iterator interfaces.StorageIterator
 	if iterator, err = db.NewStorageIterator(fundKeyPrefix); err != nil {
@@ -1113,20 +1147,20 @@ func GetVxLockedFundsKey(address []byte) []byte {
 	return append(vxLockedFundsKeyPrefix, address...)
 }
 
-func SetVxAutoLockSwitch(db vm_db.VmDb, address []byte, allow bool) {
-	if allow {
-		setValueToDb(db, GetVxAutoLockSwitchKey(address), []byte{1})
+func SetAutoLockMinedVx(db vm_db.VmDb, address []byte, enable bool) {
+	if enable {
+		setValueToDb(db, GetVxAutoLockMinedVxKey(address), []byte{1})
 	} else {
-		setValueToDb(db, GetVxAutoLockSwitchKey(address), nil)
+		setValueToDb(db, GetVxAutoLockMinedVxKey(address), nil)
 	}
 }
 
-func IsVxAutoLock(db vm_db.VmDb, address []byte) bool {
-	return len(getValueFromDb(db, GetVxAutoLockSwitchKey(address))) > 0
+func IsAutoLockMinedVx(db vm_db.VmDb, address []byte) bool {
+	return len(getValueFromDb(db, GetVxAutoLockMinedVxKey(address))) > 0
 }
 
-func GetVxAutoLockSwitchKey(address []byte) []byte {
-	return append(vxAutoLockSwitch, address...)
+func GetVxAutoLockMinedVxKey(address []byte) []byte {
+	return append(autoLockMinedVxKeyPrefix, address...)
 }
 
 func GetVxSumFundsWithForkCheck(db vm_db.VmDb) (vxSumFunds *VxFunds, ok bool) {
@@ -1979,7 +2013,7 @@ func AddVxUnlock(db vm_db.VmDb, reader util.ConsensusReader, address types.Addre
 		size := len(unlocks.Unlocks)
 		if unlocks.Unlocks[size-1].PeriodId == currentPeriodId {
 			unlocks.Unlocks[size-1].Amount = AddBigInt(unlocks.Unlocks[size-1].Amount, amount.Bytes())
-			updated = false
+			updated = true
 		}
 	}
 	if !updated {

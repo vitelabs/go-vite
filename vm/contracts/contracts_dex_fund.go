@@ -355,7 +355,11 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 		vxPoolLeaved = new(big.Int).Set(vxPool)
 		switch param.BizType {
 		case dex.MineVxForFeeJob:
-			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
+			rateSumForFee := dex.RateSumForFeeMineNew
+			if !dex.IsLushFork(db) {
+				rateSumForFee = dex.RateSumForFeeMine
+			}
+			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, rateSumForFee, dex.ViteTokenType, dex.UsdTokenType); success {
 				if refund, err = dex.DoMineVxForFee(db, vm.ConsensusReader(), param.PeriodId, amtForItems, fundLogger); err != nil {
 					return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 				}
@@ -363,7 +367,11 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 				return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for fee"), sendBlock)
 			}
 		case dex.MineVxForStakingJob:
-			if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPool, dex.RateForStakingMine); success {
+			rateSumForStaking := dex.RateForStakingMineNew
+			if !dex.IsLushFork(db) {
+				rateSumForStaking = dex.RateForStakingMine
+			}
+			if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPool, rateSumForStaking); success {
 				if refund, err = dex.DoMineVxForStaking(db, vm.ConsensusReader(), param.PeriodId, amount); err != nil {
 					return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 				}
@@ -371,12 +379,25 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 				return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for staking"), sendBlock)
 			}
 		case dex.MineVxForMakerAndMaintainerJob:
-			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
-				if err = dex.DoMineVxForMakerMineAndMaintainer(db, param.PeriodId, vm.ConsensusReader(), amtForItems); err != nil {
-					return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+			if dex.IsLushFork(db) {
+				if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPool, dex.RateSumForMakerMineNew); success {
+					dex.DoMineVxForMaker(db, param.PeriodId, amount)
+				} else {
+					return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for maker"), sendBlock)
+				}
+				if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPoolLeaved, dex.RateSumForMaintainerNew); success {
+					if err = dex.DoMineVxForMaintainer(db, vm.ConsensusReader(), amount); err != nil {
+						return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+					}
 				}
 			} else {
-				return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for maker and maintainer"), sendBlock)
+				if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
+					if err = dex.DoMineVxForMakerMineAndMaintainer(db, param.PeriodId, vm.ConsensusReader(), amtForItems); err != nil {
+						return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+					}
+				} else {
+					return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for maker and maintainer"), sendBlock)
+				}
 			}
 		}
 		if refund != nil && refund.Sign() > 0 {
@@ -1310,8 +1331,7 @@ func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger
 			if amt.Cmp(poolAmt) > 0 {
 				amt.Set(poolAmt)
 			}
-			acc := dex.DepositAccount(db, addr, dex.VxTokenId, amt)
-			if err = dex.OnVxMined(db, vm.ConsensusReader(), addr, amt, acc); err != nil {
+			if err = dex.DepositMinedVx(db, vm.ConsensusReader(), addr, amt); err != nil {
 				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			}
 			poolAmt.Sub(poolAmt, amt)
@@ -1484,6 +1504,51 @@ func (md MethodDexFundLockVxForDividend) DoReceive(db vm_db.VmDb, block *ledger.
 		} else {
 			dex.AddVxUnlock(db, vm.ConsensusReader(), sendBlock.AccountAddress, param.Amount)
 		}
+	}
+	return nil, nil
+}
+
+type MethodDexFundSwitchConfig struct {
+	MethodName string
+}
+
+func (md *MethodDexFundSwitchConfig) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexFundSwitchConfig) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexFundSwitchConfig) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+	return util.RequestQuotaCost(data, gasTable)
+}
+
+func (md *MethodDexFundSwitchConfig) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+	return gasTable.DexFunSwitchConfigQuota
+}
+
+func (md *MethodDexFundSwitchConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	param := new(dex.ParamSwitchConfig)
+	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
+		return err
+	} else if param.SwitchType != dex.AutoLockMinedVx {
+		return dex.InvalidInputParamErr
+	}
+	return nil
+}
+
+func (md MethodDexFundSwitchConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var (
+		param = new(dex.ParamSwitchConfig)
+		err   error
+	)
+	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
+		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+	}
+	switch param.SwitchType {
+	case dex.AutoLockMinedVx:
+		dex.SetAutoLockMinedVx(db, sendBlock.AccountAddress.Bytes(), param.Enable)
 	}
 	return nil, nil
 }

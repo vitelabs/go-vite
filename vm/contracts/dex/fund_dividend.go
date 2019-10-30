@@ -53,6 +53,7 @@ func DoFeesDividend(db vm_db.VmDb, periodId uint64) (blocks []*ledger.AccountBlo
 		}
 		MarkDexFeesFinishDividend(db, fee, pId)
 	}
+	blocks = tryBurnVite(db, feeSumMap)
 
 	var (
 		userVxFundKeyPrefix, userVxFundsKey, userVxFundsBytes []byte
@@ -67,7 +68,6 @@ func DoFeesDividend(db vm_db.VmDb, periodId uint64) (blocks []*ledger.AccountBlo
 		panic(err)
 	}
 	defer iterator.Release()
-	blocks = tryBurnVite(db, feeSumMap)
 	feeSumWithTokens := MapToAmountWithTokens(feeSumMap)
 
 	feeSumLeavedMap := make(map[types.TokenTypeId]*big.Int)

@@ -270,7 +270,7 @@ func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Addre
 
 func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
 	if IsLushFork(db) {
-		return  nil
+		return nil
 	} else {
 		return doSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
 	}
@@ -278,19 +278,26 @@ func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Addr
 
 func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.AccountSettle, updatedVxAccount *dexproto.Account) error {
 	if IsLushFork(db) {
-		return  nil
+		return nil
 	} else {
 		amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
 		return doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
 	}
 }
 
-func OnVxMined(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
-	if !IsLushFork(db) || IsVxAutoLock(db, address.Bytes()) {
-		return doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
+func DepositMinedVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount *big.Int) error {
+	if IsLushFork(db) {
+		if IsAutoLockMinedVx(db, address.Bytes()) {
+			updatedVxAccount := LockMinedVx(db, address, amount)
+			return doSettleVxFunds(db, reader, address.Bytes(), amount, updatedVxAccount)
+		} else {
+			DepositAccount(db, address, VxTokenId, amount)
+		}
 	} else {
-		return nil
+		updatedVxAccount := DepositAccount(db, address, VxTokenId, amount)
+		doSettleVxFunds(db, reader, address.Bytes(), amount, updatedVxAccount)
 	}
+	return nil
 }
 
 // only settle validAmount and amount changed from previous period

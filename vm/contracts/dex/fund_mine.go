@@ -11,7 +11,7 @@ import (
 //Note: allow mine from specify periodId, former periods will be ignore
 func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int, fundLogger log15.Logger) (*big.Int, error) {
 	var (
-		dexFeesByPeriod                *DexFeesByPeriod
+		dexFeesByPeriod       *DexFeesByPeriod
 		feeSumMap             = make(map[int32]*big.Int) // quoteTokenType -> amount
 		dividedFeeMap         = make(map[int32]*big.Int)
 		toDivideVxLeaveAmtMap = make(map[int32]*big.Int)
@@ -89,7 +89,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 				}
 				if feeSumAmt, ok := feeSumMap[feeAccount.QuoteTokenType]; !ok { //no counter part in feeSum for userFees
 					// TODO change to continue after test
-					fundLogger.Error("DoMineVxForFee", "encounter err" , "user with valid feeAccount, but no valid feeSum",
+					fundLogger.Error("DoMineVxForFee", "encounter err", "user with valid feeAccount, but no valid feeSum",
 						"periodId", periodId, "address", address.String(), "quoteTokenType", feeAccount.QuoteTokenType,
 						"baseFee", new(big.Int).SetBytes(feeAccount.BaseAmount), "inviteFee", new(big.Int).SetBytes(feeAccount.InviteBonusAmount))
 					continue
@@ -117,8 +117,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 			}
 			minedAmt := new(big.Int).Add(vxMinedForBase, vxMinedForInvite)
 			if minedAmt.Sign() > 0 {
-				updatedAcc := DepositAccount(db, address, VxTokenId, minedAmt)
-				if err = OnVxMined(db, reader, address, minedAmt, updatedAcc); err != nil {
+				if err = DepositMinedVx(db, reader, address, minedAmt); err != nil {
 					return nil, err
 				}
 			}
@@ -204,8 +203,7 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 		//fmt.Printf("tokenId %s, address %s, vxSumAmt %s, userVxAmount %s, dividedVxAmt %s, toDivideFeeAmt %s, toDivideLeaveAmt %s\n", tokenId.String(), address.String(), vxSumAmt.String(), userVxAmount.String(), dividedVxAmtMap[tokenId], toDivideFeeAmt.String(), toDivideLeaveAmt.String())
 		minedAmt, finished := DivideByProportion(dexMiningStakedAmount, stakedAmt, dividedStakedAmountSum, amountToMine, amtLeavedToMine)
 		if minedAmt.Sign() > 0 {
-			updatedAcc := DepositAccount(db, address, VxTokenId, minedAmt)
-			if err = OnVxMined(db, reader, address, minedAmt, updatedAcc); err != nil {
+			if err = DepositMinedVx(db, reader, address, minedAmt); err != nil {
 				return amtLeavedToMine, err
 			}
 			AddMinedVxForStakingEvent(db, address, stakedAmt, minedAmt)
@@ -217,23 +215,33 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 	return amtLeavedToMine, nil
 }
 
-func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader util.ConsensusReader, amtForMakerAndMaintainer map[int32]*big.Int) error {
+func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader util.ConsensusReader, amtForMakerAndMaintainer map[int32]*big.Int) (err error) {
 	if amtForMakerAndMaintainer[MineForMaker].Sign() > 0 {
-		makerMineProxy := GetMakerMiningAdmin(db)
-		amtForMaker, _ := amtForMakerAndMaintainer[MineForMaker]
-		SaveMakerMiningPoolByPeriodId(db, periodId, amtForMaker)
-		AddMinedVxForOperationEvent(db, MineForMaker, *makerMineProxy, amtForMaker)
+		DoMineVxForMaker(db, periodId, amtForMakerAndMaintainer[MineForMaker])
 	}
 	if amtForMakerAndMaintainer[MineForMaintainer].Sign() > 0 {
-		maintainer := GetMaintainer(db)
-		amtForMaintainer, _ := amtForMakerAndMaintainer[MineForMaintainer]
-		updatedAcc := DepositAccount(db, *maintainer, VxTokenId, amtForMaintainer)
-		if err := OnVxMined(db, reader, *maintainer, amtForMaintainer, updatedAcc); err != nil {
-			return err
-		}
-		AddMinedVxForOperationEvent(db, MineForMaintainer, *maintainer, amtForMaintainer)
+		err = DoMineVxForMaintainer(db, reader, amtForMakerAndMaintainer[MineForMaintainer])
 	}
-	return nil
+	return
+}
+
+func DoMineVxForMaker(db vm_db.VmDb, periodId uint64, amount *big.Int) {
+	if amount.Sign() > 0 {
+		makerMineProxy := GetMakerMiningAdmin(db)
+		SaveMakerMiningPoolByPeriodId(db, periodId, amount)
+		AddMinedVxForOperationEvent(db, MineForMaker, *makerMineProxy, amount)
+	}
+}
+
+func DoMineVxForMaintainer(db vm_db.VmDb, reader util.ConsensusReader, amount *big.Int) (err error) {
+	if amount.Sign() > 0 {
+		maintainer := GetMaintainer(db)
+		if err = DepositMinedVx(db, reader, *maintainer, amount); err != nil {
+			return
+		}
+		AddMinedVxForOperationEvent(db, MineForMaintainer, *maintainer, amount)
+	}
+	return
 }
 
 func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rateSum string, begin, end int) (amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {

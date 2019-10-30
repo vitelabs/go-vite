@@ -196,6 +196,7 @@ func newLushContracts() map[types.Address]*builtinContract {
 	contracts := newLeafContracts()
 
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundLockVxForDividend] = &MethodDexFundLockVxForDividend{cabi.MethodNameDexFundLockVxForDividend}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundSwitchConfig] = &MethodDexFundSwitchConfig{cabi.MethodNameDexFundSwitchConfig}
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundStakeForAgentSVIP] = &MethodDexFundStakeForAgentSVIP{cabi.MethodNameDexFundStakeForAgentSVIP}
 
 	return contracts

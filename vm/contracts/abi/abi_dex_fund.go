@@ -57,6 +57,7 @@ const (
         {"type":"function","name":"PlaceAgentOrder", "inputs":[{"name":"principal","type":"address"}, {"name":"tradeToken","type":"tokenId"}, {"name":"quoteToken","type":"tokenId"}, {"name":"side", "type":"bool"}, {"name":"orderType", "type":"uint8"}, {"name":"price", "type":"string"}, {"name":"quantity", "type":"uint256"}]},
 		
 		{"type":"function","name":"LockVxForDividend", "inputs":[{"name":"actionType","type":"uint8"},{"name":"amount","type":"uint256"}]},
+		{"type":"function","name":"SwitchConfig", "inputs":[{"name":"switchType","type":"uint8"},{"name":"enable","type":"bool"}]},
 		{"type":"function","name":"StakeForAgentSVIP", "inputs":[{"name":"actionType","type":"uint8"},{"name":"principal","type":"address"}]}
    
     ]`
@@ -114,7 +115,8 @@ const (
 	MethodNameDexFundPlaceAgentOrder    = "PlaceAgentOrder"
 
 	//v1.1
-	MethodNameDexFundLockVxForDividend    = "LockVxForDividend"
+	MethodNameDexFundLockVxForDividend = "LockVxForDividend"
+	MethodNameDexFundSwitchConfig      = "SwitchConfig"
 	MethodNameDexFundStakeForAgentSVIP = "StakeForAgentSVIP"
 )
 
