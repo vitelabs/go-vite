@@ -85,7 +85,7 @@ type ForkPoints struct {
 	DexFeeFork *ForkPoint
 	StemFork   *ForkPoint
 	LeafFork   *ForkPoint
-	LushFork   *ForkPoint
+	EarthFork  *ForkPoint
 }
 
 type GenesisVmLog struct {

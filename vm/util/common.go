@@ -6,7 +6,6 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/abi"
 	"math/big"
 	"sort"
 	"unicode"
@@ -138,12 +137,6 @@ func PrintMap(m map[string][]byte) string {
 	return result
 }
 
-// NewLog generate vm log
-func NewLog(c abi.ABIContract, name string, params ...interface{}) *ledger.VmLog {
-	topics, data, _ := c.PackEvent(name, params...)
-	return &ledger.VmLog{Topics: topics, Data: data}
-}
-
 // CheckFork check whether current snapshot block height is over certain hard fork
 func CheckFork(db dbInterface, f func(uint64) bool) bool {
 	sb, err := db.LatestSnapshotBlock()
@@ -154,4 +147,8 @@ func CheckFork(db dbInterface, f func(uint64) bool) bool {
 // FirstToLower change first character for string to lower case
 func FirstToLower(str string) string {
 	return string(unicode.ToLower(rune(str[0]))) + str[1:]
+}
+
+func ComputeSendBlockHash(receiveBlock *ledger.AccountBlock, sendBlock *ledger.AccountBlock, index uint8) types.Hash {
+	return sendBlock.ComputeSendHash(receiveBlock, index)
 }
