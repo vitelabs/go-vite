@@ -285,6 +285,7 @@ func (p *ContractApi) GetDelegatedStakeInfo(params StakeQueryParams) (*StakeInfo
 type SBPInfo struct {
 	Name                  string        `json:"name"`
 	BlockProducingAddress types.Address `json:"blockProducingAddress"`
+	RewardWithdrawAddress types.Address `json:"rewardWithdrawAddress"`
 	StakeAddr             types.Address `json:"stakeAddress"`
 	StakeAmount           string        `json:"stakeAmount"`
 	ExpirationHeight      string        `json:"expirationHeight"`
@@ -317,8 +318,14 @@ func (r *ContractApi) GetSBPList(stakeAddress types.Address) ([]*SBPInfo, error)
 	if err != nil {
 		return nil, err
 	}
+	rewardList, err := abi.GetRegistrationListByRewardWithdrawAddr(db, types.SNAPSHOT_GID, stakeAddress)
+	if err != nil {
+		return nil, err
+	}
+	list = append(list, rewardList...)
 	targetList := make([]*SBPInfo, len(list))
 	if len(list) > 0 {
+		// TODO sort
 		sort.Sort(byRegistrationExpirationHeight(list))
 		for i, info := range list {
 			targetList[i] = newSBPInfo(info, sb)

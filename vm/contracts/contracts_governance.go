@@ -359,8 +359,7 @@ func (p *MethodWithdrawReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlo
 	sb, err := db.LatestSnapshotBlock()
 	util.DealWithErr(err)
 	if old == nil || old.RewardTime == -1 ||
-		(!fork.IsEarthFork(sb.Height) && sendBlock.AccountAddress != old.StakeAddress) ||
-		(fork.IsEarthFork(sb.Height) && sendBlock.AccountAddress != old.StakeAddress && sendBlock.AccountAddress != old.RewardWithdrawAddress) {
+		(sendBlock.AccountAddress != old.StakeAddress && sendBlock.AccountAddress != old.RewardWithdrawAddress) {
 		return nil, util.ErrInvalidMethodParam
 	}
 	_, endTime, reward, drained, err := CalcReward(vm.ConsensusReader(), db, old, vm.GlobalStatus().SnapshotBlock())

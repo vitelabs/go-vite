@@ -76,6 +76,8 @@ const (
 	consensusGroupInfoKeySize = groupInfoKeyPrefixSize + types.GidSize                    // 11byte, 1 + 10byte gid
 	registrationInfoKeySize   = 30                                                        //30byte, 10byte gid + 20byte name hash
 	voteInfoKeySize           = voteInfoKeyPrefixSize + types.GidSize + types.AddressSize //32byte, 0 + 10byte gid + 21 byte address
+
+	WithdrawRewardAddressSeparation = ","
 )
 
 var (
@@ -84,8 +86,6 @@ var (
 
 	groupInfoKeyPrefix = []byte{1}
 	voteInfoKeyPrefix  = []byte{0}
-
-	WithdrawRewardAddressSeparation = ","
 )
 
 type VariableRegisterStakeParam struct {
@@ -321,6 +321,29 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, stakeAddr types.Addr
 		if err := ABIGovernance.UnpackVariable(registration, VariableNameRegistrationInfo, iterator.Value()); err == nil && registration.StakeAddress == stakeAddr {
 			registrationList = append(registrationList, registration)
 		}
+	}
+	return registrationList, nil
+}
+
+func GetRegistrationListByRewardWithdrawAddr(db StorageDatabase, gid types.Gid, rewardWithdrawAddr types.Address) ([]*types.Registration, error) {
+	if *db.Address() != types.AddressGovernance {
+		return nil, util.ErrAddressNotMatch
+	}
+	if gid == types.DELEGATE_GID {
+		gid = types.SNAPSHOT_GID
+	}
+	names, err := db.GetValue(rewardWithdrawAddr.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	nameList := strings.Split(string(names), WithdrawRewardAddressSeparation)
+	registrationList := make([]*types.Registration, 0)
+	for _, sbpName := range nameList {
+		r, err := GetRegistration(db, gid, sbpName)
+		if err != nil {
+			return nil, err
+		}
+		registrationList = append(registrationList, r)
 	}
 	return registrationList, nil
 }
