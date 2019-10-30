@@ -2,10 +2,6 @@ package contracts
 
 import (
 	"github.com/vitelabs/go-vite/common/fork"
-	"math/big"
-	"regexp"
-	"runtime/debug"
-
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -13,6 +9,10 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
+	"math/big"
+	"regexp"
+	"runtime/debug"
+	"strings"
 )
 
 type MethodRegister struct {
@@ -70,7 +70,7 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 	if p.MethodName == abi.MethodNameRegisterV3 {
 		param.Gid = types.SNAPSHOT_GID
 	} else {
-		param.RewardWithdrawAddress = &sendBlock.AccountAddress
+		param.RewardWithdrawAddress = sendBlock.AccountAddress
 	}
 
 	snapshotBlock := vm.GlobalStatus().SnapshotBlock()
@@ -90,6 +90,7 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 	old, err := abi.GetRegistration(db, param.Gid, param.SbpName)
 	util.DealWithErr(err)
 	var hisAddrList []types.Address
+	var oldWithdrawRewardAddress *types.Address
 	if old != nil {
 		if old.IsActive() || old.StakeAddress != sendBlock.AccountAddress {
 			return nil, util.ErrInvalidMethodParam
@@ -101,6 +102,7 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 			return nil, util.ErrRewardIsNotDrained
 		}
 		hisAddrList = old.HisAddrList
+		oldWithdrawRewardAddress = &old.RewardWithdrawAddress
 	}
 
 	// check node addr belong to one name in a consensus group
@@ -128,6 +130,8 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 
 	var registerInfo []byte
 	if fork.IsEarthFork(sb.Height) {
+		// save withdraw reward address -> sbp name
+		saveWithdrawRewardAddress(db, oldWithdrawRewardAddress, param.RewardWithdrawAddress, sendBlock.AccountAddress, param.SbpName)
 		registerInfo, _ = abi.ABIGovernance.PackVariable(
 			abi.VariableNameRegistrationInfoV2,
 			param.SbpName,
@@ -153,6 +157,57 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 	}
 	util.SetValue(db, abi.GetRegistrationInfoKey(param.SbpName, param.Gid), registerInfo)
 	return nil, nil
+}
+
+func saveWithdrawRewardAddress(db vm_db.VmDb, oldAddr *types.Address, newAddr, owner types.Address, sbpName string) {
+	if oldAddr == nil {
+		if newAddr == owner {
+			return
+		}
+		addWithdrawRewardAddress(db, newAddr, sbpName)
+		return
+	}
+	if *oldAddr == newAddr {
+		return
+	}
+	if *oldAddr == owner {
+		addWithdrawRewardAddress(db, newAddr, sbpName)
+		return
+	}
+	if newAddr == owner {
+		deleteWithdrawRewardAddress(db, *oldAddr, sbpName)
+		return
+	}
+	deleteWithdrawRewardAddress(db, *oldAddr, sbpName)
+	addWithdrawRewardAddress(db, newAddr, sbpName)
+}
+
+func addWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string) {
+	value, err := db.GetValue(addr.Bytes())
+	util.DealWithErr(err)
+	if len(value) == 0 {
+		value = []byte(sbpName)
+	} else {
+		value = []byte(string(value) + abi.WithdrawRewardAddressSeparation + sbpName)
+	}
+	err = db.SetValue(addr.Bytes(), value)
+	util.DealWithErr(err)
+}
+func deleteWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string) {
+	value, err := db.GetValue(addr.Bytes())
+	util.DealWithErr(err)
+	valueStr := string(value)
+	// equal, prefix, suffix, middle
+	if valueStr == sbpName {
+		err = db.SetValue(addr.Bytes(), nil)
+	} else if strings.HasPrefix(valueStr, sbpName+abi.WithdrawRewardAddressSeparation) {
+		err = db.SetValue(addr.Bytes(), []byte(valueStr[len(sbpName)+1:]))
+	} else if strings.HasSuffix(valueStr, abi.WithdrawRewardAddressSeparation+sbpName) {
+		err = db.SetValue(addr.Bytes(), []byte(valueStr[:len(valueStr)-len(sbpName)-1]))
+	} else if startIndex := strings.Index(valueStr, abi.WithdrawRewardAddressSeparation+sbpName+abi.WithdrawRewardAddressSeparation); startIndex > 0 {
+		err = db.SetValue(addr.Bytes(), append([]byte(valueStr[:startIndex]+valueStr[startIndex+len(sbpName)+1:])))
+	}
+	util.DealWithErr(err)
 }
 
 type MethodRevoke struct {
@@ -727,9 +782,10 @@ func (p *MethodUpdateRewardWithdrawAddress) DoReceive(db vm_db.VmDb, block *ledg
 	util.DealWithErr(err)
 	if old == nil || !old.IsActive() ||
 		old.StakeAddress != sendBlock.AccountAddress ||
-		old.RewardWithdrawAddress == *param.RewardWithdrawAddress {
+		old.RewardWithdrawAddress == param.RewardWithdrawAddress {
 		return nil, util.ErrInvalidMethodParam
 	}
+	saveWithdrawRewardAddress(db, &old.RewardWithdrawAddress, param.RewardWithdrawAddress, old.StakeAddress, old.Name)
 	registerInfo, _ := abi.ABIGovernance.PackVariable(
 		abi.VariableNameRegistrationInfoV2,
 		old.Name,

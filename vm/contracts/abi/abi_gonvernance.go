@@ -84,6 +84,8 @@ var (
 
 	groupInfoKeyPrefix = []byte{1}
 	voteInfoKeyPrefix  = []byte{0}
+
+	WithdrawRewardAddressSeparation = ","
 )
 
 type VariableRegisterStakeParam struct {
@@ -96,7 +98,7 @@ type ParamRegister struct {
 	Gid                   types.Gid
 	SbpName               string
 	BlockProducingAddress types.Address
-	RewardWithdrawAddress *types.Address
+	RewardWithdrawAddress types.Address
 }
 type ParamCancelRegister struct {
 	Gid     types.Gid
