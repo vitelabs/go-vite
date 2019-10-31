@@ -192,62 +192,61 @@ type QuotaTable struct {
 	CreateTxRequestQuota  uint64
 	CreateTxResponseQuota uint64
 
-	RegisterQuota                                uint64
-	UpdateBlockProducingAddressQuota             uint64
-	RevokeQuota                                  uint64
-	WithdrawRewardQuota                          uint64
-	VoteQuota                                    uint64
-	CancelVoteQuota                              uint64
-	StakeQuota                                   uint64
-	CancelStakeQuota                             uint64
-	DelegateStakeQuota                           uint64
-	CancelDelegateStakeQuota                     uint64
-	DelegateAgentStakeQuota                      uint64
-	CancelDelegateAgentStakeQuota                uint64
-	IssueQuota                                   uint64
-	ReIssueQuota                                 uint64
-	BurnQuota                                    uint64
-	TransferOwnershipQuota                       uint64
-	DisableReIssueQuota                          uint64
-	GetTokenInfoQuota                            uint64
-	DexFundDepositQuota                          uint64
-	DexFundWithdrawQuota                         uint64
-	DexFundOpenNewMarketQuota                    uint64
-	DexFundPlaceOrderQuota                       uint64
-	DexFundSettleOrdersQuota                     uint64
-	DexFundTriggerPeriodJobQuota                 uint64
-	DexFundStakeForMiningQuota                   uint64
-	DexFundStakeForVipQuota                      uint64
-	DexFundStakeForSuperVIPQuota                 uint64
-	DexFundStakeForAgentSuperVIPQuota            uint64
-	DexFundDelegateStakeCallbackQuota            uint64
-	DexFundCancelDelegateStakeCallbackQuota      uint64
-	DexFundDelegateAgentStakeCallbackQuota       uint64
-	DexFundCancelDelegateAgentStakeCallbackQuota uint64
-	DexFundGetTokenInfoCallbackQuota             uint64
-	DexFundAdminConfigQuota                      uint64
-	DexFundTradeAdminConfigQuota                 uint64
-	DexFundMarketAdminConfigQuota                uint64
-	DexFundTransferTokenOwnershipQuota           uint64
-	DexFundNotifyTimeQuota                       uint64
-	DexFundCreateNewInviterQuota                 uint64
-	DexFundBindInviteCodeQuota                   uint64
-	DexFundEndorseVxQuota                        uint64
-	DexFundSettleMakerMinedVxQuota               uint64
-	DexFundConfigMarketAgentsQuota               uint64
-	DexFunPlaceAgentOrderQuota                   uint64
-	DexFunLockVxForDividendQuota                 uint64
-	DexFunSwitchConfigQuota                      uint64
+	RegisterQuota                           uint64
+	UpdateBlockProducingAddressQuota        uint64
+	UpdateRewardWithdrawAddressQuota        uint64
+	RevokeQuota                             uint64
+	WithdrawRewardQuota                     uint64
+	VoteQuota                               uint64
+	CancelVoteQuota                         uint64
+	StakeQuota                              uint64
+	CancelStakeQuota                        uint64
+	DelegateStakeQuota                      uint64
+	CancelDelegateStakeQuota                uint64
+	IssueQuota                              uint64
+	ReIssueQuota                            uint64
+	BurnQuota                               uint64
+	TransferOwnershipQuota                  uint64
+	DisableReIssueQuota                     uint64
+	GetTokenInfoQuota                       uint64
+	DexFundDepositQuota                     uint64
+	DexFundWithdrawQuota                    uint64
+	DexFundOpenNewMarketQuota               uint64
+	DexFundPlaceOrderQuota                  uint64
+	DexFundSettleOrdersQuota                uint64
+	DexFundTriggerPeriodJobQuota            uint64
+	DexFundStakeForMiningQuota              uint64
+	DexFundStakeForVipQuota                 uint64
+	DexFundStakeForSuperVIPQuota            uint64
+	DexFundDelegateStakeCallbackQuota       uint64
+	DexFundCancelDelegateStakeCallbackQuota uint64
+	DexFundGetTokenInfoCallbackQuota        uint64
+	DexFundAdminConfigQuota                 uint64
+	DexFundTradeAdminConfigQuota            uint64
+	DexFundMarketAdminConfigQuota           uint64
+	DexFundTransferTokenOwnershipQuota      uint64
+	DexFundNotifyTimeQuota                  uint64
+	DexFundCreateNewInviterQuota            uint64
+	DexFundBindInviteCodeQuota              uint64
+	DexFundEndorseVxQuota                   uint64
+	DexFundSettleMakerMinedVxQuota          uint64
+	DexFundConfigMarketAgentsQuota          uint64
+	DexFunPlaceAgentOrderQuota              uint64
+	DexFundStakeForAgentSuperVIPQuota
+	DexFunLockVxForDividendQuota            uint64
+	DexFunSwitchConfigQuota                 uint64
 }
 
 // QuotaTableByHeight returns different quota table by hard fork version
 func QuotaTableByHeight(sbHeight uint64) *QuotaTable {
-	if !fork.IsDexFork(sbHeight) {
-		return &initQuotaTable
-	} else if !fork.IsStemFork(sbHeight) {
+	if fork.IsEarthFork(sbHeight) {
+		return &earthQuotaTable
+	} else if fork.IsStemFork(sbHeight) {
+		return &dexAgentQuotaTable
+	} else if fork.IsDexFork(sbHeight) {
 		return &viteQuotaTable
 	}
-	return &dexAgentQuotaTable
+	return &initQuotaTable
 }
 
 var (
@@ -348,9 +347,9 @@ var (
 		GetTokenInfoQuota:                63200,
 	}
 
-	viteQuotaTable      = newViteQuotaTable()
-	dexAgentQuotaTable  = newDexAgentQuotaTable()
-	dexPolishQuotaTable = newDexPolishQuotaTable()
+	viteQuotaTable     = newViteQuotaTable()
+	dexAgentQuotaTable = newDexAgentQuotaTable()
+	earthQuotaTable    = newEarthQuotaTable()
 )
 
 func newViteQuotaTable() QuotaTable {
@@ -482,13 +481,9 @@ func newDexAgentQuotaTable() QuotaTable {
 	return gt
 }
 
-func newDexPolishQuotaTable() QuotaTable {
+func newEarthQuotaTable() QuotaTable {
 	gt := newDexAgentQuotaTable()
-	gt.DexFundStakeForAgentSuperVIPQuota = 33600
-	gt.DelegateAgentStakeQuota = 115500
-	gt.CancelDelegateAgentStakeQuota = 115500
-	gt.DexFundDelegateAgentStakeCallbackQuota = 115500
-	gt.DexFundCancelDelegateAgentStakeCallbackQuota = 115500
+	gt.UpdateRewardWithdrawAddressQuota = 168000
 	gt.DexFunLockVxForDividendQuota = 115500
 	gt.DexFunSwitchConfigQuota = 115500
 	return gt

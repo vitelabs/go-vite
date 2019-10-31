@@ -348,6 +348,10 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		loc        = stack.back(0)
 		locHash, _ = types.BigToHash(loc)
 	)
+	c.storageModified[loc.String()] = struct{}{}
+	if len(c.storageModified) > contractModifyStorageMax {
+		return 0, true, util.ErrStorageModifyLimitReached
+	}
 
 	currentValue := util.GetValue(c.db, locHash.Bytes())
 	if bytes.Equal(currentValue, newValue.Bytes()) {
@@ -465,6 +469,10 @@ func gasCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) 
 		}
 	}
 	return gas, true, nil
+}
+
+func gasCall2(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	return gasCall(vm, c, stack, mem, memorySize)
 }
 
 func gasReturn(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {

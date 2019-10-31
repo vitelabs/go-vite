@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -36,7 +37,9 @@ func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if err != nil {
 		return err
 	}
-	if err = checkToken(*param); err != nil {
+	sb, err := db.LatestSnapshotBlock()
+	util.DealWithErr(err)
+	if err = checkToken(*param, sb.Height); err != nil {
 		return err
 	}
 	block.Data, _ = abi.ABIAsset.PackMethod(
@@ -51,12 +54,17 @@ func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	return nil
 }
 
-func checkToken(param abi.ParamIssue) error {
-	if param.TotalSupply.Sign() <= 0 ||
-		param.TotalSupply.Cmp(helper.Tt256m1) > 0 ||
-		param.TotalSupply.Cmp(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(param.Decimals)), nil)) < 0 ||
+func checkToken(param abi.ParamIssue, sbHeight uint64) error {
+	if param.TotalSupply.Cmp(helper.Tt256m1) > 0 ||
 		len(param.TokenName) == 0 || len(param.TokenName) > tokenNameLengthMax ||
 		len(param.TokenSymbol) == 0 || len(param.TokenSymbol) > tokenSymbolLengthMax {
+		return util.ErrInvalidMethodParam
+	}
+	if !fork.IsEarthFork(sbHeight) && (param.TotalSupply.Sign() <= 0 ||
+		param.TotalSupply.Cmp(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(param.Decimals)), nil)) < 0) {
+		return util.ErrInvalidMethodParam
+	}
+	if fork.IsEarthFork(sbHeight) && !param.IsReIssuable && param.TotalSupply.Sign() <= 0 {
 		return util.ErrInvalidMethodParam
 	}
 	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenName); !ok {
@@ -375,7 +383,12 @@ func (p *MethodGetTokenInfo) GetFee(block *ledger.AccountBlock) (*big.Int, error
 func (p *MethodGetTokenInfo) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	param := new(abi.ParamGetTokenInfo)
 	abi.ABIAsset.UnpackMethod(param, p.MethodName, sendBlock.Data)
-	callbackData, _ := abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, param.Bid, false, uint8(0), "", uint16(0), types.Address{})
+	var callbackData []byte
+	if p.MethodName == abi.MethodNameGetTokenInfoV3 {
+		callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, false, false, "", "", helper.Big0, uint8(0), helper.Big0, false, uint16(0), types.Address{})
+	} else {
+		callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, param.Bid, false, uint8(0), "", uint16(0), types.Address{})
+	}
 	return callbackData, true
 }
 func (p *MethodGetTokenInfo) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
@@ -393,7 +406,11 @@ func (p *MethodGetTokenInfo) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) e
 	if param == nil || block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIAsset.PackMethod(p.MethodName, param.TokenId, param.Bid)
+	if p.MethodName == abi.MethodNameGetTokenInfoV3 {
+		block.Data, _ = abi.ABIAsset.PackMethod(p.MethodName, param.TokenId)
+	} else {
+		block.Data, _ = abi.ABIAsset.PackMethod(p.MethodName, param.TokenId, param.Bid)
+	}
 	return nil
 }
 
@@ -404,9 +421,17 @@ func (p *MethodGetTokenInfo) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	util.DealWithErr(err)
 	var callbackData []byte
 	if tokenInfo != nil {
-		callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, param.Bid, true, tokenInfo.Decimals, tokenInfo.TokenSymbol, tokenInfo.Index, tokenInfo.Owner)
+		if p.MethodName == abi.MethodNameGetTokenInfoV3 {
+			callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, true, tokenInfo.Decimals, tokenInfo.IsReIssuable, tokenInfo.TokenName, tokenInfo.TokenSymbol, tokenInfo.TotalSupply, tokenInfo.Decimals, tokenInfo.MaxSupply, tokenInfo.OwnerBurnOnly, tokenInfo.Index, tokenInfo.Owner)
+		} else {
+			callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, param.Bid, true, tokenInfo.Decimals, tokenInfo.TokenSymbol, tokenInfo.Index, tokenInfo.Owner)
+		}
 	} else {
-		callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, param.Bid, false, uint8(0), "", uint16(0), types.Address{})
+		if p.MethodName == abi.MethodNameGetTokenInfoV3 {
+			callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, false, false, "", "", helper.Big0, uint8(0), helper.Big0, false, uint16(0), types.Address{})
+		} else {
+			callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, param.Bid, false, uint8(0), "", uint16(0), types.Address{})
+		}
 	}
 	return []*ledger.AccountBlock{
 		{

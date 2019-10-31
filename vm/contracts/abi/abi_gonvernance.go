@@ -1,6 +1,7 @@
 package abi
 
 import (
+	"bytes"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
@@ -17,46 +18,66 @@ const (
 		{"type":"variable","name":"registerStakeParam","inputs":[{"name":"stakeAmount","type":"uint256"},{"name":"stakeToken","type":"tokenId"},{"name":"stakeHeight","type":"uint64"}]},
 		
 		{"type":"function","name":"Register", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
+		{"type":"function","name":"RegisterSBP", "inputs":[{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"},{"name":"rewardWithdrawAddress","type":"address"}]},
 		
 		{"type":"function","name":"UpdateRegistration", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
 		{"type":"function","name":"UpdateBlockProducingAddress", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
-		
+		{"type":"function","name":"UpdateSBPBlockProducingAddress", "inputs":[{"name":"sbpName","type":"string"},{"name":"blockProducingAddress","type":"address"}]},
+    	
+		{"type":"function","name":"UpdateSBPRewardWithdrawAddress", "inputs":[{"name":"sbpName","type":"string"},{"name":"rewardWithdrawAddress","type":"address"}]},
+    
 		{"type":"function","name":"CancelRegister","inputs":[{"name":"gid","type":"gid"}, {"name":"sbpName","type":"string"}]},
 		{"type":"function","name":"Revoke","inputs":[{"name":"gid","type":"gid"}, {"name":"sbpName","type":"string"}]},
+		{"type":"function","name":"RevokeSBP","inputs":[{"name":"sbpName","type":"string"}]},
 
 		{"type":"function","name":"Reward","inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"receiveAddress","type":"address"}]},
 		{"type":"function","name":"WithdrawReward","inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"},{"name":"receiveAddress","type":"address"}]},
+		{"type":"function","name":"WithdrawSBPReward","inputs":[{"name":"sbpName","type":"string"},{"name":"receiveAddress","type":"address"}]},
 		
 		{"type":"variable","name":"registrationInfo","inputs":[{"name":"name","type":"string"},{"name":"blockProducingAddress","type":"address"},{"name":"stakeAddress","type":"address"},{"name":"amount","type":"uint256"},{"name":"expirationHeight","type":"uint64"},{"name":"rewardTime","type":"int64"},{"name":"revokeTime","type":"int64"},{"name":"hisAddrList","type":"address[]"}]},
+		{"type":"variable","name":"registrationInfoV2","inputs":[{"name":"name","type":"string"},{"name":"blockProducingAddress","type":"address"},{"name":"rewardWithdrawAddress","type":"address"},{"name":"stakeAddress","type":"address"},{"name":"amount","type":"uint256"},{"name":"expirationHeight","type":"uint64"},{"name":"rewardTime","type":"int64"},{"name":"revokeTime","type":"int64"},{"name":"hisAddrList","type":"address[]"}]},
 		{"type":"variable","name":"registeredHisName","inputs":[{"name":"name","type":"string"}]},
 		
 		{"type":"function","name":"Vote", "inputs":[{"name":"gid","type":"gid"},{"name":"sbpName","type":"string"}]},
+		{"type":"function","name":"VoteForSBP", "inputs":[{"name":"sbpName","type":"string"}]},
 		{"type":"function","name":"CancelVote","inputs":[{"name":"gid","type":"gid"}]},
+		{"type":"function","name":"CancelSBPVoting","inputs":[]},
+
 		{"type":"variable","name":"voteInfo","inputs":[{"name":"sbpName","type":"string"}]}
 	]`
 
 	VariableNameConsensusGroupInfo = "consensusGroupInfo"
 	VariableNameRegisterStakeParam = "registerStakeParam"
 
-	MethodNameRegister                      = "Register"
-	MethodNameRevoke                        = "CancelRegister"
-	MethodNameRevokeV2                      = "Revoke"
-	MethodNameWithdrawReward                = "Reward"
-	MethodNameWithdrawRewardV2              = "WithdrawReward"
-	MethodNameUpdateBlockProducingAddress   = "UpdateRegistration"
-	MethodNameUpdateBlockProducintAddressV2 = "UpdateBlockProducingAddress"
-	VariableNameRegistrationInfo            = "registrationInfo"
-	VariableNameRegisteredHisName           = "registeredHisName"
+	MethodNameRegister                       = "Register"
+	MethodNameRegisterV3                     = "RegisterSBP"
+	MethodNameRevoke                         = "CancelRegister"
+	MethodNameRevokeV2                       = "Revoke"
+	MethodNameRevokeV3                       = "RevokeSBP"
+	MethodNameWithdrawReward                 = "Reward"
+	MethodNameWithdrawRewardV2               = "WithdrawReward"
+	MethodNameWithdrawRewardV3               = "WithdrawSBPReward"
+	MethodNameUpdateBlockProducingAddress    = "UpdateRegistration"
+	MethodNameUpdateBlockProducintAddressV2  = "UpdateBlockProducingAddress"
+	MethodNameUpdateBlockProducintAddressV3  = "UpdateSBPBlockProducingAddress"
+	MethodNameUpdateSBPRewardWithdrawAddress = "UpdateSBPRewardWithdrawAddress"
+	VariableNameRegistrationInfo             = "registrationInfo"
+	VariableNameRegistrationInfoV2           = "registrationInfoV2"
+	VariableNameRegisteredHisName            = "registeredHisName"
 
-	MethodNameVote       = "Vote"
-	MethodNameCancelVote = "CancelVote"
-	VariableNameVoteInfo = "voteInfo"
+	MethodNameVote         = "Vote"
+	MethodNameVoteV3       = "VoteForSBP"
+	MethodNameCancelVote   = "CancelVote"
+	MethodNameCancelVoteV3 = "CancelSBPVoting"
+	VariableNameVoteInfo   = "voteInfo"
 
 	groupInfoKeyPrefixSize    = 1
 	voteInfoKeyPrefixSize     = 1
 	consensusGroupInfoKeySize = groupInfoKeyPrefixSize + types.GidSize                    // 11byte, 1 + 10byte gid
 	registrationInfoKeySize   = 30                                                        //30byte, 10byte gid + 20byte name hash
 	voteInfoKeySize           = voteInfoKeyPrefixSize + types.GidSize + types.AddressSize //32byte, 0 + 10byte gid + 21 byte address
+
+	WithdrawRewardAddressSeparation = ","
 )
 
 var (
@@ -77,6 +98,7 @@ type ParamRegister struct {
 	Gid                   types.Gid
 	SbpName               string
 	BlockProducingAddress types.Address
+	RewardWithdrawAddress types.Address
 }
 type ParamCancelRegister struct {
 	Gid     types.Gid
@@ -303,6 +325,31 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, stakeAddr types.Addr
 	return registrationList, nil
 }
 
+func GetRegistrationListByRewardWithdrawAddr(db StorageDatabase, gid types.Gid, rewardWithdrawAddr types.Address) ([]*types.Registration, error) {
+	if *db.Address() != types.AddressGovernance {
+		return nil, util.ErrAddressNotMatch
+	}
+	if gid == types.DELEGATE_GID {
+		gid = types.SNAPSHOT_GID
+	}
+	names, err := db.GetValue(rewardWithdrawAddr.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	nameList := strings.Split(string(names), WithdrawRewardAddressSeparation)
+	registrationList := make([]*types.Registration, 0)
+	for _, sbpName := range nameList {
+		r, err := GetRegistration(db, gid, sbpName)
+		if err != nil {
+			return nil, err
+		}
+		registrationList = append(registrationList, r)
+	}
+	return registrationList, nil
+}
+
+var registerInfoValuePrefix = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0}
+
 // GetRegistration query registration info by consensus group id and sbp name
 func GetRegistration(db StorageDatabase, gid types.Gid, name string) (*types.Registration, error) {
 	if *db.Address() != types.AddressGovernance {
@@ -313,8 +360,15 @@ func GetRegistration(db StorageDatabase, gid types.Gid, name string) (*types.Reg
 		return nil, err
 	}
 	registration := new(types.Registration)
-	if err := ABIGovernance.UnpackVariable(registration, VariableNameRegistrationInfo, value); err == nil {
-		return registration, nil
+	if bytes.Equal(value[:32], registerInfoValuePrefix) {
+		if err := ABIGovernance.UnpackVariable(registration, VariableNameRegistrationInfo, value); err == nil {
+			registration.RewardWithdrawAddress = registration.StakeAddress
+			return registration, nil
+		}
+	} else {
+		if err := ABIGovernance.UnpackVariable(registration, VariableNameRegistrationInfoV2, value); err == nil {
+			return registration, nil
+		}
 	}
 	return nil, nil
 }

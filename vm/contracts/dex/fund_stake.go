@@ -77,7 +77,7 @@ func stakeRequest(db vm_db.VmDb, address, principal types.Address, stakeType uin
 	} else {
 		if IsEarthFork(db) {
 			SaveDelegateStakeInfo(db, generateStakeHash(), stakeType, address, types.AddressDexFund, principal, amount)
-			if stakeData, err := abi.ABIQuota.PackMethod(abi.MethodNameDelegateStakeV3, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
+			if stakeData, err := abi.ABIQuota.PackMethod(abi.MethodNameStakeWithCallback, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
 				return nil, err
 			} else {
 				return stakeData, err
@@ -161,7 +161,7 @@ func stakeAgentRequest(db vm_db.VmDb, address types.Address, stakeType uint8, pr
 	if _, err := ReduceAccount(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err
 	} else {
-		if stakeData, err := abi.ABIQuota.PackMethod(abi.MethodNameDelegateStakeV3, address, types.AddressDexFund, principal, stakeType, stakeHeight); err != nil {
+		if stakeData, err := abi.ABIQuota.PackMethod(abi.MethodNameStakeWithCallback, address, types.AddressDexFund, principal, stakeType, stakeHeight); err != nil {
 			return nil, err
 		} else {
 			return stakeData, err
@@ -196,7 +196,7 @@ func cancelAgentStakeRequest(db vm_db.VmDb, stakeType uint8, address, principal 
 			return nil, SuperVIPAgentStakingNotExistsErr
 		}
 	}
-	if cancelAgentStakeData, err := abi.ABIQuota.PackMethod(abi.MethodNameCancelDelegateStakeV3, address, types.AddressDexFund, principal, amount, uint8(stakeType)); err != nil {
+	if cancelAgentStakeData, err := abi.ABIQuota.PackMethod(abi.MethodNameCancelStakeWithCallback, address, types.AddressDexFund, principal, amount, uint8(stakeType)); err != nil {
 		return nil, err
 	} else {
 		return cancelAgentStakeData, err

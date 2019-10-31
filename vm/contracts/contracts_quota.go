@@ -93,8 +93,7 @@ func getStakeInfo(db vm_db.VmDb, stakeAddr types.Address, beneficiary types.Addr
 		if !abi.IsStakeInfoKey(iterator.Key()) {
 			continue
 		}
-		stakeInfo := new(types.StakeInfo)
-		abi.ABIQuota.UnpackVariable(stakeInfo, abi.VariableNameStakeInfo, iterator.Value())
+		stakeInfo, _ := abi.UnpackStakeInfo(iterator.Value())
 		if stakeInfo.Beneficiary == beneficiary && stakeInfo.IsDelegated == isDelegated &&
 			stakeInfo.DelegateAddress == delegateAddr && stakeInfo.Bid == bid {
 			return iterator.Key(), stakeInfo
@@ -195,29 +194,29 @@ func (p *MethodCancelStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock,
 	}, nil
 }
 
-type MethodDelegateStake struct {
+type MethodStakeWithCallback struct {
 	MethodName string
 }
 
-func (p *MethodDelegateStake) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (p *MethodStakeWithCallback) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodDelegateStake) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+func (p *MethodStakeWithCallback) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	param := new(abi.ParamDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	callbackData, _ := abi.ABIQuota.PackCallback(p.MethodName, param.StakeAddress, param.Beneficiary, sendBlock.Amount, param.Bid, false)
 	return callbackData, true
 }
 
-func (p *MethodDelegateStake) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+func (p *MethodStakeWithCallback) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
 	return gasTable.DelegateStakeQuota, nil
 }
-func (p *MethodDelegateStake) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+func (p *MethodStakeWithCallback) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodDelegateStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodStakeWithCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if !util.IsViteToken(block.TokenId) ||
 		block.Amount.Cmp(stakeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
@@ -232,7 +231,7 @@ func (p *MethodDelegateStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) 
 	block.Data, _ = abi.ABIQuota.PackMethod(p.MethodName, param.StakeAddress, param.Beneficiary, param.Bid, param.StakeHeight)
 	return nil
 }
-func (p *MethodDelegateStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodStakeWithCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	stakeInfoKey, oldStakeInfo := getStakeInfo(db, param.StakeAddress, param.Beneficiary, delegate, sendBlock.AccountAddress, param.Bid, block.Height)
@@ -275,30 +274,30 @@ func (p *MethodDelegateStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBloc
 	}, nil
 }
 
-type MethodCancelDelegateStake struct {
+type MethodCancelStakeWithCallback struct {
 	MethodName string
 }
 
-func (p *MethodCancelDelegateStake) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+func (p *MethodCancelStakeWithCallback) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *MethodCancelDelegateStake) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+func (p *MethodCancelStakeWithCallback) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	param := new(abi.ParamCancelDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	callbackData, _ := abi.ABIQuota.PackCallback(p.MethodName, param.StakeAddress, param.Beneficiary, param.Amount, param.Bid, false)
 	return callbackData, true
 }
 
-func (p *MethodCancelDelegateStake) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+func (p *MethodCancelStakeWithCallback) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
 	return gasTable.CancelDelegateStakeQuota, nil
 }
 
-func (p *MethodCancelDelegateStake) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+func (p *MethodCancelStakeWithCallback) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodCancelDelegateStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodCancelStakeWithCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -313,7 +312,7 @@ func (p *MethodCancelDelegateStake) DoSend(db vm_db.VmDb, block *ledger.AccountB
 	return nil
 }
 
-func (p *MethodCancelDelegateStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodCancelStakeWithCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	stakeInfoKey, oldStakeInfo := getStakeInfo(db, param.StakeAddress, param.Beneficiary, delegate, sendBlock.AccountAddress, param.Bid, block.Height)

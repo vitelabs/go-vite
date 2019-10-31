@@ -1876,7 +1876,7 @@ func ConfirmDelegateStakeInfo(db vm_db.VmDb, hash types.Hash, info *DelegateStak
 	serializeToDb(db, GetDelegateStakeInfoKey(hash), info)
 }
 
-func DeleteDelegateStakeInfo(db vm_db.VmDb, hash types.Hash {
+func DeleteDelegateStakeInfo(db vm_db.VmDb, hash types.Hash) {
 	setValueToDb(db, GetDelegateStakeInfoKey(hash), nil)
 }
 

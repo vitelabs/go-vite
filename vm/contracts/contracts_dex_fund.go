@@ -500,7 +500,7 @@ func (md *MethodDexFundStakeForVIP) DoSend(db vm_db.VmDb, block *ledger.AccountB
 func (md MethodDexFundStakeForVIP) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var param = new(dex.ParamStakeForVIP)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
-	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForVIP, param.ActionType, sendBlock.AccountAddress, dex.StakeForVIPAmount, nodeConfig.params.DexVipStakeHeight); err != nil {
+	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForVIP, param.ActionType, sendBlock.AccountAddress, types.ZERO_ADDRESS, dex.StakeForVIPAmount, nodeConfig.params.DexVipStakeHeight); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	} else {
 		return appendBlocks, nil
@@ -544,7 +544,7 @@ func (md *MethodDexFundStakeForSVIP) DoSend(db vm_db.VmDb, block *ledger.Account
 func (md MethodDexFundStakeForSVIP) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var param = new(dex.ParamStakeForVIP)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
-	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForSuperVIP, param.ActionType, sendBlock.AccountAddress, dex.StakeForSuperVIPAmount, nodeConfig.params.DexSuperVipStakeHeight); err != nil {
+	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForSuperVIP, param.ActionType, sendBlock.AccountAddress, types.ZERO_ADDRESS, dex.StakeForSuperVIPAmount, nodeConfig.params.DexSuperVipStakeHeight); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	} else {
 		return appendBlocks, nil

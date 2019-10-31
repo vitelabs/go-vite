@@ -14,46 +14,57 @@ const (
 	[
 		{"type":"function","name":"Pledge", "inputs":[{"name":"beneficiary","type":"address"}]},
 		{"type":"function","name":"Stake", "inputs":[{"name":"beneficiary","type":"address"}]},
+		{"type":"function","name":"StakeForQuota", "inputs":[{"name":"beneficiary","type":"address"}]},
 
 		{"type":"function","name":"CancelPledge","inputs":[{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"}]},
 		{"type":"function","name":"CancelStake","inputs":[{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"}]},
+		{"type":"function","name":"CancelQuotaStaking","inputs":[{"name":"id","type":"bytes32"}]},
 
 		{"type":"function","name":"AgentPledge", "inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakeHeight","type":"uint64"}]},
 		{"type":"function","name":"DelegateStake", "inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"bid","type":"uint8"},{"name":"stakeHeight","type":"uint64"}]},
-		
+		{"type":"function","name":"StakeForQuotaWithCallback", "inputs":[{"name":"beneficiary","type":"address"},{"name":"stakeHeight","type":"uint64"}]},	
+
 		{"type":"function","name":"AgentCancelPledge","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
 		{"type":"function","name":"CancelDelegateStake","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"}]},
+		{"type":"function","name":"CancelQuotaStakingWithCallback","inputs":[{"name":"id","type":"bytes32"}]},
 
 		{"type":"callback","name":"AgentPledge","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
 		{"type":"callback","name":"DelegateStake","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"StakeForQuotaWithCallback", "inputs":[{"name":"id","type":"bytes32"},{"name":"success","type":"bool"}]},	
 
 		{"type":"callback","name":"AgentCancelPledge","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
 		{"type":"callback","name":"CancelDelegateStake","inputs":[{"name":"stakeAddress","type":"address"},{"name":"beneficiary","type":"address"},{"name":"amount","type":"uint256"},{"name":"bid","type":"uint8"},{"name":"success","type":"bool"}]},
+		{"type":"callback","name":"CancelQuotaStakingWithCallback","inputs":[{"name":"id","type":"bytes32"},{"name":"success","type":"bool"}]},
 
 		{"type":"variable","name":"stakeInfo","inputs":[{"name":"amount","type":"uint256"},{"name":"expirationHeight","type":"uint64"},{"name":"beneficiary","type":"address"},{"name":"isDelegated","type":"bool"},{"name":"delegateAddress","type":"address"},{"name":"bid","type":"uint8"}]},
+
+		{"type":"variable","name":"stakeInfoV2","inputs":[{"name":"amount","type":"uint256"},{"name":"expirationHeight","type":"uint64"},{"name":"beneficiary","type":"address"},{"name":"id","type":"bytes32"}]},
 
 		{"type":"variable","name":"stakeBeneficial","inputs":[{"name":"amount","type":"uint256"}]}
 	]`
 
-	MethodNameStake                 = "Pledge"
-	MethodNameStakeV2               = "Stake"
-	MethodNameCancelStake           = "CancelPledge"
-	MethodNameCancelStakeV2         = "CancelStake"
-	MethodNameDelegateStake         = "AgentPledge"
-	MethodNameDelegateStakeV2       = "DelegateStake"
-	MethodNameCancelDelegateStake   = "AgentCancelPledge"
-	MethodNameCancelDelegateStakeV2 = "CancelDelegateStake"
-
-	MethodNameDelegateStakeV3       = "DelegateStakeV3"
-	MethodNameCancelDelegateStakeV3 = "CancelDelegateStakeV3"
-	VariableNameStakeInfo           = "stakeInfo"
-	VariableNameStakeBeneficial     = "stakeBeneficial"
+	MethodNameStake                   = "Pledge"
+	MethodNameStakeV2                 = "Stake"
+	MethodNameStakeV3                 = "StakeForQuota"
+	MethodNameCancelStake             = "CancelPledge"
+	MethodNameCancelStakeV2           = "CancelStake"
+	MethodNameCancelStakeV3           = "CancelQuotaStaking"
+	MethodNameDelegateStake           = "AgentPledge"
+	MethodNameDelegateStakeV2         = "DelegateStake"
+	MethodNameCancelDelegateStake     = "AgentCancelPledge"
+	MethodNameCancelDelegateStakeV2   = "CancelDelegateStake"
+	MethodNameStakeWithCallback       = "StakeForQuotaWithCallback"
+	MethodNameCancelStakeWithCallback = "CancelQuotaStakingWithCallback"
+	VariableNameStakeInfo             = "stakeInfo"
+	VariableNameStakeInfoV2           = "stakeInfoV2"
+	VariableNameStakeBeneficial       = "stakeBeneficial"
 )
 
 var (
 	// ABIQuota is abi definition of quota contract
-	ABIQuota, _      = abi.JSONToABIContract(strings.NewReader(jsonQuota))
-	stakeInfoKeySize = types.AddressSize + 8
+	ABIQuota, _        = abi.JSONToABIContract(strings.NewReader(jsonQuota))
+	stakeInfoKeySize   = types.AddressSize + 8
+	stakeInfoValueSize = 192
 )
 
 // VariableStakeBeneficial defines variable of stake beneficial amount in quota contract
@@ -136,8 +147,7 @@ func GetStakeInfoList(db StorageDatabase, stakeAddr types.Address) ([]*types.Sta
 		if !filterKeyValue(iterator.Key(), iterator.Value(), IsStakeInfoKey) {
 			continue
 		}
-		stakeInfo := new(types.StakeInfo)
-		if err := ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfo, iterator.Value()); err == nil &&
+		if stakeInfo, err := UnpackStakeInfo(iterator.Value()); err == nil &&
 			stakeInfo.Amount != nil && stakeInfo.Amount.Sign() > 0 {
 			stakeInfoList = append(stakeInfoList, stakeInfo)
 			stakeAmount.Add(stakeAmount, stakeInfo.Amount)
@@ -178,14 +188,34 @@ func GetStakeInfo(db StorageDatabase, stakeAddr, beneficiary, delegateAddr types
 		if !IsStakeInfoKey(iterator.Key()) {
 			continue
 		}
-		stakeInfo := new(types.StakeInfo)
-		ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfo, iterator.Value())
+		stakeInfo, _ := UnpackStakeInfo(iterator.Value())
 		if stakeInfo.Beneficiary == beneficiary && stakeInfo.IsDelegated == isDelegated &&
 			stakeInfo.DelegateAddress == delegateAddr && stakeInfo.Bid == bid {
 			return stakeInfo, nil
 		}
 	}
 	return nil, nil
+}
+
+var stakeInfoIdPrefix = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+func UnpackStakeInfo(value []byte) (*types.StakeInfo, error) {
+	stakeInfo := new(types.StakeInfo)
+	if len(value) == stakeInfoValueSize {
+		if err := ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfo, value); err != nil {
+			return nil, err
+		}
+		if stakeInfo.IsDelegated {
+			stakeInfo.Id, _ = types.BytesToHash(helper.JoinBytes(stakeInfoIdPrefix, []byte{stakeInfo.Bid}, stakeInfo.StakeAddress.Bytes()))
+		} else {
+			stakeInfo.Id = types.Hash{}
+		}
+	} else {
+		if err := ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfoV2, value); err != nil {
+			return nil, err
+		}
+	}
+	return stakeInfo, nil
 }
 
 // GetStakeListByPage batch query stake info under certain snapshot block status continuously by last query key
@@ -211,8 +241,8 @@ func GetStakeListByPage(db StorageDatabase, lastKey []byte, count uint64) ([]*ty
 		if !IsStakeInfoKey(iterator.Key()) {
 			continue
 		}
-		stakeInfo := new(types.StakeInfo)
-		if err := ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfo, iterator.Value()); err != nil {
+		stakeInfo, err := UnpackStakeInfo(iterator.Value())
+		if err != nil {
 			continue
 		}
 		stakeInfo.StakeAddress = GetStakeAddrFromStakeInfoKey(iterator.Key())

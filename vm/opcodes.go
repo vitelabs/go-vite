@@ -191,7 +191,7 @@ const (
 const (
 	CREATE opCode = 0xf0 + iota
 	CALL
-	CALLCODE
+	CALL2
 	RETURN
 	DELEGATECALL
 	STATICCALL = 0xfa
@@ -360,7 +360,7 @@ var opCodeToString = map[opCode]string{
 	CREATE:       "CREATE",
 	CALL:         "CALL",
 	RETURN:       "RETURN",
-	CALLCODE:     "CALLCODE",
+	CALL2:        "CALL2",
 	DELEGATECALL: "DELEGATECALL",
 	STATICCALL:   "STATICCALL",
 	REVERT:       "REVERT",
@@ -518,7 +518,7 @@ var stringToOp = map[string]opCode{
 	"CREATE":         CREATE,
 	"CALL":           CALL,
 	"RETURN":         RETURN,
-	"CALLCODE":       CALLCODE,
+	"CALL2":          CALL2,
 	"REVERT":         REVERT,
 	"SELFDESTRUCT":   SELFDESTRUCT,
 }

@@ -35,6 +35,7 @@ type VoteInfo struct {
 type Registration struct {
 	Name                  string
 	BlockProducingAddress Address
+	RewardWithdrawAddress Address
 	StakeAddress          Address
 	Amount                *big.Int
 	ExpirationHeight      uint64
@@ -67,4 +68,5 @@ type StakeInfo struct {
 	DelegateAddress  Address  `json:"agentAddr"`
 	Bid              uint8    `json:"bid"`
 	StakeAddress     Address  `json:"pledgeAddr"`
+	Id               Hash     `json:"id"`
 }
