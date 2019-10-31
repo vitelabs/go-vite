@@ -86,6 +86,12 @@ type ParamDelegateStake struct {
 	StakeHeight  uint64
 }
 
+type ParamStakeV3 struct {
+	StakeAddress types.Address
+	Beneficiary  types.Address
+	StakeHeight  uint64
+}
+
 // ParamCancelDelegateStake defines parameters of cancel delegate stake method in quota contract
 type ParamCancelDelegateStake struct {
 	StakeAddress types.Address
@@ -197,18 +203,22 @@ func GetStakeInfo(db StorageDatabase, stakeAddr, beneficiary, delegateAddr types
 	return nil, nil
 }
 
-var stakeInfoIdPrefix = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+func GetStakeInfoByKey(db StorageDatabase, stakeInfoKey []byte) (*types.StakeInfo, error) {
+	value, err := db.GetValue(stakeInfoKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(value) == 0 {
+		return nil, nil
+	}
+	return UnpackStakeInfo(value)
+}
 
 func UnpackStakeInfo(value []byte) (*types.StakeInfo, error) {
 	stakeInfo := new(types.StakeInfo)
 	if len(value) == stakeInfoValueSize {
 		if err := ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfo, value); err != nil {
 			return nil, err
-		}
-		if stakeInfo.IsDelegated {
-			stakeInfo.Id, _ = types.BytesToHash(helper.JoinBytes(stakeInfoIdPrefix, []byte{stakeInfo.Bid}, stakeInfo.StakeAddress.Bytes()))
-		} else {
-			stakeInfo.Id = types.Hash{}
 		}
 	} else {
 		if err := ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfoV2, value); err != nil {

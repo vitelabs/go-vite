@@ -183,31 +183,27 @@ func saveWithdrawRewardAddress(db vm_db.VmDb, oldAddr *types.Address, newAddr, o
 }
 
 func addWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string) {
-	value, err := db.GetValue(addr.Bytes())
-	util.DealWithErr(err)
+	value := util.GetValue(db, addr.Bytes())
 	if len(value) == 0 {
 		value = []byte(sbpName)
 	} else {
 		value = []byte(string(value) + abi.WithdrawRewardAddressSeparation + sbpName)
 	}
-	err = db.SetValue(addr.Bytes(), value)
-	util.DealWithErr(err)
+	util.SetValue(db, addr.Bytes(), value)
 }
 func deleteWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string) {
-	value, err := db.GetValue(addr.Bytes())
-	util.DealWithErr(err)
+	value := util.GetValue(db, addr.Bytes())
 	valueStr := string(value)
 	// equal, prefix, suffix, middle
 	if valueStr == sbpName {
-		err = db.SetValue(addr.Bytes(), nil)
+		util.SetValue(db, addr.Bytes(), nil)
 	} else if strings.HasPrefix(valueStr, sbpName+abi.WithdrawRewardAddressSeparation) {
-		err = db.SetValue(addr.Bytes(), []byte(valueStr[len(sbpName)+1:]))
+		util.SetValue(db, addr.Bytes(), []byte(valueStr[len(sbpName)+1:]))
 	} else if strings.HasSuffix(valueStr, abi.WithdrawRewardAddressSeparation+sbpName) {
-		err = db.SetValue(addr.Bytes(), []byte(valueStr[:len(valueStr)-len(sbpName)-1]))
+		util.SetValue(db, addr.Bytes(), []byte(valueStr[:len(valueStr)-len(sbpName)-1]))
 	} else if startIndex := strings.Index(valueStr, abi.WithdrawRewardAddressSeparation+sbpName+abi.WithdrawRewardAddressSeparation); startIndex > 0 {
-		err = db.SetValue(addr.Bytes(), append([]byte(valueStr[:startIndex]+valueStr[startIndex+len(sbpName)+1:])))
+		util.SetValue(db, addr.Bytes(), append([]byte(valueStr[:startIndex]+valueStr[startIndex+len(sbpName)+1:])))
 	}
-	util.DealWithErr(err)
 }
 
 type MethodRevoke struct {
