@@ -264,6 +264,7 @@ type StakeQueryParams struct {
 }
 
 func (p *ContractApi) GetDelegatedStakeInfo(params StakeQueryParams) (*StakeInfo, error) {
+	// TODO get from dex contract
 	db, err := getVmDb(p.chain, types.AddressQuota)
 	if err != nil {
 		return nil, err

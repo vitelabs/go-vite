@@ -44,9 +44,9 @@ func (p *MethodRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error
 		return util.ErrInvalidMethodParam
 	}
 	if p.MethodName == abi.MethodNameRegisterV3 {
-		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName, param.BlockProducingAddress, param.RewardWithdrawAddress)
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName, param.BlockProducingAddress, param.RewardWithdrawAddress)
 	} else {
-		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName, param.BlockProducingAddress)
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName, param.BlockProducingAddress)
 	}
 	return nil
 }
@@ -367,7 +367,7 @@ func (p *MethodWithdrawReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlo
 		var registerInfo []byte
 		if fork.IsEarthFork(sb.Height) {
 			registerInfo, _ = abi.ABIGovernance.PackVariable(
-				abi.VariableNameRegistrationInfo,
+				abi.VariableNameRegistrationInfoV2,
 				old.Name,
 				old.BlockProducingAddress,
 				old.RewardWithdrawAddress,

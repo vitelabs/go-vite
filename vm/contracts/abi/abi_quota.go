@@ -131,7 +131,7 @@ func GetIndexFromStakeInfoKey(key []byte) uint64 {
 	return new(big.Int).SetBytes(key[types.AddressSize:]).Uint64()
 }
 
-// GetStakeInfoList query stake info list by stake address, including delegate stake
+// GetStakeInfoList query stake info list by stake address, excluding delegate stake
 func GetStakeInfoList(db StorageDatabase, stakeAddr types.Address) ([]*types.StakeInfo, *big.Int, error) {
 	if *db.Address() != types.AddressQuota {
 		return nil, nil, util.ErrAddressNotMatch
@@ -154,7 +154,8 @@ func GetStakeInfoList(db StorageDatabase, stakeAddr types.Address) ([]*types.Sta
 			continue
 		}
 		if stakeInfo, err := UnpackStakeInfo(iterator.Value()); err == nil &&
-			stakeInfo.Amount != nil && stakeInfo.Amount.Sign() > 0 {
+			stakeInfo.Amount != nil && stakeInfo.Amount.Sign() > 0 &&
+			!stakeInfo.IsDelegated {
 			stakeInfoList = append(stakeInfoList, stakeInfo)
 			stakeAmount.Add(stakeAmount, stakeInfo.Amount)
 		}

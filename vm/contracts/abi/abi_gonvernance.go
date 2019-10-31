@@ -359,6 +359,9 @@ func GetRegistration(db StorageDatabase, gid types.Gid, name string) (*types.Reg
 	if err != nil {
 		return nil, err
 	}
+	if len(value) == 0 {
+		return nil, nil
+	}
 	registration := new(types.Registration)
 	if bytes.Equal(value[:32], registerInfoValuePrefix) {
 		if err := ABIGovernance.UnpackVariable(registration, VariableNameRegistrationInfo, value); err == nil {

@@ -1,0 +1,63 @@
+{
+  "receive_create_error_with_transfer_before_hardfork": {
+    "sbHeight": 299,
+    "blockType": 4,
+    "sendBlockType": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "000000000000000000020101010afe",
+    "amount": "0100",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "",
+    "pledgeBeneficialAmount": "0",
+    "err": "invalid opcode",
+    "success": true,
+    "quota": 0,
+    "quotaUsed": 0,
+    "preContractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "contractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "sendBlockList": [
+      {
+        "blockType": 6,
+        "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+        "amount": "0100",
+        "tokenID": "tti_5649544520544f4b454e6e40"
+      }
+    ]
+  },
+  "receive_create_error_without_transfer_before_hardfork": {
+    "sbHeight": 299,
+    "blockType": 4,
+    "sendBlockType": 1,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "000000000000000000020101010afe",
+    "amount": "00",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "",
+    "pledgeBeneficialAmount":"0",
+    "err": "invalid opcode",
+    "success":true,
+    "quota":0,
+    "quotaUsed":0,
+    "preContractMetaMap":{
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86":{
+        "quotaRatio":10
+      }
+    },
+    "contractMetaMap":{
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86":{
+        "quotaRatio":10
+      }
+    },
+    "sendBlockList":[]
+  }
+}
