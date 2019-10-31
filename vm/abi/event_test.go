@@ -185,13 +185,6 @@ func TestEventTupleUnpack(t *testing.T) {
 		"Can unpack ERC20 Transfer event into structure",
 	}, {
 		eventTransferData1,
-		&[]interface{}{&bigint},
-		&[]interface{}{&bigintExpected},
-		jsonEventTransfer,
-		"",
-		"Can unpack ERC20 Transfer event into slice",
-	}, {
-		eventTransferData1,
 		&EventTransferWithTag{},
 		&EventTransferWithTag{Value1: bigintExpected},
 		jsonEventTransfer,
@@ -291,7 +284,7 @@ func TestEventTupleUnpack(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := unpackTestEventData(tc.dest, tc.data, tc.jsonLog, assert)
 			if tc.error == "" {
-				assert.Nil(err, "Should be able to unpack event data.")
+				assert.Nil(err, tc.name)
 				assert.Equal(tc.expected, tc.dest, tc.name)
 			} else {
 				assert.EqualError(err, tc.error, tc.name)
