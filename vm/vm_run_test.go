@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -16,6 +17,16 @@ import (
 	"testing"
 	"time"
 )
+
+// TODO delete test method
+func TestNewVM(t *testing.T) {
+	s := ""
+	for i := int64(1); i <= 100; i++ {
+		ib := big.NewInt(i).Bytes()
+		s = s + "600061" + hex.EncodeToString(helper.LeftPadBytes(ib, 2)) + "55"
+	}
+	fmt.Println(s)
+}
 
 type VMRunTestCase struct {
 	// global status
@@ -68,6 +79,10 @@ func TestVM_RunV2(t *testing.T) {
 	}
 	for _, testFile := range testFiles {
 		if testFile.IsDir() {
+			continue
+		}
+		// TODO delete
+		if testFile.Name() != "sstore.json" {
 			continue
 		}
 		file, ok := os.Open(testDir + testFile.Name())

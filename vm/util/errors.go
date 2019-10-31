@@ -27,7 +27,7 @@ var (
 	ErrDepth             = errors.New("max call depth exceeded")
 
 	ErrGasUintOverflow           = errors.New("gas uint64 overflow")
-	ErrStorageModifyLimitReached = errors.New("contract storage modify count ")
+	ErrStorageModifyLimitReached = errors.New("contract storage modify count limit reached")
 	ErrMemSizeOverflow           = errors.New("memory size uint64 overflow")
 	ErrReturnDataOutOfBounds     = errors.New("vm: return data out of bounds")
 	ErrBlockQuotaLimitReached    = errors.New("quota limit for block reached")
