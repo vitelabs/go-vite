@@ -58,7 +58,7 @@ func DoFeesDividend(db vm_db.VmDb, periodId uint64) (blocks []*ledger.AccountBlo
 	var (
 		userVxFundKeyPrefix, userVxFundsKey, userVxFundsBytes []byte
 	)
-	if IsLushFork(db) {
+	if IsEarthFork(db) {
 		userVxFundKeyPrefix = vxLockedFundsKeyPrefix
 	} else {
 		userVxFundKeyPrefix = vxFundKeyPrefix
@@ -206,9 +206,9 @@ func DivideByProportion(totalReferAmt, partReferAmt, dividedReferAmt, toDivideTo
 }
 
 func tryBurnVite(db vm_db.VmDb, feeSumMap map[types.TokenTypeId]*big.Int) []*ledger.AccountBlock {
-	if IsLushFork(db) {
+	if IsEarthFork(db) {
 		for token, amt := range feeSumMap {
-			if token == VxTokenId {
+			if token == ledger.ViteTokenId {
 				delete(feeSumMap, token)
 				if burnData, err := cabi.ABIAsset.PackMethod(cabi.MethodNameBurn); err != nil {
 					panic(err)
@@ -221,6 +221,7 @@ func tryBurnVite(db vm_db.VmDb, feeSumMap map[types.TokenTypeId]*big.Int) []*led
 						Amount:         amt,
 						Data:           burnData,
 					}
+					AddBurnViteEvent(db, BurnForDexViteFee, amt)
 					return []*ledger.AccountBlock{burnBlock}
 				}
 			}

@@ -114,6 +114,9 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 				Data:           burnData,
 			}
 		}
+		if IsEarthFork(db) {
+			AddBurnViteEvent(db, BurnForNewMarket, NewMarketFeeBurnAmount)
+		}
 		return []*ledger.AccountBlock{syncNewMarketBlock, newMarketFeeBurnBlock}, nil
 	}
 }
@@ -518,11 +521,11 @@ func IsLeafFork(db vm_db.VmDb) bool {
 	}
 }
 
-func IsLushFork(db vm_db.VmDb) bool {
+func IsEarthFork(db vm_db.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsLushFork(latestSb.Height)
+		return fork.IsEarthFork(latestSb.Height)
 	}
 }
 

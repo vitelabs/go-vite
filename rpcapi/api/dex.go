@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
@@ -32,9 +31,11 @@ func (f DexApi) String() string {
 }
 
 type AccountBalanceInfo struct {
-	TokenInfo *RpcTokenInfo `json:"tokenInfo,omitempty"`
-	Available string        `json:"available"`
-	Locked    string        `json:"locked"`
+	TokenInfo   *RpcTokenInfo `json:"tokenInfo,omitempty"`
+	Available   string        `json:"available"`
+	Locked      string        `json:"locked"`
+	VxLocked    string        `json:"vxLocked,omitempty"`
+	VxUnlocking string        `json:"vxUnlocking,omitempty"`
 }
 
 func (f DexApi) GetAccountBalanceInfo(addr types.Address, tokenId *types.TokenTypeId) (map[types.TokenTypeId]*AccountBalanceInfo, error) {
@@ -55,51 +56,27 @@ func (f DexApi) GetAccountBalanceInfo(addr types.Address, tokenId *types.TokenTy
 			return nil, err
 		}
 		info := &AccountBalanceInfo{TokenInfo: RawTokenInfoToRpc(tokenInfo, v.Token)}
-		a := "0"
 		if v.Available != nil {
-			a = v.Available.String()
+			info.Available = v.Available.String()
+		} else {
+			info.Available = "0"
 		}
-		info.Available = a
 
-		l := "0"
 		if v.Locked != nil {
-			l = v.Locked.String()
+			info.Locked = v.Locked.String()
+		} else {
+			info.Locked = "0"
 		}
-		info.Locked = l
+
+		if *tokenId == dex.VxTokenId {
+			if v.VxLocked != nil {
+				info.VxLocked = v.VxLocked.String()
+			}
+			if v.VxUnlocking != nil {
+				info.VxUnlocking = v.VxUnlocking.String()
+			}
+		}
 		balanceInfo[v.Token] = info
-	}
-	return balanceInfo, nil
-}
-
-func (f DexApi) GetAccountBalanceInfoByStatus(addr types.Address, tokenId *types.TokenTypeId, status byte) (map[types.TokenTypeId]string, error) {
-	if status != 0 && status != 1 && status != 2 {
-		return nil, errors.New("args's status error, 1 for available, 2 for locked, 0 for total")
-	}
-
-	db, err := getVmDb(f.chain, types.AddressDexFund)
-	if err != nil {
-		return nil, err
-	}
-	fund, _ := dex.GetFund(db, addr)
-	fundInfo, err := dex.GetAccounts(fund, tokenId)
-	if err != nil {
-		return nil, err
-	}
-
-	balanceInfo := make(map[types.TokenTypeId]string, 0)
-	for _, v := range fundInfo {
-		amount := big.NewInt(0)
-		if a := v.Available; a != nil {
-			if status == 0 || status == 1 {
-				amount.Add(amount, a)
-			}
-		}
-		if l := v.Locked; l != nil {
-			if status == 0 || status == 2 {
-				amount.Add(amount, l)
-			}
-		}
-		balanceInfo[v.Token] = amount.String()
 	}
 	return balanceInfo, nil
 }

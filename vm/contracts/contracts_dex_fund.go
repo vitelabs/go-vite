@@ -356,7 +356,7 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 		switch param.BizType {
 		case dex.MineVxForFeeJob:
 			rateSumForFee := dex.RateSumForFeeMineNew
-			if !dex.IsLushFork(db) {
+			if !dex.IsEarthFork(db) {
 				rateSumForFee = dex.RateSumForFeeMine
 			}
 			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, rateSumForFee, dex.ViteTokenType, dex.UsdTokenType); success {
@@ -368,7 +368,7 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 			}
 		case dex.MineVxForStakingJob:
 			rateSumForStaking := dex.RateForStakingMineNew
-			if !dex.IsLushFork(db) {
+			if !dex.IsEarthFork(db) {
 				rateSumForStaking = dex.RateForStakingMine
 			}
 			if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPool, rateSumForStaking); success {
@@ -379,7 +379,7 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 				return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for staking"), sendBlock)
 			}
 		case dex.MineVxForMakerAndMaintainerJob:
-			if dex.IsLushFork(db) {
+			if dex.IsEarthFork(db) {
 				if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPool, dex.RateSumForMakerMineNew); success {
 					dex.DoMineVxForMaker(db, param.PeriodId, amount)
 				} else {
@@ -451,12 +451,12 @@ func (md MethodDexFundStakeForMining) DoReceive(db vm_db.VmDb, block *ledger.Acc
 	var param = new(dex.ParamStakeForMining)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	var stakeHeight uint64
-	if dex.IsLushFork(db) {
+	if dex.IsEarthFork(db) {
 		stakeHeight = nodeConfig.params.DexStakeForMining
 	} else {
 		stakeHeight = nodeConfig.params.StakeHeight
 	}
-	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForMining, param.ActionType, sendBlock.AccountAddress, param.Amount, stakeHeight); err != nil {
+	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForMining, param.ActionType, sendBlock.AccountAddress, types.ZERO_ADDRESS, param.Amount, stakeHeight); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	} else {
 		return appendBlocks, nil

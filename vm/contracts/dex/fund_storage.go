@@ -60,6 +60,8 @@ var (
 	superVIPStakingKeyPrefix      = []byte("pldSpVip:")  // superVIPStaking: types.Address
 	superVIPAgentStakingKeyPrefix = []byte("spVipAtSt:") // superVIPAgentStaking: types.Address
 
+	delegateStakeInfoPrefix = []byte("ds:")
+
 	miningStakingsKeyPrefix     = []byte("pldsVx:")  // miningStakings: types.Address
 	dexMiningStakingsKey        = []byte("pldsVxS:") // dexMiningStakings
 	miningStakedAmountKeyPrefix = []byte("pldVx:")   // miningStakedAmount: types.Address
@@ -217,6 +219,16 @@ const (
 
 const (
 	AutoLockMinedVx = iota + 1
+)
+
+const (
+	BurnForNewMarket = iota + 1
+	BurnForDexViteFee = iota + 1
+)
+
+const (
+	StakeSubmitted = iota + 1
+	StakeConfirmed
 )
 
 type QuoteTokenTypeInfo struct {
@@ -611,6 +623,24 @@ func (psv *MiningStakings) DeSerialize(data []byte) error {
 		return err
 	} else {
 		psv.MiningStakings = miningStakings
+		return nil
+	}
+}
+
+type DelegateStakeInfo struct {
+	dexproto.DelegateStakeInfo
+}
+
+func (dsi *DelegateStakeInfo) Serialize() (data []byte, err error) {
+	return proto.Marshal(&dsi.DelegateStakeInfo)
+}
+
+func (dsi *DelegateStakeInfo) DeSerialize(data []byte) error {
+	delegateStakeInfo := dexproto.DelegateStakeInfo{}
+	if err := proto.Unmarshal(data, &delegateStakeInfo); err != nil {
+		return err
+	} else {
+		dsi.DelegateStakeInfo = delegateStakeInfo
 		return nil
 	}
 }
@@ -1056,7 +1086,7 @@ func GetUserFeesKey(address []byte) []byte {
 }
 
 func GetVxFundsWithForkCheck(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, ok bool) {
-	if IsLushFork(db) {
+	if IsEarthFork(db) {
 		return GetVxLockedFunds(db, address)
 	} else {
 		return GetVxFunds(db, address)
@@ -1064,7 +1094,7 @@ func GetVxFundsWithForkCheck(db vm_db.VmDb, address []byte) (vxFunds *VxFunds, o
 }
 
 func SaveVxFundsWithForkCheck(db vm_db.VmDb, address []byte, vxFunds *VxFunds) {
-	if IsLushFork(db) {
+	if IsEarthFork(db) {
 		SaveVxLockedFunds(db, address, vxFunds)
 	} else {
 		SaveVxFunds(db, address, vxFunds)
@@ -1072,7 +1102,7 @@ func SaveVxFundsWithForkCheck(db vm_db.VmDb, address []byte, vxFunds *VxFunds) {
 }
 
 func DeleteVxFundsWithForkCheck(db vm_db.VmDb, address []byte) {
-	if IsLushFork(db) {
+	if IsEarthFork(db) {
 		DeleteVxLockedFunds(db, address)
 	} else {
 		DeleteVxFunds(db, address)
@@ -1164,7 +1194,7 @@ func GetVxAutoLockMinedVxKey(address []byte) []byte {
 }
 
 func GetVxSumFundsWithForkCheck(db vm_db.VmDb) (vxSumFunds *VxFunds, ok bool) {
-	if IsLushFork(db) {
+	if IsEarthFork(db) {
 		return GetVxLockedSumFunds(db)
 	} else {
 		return GetVxSumFunds(db)
@@ -1172,7 +1202,7 @@ func GetVxSumFundsWithForkCheck(db vm_db.VmDb) (vxSumFunds *VxFunds, ok bool) {
 }
 
 func SaveVxSumFundsWithForkCheck(db vm_db.VmDb, vxSumFunds *VxFunds) {
-	if IsLushFork(db) {
+	if IsEarthFork(db) {
 		SaveVxLockedSumFunds(db, vxSumFunds)
 	} else {
 		SaveVxSumFunds(db, vxSumFunds)
@@ -1821,6 +1851,39 @@ func MatchMiningStakingByPeriod(miningStakings *MiningStakings, periodId uint64,
 func CheckMiningStakingsCanBeDelete(miningStakings *MiningStakings) bool {
 	return len(miningStakings.Stakings) == 1 && !IsValidMiningStakeAmountBytes(miningStakings.Stakings[0].Amount)
 }
+
+func GetDelegateStakeInfo(db vm_db.VmDb, hash types.Hash) (info *DelegateStakeInfo, ok bool) {
+	info = &DelegateStakeInfo{}
+	ok = deserializeFromDb(db, GetDelegateStakeInfoKey(hash),  info)
+	return
+}
+
+func SaveDelegateStakeInfo(db vm_db.VmDb, hash types.Hash, stakeType uint8, address, beneficial, principal types.Address, amount *big.Int) {
+	info := &DelegateStakeInfo{}
+	info.StakeType = int32(stakeType)
+	info.Address = address.Bytes()
+	info.Beneficial = beneficial.Bytes()
+	if principal != types.ZERO_ADDRESS {
+		info.Principal = principal.Bytes()
+	}
+	info.Amount = amount.Bytes()
+	info.Status = StakeSubmitted
+	serializeToDb(db, GetDelegateStakeInfoKey(hash), info)
+}
+
+func ConfirmDelegateStakeInfo(db vm_db.VmDb, hash types.Hash, info *DelegateStakeInfo) {
+	info.Status = int32(StakeConfirmed)
+	serializeToDb(db, GetDelegateStakeInfoKey(hash), info)
+}
+
+func DeleteDelegateStakeInfo(db vm_db.VmDb, hash types.Hash {
+	setValueToDb(db, GetDelegateStakeInfoKey(hash), nil)
+}
+
+func GetDelegateStakeInfoKey(hash types.Hash) []byte {
+	return append(delegateStakeInfoPrefix, hash.Bytes()[len(delegateStakeInfoPrefix):]...)
+}
+
 
 func GetTimestampInt64(db vm_db.VmDb) int64 {
 	timestamp := GetDexTimestamp(db)

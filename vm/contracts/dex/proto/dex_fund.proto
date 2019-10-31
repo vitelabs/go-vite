@@ -125,6 +125,15 @@ message VIPAgentStaking {
     repeated bytes AgentsStaked = 2; // Staked agents in case duplicate stake happen
 }
 
+message DelegateStakeInfo {
+    int32 StakeType = 1; // 1 StakeForMining, 2 StakeForVIP, 3 StakeForSuperVIP, 4, AgentSuperVIP
+    bytes Address = 2;
+    bytes Beneficial = 3;
+    bytes Principal = 4; // in case stake for other address
+    bytes Amount = 5;
+    int32 Status = 6; // 0 pending, 1 confirmed
+}
+
 message MiningStakingByPeriod {
     uint64 Period = 1; // last snapshot height in period
     bytes Amount = 2;
@@ -209,4 +218,10 @@ message MarketAgentRelation {
     bytes Principal = 1;
     bytes Agent = 2;
     int32 MarketId = 3;
+}
+
+//event
+message BurnVite {
+    int32 BizType = 1;
+    bytes Amount = 2;
 }

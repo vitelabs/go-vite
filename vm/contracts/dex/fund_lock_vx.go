@@ -8,7 +8,7 @@ import (
 )
 
 func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
-	if !IsLushFork(db) {
+	if !IsEarthFork(db) {
 		return nil
 	}
 	iterator, err := db.NewStorageIterator(vxUnlocksKeyPrefix)

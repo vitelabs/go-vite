@@ -237,6 +237,7 @@ type QuotaTable struct {
 	DexFundConfigMarketAgentsQuota               uint64
 	DexFunPlaceAgentOrderQuota                   uint64
 	DexFunLockVxForDividendQuota                 uint64
+	DexFunSwitchConfigQuota                      uint64
 }
 
 // QuotaTableByHeight returns different quota table by hard fork version
@@ -489,5 +490,6 @@ func newDexPolishQuotaTable() QuotaTable {
 	gt.DexFundDelegateAgentStakeCallbackQuota = 115500
 	gt.DexFundCancelDelegateAgentStakeCallbackQuota = 115500
 	gt.DexFunLockVxForDividendQuota = 115500
+	gt.DexFunSwitchConfigQuota = 115500
 	return gt
 }

@@ -11,13 +11,13 @@ import (
 	"math/big"
 )
 
-func HandleStakeAction(db vm_db.VmDb, stakeType uint8, actionType uint8, address types.Address, amount *big.Int, stakeHeight uint64) ([]*ledger.AccountBlock, error) {
+func HandleStakeAction(db vm_db.VmDb, stakeType uint8, actionType uint8, stakeAddr, principal types.Address, amount *big.Int, stakeHeight uint64) ([]*ledger.AccountBlock, error) {
 	var (
 		methodData []byte
 		err        error
 	)
 	if actionType == Stake {
-		if methodData, err = stakeRequest(db, address, stakeType, amount, stakeHeight); err != nil {
+		if methodData, err = stakeRequest(db, stakeAddr, principal, stakeType, amount, stakeHeight); err != nil {
 			return []*ledger.AccountBlock{}, err
 		} else {
 			return []*ledger.AccountBlock{
@@ -32,7 +32,7 @@ func HandleStakeAction(db vm_db.VmDb, stakeType uint8, actionType uint8, address
 			}, nil
 		}
 	} else {
-		return DoCancelStake(db, address, stakeType, amount)
+		return DoCancelStake(db, stakeAddr, stakeType, amount)
 	}
 }
 
@@ -57,27 +57,41 @@ func DoCancelStake(db vm_db.VmDb, address types.Address, stakeType uint8, amount
 	}
 }
 
-func stakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, amount *big.Int, stakeHeight uint64) ([]byte, error) {
-	if stakeType == StakeForVIP {
+func stakeRequest(db vm_db.VmDb, address, principal types.Address, stakeType uint8, amount *big.Int, stakeHeight uint64) ([]byte, error) {
+	switch stakeType {
+	case StakeForVIP:
 		if _, ok := GetVIPStaking(db, address); ok {
 			return nil, VIPStakingExistsErr
 		}
-	} else if stakeType == StakeForSuperVIP {
+	case StakeForSuperVIP:
 		if IsSuperVIP(db, address) {
+			return nil, SuperVipStakingExistsErr
+		}
+	case StakeForAgentSuperVIP:
+		if IsSuperVIP(db, principal) {
 			return nil, SuperVipStakingExistsErr
 		}
 	}
 	if _, err := ReduceAccount(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err
 	} else {
-		var stakeMethod = abi.MethodNameDelegateStakeV2
-		if !IsLeafFork(db) {
-			stakeMethod = abi.MethodNameDelegateStake
-		}
-		if stakeData, err := abi.ABIQuota.PackMethod(stakeMethod, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
-			return nil, err
+		if IsEarthFork(db) {
+			SaveDelegateStakeInfo(db, generateStakeHash(), stakeType, address, types.AddressDexFund, principal, amount)
+			if stakeData, err := abi.ABIQuota.PackMethod(abi.MethodNameDelegateStakeV3, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
+				return nil, err
+			} else {
+				return stakeData, err
+			}
 		} else {
-			return stakeData, err
+			var stakeMethod = abi.MethodNameDelegateStakeV2
+			if !IsLeafFork(db) {
+				stakeMethod = abi.MethodNameDelegateStake
+			}
+			if stakeData, err := abi.ABIQuota.PackMethod(stakeMethod, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
+				return nil, err
+			} else {
+				return stakeData, err
+			}
 		}
 	}
 }
@@ -292,4 +306,8 @@ func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, addr
 		SaveDexMiningStakings(db, dexMiningStakings)
 	}
 	return nil
+}
+
+func generateStakeHash() types.Hash {
+
 }
