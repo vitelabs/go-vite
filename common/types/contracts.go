@@ -68,4 +68,5 @@ type StakeInfo struct {
 	DelegateAddress  Address  `json:"agentAddr"`
 	Bid              uint8    `json:"bid"`
 	StakeAddress     Address  `json:"pledgeAddr"`
+	Id               Hash     `json:"id"`
 }
