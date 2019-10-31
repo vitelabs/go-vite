@@ -17,9 +17,12 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 )
 
 var updateInfoErr = errors.New("conflict, fail to update onroad info")
+
+type AddHashMap map[types.Address][]types.Hash
 
 type OnRoadInfo struct {
 	chain Chain
@@ -51,10 +54,58 @@ func (or *OnRoadInfo) SetStore(store *chain_db.Store) {
 	or.store = store
 }
 
+func (or *OnRoadInfo) rebuildSeg(flusher *chain_flusher.Flusher, addHashListMap AddHashMap, wg *sync.WaitGroup) {
+	or.log.Info("rebuild seg map start")
+	totalCount := 0
+	batch := or.store.NewBatch()
+	for addr, hashList := range addHashListMap {
+		addrInfoMap := make(map[types.TokenTypeId]*onroadMeta, 0)
+		totalCount += len(hashList)
+		// aggregate the data
+		for _, v := range hashList {
+			block, err := or.chain.GetAccountBlockByHash(v)
+			//or.log.Info("GetAccountBlockByHash", "time", time.Now().Sub(startTime).Nanoseconds())
+			if err != nil {
+				panic(err.Error())
+			}
+			if block == nil {
+				panic("can't find the onroad block by hash")
+			}
+			om, ok := addrInfoMap[block.TokenId]
+			if !ok || om == nil {
+				om = &onroadMeta{
+					TotalAmount: *big.NewInt(0),
+					Number:      0,
+				}
+			}
+			om.TotalAmount.Add(&om.TotalAmount, block.Amount)
+			om.Number++
+			addrInfoMap[block.TokenId] = om
+		}
+
+		for tkId, om := range addrInfoMap {
+			key := CreateOnRoadInfoKey(&addr, &tkId)
+			if err := or.writeMeta(batch, key, om); err != nil {
+				panic(err.Error())
+			}
+			or.log.Info(fmt.Sprintf("writeMeta %v [%+v,%d,%s]", addr, tkId, om.Number, om.TotalAmount.String()))
+		}
+	}
+
+	or.store.WriteSnapshot(batch, nil)
+	// flush to disk
+	flusher.Flush()
+	or.log.Info("rebuild seg map success", "totalCount", totalCount)
+
+	wg.Done()
+}
+
 func (or *OnRoadInfo) RebuildData(flusher *chain_flusher.Flusher) error {
 	if err := or.GetStore().Close(); err != nil {
 		return err
 	}
+
+	startTime := time.Now()
 
 	// remove data
 	os.RemoveAll(or.GetStore().GetDbDir())
@@ -77,46 +128,31 @@ func (or *OnRoadInfo) RebuildData(flusher *chain_flusher.Flusher) error {
 	if err != nil {
 		return err
 	}
+
+	i := 0
+	segs := 20
+	mapList := make([]AddHashMap, segs)
 	for addr, hashList := range addrOnRoadMap {
-		addrInfoMap := make(map[types.TokenTypeId]*onroadMeta, 0)
-
-		// aggregate the data
-		for _, v := range hashList {
-			block, err := or.chain.GetAccountBlockByHash(v)
-			if err != nil {
-				return err
-			}
-			if block == nil {
-				return errors.New("can't find the onroad block by hash")
-			}
-			om, ok := addrInfoMap[block.TokenId]
-			if !ok || om == nil {
-				om = &onroadMeta{
-					TotalAmount: *big.NewInt(0),
-					Number:      0,
-				}
-			}
-			om.TotalAmount.Add(&om.TotalAmount, block.Amount)
-			om.Number++
-			addrInfoMap[block.TokenId] = om
+		addMap := mapList[i%segs]
+		if addMap == nil {
+			addMap = make(AddHashMap, 0)
+			mapList[i%segs] = addMap
 		}
-
-		batch := or.store.NewBatch()
-		for tkId, om := range addrInfoMap {
-			key := CreateOnRoadInfoKey(&addr, &tkId)
-			if err := or.writeMeta(batch, key, om); err != nil {
-				return err
-			}
-			or.log.Info(fmt.Sprintf("writeMeta %v [%+v,%d,%s]", addr, tkId, om.Number, om.TotalAmount.String()))
-		}
-
-		or.store.WriteSnapshot(batch, nil)
-
-		// flush to disk
-		flusher.Flush()
-
+		addMap[addr] = hashList
+		i++
 	}
-	or.log.Info("OnRoadInfo RebuildData data success")
+
+	var wg sync.WaitGroup
+	for _, v := range mapList {
+		if v == nil {
+			wg.Add(1)
+			v1 := v
+			go or.rebuildSeg(flusher, v1, &wg)
+		}
+	}
+	wg.Wait()
+
+	or.log.Info("OnRoadInfo RebuildData data success", "addrCount", len(addrOnRoadMap), "consumeSeconds", time.Now().Sub(startTime).Nanoseconds()/(1000000000))
 
 	return nil
 }
