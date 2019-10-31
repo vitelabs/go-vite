@@ -144,7 +144,7 @@ func (or *OnRoadInfo) RebuildData(flusher *chain_flusher.Flusher) error {
 
 	var wg sync.WaitGroup
 	for _, v := range mapList {
-		if v == nil {
+		if v != nil {
 			wg.Add(1)
 			v1 := v
 			go or.rebuildSeg(flusher, v1, &wg)
@@ -152,7 +152,7 @@ func (or *OnRoadInfo) RebuildData(flusher *chain_flusher.Flusher) error {
 	}
 	wg.Wait()
 
-	or.log.Info("OnRoadInfo RebuildData data success", "addrCount", len(addrOnRoadMap), "consumeSeconds", time.Now().Sub(startTime).Nanoseconds()/(1000000000))
+	or.log.Info("OnRoadInfo RebuildData data success", "addrCount", len(addrOnRoadMap), "consumeSeconds", time.Now().Sub(startTime).Nanoseconds())
 
 	return nil
 }
