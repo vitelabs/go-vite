@@ -370,8 +370,6 @@ func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, 
 	var vipReduceFeeRate int32 = 0
 	if _, ok := GetSuperVIPStaking(db, address); ok {
 		vipReduceFeeRate = BaseFeeRate
-	} else if _, ok := GetSuperVIPAgentStaking(db, address); ok {
-		vipReduceFeeRate = BaseFeeRate
 	} else if _, ok := GetVIPStaking(db, address); ok {
 		vipReduceFeeRate = VipReduceFeeRate
 	}

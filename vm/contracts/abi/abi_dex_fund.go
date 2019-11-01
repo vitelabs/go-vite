@@ -58,7 +58,10 @@ const (
 		
 		{"type":"function","name":"LockVxForDividend", "inputs":[{"name":"actionType","type":"uint8"},{"name":"amount","type":"uint256"}]},
 		{"type":"function","name":"SwitchConfig", "inputs":[{"name":"switchType","type":"uint8"},{"name":"enable","type":"bool"}]},
-		{"type":"function","name":"StakeForAgentSVIP", "inputs":[{"name":"actionType","type":"uint8"},{"name":"principal","type":"address"}]}
+		{"type":"function","name":"StakeForPrincipalSVIP", "inputs":[{"name":"actionType","type":"uint8"},{"name":"principal","type":"address"}]},
+		{"type":"function","name":"CancelStakeById", "inputs":[{"name":"id","type":"bytes32"}]},
+		{"type":"function","name":"StakeForQuotaWithCallbackCallback", "inputs":[{"name":"id","type":"bytes32"},{"name":"success","type":"bool"}]},
+		{"type":"function","name":"CancelQuotaStakingWithCallbackCallback", "inputs":[{"name":"id","type":"bytes32"},{"name":"success","type":"bool"}]}
    
     ]`
 
@@ -115,9 +118,12 @@ const (
 	MethodNameDexFundPlaceAgentOrder    = "PlaceAgentOrder"
 
 	//v1.1
-	MethodNameDexFundLockVxForDividend = "LockVxForDividend"
-	MethodNameDexFundSwitchConfig      = "SwitchConfig"
-	MethodNameDexFundStakeForAgentSVIP = "StakeForAgentSVIP"
+	MethodNameDexFundLockVxForDividend             = "LockVxForDividend"
+	MethodNameDexFundSwitchConfig                  = "SwitchConfig"
+	MethodNameDexFundStakeForPrincipalSVIP         = "StakeForPrincipalSVIP"
+	MethodNameDexFundCancelStakeById               = "CancelStakeById"
+	MethodNameDexFundDelegateStakeCallbackV2       = "StakeForQuotaWithCallbackCallback"
+	MethodNameDexFundCancelDelegateStakeCallbackV2 = "CancelQuotaStakingWithCallbackCallback"
 )
 
 var (

@@ -59,6 +59,7 @@ message FeeForDividend { // for dividend
                          // create new inviter fee +
                          // trade baseFee[include markets allow mine and not allow mine]
     bytes DividendPoolAmount = 2;
+    bool NotRoll = 3;
 }
 
 message FeeForMine { // for mine, sum amounts with same quoteTokenType
@@ -117,21 +118,22 @@ message VxFunds {
 
 message VIPStaking {
     int64 Timestamp = 1;
-    int32 StakedTimes = 2; // Staked times in case duplicate stake happen
+    int32 StakedTimes = 2; // Staked times in case duplicate stakes happen
+    repeated bytes StakingHashes = 3; // in case duplicate stakes happen
 }
 
-message VIPAgentStaking {
-    int64 Timestamp = 1;
-    repeated bytes AgentsStaked = 2; // Staked agents in case duplicate stake happen
+message MiningStakingItem {
+    bytes Amount = 1;
+    bytes StakingHash = 2;
 }
 
 message DelegateStakeInfo {
     int32 StakeType = 1; // 1 StakeForMining, 2 StakeForVIP, 3 StakeForSuperVIP, 4, AgentSuperVIP
     bytes Address = 2;
-    bytes Beneficial = 3;
-    bytes Principal = 4; // in case stake for other address
-    bytes Amount = 5;
-    int32 Status = 6; // 0 pending, 1 confirmed
+    bytes Principal = 3; // in case stake for other address
+    bytes Amount = 4;
+    int32 SerialNo = 5; // serialNo for mining stake, updated when confirmed
+    int32 Status = 6; // 0 pending, 1 confirmed, 2 cancelling
 }
 
 message MiningStakingByPeriod {
@@ -224,4 +226,11 @@ message MarketAgentRelation {
 message BurnVite {
     int32 BizType = 1;
     bytes Amount = 2;
+}
+
+//event
+message PrincipalSuperVIP {
+    bytes Address = 1;
+    bytes Principal = 2;
+    bool IsCreated = 3; // true created, false delete
 }

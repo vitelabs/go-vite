@@ -400,8 +400,13 @@ func getUserNewVxAmtWithForkCheck(db vm_db.VmDb, updatedVxAcc *dexproto.Account)
 }
 
 func splitDividendPool(dividend *dexproto.FeeForDividend) (toDividendAmt, rolledAmount *big.Int) {
-	toDividendAmt = new(big.Int).SetBytes(CalculateAmountForRate(dividend.DividendPoolAmount, PerPeriodDividendRate)) // %1
-	rolledAmount = new(big.Int).Sub(new(big.Int).SetBytes(dividend.DividendPoolAmount), toDividendAmt)                // 99%
+	if !dividend.NotRoll {
+		toDividendAmt = new(big.Int).SetBytes(CalculateAmountForRate(dividend.DividendPoolAmount, PerPeriodDividendRate)) // %1
+		rolledAmount = new(big.Int).Sub(new(big.Int).SetBytes(dividend.DividendPoolAmount), toDividendAmt)                // 99%
+	} else {
+		toDividendAmt = new(big.Int).SetBytes(dividend.DividendPoolAmount)
+		rolledAmount = big.NewInt(0)
+	}
 	return
 }
 

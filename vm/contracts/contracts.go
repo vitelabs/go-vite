@@ -209,7 +209,11 @@ func newEarthContracts() map[types.Address]*builtinContract {
 
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundLockVxForDividend] = &MethodDexFundLockVxForDividend{cabi.MethodNameDexFundLockVxForDividend}
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundSwitchConfig] = &MethodDexFundSwitchConfig{cabi.MethodNameDexFundSwitchConfig}
-	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundStakeForAgentSVIP] = &MethodDexFundStakeForAgentSVIP{cabi.MethodNameDexFundStakeForAgentSVIP}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundStakeForPrincipalSVIP] = &MethodDexFundStakeForPrincipalSVIP{cabi.MethodNameDexFundStakeForPrincipalSVIP}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCancelStakeById] = &MethodDexFundCancelStakeById{cabi.MethodNameDexFundCancelStakeById}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundDelegateStakeCallbackV2] = &MethodDexFundDelegateStakeCallbackV2{cabi.MethodNameDexFundDelegateStakeCallbackV2}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCancelDelegateStakeCallbackV2] = &MethodDexFundCancelDelegateStakeCallbackV2{cabi.MethodNameDexFundCancelDelegateStakeCallbackV2}
+
 	return contracts
 }
 

@@ -56,15 +56,19 @@ var (
 	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
-	vipStakingKeyPrefix           = []byte("pldVip:")    // vipStaking: types.Address
-	superVIPStakingKeyPrefix      = []byte("pldSpVip:")  // superVIPStaking: types.Address
-	superVIPAgentStakingKeyPrefix = []byte("spVipAtSt:") // superVIPAgentStaking: types.Address
+	vipStakingKeyPrefix      = []byte("pldVip:")   // vipStaking: types.Address
+	superVIPStakingKeyPrefix = []byte("pldSpVip:") // superVIPStaking: types.Address
 
 	delegateStakeInfoPrefix = []byte("ds:")
 
 	miningStakingsKeyPrefix     = []byte("pldsVx:")  // miningStakings: types.Address
 	dexMiningStakingsKey        = []byte("pldsVxS:") // dexMiningStakings
 	miningStakedAmountKeyPrefix = []byte("pldVx:")   // miningStakedAmount: types.Address
+
+	miningStakedAmountV2KeyPrefix = []byte("stVx:")   // miningStakedAmount: types.Address
+
+	miningStakingItemSerialNoKey = []byte("mSISl:")
+	miningStakingItemKey         = []byte("mSISl:")
 
 	tokenInfoKeyPrefix = []byte("tk:") // token:tokenId
 	vxMinePoolKey      = []byte("vxmPl:")
@@ -145,7 +149,7 @@ const (
 	StakeForMining = iota + 1
 	StakeForVIP
 	StakeForSuperVIP
-	StakeForAgentSuperVIP
+	StakeForPrincipalSuperVIP
 )
 
 const (
@@ -222,7 +226,7 @@ const (
 )
 
 const (
-	BurnForNewMarket = iota + 1
+	BurnForNewMarket  = iota + 1
 	BurnForDexViteFee = iota + 1
 )
 
@@ -279,7 +283,7 @@ type ParamStakeForVIP struct {
 	ActionType uint8 // 1: stake 2: cancel stake
 }
 
-type ParamStakeForAgentVIP struct {
+type ParamStakeForPrincipalVIP struct {
 	ActionType uint8 // 1: stake 2: cancel stake
 	Principal  types.Address
 }
@@ -287,15 +291,6 @@ type ParamStakeForAgentVIP struct {
 type ParamDelegateStakeCallback struct {
 	StakeAddress types.Address
 	Beneficiary  types.Address
-	Amount       *big.Int
-	Bid          uint8
-	Success      bool
-}
-
-type ParamDelegateAgentStakeCallback struct {
-	StakeAddress types.Address
-	Beneficiary  types.Address
-	Principal    types.Address
 	Amount       *big.Int
 	Bid          uint8
 	Success      bool
@@ -368,6 +363,15 @@ type ParamLockVxForDividend struct {
 type ParamSwitchConfig struct {
 	SwitchType uint8 // 1: autoLockMinedVx
 	Enable     bool
+}
+
+type ParamCancelStakeById struct {
+	Id types.Hash
+}
+
+type ParamDelegateStakeCallbackV2 struct {
+	Id      types.Hash
+	Success bool
 }
 
 type Fund struct {
@@ -447,20 +451,20 @@ func (mi *MarketInfo) DeSerialize(data []byte) error {
 	}
 }
 
-type OrderIdSerialNo struct {
-	dexproto.OrderIdSerialNo
+type SerialNo struct {
+	dexproto.SerialNo
 }
 
-func (osn *OrderIdSerialNo) Serialize() (data []byte, err error) {
-	return proto.Marshal(&osn.OrderIdSerialNo)
+func (osn *SerialNo) Serialize() (data []byte, err error) {
+	return proto.Marshal(&osn.SerialNo)
 }
 
-func (osn *OrderIdSerialNo) DeSerialize(data []byte) error {
-	orderIdSerialNo := dexproto.OrderIdSerialNo{}
-	if err := proto.Unmarshal(data, &orderIdSerialNo); err != nil {
+func (osn *SerialNo) DeSerialize(data []byte) error {
+	serialNo := dexproto.SerialNo{}
+	if err := proto.Unmarshal(data, &serialNo); err != nil {
 		return err
 	} else {
-		osn.OrderIdSerialNo = orderIdSerialNo
+		osn.SerialNo = serialNo
 		return nil
 	}
 }
@@ -591,38 +595,38 @@ func (pv *VIPStaking) DeSerialize(data []byte) error {
 	}
 }
 
-type VIPAgentStaking struct {
-	dexproto.VIPAgentStaking
-}
-
-func (pv *VIPAgentStaking) Serialize() (data []byte, err error) {
-	return proto.Marshal(&pv.VIPAgentStaking)
-}
-
-func (pv *VIPAgentStaking) DeSerialize(data []byte) error {
-	vIPAgentStaking := dexproto.VIPAgentStaking{}
-	if err := proto.Unmarshal(data, &vIPAgentStaking); err != nil {
-		return err
-	} else {
-		pv.VIPAgentStaking = vIPAgentStaking
-		return nil
-	}
-}
-
 type MiningStakings struct {
 	dexproto.MiningStakings
 }
 
-func (psv *MiningStakings) Serialize() (data []byte, err error) {
-	return proto.Marshal(&psv.MiningStakings)
+func (mss *MiningStakings) Serialize() (data []byte, err error) {
+	return proto.Marshal(&mss.MiningStakings)
 }
 
-func (psv *MiningStakings) DeSerialize(data []byte) error {
+func (mss *MiningStakings) DeSerialize(data []byte) error {
 	miningStakings := dexproto.MiningStakings{}
 	if err := proto.Unmarshal(data, &miningStakings); err != nil {
 		return err
 	} else {
-		psv.MiningStakings = miningStakings
+		mss.MiningStakings = miningStakings
+		return nil
+	}
+}
+
+type MiningStakingItem struct {
+	dexproto.MiningStakingItem
+}
+
+func (msi *MiningStakingItem) Serialize() (data []byte, err error) {
+	return proto.Marshal(&msi.MiningStakingItem)
+}
+
+func (msi *MiningStakingItem) DeSerialize(data []byte) error {
+	miningStakingItem := dexproto.MiningStakingItem{}
+	if err := proto.Unmarshal(data, &miningStakingItem); err != nil {
+		return err
+	} else {
+		msi.MiningStakingItem = miningStakingItem
 		return nil
 	}
 }
@@ -964,10 +968,13 @@ func RollAndGentNewDexFeesByPeriod(db vm_db.VmDb, periodId uint64) (rolledDexFee
 			panic(NoDexFeesFoundForValidPeriodErr)
 		} else {
 			rolledDexFeesByPeriod.LastValidPeriod = formerId
-			for _, feesForDividend := range formerDexFeesByPeriod.FeesForDividend {
+			for _, formerFeeForDividend := range formerDexFeesByPeriod.FeesForDividend {
 				rolledFee := &dexproto.FeeForDividend{}
-				rolledFee.Token = feesForDividend.Token
-				_, rolledAmount := splitDividendPool(feesForDividend)
+				rolledFee.Token = formerFeeForDividend.Token
+				if bytes.Equal(rolledFee.Token, ledger.ViteTokenId.Bytes()) && IsEarthFork(db) {
+					rolledFee.NotRoll = true
+				}
+				_, rolledAmount := splitDividendPool(formerFeeForDividend) //when former pool is NotRoll, rolledAmount is nil
 				rolledFee.DividendPoolAmount = rolledAmount.Bytes()
 				rolledDexFeesByPeriod.FeesForDividend = append(rolledDexFeesByPeriod.FeesForDividend, rolledFee)
 			}
@@ -1520,20 +1527,34 @@ func GetMarketInfoKey(tradeToken, quoteToken types.TokenTypeId) []byte {
 }
 
 func NewAndSaveOrderSerialNo(db vm_db.VmDb, timestamp int64) (newSerialNo int32) {
-	orderIdSerialNo := &OrderIdSerialNo{}
-	if ok := deserializeFromDb(db, orderIdSerialNoKey, orderIdSerialNo); !ok {
+	serialNo := &SerialNo{}
+	if ok := deserializeFromDb(db, orderIdSerialNoKey, serialNo); !ok {
 		newSerialNo = 0
 	} else {
-		if timestamp == orderIdSerialNo.Timestamp {
-			newSerialNo = orderIdSerialNo.SerialNo + 1
+		if timestamp == serialNo.Timestamp {
+			newSerialNo = serialNo.No + 1
 		} else {
 			newSerialNo = 0
 		}
 	}
-	orderIdSerialNo.Timestamp = timestamp
-	orderIdSerialNo.SerialNo = newSerialNo
-	serializeToDb(db, orderIdSerialNoKey, orderIdSerialNo)
+	serialNo.Timestamp = timestamp
+	serialNo.No = newSerialNo
+	serializeToDb(db, orderIdSerialNoKey, serialNo)
 	return
+}
+
+func GetNewMiningStakingKey(db vm_db.VmDb, address types.Address) []byte {
+	var serialNo uint64 = 0
+	if data := getValueFromDb(db, GetMiningStakingSerialNoKey(address)); len(data) == 8 {
+		serialNo = BytesToUint64(data)
+	}
+	serialNo++
+	setValueToDb(db, GetMiningStakingSerialNoKey(address), Uint64ToBytes(serialNo))
+	return append(append(miningStakingItemKey, address.Bytes()...), Uint64ToBytes(serialNo)[2:]...) //6+20+6 = 32
+}
+
+func GetMiningStakingSerialNoKey(address types.Address) []byte {
+	return append(miningStakingItemSerialNoKey, address.Bytes()...)
 }
 
 func IsOwner(db vm_db.VmDb, address types.Address) bool {
@@ -1730,6 +1751,26 @@ func GetMiningStakedAmountKey(address types.Address) []byte {
 	return append(miningStakedAmountKeyPrefix, address.Bytes()...)
 }
 
+func GetMiningStakedV2Amount(db vm_db.VmDb, address types.Address) *big.Int {
+	if bs := getValueFromDb(db, GetMiningStakedV2AmountKey(address)); len(bs) > 0 {
+		return new(big.Int).SetBytes(bs)
+	} else {
+		return big.NewInt(0)
+	}
+}
+
+func SaveMiningStakedV2Amount(db vm_db.VmDb, address types.Address, amount *big.Int) {
+	setValueToDb(db, GetMiningStakedV2AmountKey(address), amount.Bytes())
+}
+
+func DeleteMiningStakedV2Amount(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetMiningStakedV2AmountKey(address), nil)
+}
+
+func GetMiningStakedV2AmountKey(address types.Address) []byte {
+	return append(miningStakedAmountV2KeyPrefix, address.Bytes()...)
+}
+
 func GetVIPStaking(db vm_db.VmDb, address types.Address) (vipStaking *VIPStaking, ok bool) {
 	vipStaking = &VIPStaking{}
 	ok = deserializeFromDb(db, GetVIPStakingKey(address), vipStaking)
@@ -1766,22 +1807,20 @@ func GetSuperVIPStakingKey(address types.Address) []byte {
 	return append(superVIPStakingKeyPrefix, address.Bytes()...)
 }
 
-func GetSuperVIPAgentStaking(db vm_db.VmDb, address types.Address) (superVIPAgentStaking *VIPAgentStaking, ok bool) {
-	superVIPAgentStaking = &VIPAgentStaking{}
-	ok = deserializeFromDb(db, GetSuperVIPAgentStakingKey(address), superVIPAgentStaking)
-	return
-}
-
-func SaveSuperVIPAgentStaking(db vm_db.VmDb, address types.Address, superVIPStaking *VIPStaking) {
-	serializeToDb(db, GetSuperVIPAgentStakingKey(address), superVIPStaking)
-}
-
-func DeleteSuperVIPAgentStaking(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, GetSuperVIPAgentStakingKey(address), nil)
-}
-
-func GetSuperVIPAgentStakingKey(address types.Address) []byte {
-	return append(superVIPAgentStakingKeyPrefix, address.Bytes()...)
+func ReduceVipStakingHash(stakings *VIPStaking, hash types.Hash) bool {
+	var found bool
+	for i, hs := range stakings.StakingHashes {
+		if bytes.Equal(hs, hash.Bytes()) {
+			size := len(stakings.StakingHashes)
+			if i != size - 1 {
+				stakings.StakingHashes[i] = stakings.StakingHashes[size - 1]
+			}
+			stakings.StakingHashes = stakings.StakingHashes[:size-1]
+			found = true
+			break
+		}
+	}
+	return found
 }
 
 func GetMiningStakings(db vm_db.VmDb, address types.Address) (miningStakings *MiningStakings, ok bool) {
@@ -1854,15 +1893,14 @@ func CheckMiningStakingsCanBeDelete(miningStakings *MiningStakings) bool {
 
 func GetDelegateStakeInfo(db vm_db.VmDb, hash types.Hash) (info *DelegateStakeInfo, ok bool) {
 	info = &DelegateStakeInfo{}
-	ok = deserializeFromDb(db, GetDelegateStakeInfoKey(hash),  info)
+	ok = deserializeFromDb(db, GetDelegateStakeInfoKey(hash), info)
 	return
 }
 
-func SaveDelegateStakeInfo(db vm_db.VmDb, hash types.Hash, stakeType uint8, address, beneficial, principal types.Address, amount *big.Int) {
+func SaveDelegateStakeInfo(db vm_db.VmDb, hash types.Hash, stakeType uint8, address, principal types.Address, amount *big.Int) {
 	info := &DelegateStakeInfo{}
 	info.StakeType = int32(stakeType)
 	info.Address = address.Bytes()
-	info.Beneficial = beneficial.Bytes()
 	if principal != types.ZERO_ADDRESS {
 		info.Principal = principal.Bytes()
 	}
@@ -1883,7 +1921,6 @@ func DeleteDelegateStakeInfo(db vm_db.VmDb, hash types.Hash) {
 func GetDelegateStakeInfoKey(hash types.Hash) []byte {
 	return append(delegateStakeInfoPrefix, hash.Bytes()[len(delegateStakeInfoPrefix):]...)
 }
-
 
 func GetTimestampInt64(db vm_db.VmDb) int64 {
 	timestamp := GetDexTimestamp(db)
