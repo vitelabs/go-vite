@@ -177,6 +177,7 @@ type StakeInfo struct {
 	DelegateAddress  types.Address `json:"delegateAddress"`
 	StakeAddress     types.Address `json:"stakeAddress"`
 	Bid              uint8         `json:"bid"`
+	Id               *types.Hash   `json:"id"`
 }
 
 func NewStakeInfo(addr types.Address, info *types.StakeInfo, snapshotBlock *ledger.SnapshotBlock) *StakeInfo {
@@ -188,7 +189,8 @@ func NewStakeInfo(addr types.Address, info *types.StakeInfo, snapshotBlock *ledg
 		info.IsDelegated,
 		info.DelegateAddress,
 		addr,
-		info.Bid}
+		info.Bid,
+		info.Id}
 }
 
 func (p *ContractApi) GetStakeList(address types.Address, pageIndex int, pageSize int) (*StakeInfoList, error) {
@@ -298,6 +300,7 @@ func newSBPInfo(info *types.Registration, sb *ledger.SnapshotBlock) *SBPInfo {
 	return &SBPInfo{
 		Name:                  info.Name,
 		BlockProducingAddress: info.BlockProducingAddress,
+		RewardWithdrawAddress: info.RewardWithdrawAddress,
 		StakeAddr:             info.StakeAddress,
 		StakeAmount:           *bigIntToString(info.Amount),
 		ExpirationHeight:      Uint64ToString(info.ExpirationHeight),
