@@ -10,11 +10,13 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
 	"sort"
+	"time"
 )
 
 type mockDB struct {
 	currentAddr            *types.Address
 	latestSnapshotBlock    *ledger.SnapshotBlock
+	forkSnapshotBlockMap   map[uint64]*ledger.SnapshotBlock
 	prevAccountBlock       *ledger.AccountBlock
 	quotaInfo              []types.QuotaInfo
 	pledgeBeneficialAmount *big.Int
@@ -26,6 +28,7 @@ type mockDB struct {
 	contractMetaMapOrigin  map[types.Address]*ledger.ContractMeta
 	logList                []*ledger.VmLog
 	code                   []byte
+	genesisBlock           *ledger.SnapshotBlock
 }
 
 func NewMockDB(addr *types.Address,
@@ -36,7 +39,9 @@ func NewMockDB(addr *types.Address,
 	balanceMap map[types.TokenTypeId]string,
 	storage map[string]string,
 	contractMetaMap map[types.Address]*ledger.ContractMeta,
-	code []byte) (*mockDB, error) {
+	code []byte,
+	genesisTimestamp int64,
+	snapshotBlockMap map[uint64]*ledger.SnapshotBlock) (*mockDB, error) {
 	db := &mockDB{currentAddr: addr,
 		latestSnapshotBlock:    latestSnapshotBlock,
 		prevAccountBlock:       prevAccountBlock,
@@ -47,6 +52,7 @@ func NewMockDB(addr *types.Address,
 		storageMap:             make(map[string]string),
 		contractMetaMap:        make(map[types.Address]*ledger.ContractMeta),
 		code:                   code,
+		forkSnapshotBlockMap:   snapshotBlockMap,
 	}
 	balanceMapCopy := make(map[types.TokenTypeId]*big.Int)
 	for tid, amount := range balanceMap {
@@ -69,6 +75,11 @@ func NewMockDB(addr *types.Address,
 		contractMetaMapCopy[k] = v
 	}
 	db.contractMetaMapOrigin = contractMetaMapCopy
+	genesisTime := time.Unix(genesisTimestamp, 0)
+	db.genesisBlock = &ledger.SnapshotBlock{
+		Height:    1,
+		Timestamp: &genesisTime,
+	}
 	return db, nil
 }
 
@@ -324,10 +335,10 @@ func (db *mockDB) GetUnconfirmedBlocks(address types.Address) []*ledger.AccountB
 	return nil
 }
 func (db *mockDB) GetGenesisSnapshotBlock() *ledger.SnapshotBlock {
-	return nil
+	return db.genesisBlock
 }
 func (db *mockDB) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
-	return nil, nil
+	return db.forkSnapshotBlockMap[height], nil
 }
 func (db *mockDB) GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.SnapshotBlock, error) {
 	return nil, nil

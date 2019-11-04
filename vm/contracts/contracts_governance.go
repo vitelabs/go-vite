@@ -885,14 +885,14 @@ func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) err
 		(types.IsContractAddr(block.AccountAddress) && !fork.IsStemFork(latestSb.Height)) {
 		return util.ErrInvalidMethodParam
 	}
-	gid := new(types.Gid)
-	err = abi.ABIGovernance.UnpackMethod(gid, p.MethodName, block.Data)
-	if err != nil || (!util.CheckFork(db, fork.IsEarthFork) && util.IsDelegateGid(*gid)) {
-		return util.ErrInvalidMethodParam
-	}
 	if p.MethodName == abi.MethodNameCancelVoteV3 {
 		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName)
 	} else {
+		gid := new(types.Gid)
+		err = abi.ABIGovernance.UnpackMethod(gid, p.MethodName, block.Data)
+		if err != nil || util.IsDelegateGid(*gid) {
+			return util.ErrInvalidMethodParam
+		}
 		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, *gid)
 	}
 	return nil

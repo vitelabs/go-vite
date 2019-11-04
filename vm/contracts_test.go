@@ -131,7 +131,7 @@ func TestContractsRegister(t *testing.T) {
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
 
-	reader := util.NewVMConsensusReader(newConsensusReaderTest(db.GetGenesisSnapshotBlock().Timestamp.Unix(), 24*3600))
+	reader := util.NewVMConsensusReader(newConsensusReaderTest(db.GetGenesisSnapshotBlock().Timestamp.Unix(), 24*3600, nil))
 	// register
 	balance1 := new(big.Int).Set(viteTotalSupply)
 	addr6, privateKey6, _ := types.CreateAddress()
@@ -1499,15 +1499,45 @@ func TestGenesisBlockData(t *testing.T) {
 }
 
 type emptyConsensusReaderTest struct {
-	ti timeIndex
+	ti        timeIndex
+	detailMap map[uint64]map[string]*ConsensusDetail
 }
 
-func newConsensusReaderTest(genesisTime int64, interval int64) *emptyConsensusReaderTest {
-	return &emptyConsensusReaderTest{timeIndex{time.Unix(genesisTime, 0), time.Second * time.Duration(interval)}}
+type ConsensusDetail struct {
+	BlockNum         uint64
+	ExpectedBlockNum uint64
+	VoteCount        *big.Int
+}
+
+func newConsensusReaderTest(genesisTime int64, interval int64, detailMap map[uint64]map[string]*ConsensusDetail) *emptyConsensusReaderTest {
+	return &emptyConsensusReaderTest{timeIndex{time.Unix(genesisTime, 0), time.Second * time.Duration(interval)}, detailMap}
 }
 
 func (r *emptyConsensusReaderTest) DayStats(startIndex uint64, endIndex uint64) ([]*core.DayStats, error) {
 	list := make([]*core.DayStats, 0)
+	if len(r.detailMap) == 0 {
+		return list, nil
+	}
+	for i := startIndex; i <= endIndex; i++ {
+		if i > endIndex {
+			break
+		}
+		m, ok := r.detailMap[i]
+		if !ok {
+			continue
+		}
+		blockNum := uint64(0)
+		expectedBlockNum := uint64(0)
+		voteCount := big.NewInt(0)
+		statusMap := make(map[string]*core.SbpStats, len(m))
+		for name, detail := range m {
+			blockNum = blockNum + detail.BlockNum
+			expectedBlockNum = expectedBlockNum + detail.ExpectedBlockNum
+			voteCount.Add(voteCount, detail.VoteCount)
+			statusMap[name] = &core.SbpStats{i, detail.BlockNum, detail.ExpectedBlockNum, &core.BigInt{detail.VoteCount}, name}
+		}
+		list = append(list, &core.DayStats{Index: i, Stats: statusMap, VoteSum: &core.BigInt{voteCount}, BlockTotal: blockNum})
+	}
 	return list, nil
 }
 func (r *emptyConsensusReaderTest) GetDayTimeIndex() core.TimeIndex {

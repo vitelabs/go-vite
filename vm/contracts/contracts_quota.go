@@ -460,7 +460,9 @@ func (p *MethodCancelStakeV3) GetFee(block *ledger.AccountBlock) (*big.Int, erro
 
 func (p *MethodCancelStakeV3) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
 	if p.MethodName == abi.MethodNameCancelStakeWithCallback {
-		callbackData, _ := abi.ABIQuota.PackCallback(p.MethodName, sendBlock.Hash, false)
+		id := new(types.Hash)
+		abi.ABIQuota.UnpackMethod(id, p.MethodName, sendBlock.Data)
+		callbackData, _ := abi.ABIQuota.PackCallback(p.MethodName, id, false)
 		return callbackData, true
 	}
 	return []byte{}, false
@@ -498,6 +500,7 @@ func (p *MethodCancelStakeV3) DoReceive(db vm_db.VmDb, block *ledger.AccountBloc
 	}
 	stakeInfo, err := abi.GetStakeInfoByKey(db, stakeInfoKey)
 	util.DealWithErr(err)
+	stakeInfo.StakeAddress = abi.GetStakeAddrFromStakeInfoKey(stakeInfoKey)
 	if stakeInfo == nil || stakeInfo.StakeAddress != sendBlock.AccountAddress || stakeNotDue(stakeInfo, vm) {
 		return nil, util.ErrInvalidMethodParam
 	}
@@ -521,20 +524,20 @@ func (p *MethodCancelStakeV3) DoReceive(db vm_db.VmDb, block *ledger.AccountBloc
 		util.SetValue(db, beneficialKey, stakeBeneficialAmount)
 	}
 
+	var callbackData []byte
 	if p.MethodName == abi.MethodNameCancelStakeWithCallback {
-		callbackData, _ := abi.ABIQuota.PackCallback(p.MethodName, sendBlock.Hash, true)
-		return []*ledger.AccountBlock{
-			{
-				AccountAddress: block.AccountAddress,
-				ToAddress:      sendBlock.AccountAddress,
-				BlockType:      ledger.BlockTypeSendCall,
-				Amount:         stakeInfo.Amount,
-				TokenId:        ledger.ViteTokenId,
-				Data:           callbackData,
-			},
-		}, nil
+		callbackData, _ = abi.ABIQuota.PackCallback(p.MethodName, id, true)
 	}
-	return nil, nil
+	return []*ledger.AccountBlock{
+		{
+			AccountAddress: block.AccountAddress,
+			ToAddress:      sendBlock.AccountAddress,
+			BlockType:      ledger.BlockTypeSendCall,
+			Amount:         stakeInfo.Amount,
+			TokenId:        ledger.ViteTokenId,
+			Data:           callbackData,
+		},
+	}, nil
 }
 
 func getNextStakeInfoKey(db vm_db.VmDb, stakeAddr types.Address, currentIndex uint64) []byte {

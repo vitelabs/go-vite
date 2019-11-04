@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -18,21 +17,12 @@ import (
 	"time"
 )
 
-// TODO delete test method
-func TestNewVM(t *testing.T) {
-	s := ""
-	for i := int64(1); i <= 100; i++ {
-		ib := big.NewInt(i).Bytes()
-		s = s + "600061" + hex.EncodeToString(helper.LeftPadBytes(ib, 2)) + "55"
-	}
-	fmt.Println(s)
-}
-
 type VMRunTestCase struct {
 	// global status
 	SbHeight uint64
 	SbTime   int64
 	SbHash   string
+	CsDetail map[uint64]map[string]*ConsensusDetail
 	// block
 	BlockType        byte
 	SendBlockType    byte
@@ -45,6 +35,7 @@ type VMRunTestCase struct {
 	Fee              string
 	Code             string
 	NeedGlobalStatus bool
+	BlockHeight      uint64
 	// environment
 	PledgeBeneficialAmount string
 	PreStorage             map[string]string
@@ -71,6 +62,11 @@ var (
 	// testContractAddr,_ = types.HexToAddress("vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86")
 )
 
+const (
+	genesisTimestamp int64 = 1546272000
+	csInterval       int64 = 24 * 3600
+)
+
 func TestVM_RunV2(t *testing.T) {
 	testDir := "./test/run_test/"
 	testFiles, ok := ioutil.ReadDir(testDir)
@@ -81,20 +77,16 @@ func TestVM_RunV2(t *testing.T) {
 		if testFile.IsDir() {
 			continue
 		}
-		// TODO delete
-		if testFile.Name() != "sstore.json" {
-			continue
-		}
 		file, ok := os.Open(testDir + testFile.Name())
 		if ok != nil {
 			t.Fatalf("open test file failed, %v", ok)
 		}
-		fmt.Println(testDir + testFile.Name())
 		testCaseMap := new(map[string]VMRunTestCase)
 		if ok := json.NewDecoder(file).Decode(testCaseMap); ok != nil {
 			t.Fatalf("decode test file %v failed, %v", testFile.Name(), ok)
 		}
 		for k, testCase := range *testCaseMap {
+			fmt.Println(testFile.Name() + ":" + k)
 			var currentTime time.Time
 			if testCase.SbTime > 0 {
 				currentTime = time.Unix(testCase.SbTime, 0)
@@ -168,7 +160,7 @@ func TestVM_RunV2(t *testing.T) {
 				sendBlock.AccountAddress = testCase.FromAddress
 				sendBlock.ToAddress = testCase.ToAddress
 				var newDbErr error
-				db, newDbErr = NewMockDB(&testCase.FromAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code)
+				db, newDbErr = NewMockDB(&testCase.FromAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code, genesisTimestamp, forkSnapshotBlockMap)
 				if newDbErr != nil {
 					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
 				}
@@ -206,13 +198,18 @@ func TestVM_RunV2(t *testing.T) {
 						Height:         prevBlock.Height + 1,
 						AccountAddress: testCase.ToAddress,
 					}
+					if testCase.BlockHeight > 1 {
+						receiveBlock.Height = testCase.BlockHeight
+						prevBlock.Height = testCase.BlockHeight - 1
+					}
 				}
 				var newDbErr error
-				db, newDbErr = NewMockDB(&testCase.ToAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code)
+				db, newDbErr = NewMockDB(&testCase.ToAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code, genesisTimestamp, forkSnapshotBlockMap)
 				if newDbErr != nil {
 					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
 				}
-				vm := NewVM(nil)
+				cs := util.NewVMConsensusReader(newConsensusReaderTest(genesisTimestamp, csInterval, testCase.CsDetail))
+				vm := NewVM(cs)
 				var status util.GlobalStatus
 				if testCase.NeedGlobalStatus {
 					status = NewTestGlobalStatus(0, latestSnapshotBlock)

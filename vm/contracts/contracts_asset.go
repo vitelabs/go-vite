@@ -381,12 +381,12 @@ func (p *MethodGetTokenInfo) GetFee(block *ledger.AccountBlock) (*big.Int, error
 	return big.NewInt(0), nil
 }
 func (p *MethodGetTokenInfo) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
-	param := new(abi.ParamGetTokenInfo)
-	abi.ABIAsset.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	var callbackData []byte
 	if p.MethodName == abi.MethodNameGetTokenInfoV3 {
-		callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, false, false, "", "", helper.Big0, uint8(0), helper.Big0, false, uint16(0), types.Address{})
+		callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, sendBlock.Hash, false, false, "", "", helper.Big0, uint8(0), helper.Big0, false, uint16(0), types.Address{})
 	} else {
+		param := new(abi.ParamGetTokenInfo)
+		abi.ABIAsset.UnpackMethod(param, p.MethodName, sendBlock.Data)
 		callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, param.Bid, false, uint8(0), "", uint16(0), types.Address{})
 	}
 	return callbackData, true
@@ -422,13 +422,13 @@ func (p *MethodGetTokenInfo) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock
 	var callbackData []byte
 	if tokenInfo != nil {
 		if p.MethodName == abi.MethodNameGetTokenInfoV3 {
-			callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, true, tokenInfo.Decimals, tokenInfo.IsReIssuable, tokenInfo.TokenName, tokenInfo.TokenSymbol, tokenInfo.TotalSupply, tokenInfo.Decimals, tokenInfo.MaxSupply, tokenInfo.OwnerBurnOnly, tokenInfo.Index, tokenInfo.Owner)
+			callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, sendBlock.Hash, true, tokenInfo.IsReIssuable, tokenInfo.TokenName, tokenInfo.TokenSymbol, tokenInfo.TotalSupply, tokenInfo.Decimals, tokenInfo.MaxSupply, tokenInfo.OwnerBurnOnly, tokenInfo.Index, tokenInfo.Owner)
 		} else {
 			callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, param.Bid, true, tokenInfo.Decimals, tokenInfo.TokenSymbol, tokenInfo.Index, tokenInfo.Owner)
 		}
 	} else {
 		if p.MethodName == abi.MethodNameGetTokenInfoV3 {
-			callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, false, false, "", "", helper.Big0, uint8(0), helper.Big0, false, uint16(0), types.Address{})
+			callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, sendBlock.Hash, false, false, "", "", helper.Big0, uint8(0), helper.Big0, false, uint16(0), types.Address{})
 		} else {
 			callbackData, _ = abi.ABIAsset.PackCallback(p.MethodName, param.TokenId, param.Bid, false, uint8(0), "", uint16(0), types.Address{})
 		}
