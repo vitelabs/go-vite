@@ -260,15 +260,20 @@ func TestVM_RunV2(t *testing.T) {
 					} else if expected := append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, byte(2)); err != nil && err.Error() == util.ErrDepth.Error() && !bytes.Equal(vmBlock.AccountBlock.Data, expected) {
 						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", bytesToString(expected), "got", bytesToString(vmBlock.AccountBlock.Data))
 					}
+					if testCase.SendBlockType == ledger.BlockTypeSendCreate {
+						if got := hex.EncodeToString(db.code); got != testCase.Code {
+							t.Fatal("invalid test case run result, result code", "filename", testFile.Name(), "caseName", k, "expected", testCase.Code, "got", got)
+						}
+					}
 				} else if vmBlock.AccountBlock.IsReceiveBlock() {
 					if len(vmBlock.AccountBlock.Data) > 0 {
-						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", "nil", "got", bytesToString(vmBlock.AccountBlock.Data))
+						t.Fatal("invalid test case run result, receive block data", "filename", testFile.Name(), "caseName", k, "expected", "nil", "got", bytesToString(vmBlock.AccountBlock.Data))
 					}
 				} else {
 					if testCase.BlockData == nil && !bytes.Equal(vmBlock.AccountBlock.Data, stringToBytes(testCase.Data)) {
-						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", testCase.Data, "got", bytesToString(vmBlock.AccountBlock.Data))
+						t.Fatal("invalid test case run result, send block data", "filename", testFile.Name(), "caseName", k, "expected", testCase.Data, "got", bytesToString(vmBlock.AccountBlock.Data))
 					} else if testCase.BlockData != nil && !bytes.Equal(vmBlock.AccountBlock.Data, stringToBytes(*testCase.BlockData)) {
-						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", testCase.BlockData, "got", bytesToString(vmBlock.AccountBlock.Data))
+						t.Fatal("invalid test case run result, send block data", "filename", testFile.Name(), "caseName", k, "expected", testCase.BlockData, "got", bytesToString(vmBlock.AccountBlock.Data))
 					}
 				}
 			} else if vmBlock != nil {
