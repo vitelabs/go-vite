@@ -163,6 +163,36 @@ func GetStakeInfoList(db StorageDatabase, stakeAddr types.Address) ([]*types.Sta
 	return stakeInfoList, stakeAmount, nil
 }
 
+func GetStakeExpirationHeight(db StorageDatabase, list []*types.StakeInfo) ([]*types.StakeInfo, error) {
+	if *db.Address() != types.AddressQuota {
+		return nil, util.ErrAddressNotMatch
+	}
+	for _, s := range list {
+		var stakeInfo *types.StakeInfo
+		var err error
+		if s.Id == nil {
+			stakeInfo, err = GetStakeInfo(db, s.StakeAddress, s.Beneficiary, s.DelegateAddress, s.IsDelegated, s.Bid)
+		} else {
+			stakeInfoKey, err := db.GetValue(s.Id.Bytes())
+			if err != nil {
+				return nil, err
+			}
+			if len(stakeInfoKey) == 0 {
+				return nil, util.ErrChainForked
+			}
+			stakeInfo, err = GetStakeInfoByKey(db, stakeInfoKey)
+		}
+		if err != nil {
+			return nil, err
+		} else if stakeInfo == nil {
+			return nil, util.ErrChainForked
+		} else {
+			s.ExpirationHeight = stakeInfo.ExpirationHeight
+		}
+	}
+	return list, nil
+}
+
 // GetStakeBeneficialAmount query stake amount of beneficiary
 func GetStakeBeneficialAmount(db StorageDatabase, beneficiary types.Address) (*big.Int, error) {
 	if *db.Address() != types.AddressQuota {
