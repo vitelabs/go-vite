@@ -76,7 +76,6 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	}
 
 	// set fork points
-	fork.SetSingle(cfg.Single)
 	fork.SetForkPoints(cfg.ForkPoints)
 
 	// chain

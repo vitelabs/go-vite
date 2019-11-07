@@ -9,7 +9,6 @@ import (
 )
 
 var forkPoints config.ForkPoints
-var single = false
 
 type ForkPointItem struct {
 	config.ForkPoint
@@ -33,10 +32,6 @@ func IsInitForkPoint() bool {
 }
 func IsInitActiveChecker() bool {
 	return activeChecker != nil
-}
-
-func SetSingle(s bool) {
-	single = s
 }
 
 func SetForkPoints(points *config.ForkPoints) {
@@ -257,8 +252,5 @@ func GetLastForkPoint() *ForkPointItem {
 }
 
 func IsForkActive(point ForkPointItem) bool {
-	if single {
-		return true
-	}
 	return activeChecker.IsForkActive(point)
 }
