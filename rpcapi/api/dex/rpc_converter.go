@@ -2,8 +2,11 @@ package dex
 
 import (
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type DividendPoolInfo struct {
@@ -421,4 +424,55 @@ func OrdersToRpc(orders []*dex.Order) []*RpcOrder {
 		}
 		return rpcOrders
 	}
+}
+
+type StakeInfoList struct {
+	StakeAmount string       `json:"totalStakeAmount"`
+	Count       int          `json:"totalStakeCount"`
+	StakeList   []*StakeInfo `json:"stakeList"`
+}
+
+type StakeInfo struct {
+	Amount           string        `json:"stakeAmount"`
+	Beneficiary      string        `json:"beneficiary"`
+	ExpirationHeight string        `json:"expirationHeight"`
+	ExpirationTime   int64         `json:"expirationTime"`
+	IsDelegated      bool          `json:"isDelegated"`
+	DelegateAddress  string        `json:"delegateAddress"`
+	StakeAddress     string        `json:"stakeAddress"`
+	Bid              uint8         `json:"bid"`
+	Id               string   `json:"id"`
+	Principal        string `json:"principal"`
+}
+
+func QuotaStakeListToDexRpc(quotaList *api.StakeInfoList, chain chain.Chain, getVmDb func(chain.Chain, types.Address)(vm_db.VmDb, error)) *StakeInfoList {
+	var db *vm_db.VmDb
+	list := new(StakeInfoList)
+	list.StakeAmount = quotaList.StakeAmount
+	list.Count = quotaList.Count
+	for _, quotaInfo := range quotaList.StakeList {
+		info := new(StakeInfo)
+		info.Amount = quotaInfo.Amount
+		info.Beneficiary = quotaInfo.Beneficiary.String()
+		info.ExpirationHeight = quotaInfo.ExpirationHeight
+		info.ExpirationTime = quotaInfo.ExpirationTime
+		info.IsDelegated = quotaInfo.IsDelegated
+		info.DelegateAddress = quotaInfo.DelegateAddress.String()
+		info.StakeAddress = quotaInfo.StakeAddress.String()
+		info.Bid = quotaInfo.Bid
+		if quotaInfo.Id != nil {
+			info.Id = quotaInfo.Id.String()
+		}
+		if quotaInfo.Bid == dex.StakeForPrincipalSuperVIP {
+			if db == nil {
+				*db, _= getVmDb(chain, types.AddressDexFund)
+			}
+			if dexStakeInfo, ok := dex.GetDelegateStakeInfo(*db, *quotaInfo.Id); ok {
+				if principal, err := types.BytesToAddress(dexStakeInfo.Principal); err == nil {
+					info.Principal = principal.String()
+				}
+			}
+		}
+	}
+	return list
 }

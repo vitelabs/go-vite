@@ -14,6 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
+	"math/big"
 	"sort"
 	"time"
 )
@@ -198,7 +199,13 @@ func (p *ContractApi) GetStakeList(address types.Address, pageIndex int, pageSiz
 	if err != nil {
 		return nil, err
 	}
-	list, amount, err := abi.GetStakeInfoList(db, address)
+	return innerGetStakeList(db, address, pageIndex, pageSize, func()([]*types.StakeInfo, *big.Int, error){
+		return abi.GetStakeInfoList(db, address)
+	})
+}
+
+func innerGetStakeList(db vm_db.VmDb, address types.Address, pageIndex int, pageSize int, getStakeList func()([]*types.StakeInfo, *big.Int, error))(*StakeInfoList, error) {
+	list, amount, err := getStakeList()
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 )
@@ -313,6 +314,30 @@ func (f DexApi) GetOrdersForMarket(tradeToken, quoteToken types.TokenTypeId, sid
 			}
 		}
 	}
+}
+
+func (f DexApi) GetVIPStakeInfoList(address types.Address, pageIndex int, pageSize int) (*apidex.StakeInfoList, error) {
+	db, err := getVmDb(f.chain, types.AddressQuota)
+	if err != nil {
+		return nil, err
+	}
+	quotaList, err := innerGetStakeList(db, address, pageIndex, pageSize, func()([]*types.StakeInfo, *big.Int, error){
+		return abi.GetDelegateStakeInfoListByBids(db, address, types.AddressDexFund, []uint8{dex.StakeForVIP, dex.StakeForSuperVIP, dex.StakeForPrincipalSuperVIP})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return apidex.QuotaStakeListToDexRpc(quotaList, f.chain, getVmDb), nil
+}
+
+func (f DexApi) GetMiningStakeInfoList(address types.Address, pageIndex int, pageSize int) (*StakeInfoList, error) {
+	db, err := getVmDb(f.chain, types.AddressQuota)
+	if err != nil {
+		return nil, err
+	}
+	return innerGetStakeList(db, address, pageIndex, pageSize, func()([]*types.StakeInfo, *big.Int, error){
+		return abi.GetDelegateStakeInfoListByBids(db, address, types.AddressDexFund, []uint8{dex.StakeForMining})
+	})
 }
 
 type DexPrivateApi struct {

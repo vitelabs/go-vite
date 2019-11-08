@@ -127,7 +127,7 @@ func cancelStakeRequest(db vm_db.VmDb, address, principal types.Address, stakeTy
 			return nil, SuperVIPStakingNotExistsErr
 		}
 	}
-	if stakeType == StakeForMining || !IsVipStakingWithId(vipStaking) {
+	if stakeType == StakeForMining || !IsVipStakingWithId(vipStaking) { // cancel by
 		var cancelStakeMethod = abi.MethodNameCancelDelegateStakeV2
 		if !IsLeafFork(db) {
 			cancelStakeMethod = abi.MethodNameCancelDelegateStake
