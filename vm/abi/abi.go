@@ -132,7 +132,7 @@ func (abi ABIContract) UnpackEvent(v interface{}, name string, input []byte) (er
 		return errEmptyInput
 	}
 	if event, ok := abi.Events[name]; ok {
-		return event.Inputs.Unpack(v, input)
+		return event.NonIndexedInputs.Unpack(v, input)
 	}
 	return errCouldNotLocateNamedEvent
 }
@@ -206,9 +206,12 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 		case "offchain":
 			abi.OffChains[field.Name] = newMethod(field.Name, field.Inputs, field.Outputs)
 		case "event":
+			indexed, nonIndexed := getEventInputs(field.Inputs)
 			abi.Events[field.Name] = Event{
-				Name:   field.Name,
-				Inputs: field.Inputs,
+				Name:             field.Name,
+				Inputs:           field.Inputs,
+				IndexedInputs:    indexed,
+				NonIndexedInputs: nonIndexed,
 			}
 		case "variable":
 			if len(field.Inputs) == 0 {
@@ -223,6 +226,16 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func getEventInputs(args []Argument) (indexed, nonIndexed []Argument) {
+	for _, arg := range args {
+		if arg.Indexed {
+			indexed = append(indexed, arg)
+		} else {
+			nonIndexed = append(nonIndexed, arg)
+		}
+	}
+	return
+}
 func getCallBackName(name string) string {
 	return name + "Callback"
 }

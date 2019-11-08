@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"testing"
 )
@@ -35,7 +36,7 @@ func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contrac
 		BlockType:  ledger.BlockTypeReceive,
 		Difficulty: big.NewInt(67108863),
 	}
-	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase(), block: receiveCallBlock, sendBlock: sendCallBlock}
+	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase(), block: receiveCallBlock, sendBlock: sendCallBlock}
 	stack := newStack()
 
 	// convert args
@@ -53,7 +54,7 @@ func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contrac
 		op(&pc, vm, c, nil, stack)
 		stack.pop()
 	}
-	poolOfIntPools.put(c.intPool)
+	util.PoolOfIntPools.Put(c.intPool)
 }
 
 func BenchmarkOpAdd64(b *testing.B) {
@@ -281,7 +282,7 @@ func TestByteOp(t *testing.T) {
 	}
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase()}
+	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase()}
 	stack := newStack()
 	pc := uint64(0)
 	for _, test := range tests {
@@ -296,13 +297,13 @@ func TestByteOp(t *testing.T) {
 			t.Fatalf("Expected  [%v] %v:th byte to be %v, was %v.", test.v, test.th, test.expected, actual)
 		}
 	}
-	poolOfIntPools.put(c.intPool)
+	util.PoolOfIntPools.Put(c.intPool)
 }
 
 func testTwoOperandOp(t *testing.T, tests []twoOperandTest, opFn func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error)) {
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase()}
+	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase()}
 	stack := newStack()
 	pc := uint64(0)
 	for i, test := range tests {
@@ -318,7 +319,7 @@ func testTwoOperandOp(t *testing.T, tests []twoOperandTest, opFn func(pc *uint64
 			t.Errorf("Testcase %d, expected  %v, got %v", i, expectedInt, actual)
 		}
 	}
-	poolOfIntPools.put(c.intPool)
+	util.PoolOfIntPools.Put(c.intPool)
 }
 
 func TestSHL(t *testing.T) {
@@ -418,7 +419,7 @@ func TestSLT(t *testing.T) {
 func TestOpMstore(t *testing.T) {
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase()}
+	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase()}
 	stack := newStack()
 	mem := newMemory()
 	mem.resize(64)
@@ -437,13 +438,13 @@ func TestOpMstore(t *testing.T) {
 	if hex.EncodeToString(mem.get(0, 32)) != "0000000000000000000000000000000000000000000000000000000000000001" {
 		t.Fatalf("Mstore failed to overwrite previous value")
 	}
-	poolOfIntPools.put(c.intPool)
+	util.PoolOfIntPools.Put(c.intPool)
 }
 
 func BenchmarkOpMstore(bench *testing.B) {
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: poolOfIntPools.get(), db: newNoDatabase()}
+	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase()}
 	stack := newStack()
 	mem := newMemory()
 	mem.resize(64)
@@ -457,7 +458,7 @@ func BenchmarkOpMstore(bench *testing.B) {
 		stack.push(memStart)
 		opMstore(&pc, vm, c, mem, stack)
 	}
-	poolOfIntPools.put(c.intPool)
+	util.PoolOfIntPools.Put(c.intPool)
 }
 
 func BenchmarkRandom(b *testing.B) {
