@@ -194,6 +194,7 @@ type QuotaTable struct {
 
 	RegisterQuota                           uint64
 	UpdateBlockProducingAddressQuota        uint64
+	UpdateRewardWithdrawAddressQuota        uint64
 	RevokeQuota                             uint64
 	WithdrawRewardQuota                     uint64
 	VoteQuota                               uint64
@@ -235,12 +236,14 @@ type QuotaTable struct {
 
 // QuotaTableByHeight returns different quota table by hard fork version
 func QuotaTableByHeight(sbHeight uint64) *QuotaTable {
-	if !fork.IsDexFork(sbHeight) {
-		return &initQuotaTable
-	} else if !fork.IsStemFork(sbHeight) {
+	if fork.IsEarthFork(sbHeight) {
+		return &earthQuotaTable
+	} else if fork.IsStemFork(sbHeight) {
+		return &dexAgentQuotaTable
+	} else if fork.IsDexFork(sbHeight) {
 		return &viteQuotaTable
 	}
-	return &dexAgentQuotaTable
+	return &initQuotaTable
 }
 
 var (
@@ -343,6 +346,7 @@ var (
 
 	viteQuotaTable     = newViteQuotaTable()
 	dexAgentQuotaTable = newDexAgentQuotaTable()
+	earthQuotaTable    = newEarthQuotaTable()
 )
 
 func newViteQuotaTable() QuotaTable {
@@ -471,5 +475,11 @@ func newDexAgentQuotaTable() QuotaTable {
 	gt.DexFundStakeForSuperVIPQuota = 33600
 	gt.DexFundConfigMarketAgentsQuota = 8400
 	gt.DexFunPlaceAgentOrderQuota = 25200
+	return gt
+}
+
+func newEarthQuotaTable() QuotaTable {
+	gt := newDexAgentQuotaTable()
+	gt.UpdateRewardWithdrawAddressQuota = 168000
 	return gt
 }

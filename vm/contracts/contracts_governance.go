@@ -2,10 +2,6 @@ package contracts
 
 import (
 	"github.com/vitelabs/go-vite/common/fork"
-	"math/big"
-	"regexp"
-	"runtime/debug"
-
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
@@ -13,6 +9,10 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
+	"math/big"
+	"regexp"
+	"runtime/debug"
+	"strings"
 )
 
 type MethodRegister struct {
@@ -37,10 +37,17 @@ func (p *MethodRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error
 	if err := abi.ABIGovernance.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
+	if p.MethodName == abi.MethodNameRegisterV3 {
+		param.Gid = types.SNAPSHOT_GID
+	}
 	if !checkRegisterAndVoteParam(param.Gid, param.SbpName) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName, param.BlockProducingAddress)
+	if p.MethodName == abi.MethodNameRegisterV3 {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName, param.BlockProducingAddress, param.RewardWithdrawAddress)
+	} else {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName, param.BlockProducingAddress)
+	}
 	return nil
 }
 
@@ -60,13 +67,13 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 	// Check param by group info
 	param := new(abi.ParamRegister)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
-	snapshotBlock := vm.GlobalStatus().SnapshotBlock()
-	groupInfo, err := abi.GetConsensusGroup(db, param.Gid)
-	util.DealWithErr(err)
-	if groupInfo == nil {
-		return nil, util.ErrInvalidMethodParam
+	if p.MethodName == abi.MethodNameRegisterV3 {
+		param.Gid = types.SNAPSHOT_GID
+	} else {
+		param.RewardWithdrawAddress = sendBlock.AccountAddress
 	}
-	stakeParam, _ := abi.GetRegisterStakeParamOfConsensusGroup(groupInfo.RegisterConditionParam)
+
+	snapshotBlock := vm.GlobalStatus().SnapshotBlock()
 	sb, err := db.LatestSnapshotBlock()
 	if isLeafFork := fork.IsLeafFork(sb.Height); (!isLeafFork && sendBlock.Amount.Cmp(SbpStakeAmountPreMainnet) != 0) ||
 		(isLeafFork && sendBlock.Amount.Cmp(SbpStakeAmountMainnet) != 0) ||
@@ -83,6 +90,7 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 	old, err := abi.GetRegistration(db, param.Gid, param.SbpName)
 	util.DealWithErr(err)
 	var hisAddrList []types.Address
+	var oldWithdrawRewardAddress *types.Address
 	if old != nil {
 		if old.IsActive() || old.StakeAddress != sendBlock.AccountAddress {
 			return nil, util.ErrInvalidMethodParam
@@ -94,6 +102,7 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 			return nil, util.ErrRewardIsNotDrained
 		}
 		hisAddrList = old.HisAddrList
+		oldWithdrawRewardAddress = &old.RewardWithdrawAddress
 	}
 
 	// check node addr belong to one name in a consensus group
@@ -112,18 +121,89 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 		}
 	}
 
-	registerInfo, _ := abi.ABIGovernance.PackVariable(
-		abi.VariableNameRegistrationInfo,
-		param.SbpName,
-		param.BlockProducingAddress,
-		sendBlock.AccountAddress,
-		sendBlock.Amount,
-		snapshotBlock.Height+stakeParam.StakeHeight,
-		rewardTime,
-		int64(0),
-		hisAddrList)
+	groupInfo, err := abi.GetConsensusGroup(db, param.Gid)
+	util.DealWithErr(err)
+	if groupInfo == nil {
+		return nil, util.ErrInvalidMethodParam
+	}
+	stakeParam, _ := abi.GetRegisterStakeParamOfConsensusGroup(groupInfo.RegisterConditionParam)
+
+	var registerInfo []byte
+	if fork.IsEarthFork(sb.Height) {
+		// save withdraw reward address -> sbp name
+		saveWithdrawRewardAddress(db, oldWithdrawRewardAddress, param.RewardWithdrawAddress, sendBlock.AccountAddress, param.SbpName)
+		registerInfo, _ = abi.ABIGovernance.PackVariable(
+			abi.VariableNameRegistrationInfoV2,
+			param.SbpName,
+			param.BlockProducingAddress,
+			param.RewardWithdrawAddress,
+			sendBlock.AccountAddress,
+			sendBlock.Amount,
+			snapshotBlock.Height+stakeParam.StakeHeight,
+			rewardTime,
+			int64(0),
+			hisAddrList)
+	} else {
+		registerInfo, _ = abi.ABIGovernance.PackVariable(
+			abi.VariableNameRegistrationInfo,
+			param.SbpName,
+			param.BlockProducingAddress,
+			sendBlock.AccountAddress,
+			sendBlock.Amount,
+			snapshotBlock.Height+stakeParam.StakeHeight,
+			rewardTime,
+			int64(0),
+			hisAddrList)
+	}
 	util.SetValue(db, abi.GetRegistrationInfoKey(param.SbpName, param.Gid), registerInfo)
 	return nil, nil
+}
+
+func saveWithdrawRewardAddress(db vm_db.VmDb, oldAddr *types.Address, newAddr, owner types.Address, sbpName string) {
+	if oldAddr == nil {
+		if newAddr == owner {
+			return
+		}
+		addWithdrawRewardAddress(db, newAddr, sbpName)
+		return
+	}
+	if *oldAddr == newAddr {
+		return
+	}
+	if *oldAddr == owner {
+		addWithdrawRewardAddress(db, newAddr, sbpName)
+		return
+	}
+	if newAddr == owner {
+		deleteWithdrawRewardAddress(db, *oldAddr, sbpName)
+		return
+	}
+	deleteWithdrawRewardAddress(db, *oldAddr, sbpName)
+	addWithdrawRewardAddress(db, newAddr, sbpName)
+}
+
+func addWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string) {
+	value := util.GetValue(db, addr.Bytes())
+	if len(value) == 0 {
+		value = []byte(sbpName)
+	} else {
+		value = []byte(string(value) + abi.WithdrawRewardAddressSeparation + sbpName)
+	}
+	util.SetValue(db, addr.Bytes(), value)
+}
+func deleteWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string) {
+	value := util.GetValue(db, addr.Bytes())
+	valueStr := string(value)
+	// equal, prefix, suffix, middle
+	if valueStr == sbpName {
+		util.SetValue(db, addr.Bytes(), nil)
+	} else if strings.HasPrefix(valueStr, sbpName+abi.WithdrawRewardAddressSeparation) {
+		util.SetValue(db, addr.Bytes(), []byte(valueStr[len(sbpName)+1:]))
+	} else if strings.HasSuffix(valueStr, abi.WithdrawRewardAddressSeparation+sbpName) {
+		util.SetValue(db, addr.Bytes(), []byte(valueStr[:len(valueStr)-len(sbpName)-1]))
+	} else if startIndex := strings.Index(valueStr, abi.WithdrawRewardAddressSeparation+sbpName+abi.WithdrawRewardAddressSeparation); startIndex > 0 {
+		util.SetValue(db, addr.Bytes(), append([]byte(valueStr[:startIndex]+valueStr[startIndex+len(sbpName)+1:])))
+	}
 }
 
 type MethodRevoke struct {
@@ -151,15 +231,25 @@ func (p *MethodRevoke) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if err := abi.ABIGovernance.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
+	if p.MethodName == abi.MethodNameRevokeV3 {
+		param.Gid = types.SNAPSHOT_GID
+	}
 	if !checkRegisterAndVoteParam(param.Gid, param.SbpName) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName)
+	if p.MethodName == abi.MethodNameRevokeV3 {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName)
+	} else {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName)
+	}
 	return nil
 }
 func (p *MethodRevoke) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelRegister)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
+	if p.MethodName == abi.MethodNameRevokeV3 {
+		param.Gid = types.SNAPSHOT_GID
+	}
 	snapshotBlock := vm.GlobalStatus().SnapshotBlock()
 	old, err := abi.GetRegistration(db, param.Gid, param.SbpName)
 	util.DealWithErr(err)
@@ -174,16 +264,31 @@ func (p *MethodRevoke) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, send
 	if drained {
 		rewardTime = -1
 	}
-	registerInfo, _ := abi.ABIGovernance.PackVariable(
-		abi.VariableNameRegistrationInfo,
-		old.Name,
-		old.BlockProducingAddress,
-		old.StakeAddress,
-		helper.Big0,
-		uint64(0),
-		rewardTime,
-		revokeTime,
-		old.HisAddrList)
+	var registerInfo []byte
+	if fork.IsEarthFork(snapshotBlock.Height) {
+		registerInfo, _ = abi.ABIGovernance.PackVariable(
+			abi.VariableNameRegistrationInfoV2,
+			old.Name,
+			old.BlockProducingAddress,
+			old.RewardWithdrawAddress,
+			old.StakeAddress,
+			helper.Big0,
+			uint64(0),
+			rewardTime,
+			revokeTime,
+			old.HisAddrList)
+	} else {
+		registerInfo, _ = abi.ABIGovernance.PackVariable(
+			abi.VariableNameRegistrationInfo,
+			old.Name,
+			old.BlockProducingAddress,
+			old.StakeAddress,
+			helper.Big0,
+			uint64(0),
+			rewardTime,
+			revokeTime,
+			old.HisAddrList)
+	}
 	util.SetValue(db, abi.GetRegistrationInfoKey(param.SbpName, param.Gid), registerInfo)
 	if old.Amount.Sign() > 0 {
 		return []*ledger.AccountBlock{
@@ -226,18 +331,31 @@ func (p *MethodWithdrawReward) DoSend(db vm_db.VmDb, block *ledger.AccountBlock)
 	if err := abi.ABIGovernance.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
+	if p.MethodName == abi.MethodNameWithdrawRewardV3 {
+		param.Gid = types.SNAPSHOT_GID
+	}
 	if !util.IsSnapshotGid(param.Gid) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName, param.ReceiveAddress)
+	if p.MethodName == abi.MethodNameWithdrawRewardV3 {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName, param.ReceiveAddress)
+	} else {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName, param.ReceiveAddress)
+	}
 	return nil
 }
 func (p *MethodWithdrawReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamReward)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
+	if p.MethodName == abi.MethodNameWithdrawRewardV3 {
+		param.Gid = types.SNAPSHOT_GID
+	}
 	old, err := abi.GetRegistration(db, param.Gid, param.SbpName)
 	util.DealWithErr(err)
-	if old == nil || sendBlock.AccountAddress != old.StakeAddress || old.RewardTime == -1 {
+	sb, err := db.LatestSnapshotBlock()
+	util.DealWithErr(err)
+	if old == nil || old.RewardTime == -1 ||
+		(sendBlock.AccountAddress != old.StakeAddress && sendBlock.AccountAddress != old.RewardWithdrawAddress) {
 		return nil, util.ErrInvalidMethodParam
 	}
 	_, endTime, reward, drained, err := CalcReward(vm.ConsensusReader(), db, old, vm.GlobalStatus().SnapshotBlock())
@@ -246,16 +364,31 @@ func (p *MethodWithdrawReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlo
 		endTime = -1
 	}
 	if endTime != old.RewardTime {
-		registerInfo, _ := abi.ABIGovernance.PackVariable(
-			abi.VariableNameRegistrationInfo,
-			old.Name,
-			old.BlockProducingAddress,
-			old.StakeAddress,
-			old.Amount,
-			old.ExpirationHeight,
-			endTime,
-			old.RevokeTime,
-			old.HisAddrList)
+		var registerInfo []byte
+		if fork.IsEarthFork(sb.Height) {
+			registerInfo, _ = abi.ABIGovernance.PackVariable(
+				abi.VariableNameRegistrationInfoV2,
+				old.Name,
+				old.BlockProducingAddress,
+				old.RewardWithdrawAddress,
+				old.StakeAddress,
+				old.Amount,
+				old.ExpirationHeight,
+				endTime,
+				old.RevokeTime,
+				old.HisAddrList)
+		} else {
+			registerInfo, _ = abi.ABIGovernance.PackVariable(
+				abi.VariableNameRegistrationInfo,
+				old.Name,
+				old.BlockProducingAddress,
+				old.StakeAddress,
+				old.Amount,
+				old.ExpirationHeight,
+				endTime,
+				old.RevokeTime,
+				old.HisAddrList)
+		}
 		util.SetValue(db, abi.GetRegistrationInfoKey(param.SbpName, param.Gid), registerInfo)
 
 		if reward != nil && reward.TotalReward.Sign() > 0 {
@@ -533,15 +666,25 @@ func (p *MethodUpdateBlockProducingAddress) DoSend(db vm_db.VmDb, block *ledger.
 	if err := abi.ABIGovernance.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
+	if p.MethodName == abi.MethodNameUpdateBlockProducintAddressV3 {
+		param.Gid = types.SNAPSHOT_GID
+	}
 	if !checkRegisterAndVoteParam(param.Gid, param.SbpName) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName, param.BlockProducingAddress)
+	if p.MethodName == abi.MethodNameUpdateBlockProducintAddressV3 {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName, param.BlockProducingAddress)
+	} else {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName, param.BlockProducingAddress)
+	}
 	return nil
 }
 func (p *MethodUpdateBlockProducingAddress) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamRegister)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
+	if p.MethodName == abi.MethodNameUpdateBlockProducintAddressV3 {
+		param.Gid = types.SNAPSHOT_GID
+	}
 	old, err := abi.GetRegistration(db, param.Gid, param.SbpName)
 	util.DealWithErr(err)
 	if old == nil || !old.IsActive() ||
@@ -564,10 +707,85 @@ func (p *MethodUpdateBlockProducingAddress) DoReceive(db vm_db.VmDb, block *ledg
 			return nil, util.ErrInvalidMethodParam
 		}
 	}
+	var registerInfo []byte
+	if util.CheckFork(db, fork.IsEarthFork) {
+		registerInfo, _ = abi.ABIGovernance.PackVariable(
+			abi.VariableNameRegistrationInfoV2,
+			old.Name,
+			param.BlockProducingAddress,
+			old.RewardWithdrawAddress,
+			old.StakeAddress,
+			old.Amount,
+			old.ExpirationHeight,
+			old.RewardTime,
+			old.RevokeTime,
+			old.HisAddrList)
+	} else {
+		registerInfo, _ = abi.ABIGovernance.PackVariable(
+			abi.VariableNameRegistrationInfo,
+			old.Name,
+			param.BlockProducingAddress,
+			old.StakeAddress,
+			old.Amount,
+			old.ExpirationHeight,
+			old.RewardTime,
+			old.RevokeTime,
+			old.HisAddrList)
+	}
+	util.SetValue(db, abi.GetRegistrationInfoKey(param.SbpName, param.Gid), registerInfo)
+	return nil, nil
+}
+
+type MethodUpdateRewardWithdrawAddress struct {
+	MethodName string
+}
+
+func (p *MethodUpdateRewardWithdrawAddress) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (p *MethodUpdateRewardWithdrawAddress) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+	return []byte{}, false
+}
+func (p *MethodUpdateRewardWithdrawAddress) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+	return gasTable.UpdateRewardWithdrawAddressQuota, nil
+}
+func (p *MethodUpdateRewardWithdrawAddress) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+	return 0
+}
+
+func (p *MethodUpdateRewardWithdrawAddress) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	if block.Amount.Sign() != 0 {
+		return util.ErrInvalidMethodParam
+	}
+	param := new(abi.ParamRegister)
+	if err := abi.ABIGovernance.UnpackMethod(param, p.MethodName, block.Data); err != nil {
+		return util.ErrInvalidMethodParam
+	}
+	param.Gid = types.SNAPSHOT_GID
+	if !checkRegisterAndVoteParam(param.Gid, param.SbpName) {
+		return util.ErrInvalidMethodParam
+	}
+	block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName, param.RewardWithdrawAddress)
+	return nil
+}
+func (p *MethodUpdateRewardWithdrawAddress) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	param := new(abi.ParamRegister)
+	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
+	param.Gid = types.SNAPSHOT_GID
+	old, err := abi.GetRegistration(db, param.Gid, param.SbpName)
+	util.DealWithErr(err)
+	if old == nil || !old.IsActive() ||
+		old.StakeAddress != sendBlock.AccountAddress ||
+		old.RewardWithdrawAddress == param.RewardWithdrawAddress {
+		return nil, util.ErrInvalidMethodParam
+	}
+	saveWithdrawRewardAddress(db, &old.RewardWithdrawAddress, param.RewardWithdrawAddress, old.StakeAddress, old.Name)
 	registerInfo, _ := abi.ABIGovernance.PackVariable(
-		abi.VariableNameRegistrationInfo,
+		abi.VariableNameRegistrationInfoV2,
 		old.Name,
-		param.BlockProducingAddress,
+		old.BlockProducingAddress,
+		param.RewardWithdrawAddress,
 		old.StakeAddress,
 		old.Amount,
 		old.ExpirationHeight,
@@ -606,16 +824,26 @@ func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	if err := abi.ABIGovernance.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
 	}
+	if p.MethodName == abi.MethodNameVoteV3 {
+		param.Gid = types.SNAPSHOT_GID
+	}
 	if !checkRegisterAndVoteParam(param.Gid, param.SbpName) {
 		return util.ErrInvalidMethodParam
 	}
-	block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName)
+	if p.MethodName == abi.MethodNameVoteV3 {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName)
+	} else {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName)
+	}
 	return nil
 }
 
 func (p *MethodVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamVote)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
+	if p.MethodName == abi.MethodNameVoteV3 {
+		param.Gid = types.SNAPSHOT_GID
+	}
 	consensusGroupInfo, err := abi.GetConsensusGroup(db, param.Gid)
 	util.DealWithErr(err)
 	if consensusGroupInfo == nil {
@@ -657,18 +885,25 @@ func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) err
 		(types.IsContractAddr(block.AccountAddress) && !fork.IsStemFork(latestSb.Height)) {
 		return util.ErrInvalidMethodParam
 	}
-	gid := new(types.Gid)
-	err = abi.ABIGovernance.UnpackMethod(gid, p.MethodName, block.Data)
-	if err != nil || util.IsDelegateGid(*gid) {
-		return util.ErrInvalidMethodParam
+	if p.MethodName == abi.MethodNameCancelVoteV3 {
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName)
+	} else {
+		gid := new(types.Gid)
+		err = abi.ABIGovernance.UnpackMethod(gid, p.MethodName, block.Data)
+		if err != nil || util.IsDelegateGid(*gid) {
+			return util.ErrInvalidMethodParam
+		}
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, *gid)
 	}
-	block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, *gid)
 	return nil
 }
 
 func (p *MethodCancelVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	gid := new(types.Gid)
 	abi.ABIGovernance.UnpackMethod(gid, p.MethodName, sendBlock.Data)
+	if p.MethodName == abi.MethodNameCancelVoteV3 {
+		gid = &types.SNAPSHOT_GID
+	}
 	util.SetValue(db, abi.GetVoteInfoKey(sendBlock.AccountAddress, *gid), nil)
 	return nil, nil
 }

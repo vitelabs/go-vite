@@ -31,9 +31,27 @@ func initFork() {
 		DexFork:    &config.ForkPoint{Height: 200, Version: 2},
 		DexFeeFork: &config.ForkPoint{Height: 250, Version: 3},
 		StemFork:   &config.ForkPoint{Height: 300, Version: 4},
-		LeafFork:   &config.ForkPoint{Height: 400, Version: 5}})
+		LeafFork:   &config.ForkPoint{Height: 400, Version: 5},
+		EarthFork:  &config.ForkPoint{Height: 500, Version: 6}})
 	fork.SetActiveChecker(mockActiveChecker{})
 }
+
+var (
+	forkTimestamp100     = time.Unix(1546272100, 0)
+	forkTimestamp200     = time.Unix(1546272200, 0)
+	forkTimestamp250     = time.Unix(1546272250, 0)
+	forkTimestamp300     = time.Unix(1546272300, 0)
+	forkTimestamp400     = time.Unix(1546272400, 0)
+	forkTimestamp500     = time.Unix(1546272500, 0)
+	forkSnapshotBlockMap = map[uint64]*ledger.SnapshotBlock{
+		100: {Height: 100, Timestamp: &forkTimestamp100},
+		200: {Height: 200, Timestamp: &forkTimestamp200},
+		250: {Height: 250, Timestamp: &forkTimestamp250},
+		300: {Height: 300, Timestamp: &forkTimestamp300},
+		400: {Height: 400, Timestamp: &forkTimestamp400},
+		500: {Height: 500, Timestamp: &forkTimestamp500},
+	}
+)
 
 type mockActiveChecker struct {
 }
@@ -531,9 +549,10 @@ func TestVmInterpreter(t *testing.T) {
 				Hash:      types.DataHash([]byte{1, 1}),
 			}
 			vm := NewVM(nil)
-			vm.i = newInterpreter(1, false)
-			vm.gasTable = util.QuotaTableByHeight(1)
+			vm.i = newInterpreter(testCase.SBHeight, false)
+			vm.gasTable = util.QuotaTableByHeight(testCase.SBHeight)
 			vm.globalStatus = NewTestGlobalStatus(testCase.Seed, &sb)
+			vm.latestSnapshotHeight = testCase.SBHeight
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)

@@ -21,7 +21,8 @@ func initForkPointsForQuotaTest() {
 		DexFork:    &config.ForkPoint{Height: 200, Version: 2},
 		DexFeeFork: &config.ForkPoint{Height: 250, Version: 3},
 		StemFork:   &config.ForkPoint{Height: 300, Version: 4},
-		LeafFork:   &config.ForkPoint{Height: 400, Version: 5}})
+		LeafFork:   &config.ForkPoint{Height: 400, Version: 5},
+		EarthFork:  &config.ForkPoint{Height: 500, Version: 6}})
 	fork.SetActiveChecker(mockActiveChecker{})
 }
 
