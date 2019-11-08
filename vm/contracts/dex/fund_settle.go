@@ -154,10 +154,13 @@ func settleUserFees(db vm_db.VmDb, periodId uint64, tokenDecimals, quoteTokenTyp
 	if inviteRelations == nil {
 		inviteRelations = make(map[types.Address]*types.Address)
 	}
-	needAddSum, addBaseSum, addInviteeSum := innerSettleUserFee(db, periodId, mineThreshold, feeAction.Address, tokenDecimals, quoteTokenType, feeAction.BaseFee, nil)
-	isInvited, inviter, inviteBonusAmt := getInviteBonusInfo(db, feeAction.Address, &inviteRelations, feeAction.BaseFee)
+	isInvited, inviter, inviterBonus, inviteeBonus := getInviteBonusInfo(db, feeAction.Address, &inviteRelations, feeAction.BaseFee)
+	if isInvited && !IsEarthFork(db) {
+		inviteeBonus = nil
+	}
+	needAddSum, addBaseSum, addInviteeSum := innerSettleUserFee(db, periodId, mineThreshold, feeAction.Address, tokenDecimals, quoteTokenType, feeAction.BaseFee, inviteeBonus)
 	if isInvited {
-		if neeAddSum1, addBaseSum1, addInviteeSum1 := innerSettleUserFee(db, periodId, mineThreshold, inviter.Bytes(), tokenDecimals, quoteTokenType, nil, inviteBonusAmt); neeAddSum1 {
+		if neeAddSum1, addBaseSum1, addInviteeSum1 := innerSettleUserFee(db, periodId, mineThreshold, inviter.Bytes(), tokenDecimals, quoteTokenType, nil, inviterBonus); neeAddSum1 {
 			needAddSum = true
 			addBaseSum = AddBigInt(addBaseSum, addBaseSum1)
 			addInviteeSum = AddBigInt(addInviteeSum, addInviteeSum1)
@@ -410,7 +413,7 @@ func splitDividendPool(dividend *dexproto.FeeForDividend) (toDividendAmt, rolled
 	return
 }
 
-func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.Address]*types.Address, fee []byte) (bool, *types.Address, []byte) {
+func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.Address]*types.Address, fee []byte) (bool, *types.Address, []byte, []byte) {
 	if address, err := types.BytesToAddress(addr); err != nil {
 		panic(InternalErr)
 	} else {
@@ -428,9 +431,9 @@ func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.A
 			}
 		}
 		if inviter != nil {
-			return true, inviter, CalculateAmountForRate(fee, InviteBonusRate)
+			return true, inviter, CalculateAmountForRate(fee, InviterBonusRate), CalculateAmountForRate(fee, InviteeBonusRate)
 		} else {
-			return false, nil, nil
+			return false, nil, nil, nil
 		}
 	}
 }
