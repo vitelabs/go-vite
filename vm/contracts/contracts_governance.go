@@ -44,9 +44,9 @@ func (p *MethodRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error
 		return util.ErrInvalidMethodParam
 	}
 	if p.MethodName == abi.MethodNameRegisterV3 {
-		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName, param.BlockProducingAddress, param.RewardWithdrawAddress)
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName, param.BlockProducingAddress, param.RewardWithdrawAddress)
 	} else {
-		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName, param.BlockProducingAddress)
+		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.Gid, param.SbpName, param.BlockProducingAddress)
 	}
 	return nil
 }
@@ -183,31 +183,27 @@ func saveWithdrawRewardAddress(db vm_db.VmDb, oldAddr *types.Address, newAddr, o
 }
 
 func addWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string) {
-	value, err := db.GetValue(addr.Bytes())
-	util.DealWithErr(err)
+	value := util.GetValue(db, addr.Bytes())
 	if len(value) == 0 {
 		value = []byte(sbpName)
 	} else {
 		value = []byte(string(value) + abi.WithdrawRewardAddressSeparation + sbpName)
 	}
-	err = db.SetValue(addr.Bytes(), value)
-	util.DealWithErr(err)
+	util.SetValue(db, addr.Bytes(), value)
 }
 func deleteWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string) {
-	value, err := db.GetValue(addr.Bytes())
-	util.DealWithErr(err)
+	value := util.GetValue(db, addr.Bytes())
 	valueStr := string(value)
 	// equal, prefix, suffix, middle
 	if valueStr == sbpName {
-		err = db.SetValue(addr.Bytes(), nil)
+		util.SetValue(db, addr.Bytes(), nil)
 	} else if strings.HasPrefix(valueStr, sbpName+abi.WithdrawRewardAddressSeparation) {
-		err = db.SetValue(addr.Bytes(), []byte(valueStr[len(sbpName)+1:]))
+		util.SetValue(db, addr.Bytes(), []byte(valueStr[len(sbpName)+1:]))
 	} else if strings.HasSuffix(valueStr, abi.WithdrawRewardAddressSeparation+sbpName) {
-		err = db.SetValue(addr.Bytes(), []byte(valueStr[:len(valueStr)-len(sbpName)-1]))
+		util.SetValue(db, addr.Bytes(), []byte(valueStr[:len(valueStr)-len(sbpName)-1]))
 	} else if startIndex := strings.Index(valueStr, abi.WithdrawRewardAddressSeparation+sbpName+abi.WithdrawRewardAddressSeparation); startIndex > 0 {
-		err = db.SetValue(addr.Bytes(), append([]byte(valueStr[:startIndex]+valueStr[startIndex+len(sbpName)+1:])))
+		util.SetValue(db, addr.Bytes(), append([]byte(valueStr[:startIndex]+valueStr[startIndex+len(sbpName)+1:])))
 	}
-	util.DealWithErr(err)
 }
 
 type MethodRevoke struct {
@@ -371,7 +367,7 @@ func (p *MethodWithdrawReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlo
 		var registerInfo []byte
 		if fork.IsEarthFork(sb.Height) {
 			registerInfo, _ = abi.ABIGovernance.PackVariable(
-				abi.VariableNameRegistrationInfo,
+				abi.VariableNameRegistrationInfoV2,
 				old.Name,
 				old.BlockProducingAddress,
 				old.RewardWithdrawAddress,
@@ -889,14 +885,14 @@ func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) err
 		(types.IsContractAddr(block.AccountAddress) && !fork.IsStemFork(latestSb.Height)) {
 		return util.ErrInvalidMethodParam
 	}
-	gid := new(types.Gid)
-	err = abi.ABIGovernance.UnpackMethod(gid, p.MethodName, block.Data)
-	if err != nil || (!util.CheckFork(db, fork.IsEarthFork) && util.IsDelegateGid(*gid)) {
-		return util.ErrInvalidMethodParam
-	}
 	if p.MethodName == abi.MethodNameCancelVoteV3 {
 		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName)
 	} else {
+		gid := new(types.Gid)
+		err = abi.ABIGovernance.UnpackMethod(gid, p.MethodName, block.Data)
+		if err != nil || util.IsDelegateGid(*gid) {
+			return util.ErrInvalidMethodParam
+		}
 		block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, *gid)
 	}
 	return nil

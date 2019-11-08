@@ -85,7 +85,7 @@ func requireUnpackKind(v reflect.Value, t reflect.Type, k reflect.Kind,
 	switch k {
 	case reflect.Struct:
 	case reflect.Slice, reflect.Array:
-		if minLen := args.LengthNonIndexed(); v.Len() < minLen {
+		if minLen := len(args); v.Len() < minLen {
 			return errInsufficientElementSize(minLen, v)
 		}
 	default:
@@ -130,7 +130,7 @@ func mapAbiToStructFields(args Arguments, value reflect.Value) (map[string]strin
 
 		// check which argument field matches with the abi tag.
 		found := false
-		for _, abiField := range args.NonIndexed() {
+		for _, abiField := range args {
 			if abiField.Name == tagName {
 				if abi2struct[abiField.Name] != "" {
 					return nil, errTagAlreadyMapped(structFieldName)

@@ -232,8 +232,7 @@ func IsActiveRegistration(db StorageDatabase, name string, gid types.Gid) (bool,
 		return false, err
 	}
 	if len(value) > 0 {
-		registration := new(types.Registration)
-		if err := ABIGovernance.UnpackVariable(registration, VariableNameRegistrationInfo, value); err == nil {
+		if registration, err := UnpackRegistration(value); err == nil {
 			return registration.IsActive(), nil
 		}
 	}
@@ -276,8 +275,8 @@ func getRegistrationList(db StorageDatabase, gid types.Gid, filter bool) ([]*typ
 		if !filterKeyValue(iterator.Key(), iterator.Value(), isRegistrationInfoKey) {
 			continue
 		}
-		registration := new(types.Registration)
-		if err := ABIGovernance.UnpackVariable(registration, VariableNameRegistrationInfo, iterator.Value()); err == nil {
+
+		if registration, err := UnpackRegistration(iterator.Value()); err == nil {
 			if filter {
 				if registration.IsActive() {
 					registerList = append(registerList, registration)
@@ -317,8 +316,7 @@ func GetRegistrationList(db StorageDatabase, gid types.Gid, stakeAddr types.Addr
 		if !filterKeyValue(iterator.Key(), iterator.Value(), isRegistrationInfoKey) {
 			continue
 		}
-		registration := new(types.Registration)
-		if err := ABIGovernance.UnpackVariable(registration, VariableNameRegistrationInfo, iterator.Value()); err == nil && registration.StakeAddress == stakeAddr {
+		if registration, err := UnpackRegistration(iterator.Value()); err == nil && registration.StakeAddress == stakeAddr {
 			registrationList = append(registrationList, registration)
 		}
 	}
@@ -336,14 +334,18 @@ func GetRegistrationListByRewardWithdrawAddr(db StorageDatabase, gid types.Gid, 
 	if err != nil {
 		return nil, err
 	}
-	nameList := strings.Split(string(names), WithdrawRewardAddressSeparation)
 	registrationList := make([]*types.Registration, 0)
-	for _, sbpName := range nameList {
-		r, err := GetRegistration(db, gid, sbpName)
-		if err != nil {
-			return nil, err
+	if len(names) > 0 {
+		nameList := strings.Split(string(names), WithdrawRewardAddressSeparation)
+		for _, sbpName := range nameList {
+			r, err := GetRegistration(db, gid, sbpName)
+			if err != nil {
+				return nil, err
+			}
+			if r != nil {
+				registrationList = append(registrationList, r)
+			}
 		}
-		registrationList = append(registrationList, r)
 	}
 	return registrationList, nil
 }
@@ -359,6 +361,14 @@ func GetRegistration(db StorageDatabase, gid types.Gid, name string) (*types.Reg
 	if err != nil {
 		return nil, err
 	}
+	if len(value) == 0 {
+		return nil, nil
+	}
+
+	return UnpackRegistration(value)
+}
+
+func UnpackRegistration(value []byte) (*types.Registration, error) {
 	registration := new(types.Registration)
 	if bytes.Equal(value[:32], registerInfoValuePrefix) {
 		if err := ABIGovernance.UnpackVariable(registration, VariableNameRegistrationInfo, value); err == nil {

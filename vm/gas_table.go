@@ -2,6 +2,7 @@ package vm
 
 import (
 	"bytes"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -348,9 +349,11 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 		loc        = stack.back(0)
 		locHash, _ = types.BigToHash(loc)
 	)
-	c.storageModified[loc.String()] = struct{}{}
-	if len(c.storageModified) > contractModifyStorageMax {
-		return 0, true, util.ErrStorageModifyLimitReached
+	if fork.IsEarthFork(vm.latestSnapshotHeight) {
+		c.storageModified[loc.String()] = struct{}{}
+		if len(c.storageModified) > contractModifyStorageMax {
+			return 0, true, util.ErrStorageModifyLimitReached
+		}
 	}
 
 	currentValue := util.GetValue(c.db, locHash.Bytes())

@@ -108,6 +108,7 @@ type PledgeInfo struct {
 	Agent          bool          `json:"agent"`
 	AgentAddress   types.Address `json:"agentAddress"`
 	Bid            uint8         `json:"bid"`
+	Id             *types.Hash   `json:"id"`
 }
 
 func NewPledgeInfo(info *types.StakeInfo, snapshotBlock *ledger.SnapshotBlock) *PledgeInfo {
@@ -118,7 +119,8 @@ func NewPledgeInfo(info *types.StakeInfo, snapshotBlock *ledger.SnapshotBlock) *
 		getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.ExpirationHeight),
 		info.IsDelegated,
 		info.DelegateAddress,
-		info.Bid}
+		info.Bid,
+		info.Id}
 }
 
 type byExpirationHeight []*types.StakeInfo

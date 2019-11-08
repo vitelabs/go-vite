@@ -69,6 +69,13 @@ func TestReader(t *testing.T) {
 					{"to", typeAddress, true},
 					{"value", typeUint256, false},
 				},
+				[]Argument{
+					{"from", typeAddress, true},
+					{"to", typeAddress, true},
+				},
+				[]Argument{
+					{"value", typeUint256, false},
+				},
 			},
 		},
 		Variables: map[string]Variable{

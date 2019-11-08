@@ -2,6 +2,7 @@ package vm
 
 import (
 	"errors"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"testing"
 )
@@ -34,7 +35,7 @@ func TestStack(t *testing.T) {
 		t.Fatalf("stack back method error")
 	}
 
-	pool := poolOfIntPools.get()
+	pool := util.PoolOfIntPools.Get()
 	st.dup(pool, 2)
 	if st.len() != 3 || st.peek().Cmp(big.NewInt(1)) != 0 {
 		t.Fatalf("stack dup error")

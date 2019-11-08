@@ -1,5 +1,5 @@
 {
-  "042test_create": {
+  "test_create": {
     "sBHeight": 1,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
@@ -14,7 +14,7 @@
     "storage": {
     }
   },
-  "042test_call": {
+  "test_call": {
     "sBHeight": 1,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",

@@ -43,7 +43,7 @@ func newEarthInstructionSet() [256]operation {
 	instructionSet[CALL2] = operation{
 		execute:       opCall2,
 		gasCost:       gasCall2,
-		validateStack: makeStackFunc(5, 0),
+		validateStack: makeStackFunc(5, 1),
 		valid:         true,
 	}
 	return instructionSet
@@ -53,7 +53,7 @@ func newEarthOffchainInstructionSet() [256]operation {
 	instructionSet[CALL2] = operation{
 		execute:       opOffchainCall2,
 		gasCost:       gasCall2,
-		validateStack: makeStackFunc(5, 0),
+		validateStack: makeStackFunc(5, 1),
 		valid:         true,
 	}
 	return instructionSet

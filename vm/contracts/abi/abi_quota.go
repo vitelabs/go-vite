@@ -86,6 +86,12 @@ type ParamDelegateStake struct {
 	StakeHeight  uint64
 }
 
+type ParamStakeV3 struct {
+	StakeAddress types.Address
+	Beneficiary  types.Address
+	StakeHeight  uint64
+}
+
 // ParamCancelDelegateStake defines parameters of cancel delegate stake method in quota contract
 type ParamCancelDelegateStake struct {
 	StakeAddress types.Address
@@ -125,7 +131,7 @@ func GetIndexFromStakeInfoKey(key []byte) uint64 {
 	return new(big.Int).SetBytes(key[types.AddressSize:]).Uint64()
 }
 
-// GetStakeInfoList query stake info list by stake address, including delegate stake
+// GetStakeInfoList query stake info list by stake address, excluding delegate stake
 func GetStakeInfoList(db StorageDatabase, stakeAddr types.Address) ([]*types.StakeInfo, *big.Int, error) {
 	if *db.Address() != types.AddressQuota {
 		return nil, nil, util.ErrAddressNotMatch
@@ -148,12 +154,43 @@ func GetStakeInfoList(db StorageDatabase, stakeAddr types.Address) ([]*types.Sta
 			continue
 		}
 		if stakeInfo, err := UnpackStakeInfo(iterator.Value()); err == nil &&
-			stakeInfo.Amount != nil && stakeInfo.Amount.Sign() > 0 {
+			stakeInfo.Amount != nil && stakeInfo.Amount.Sign() > 0 &&
+			!stakeInfo.IsDelegated {
 			stakeInfoList = append(stakeInfoList, stakeInfo)
 			stakeAmount.Add(stakeAmount, stakeInfo.Amount)
 		}
 	}
 	return stakeInfoList, stakeAmount, nil
+}
+
+func GetStakeExpirationHeight(db StorageDatabase, list []*types.StakeInfo) ([]*types.StakeInfo, error) {
+	if *db.Address() != types.AddressQuota {
+		return nil, util.ErrAddressNotMatch
+	}
+	for _, s := range list {
+		var stakeInfo *types.StakeInfo
+		var err error
+		if s.Id == nil {
+			stakeInfo, err = GetStakeInfo(db, s.StakeAddress, s.Beneficiary, s.DelegateAddress, s.IsDelegated, s.Bid)
+		} else {
+			stakeInfoKey, err := db.GetValue(s.Id.Bytes())
+			if err != nil {
+				return nil, err
+			}
+			if len(stakeInfoKey) == 0 {
+				return nil, util.ErrChainForked
+			}
+			stakeInfo, err = GetStakeInfoByKey(db, stakeInfoKey)
+		}
+		if err != nil {
+			return nil, err
+		} else if stakeInfo == nil {
+			return nil, util.ErrChainForked
+		} else {
+			s.ExpirationHeight = stakeInfo.ExpirationHeight
+		}
+	}
+	return list, nil
 }
 
 // GetStakeBeneficialAmount query stake amount of beneficiary
@@ -197,7 +234,16 @@ func GetStakeInfo(db StorageDatabase, stakeAddr, beneficiary, delegateAddr types
 	return nil, nil
 }
 
-var stakeInfoIdPrefix = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+func GetStakeInfoByKey(db StorageDatabase, stakeInfoKey []byte) (*types.StakeInfo, error) {
+	value, err := db.GetValue(stakeInfoKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(value) == 0 {
+		return nil, nil
+	}
+	return UnpackStakeInfo(value)
+}
 
 func UnpackStakeInfo(value []byte) (*types.StakeInfo, error) {
 	stakeInfo := new(types.StakeInfo)
@@ -205,12 +251,8 @@ func UnpackStakeInfo(value []byte) (*types.StakeInfo, error) {
 		if err := ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfo, value); err != nil {
 			return nil, err
 		}
-		if stakeInfo.IsDelegated {
-			stakeInfo.Id, _ = types.BytesToHash(helper.JoinBytes(stakeInfoIdPrefix, []byte{stakeInfo.Bid}, stakeInfo.StakeAddress.Bytes()))
-		} else {
-			stakeInfo.Id = types.Hash{}
-		}
 	} else {
+		stakeInfo.Id = &types.Hash{}
 		if err := ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfoV2, value); err != nil {
 			return nil, err
 		}
