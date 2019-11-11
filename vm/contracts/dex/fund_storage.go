@@ -101,7 +101,7 @@ var (
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
 	VxLockThreshold      = new(big.Int).Set(commonTokenPow)
-	VxUnlockScheduleDays = 6 // T+7 schedule
+	VxUnlockScheduleDays = 7 // T+7 schedule
 
 	StakeForMiningMinAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
 	StakeForVIPAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
@@ -226,7 +226,6 @@ const (
 )
 
 const (
-	BurnForNewMarket  = iota + 1
 	BurnForDexViteFee = iota + 1
 )
 
@@ -609,24 +608,6 @@ func (mss *MiningStakings) DeSerialize(data []byte) error {
 		return err
 	} else {
 		mss.MiningStakings = miningStakings
-		return nil
-	}
-}
-
-type MiningStakingItem struct {
-	dexproto.MiningStakingItem
-}
-
-func (msi *MiningStakingItem) Serialize() (data []byte, err error) {
-	return proto.Marshal(&msi.MiningStakingItem)
-}
-
-func (msi *MiningStakingItem) DeSerialize(data []byte) error {
-	miningStakingItem := dexproto.MiningStakingItem{}
-	if err := proto.Unmarshal(data, &miningStakingItem); err != nil {
-		return err
-	} else {
-		msi.MiningStakingItem = miningStakingItem
 		return nil
 	}
 }
@@ -1891,7 +1872,7 @@ func CheckMiningStakingsCanBeDelete(miningStakings *MiningStakings) bool {
 	return len(miningStakings.Stakings) == 1 && !IsValidMiningStakeAmountBytes(miningStakings.Stakings[0].Amount)
 }
 
-func GetDelegateStakeInfo(db vm_db.VmDb, hash types.Hash) (info *DelegateStakeInfo, ok bool) {
+func GetDelegateStakeInfo(db vm_db.VmDb, hash []byte) (info *DelegateStakeInfo, ok bool) {
 	info = &DelegateStakeInfo{}
 	ok = deserializeFromDb(db, GetDelegateStakeInfoKey(hash), info)
 	return
@@ -1906,20 +1887,20 @@ func SaveDelegateStakeInfo(db vm_db.VmDb, hash types.Hash, stakeType uint8, addr
 	}
 	info.Amount = amount.Bytes()
 	info.Status = StakeSubmitted
-	serializeToDb(db, GetDelegateStakeInfoKey(hash), info)
+	serializeToDb(db, GetDelegateStakeInfoKey(hash.Bytes()), info)
 }
 
 func ConfirmDelegateStakeInfo(db vm_db.VmDb, hash types.Hash, info *DelegateStakeInfo) {
 	info.Status = int32(StakeConfirmed)
-	serializeToDb(db, GetDelegateStakeInfoKey(hash), info)
+	serializeToDb(db, GetDelegateStakeInfoKey(hash.Bytes()), info)
 }
 
-func DeleteDelegateStakeInfo(db vm_db.VmDb, hash types.Hash) {
+func DeleteDelegateStakeInfo(db vm_db.VmDb, hash []byte) {
 	setValueToDb(db, GetDelegateStakeInfoKey(hash), nil)
 }
 
-func GetDelegateStakeInfoKey(hash types.Hash) []byte {
-	return append(delegateStakeInfoPrefix, hash.Bytes()[len(delegateStakeInfoPrefix):]...)
+func GetDelegateStakeInfoKey(hash []byte) []byte {
+	return append(delegateStakeInfoPrefix, hash[len(delegateStakeInfoPrefix):]...)
 }
 
 func GetTimestampInt64(db vm_db.VmDb) int64 {
@@ -2103,6 +2084,12 @@ func GetGrantedMarketToAgentKey(principal types.Address, marketId int32) []byte 
 	copy(re[len(grantedMarketToAgentKeyPrefix):], principal.Bytes())
 	copy(re[len(grantedMarketToAgentKeyPrefix)+types.AddressSize:], Uint32ToBytes(uint32(marketId))[1:])
 	return re
+}
+
+func GetVxUnlocks(db vm_db.VmDb, address types.Address) (unlocks *VxUnlocks, ok bool) {
+	unlocks = &VxUnlocks{}
+	ok = deserializeFromDb(db, GetVxUnlocksKey(address), unlocks)
+	return
 }
 
 func AddVxUnlock(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount *big.Int) {

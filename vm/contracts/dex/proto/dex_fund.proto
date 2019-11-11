@@ -122,11 +122,6 @@ message VIPStaking {
     repeated bytes StakingHashes = 3; // in case duplicate stakes happen
 }
 
-message MiningStakingItem {
-    bytes Amount = 1;
-    bytes StakingHash = 2;
-}
-
 message DelegateStakeInfo {
     int32 StakeType = 1; // 1 StakeForMining, 2 StakeForVIP, 3 StakeForSuperVIP, 4, AgentSuperVIP
     bytes Address = 2;
@@ -224,13 +219,6 @@ message MarketAgentRelation {
 
 //event
 message BurnVite {
-    int32 BizType = 1;
+    int32 BizType = 1; // 1 BurnForDexViteFee
     bytes Amount = 2;
-}
-
-//event
-message PrincipalSuperVIP {
-    bytes Address = 1;
-    bytes Principal = 2;
-    bool IsCreated = 3; // true created, false delete
 }

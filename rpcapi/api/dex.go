@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
 
@@ -203,6 +204,7 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 	if toMine.Cmp(available) > 0 {
 		toMine = available
 	}
+	var isEarthFork = dex.IsEarthFork(db)
 	mineInfo = new(apidex.NewRpcVxMineInfo)
 	if toMine.Sign() == 0 {
 		err = fmt.Errorf("no vx available on mine")
@@ -215,7 +217,11 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 		amount         *big.Int
 		success        bool
 	)
-	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
+	var rateSumForFee = dex.RateSumForFeeMineNew
+	if !isEarthFork {
+		rateSumForFee = dex.RateSumForFeeMine
+	}
+	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, rateSumForFee, dex.ViteTokenType, dex.UsdTokenType); success {
 		mineInfo.FeeMineDetail = make(map[int32]string)
 		feeMineSum := new(big.Int)
 		for tokenType, amount := range amountForItems {
@@ -226,13 +232,23 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 	} else {
 		return
 	}
-	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateForStakingMine); success {
+	var rateForStaking = dex.RateForStakingMineNew
+	if !isEarthFork {
+		rateForStaking = dex.RateForStakingMine
+	}
+	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, rateForStaking); success {
 		mineInfo.StakingMine = amount.String()
 	} else {
 		return
 	}
-	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
-		mineInfo.MakerMine = amountForItems[dex.MineForMaker].String()
+	if isEarthFork {
+		if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateSumForMakerMineNew); success {
+			mineInfo.MakerMine = amount.String()
+		}
+	} else {
+		if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
+			mineInfo.MakerMine = amountForItems[dex.MineForMaker].String()
+		}
 	}
 	return
 }
@@ -327,7 +343,7 @@ func (f DexApi) GetVIPStakeInfoList(address types.Address, pageIndex int, pageSi
 	if err != nil {
 		return nil, err
 	}
-	return apidex.QuotaStakeListToDexRpc(quotaList, f.chain, getVmDb), nil
+	return StakeListToDexRpc(quotaList, f.chain, getVmDb), nil
 }
 
 func (f DexApi) GetMiningStakeInfoList(address types.Address, pageIndex int, pageSize int) (*StakeInfoList, error) {
@@ -338,6 +354,27 @@ func (f DexApi) GetMiningStakeInfoList(address types.Address, pageIndex int, pag
 	return innerGetStakeList(db, address, pageIndex, pageSize, func()([]*types.StakeInfo, *big.Int, error){
 		return abi.GetDelegateStakeInfoListByBids(db, address, types.AddressDexFund, []uint8{dex.StakeForMining})
 	})
+}
+
+func (f DexApi) IsAutoLockMinedVx(address types.Address) (bool, error) {
+	db, err := getVmDb(f.chain, types.AddressQuota)
+	if err != nil {
+		return false, err
+	}
+	return dex.IsAutoLockMinedVx(db, address.Bytes()), nil
+}
+
+func (f DexApi) GetVxUnlockList(address types.Address, pageIndex int, pageSize int) (*apidex.VxUnlockList, error)  {
+	db, err := getVmDb(f.chain, types.AddressQuota)
+	if err != nil {
+		return nil, err
+	} else {
+		if unlocks, ok := dex.GetVxUnlocks(db, address); !ok {
+			return nil, nil
+		} else {
+			return apidex.UnlockListToRpc(unlocks, pageIndex, pageSize, f.chain, f.vite), nil
+		}
+	}
 }
 
 type DexPrivateApi struct {
@@ -635,4 +672,36 @@ func (f DexPrivateApi) GetTradeTimestamp() (timestamp int64, err error) {
 	} else {
 		return dex.GetTradeTimestamp(tradeDb), nil
 	}
+}
+
+func StakeListToDexRpc(quotaList *StakeInfoList, chain chain.Chain, getVmDb func(chain.Chain, types.Address)(vm_db.VmDb, error)) *apidex.StakeInfoList {
+	var db *vm_db.VmDb
+	list := new(apidex.StakeInfoList)
+	list.StakeAmount = quotaList.StakeAmount
+	list.Count = quotaList.Count
+	for _, quotaInfo := range quotaList.StakeList {
+		info := new(apidex.StakeInfo)
+		info.Amount = quotaInfo.Amount
+		info.Beneficiary = quotaInfo.Beneficiary.String()
+		info.ExpirationHeight = quotaInfo.ExpirationHeight
+		info.ExpirationTime = quotaInfo.ExpirationTime
+		info.IsDelegated = quotaInfo.IsDelegated
+		info.DelegateAddress = quotaInfo.DelegateAddress.String()
+		info.StakeAddress = quotaInfo.StakeAddress.String()
+		info.Bid = quotaInfo.Bid
+		if quotaInfo.Id != nil {
+			info.Id = quotaInfo.Id.String()
+		}
+		if quotaInfo.Bid == dex.StakeForPrincipalSuperVIP {
+			if db == nil {
+				*db, _= getVmDb(chain, types.AddressDexFund)
+			}
+			if dexStakeInfo, ok := dex.GetDelegateStakeInfo(*db, *quotaInfo.Id.Bytes()); ok {
+				if principal, err := types.BytesToAddress(dexStakeInfo.Principal); err == nil {
+					info.Principal = principal.String()
+				}
+			}
+		}
+	}
+	return list
 }

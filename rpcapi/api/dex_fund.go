@@ -193,6 +193,7 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 	if toMine.Cmp(available) > 0 {
 		toMine = available
 	}
+	var isEarthFork = dex.IsEarthFork(db)
 	mineInfo = new(apidex.RpcVxMineInfo)
 	if toMine.Sign() == 0 {
 		err = fmt.Errorf("no vx available on mine")
@@ -205,7 +206,11 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 		amount *big.Int
 		success bool
 	)
-	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
+	var rateSumForFee = dex.RateSumForFeeMineNew
+	if !isEarthFork {
+		rateSumForFee = dex.RateSumForFeeMine
+	}
+	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, rateSumForFee, dex.ViteTokenType, dex.UsdTokenType); success {
 		mineInfo.FeeMineDetail = make(map[int32]string)
 		feeMineSum := new(big.Int)
 		for tokenType, amount := range amountForItems {
@@ -216,13 +221,23 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 	} else {
 		return
 	}
-	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateForStakingMine); success {
+	var rateForStaking = dex.RateForStakingMineNew
+	if !isEarthFork {
+		rateForStaking = dex.RateForStakingMine
+	}
+	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, rateForStaking); success {
 		mineInfo.PledgeMine = amount.String()
 	} else {
 		return
 	}
-	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
-		mineInfo.MakerMine = amountForItems[dex.MineForMaker].String()
+	if isEarthFork {
+		if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateSumForMakerMineNew); success {
+			mineInfo.MakerMine = amount.String()
+		}
+	} else {
+		if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
+			mineInfo.MakerMine = amountForItems[dex.MineForMaker].String()
+		}
 	}
 	return
 }

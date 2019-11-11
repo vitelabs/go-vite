@@ -834,10 +834,8 @@ func (md MethodDexFundDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, block *l
 		info *dex.DelegateStakeInfo
 		ok   bool
 	)
-	if info, ok = dex.GetDelegateStakeInfo(db, param.Id); !ok {
+	if info, ok = dex.GetDelegateStakeInfo(db, param.Id.Bytes()); !ok {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.StakingInfoByIdNotExistsErr, sendBlock)
-	} else {
-		dex.ConfirmDelegateStakeInfo(db, param.Id, info)
 	}
 	address, _ := types.BytesToAddress(info.Address)
 	if param.Success {
@@ -878,11 +876,8 @@ func (md MethodDexFundDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, block *l
 				superVIPStaking.StakingHashes = append(superVIPStaking.StakingHashes, param.Id.Bytes())
 				dex.SaveSuperVIPStaking(db, address, superVIPStaking)
 			}
-			if info.StakeType == dex.StakeForPrincipalSuperVIP {
-				stakeAddress, _ := types.BytesToAddress(info.Address)
-				dex.AddPrincipalSuperVIPEvent(db, stakeAddress, address, false)
-			}
 		}
+		dex.ConfirmDelegateStakeInfo(db, param.Id, info)
 	} else {
 		switch info.StakeType {
 		case dex.StakeForMining:
@@ -904,6 +899,7 @@ func (md MethodDexFundDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, block *l
 		} else {
 			dex.DepositAccount(db, address, ledger.ViteTokenId, sendBlock.Amount)
 		}
+		dex.DeleteDelegateStakeInfo(db, param.Id.Bytes())
 	}
 	return nil, nil
 }
@@ -942,10 +938,8 @@ func (md MethodDexFundCancelDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, bl
 		info *dex.DelegateStakeInfo
 		ok   bool
 	)
-	if info, ok = dex.GetDelegateStakeInfo(db, param.Id); !ok {
+	if info, ok = dex.GetDelegateStakeInfo(db, param.Id.Bytes()); !ok {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.StakingInfoByIdNotExistsErr, sendBlock)
-	} else {
-		dex.ConfirmDelegateStakeInfo(db, param.Id, info)
 	}
 	address, _ := types.BytesToAddress(info.Address)
 	if param.Success {
@@ -1006,11 +1000,11 @@ func (md MethodDexFundCancelDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, bl
 		}
 		if info.StakeType == dex.StakeForPrincipalSuperVIP {
 			stakeAddress, _ := types.BytesToAddress(info.Address) // address
-			dex.AddPrincipalSuperVIPEvent(db, stakeAddress, address, false)
 			dex.DepositAccount(db, stakeAddress, ledger.ViteTokenId, sendBlock.Amount)
 		} else {
 			dex.DepositAccount(db, address, ledger.ViteTokenId, sendBlock.Amount)
 		}
+		dex.DeleteDelegateStakeInfo(db, param.Id.Bytes())
 	}
 	return nil, nil
 }

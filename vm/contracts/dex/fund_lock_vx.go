@@ -7,6 +7,7 @@ import (
 	"math/big"
 )
 
+//periodId is finish period
 func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
 	if !IsEarthFork(db) {
 		return nil

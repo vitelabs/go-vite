@@ -1,6 +1,7 @@
 package dex
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,7 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
-
+//TODO refactory for simple
 func HandleStakeAction(db vm_db.VmDb, stakeType, actionType uint8, address, principal types.Address, amount *big.Int, stakeHeight uint64, block *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
 	if actionType == Stake {
 		if methodData, err := stakeRequest(db, address, principal, stakeType, amount, stakeHeight); err != nil {
@@ -103,7 +104,9 @@ func stakeRequest(db vm_db.VmDb, address, principal types.Address, stakeType uin
 func cancelStakeRequest(db vm_db.VmDb, address, principal types.Address, stakeType uint8, amount *big.Int) (cancelStakeData []byte, err error) {
 	var (
 		vipStaking *VIPStaking
+		principalSuperVipId []byte
 		ok         bool
+
 	)
 	switch stakeType {
 	case StakeForMining:
@@ -125,16 +128,30 @@ func cancelStakeRequest(db vm_db.VmDb, address, principal types.Address, stakeTy
 	case StakeForPrincipalSuperVIP:
 		if vipStaking, ok = GetSuperVIPStaking(db, principal); !ok {
 			return nil, SuperVIPStakingNotExistsErr
+		} else {
+			var matchStakeAddr bool
+			for _, id := range vipStaking.StakingHashes {
+				if info, ok := GetDelegateStakeInfo(db, id); ok {
+					if bytes.Equal(info.Address, address.Bytes()) {
+						principalSuperVipId = id
+						matchStakeAddr = true
+						break
+					}
+				}
+			}
+			if !matchStakeAddr {
+				return nil, OnlyOwnerAllowErr
+			}
 		}
 	}
-	if stakeType == StakeForMining || !IsVipStakingWithId(vipStaking) { // cancel by
+	if stakeType == StakeForMining || !IsVipStakingWithId(vipStaking) { // cancel old version stake
 		var cancelStakeMethod = abi.MethodNameCancelDelegateStakeV2
 		if !IsLeafFork(db) {
 			cancelStakeMethod = abi.MethodNameCancelDelegateStake
 		}
 		cancelStakeData, err = abi.ABIQuota.PackMethod(cancelStakeMethod, address, types.AddressDexFund, amount, uint8(stakeType))
 	} else {
-		cancelStakeData, err = abi.ABIQuota.PackMethod(abi.MethodNameCancelStakeWithCallback, vipStaking.StakingHashes[0])
+		cancelStakeData, err = abi.ABIQuota.PackMethod(abi.MethodNameCancelStakeWithCallback, principalSuperVipId)
 	}
 	return
 }

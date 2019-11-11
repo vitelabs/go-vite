@@ -4,9 +4,9 @@ import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/rpcapi/api"
+	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/vm_db"
+	"math/big"
 )
 
 type DividendPoolInfo struct {
@@ -433,46 +433,46 @@ type StakeInfoList struct {
 }
 
 type StakeInfo struct {
-	Amount           string        `json:"stakeAmount"`
-	Beneficiary      string        `json:"beneficiary"`
-	ExpirationHeight string        `json:"expirationHeight"`
-	ExpirationTime   int64         `json:"expirationTime"`
-	IsDelegated      bool          `json:"isDelegated"`
-	DelegateAddress  string        `json:"delegateAddress"`
-	StakeAddress     string        `json:"stakeAddress"`
-	Bid              uint8         `json:"bid"`
-	Id               string   `json:"id"`
-	Principal        string `json:"principal"`
+	Amount           string `json:"stakeAmount"`
+	Beneficiary      string `json:"beneficiary"`
+	ExpirationHeight string `json:"expirationHeight"`
+	ExpirationTime   int64  `json:"expirationTime"`
+	IsDelegated      bool   `json:"isDelegated"`
+	DelegateAddress  string `json:"delegateAddress"`
+	StakeAddress     string `json:"stakeAddress"`
+	Bid              uint8  `json:"bid"`
+	Id               string `json:"id,omitempty"`
+	Principal        string `json:"principal,omitempty"`
 }
 
-func QuotaStakeListToDexRpc(quotaList *api.StakeInfoList, chain chain.Chain, getVmDb func(chain.Chain, types.Address)(vm_db.VmDb, error)) *StakeInfoList {
-	var db *vm_db.VmDb
-	list := new(StakeInfoList)
-	list.StakeAmount = quotaList.StakeAmount
-	list.Count = quotaList.Count
-	for _, quotaInfo := range quotaList.StakeList {
-		info := new(StakeInfo)
-		info.Amount = quotaInfo.Amount
-		info.Beneficiary = quotaInfo.Beneficiary.String()
-		info.ExpirationHeight = quotaInfo.ExpirationHeight
-		info.ExpirationTime = quotaInfo.ExpirationTime
-		info.IsDelegated = quotaInfo.IsDelegated
-		info.DelegateAddress = quotaInfo.DelegateAddress.String()
-		info.StakeAddress = quotaInfo.StakeAddress.String()
-		info.Bid = quotaInfo.Bid
-		if quotaInfo.Id != nil {
-			info.Id = quotaInfo.Id.String()
+type VxUnlockList struct {
+	UnlockingAmount string      `json:"unlockingAmount"`
+	Count           int         `json:"count"`
+	Unlocks         []*VxUnlock `json:"unlocks"`
+}
+
+type VxUnlock struct {
+	Amount         string `json:"amount"`
+	ExpirationTime int64  `json:"expirationTime"`
+}
+
+func UnlockListToRpc(unlocks *dex.VxUnlocks, pageIndex int, pageSize int, chain chain.Chain, vite *vite.Vite) *VxUnlockList {
+	genesisTime := chain.GetGenesisSnapshotBlock().Timestamp.Unix()
+	total := new(big.Int)
+	vxUnlockList := new(VxUnlockList)
+	var count = 0
+	for i, ul := range unlocks.Unlocks {
+		amt := new(big.Int).SetBytes(ul.Amount)
+		if i >= pageIndex*pageSize && i < (pageIndex+1)*pageSize {
+			unlock := new(VxUnlock)
+			unlock.Amount = amt.String()
+			unlock.ExpirationTime = genesisTime + int64((ul.PeriodId+uint64(dex.VxUnlockScheduleDays))*3600*24)
+			vxUnlockList.Unlocks = append(vxUnlockList.Unlocks, unlock)
 		}
-		if quotaInfo.Bid == dex.StakeForPrincipalSuperVIP {
-			if db == nil {
-				*db, _= getVmDb(chain, types.AddressDexFund)
-			}
-			if dexStakeInfo, ok := dex.GetDelegateStakeInfo(*db, *quotaInfo.Id); ok {
-				if principal, err := types.BytesToAddress(dexStakeInfo.Principal); err == nil {
-					info.Principal = principal.String()
-				}
-			}
-		}
+		total.Add(total, amt)
+		count++
 	}
-	return list
+	vxUnlockList.UnlockingAmount = total.String()
+	vxUnlockList.Count = count
+	return vxUnlockList
 }

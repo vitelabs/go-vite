@@ -119,14 +119,6 @@ func AddBurnViteEvent(db vm_db.VmDb, bizType int, amount *big.Int) {
 	doEmitEventLog(db, event)
 }
 
-func AddPrincipalSuperVIPEvent(db vm_db.VmDb, address, principal types.Address, isCreated bool) {
-	event := &PrincipalSuperVIPEvent{}
-	event.Address = address.Bytes()
-	event.Principal = principal.Bytes()
-	event.IsCreated = isCreated
-	doEmitEventLog(db, event)
-}
-
 func AddErrEvent(db vm_db.VmDb, err error) {
 	event := &ErrEvent{}
 	event.error = err
