@@ -1155,8 +1155,7 @@ func (md *MethodDexFundTradeAdminConfig) DoSend(db vm_db.VmDb, block *ledger.Acc
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamTradeAdminConfig), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var err error
+func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) (blocks []*ledger.AccountBlock, err error) {
 	var param = new(dex.ParamTradeAdminConfig)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
@@ -1211,8 +1210,12 @@ func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.A
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigMineThreshold) {
 			dex.SaveMineThreshold(db, param.TokenTypeForMiningThreshold, param.MinMiningThreshold)
 		}
-		if dex.IsStemFork(db) && dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigStartNormalMine) {
-			dex.StartNormalMine(db)
+		if dex.IsEarthFork(db) && dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminBurnExtraVx) && dex.GetVxBurnAmount(db).Sign() == 0 {
+			if blocks, err = dex.BurnExtraVx(db); err != nil {
+				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+			} else {
+				return
+			}
 		}
 	} else {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.OnlyOwnerAllowErr, sendBlock)

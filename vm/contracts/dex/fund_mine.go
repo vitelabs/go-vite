@@ -2,7 +2,9 @@ package dex
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -244,6 +246,29 @@ func DoMineVxForMaintainer(db vm_db.VmDb, reader util.ConsensusReader, amount *b
 	return
 }
 
+func BurnExtraVx(db vm_db.VmDb) ([]*ledger.AccountBlock, error) {
+	poolAmt := GetVxMinePool(db)
+	if vxBurnAmt, err := GetVxAmountToBurn(db, poolAmt); err != nil {
+		return nil, err
+	} else {
+		SaveVxMinePool(db, new(big.Int).Sub(poolAmt, vxBurnAmt))
+		SaveVxBurnAmount(db, vxBurnAmt)
+		if burnData, err := abi.ABIAsset.PackMethod(abi.MethodNameBurn); err != nil {
+			panic(err)
+		} else {
+			return []*ledger.AccountBlock{
+				{
+				AccountAddress: types.AddressDexFund,
+				ToAddress:      types.AddressAsset,
+				BlockType:      ledger.BlockTypeSendCall,
+				TokenId:        VxTokenId,
+				Amount:         vxBurnAmt,
+				Data:           burnData,
+			}}, nil
+		}
+	}
+}
+
 func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rateSum string, begin, end int) (amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
 	if vxPool.Sign() > 0 {
 		success = true
@@ -294,8 +319,23 @@ func GetVxAmountToMine(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rate str
 	return
 }
 
+func GetVxAmountToBurn(db vm_db.VmDb, poolAmt *big.Int) (*big.Int, error) {
+	if firstPeriodId := GetFirstMinedVxPeriodId(db); firstPeriodId != 0 {
+		lastFinishPeriodId := GetLastJobPeriodIdByBizType(db, MineVxForFeeJob)
+		finishedPeriods := lastFinishPeriodId - firstPeriodId + 1
+		var toMineTotal = new(big.Int)
+		for i := finishedPeriods; i < 365*8; i++ {
+			toMineTotal.Add(toMineTotal, GetVxAmountByPeriodIndex(i))
+		}
+		toBurn := new(big.Int).Sub(poolAmt, toMineTotal)
+		return new(big.Int).Add(toBurn, big.NewInt(10)), nil
+	} else {
+		return nil, InvalidInputParamErr
+	}
+}
+
 func GetVxToMineByPeriodId(db vm_db.VmDb, periodId uint64) *big.Int {
-	if !IsNormalMineStarted(db) {
+	if !IsEarthFork(db) {
 		return PreheatMinedAmtPerPeriod
 	} else {
 		var firstPeriodId uint64
@@ -303,18 +343,26 @@ func GetVxToMineByPeriodId(db vm_db.VmDb, periodId uint64) *big.Int {
 			firstPeriodId = periodId
 			SaveFirstMinedVxPeriodId(db, firstPeriodId)
 		}
-		var amount *big.Int
-		for i := 0; firstPeriodId+uint64(i) <= periodId; i++ {
-			if i == 0 {
-				amount = new(big.Int).Set(VxMinedAmtFirstPeriod)
-			} else if i <= 364 {
-				amount.Mul(amount, big.NewInt(995)).Div(amount, big.NewInt(1000))
-			} else {
-				amount.Mul(amount, big.NewInt(998)).Div(amount, big.NewInt(1000))
-			}
-		}
-		return amount
+		return GetVxAmountByPeriodIndex(periodId - firstPeriodId)
 	}
+}
+
+func GetVxAmountByPeriodIndex(periodIndex uint64) *big.Int {
+	var amount *big.Int
+	ascendRate, _ := new(big.Float).SetString("1.0180435")
+	descendRate, _ := new(big.Float).SetString("0.99810276")
+	for i := 0; i <= int(periodIndex); i++ {
+		if i == 0 {
+			amount = new(big.Int).Set(PreheatMinedAmtPerPeriod)
+		} else if i < 90 {
+			amount, _ = new(big.Float).Mul(new(big.Float).SetInt(amount), ascendRate).Int(nil)
+		} else if i == 90 {
+			amount = new(big.Int).Mul(PreheatMinedAmtPerPeriod, big.NewInt(5))
+		} else if i > 90 {
+			amount, _ = new(big.Float).Mul(new(big.Float).SetInt(amount), descendRate).Int(nil)
+		}
+	}
+	return amount
 }
 
 func AccumulateAmountFromMap(amountMap map[int32]*big.Int) *big.Int {

@@ -106,7 +106,6 @@ func cancelStakeRequest(db vm_db.VmDb, address, principal types.Address, stakeTy
 		vipStaking *VIPStaking
 		principalSuperVipId []byte
 		ok         bool
-
 	)
 	switch stakeType {
 	case StakeForMining:

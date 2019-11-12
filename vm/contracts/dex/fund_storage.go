@@ -52,7 +52,6 @@ var (
 	vxLockedSumFundsKey      = []byte("vxlFS:") // vxLockedFundSum
 
 	lastJobPeriodIdWithBizTypeKey = []byte("ljpBId:")
-	normalMineStartedKey          = []byte("nmst:")
 	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
@@ -65,13 +64,11 @@ var (
 	dexMiningStakingsKey        = []byte("pldsVxS:") // dexMiningStakings
 	miningStakedAmountKeyPrefix = []byte("pldVx:")   // miningStakedAmount: types.Address
 
-	miningStakedAmountV2KeyPrefix = []byte("stVx:")   // miningStakedAmount: types.Address
-
-	miningStakingItemSerialNoKey = []byte("mSISl:")
-	miningStakingItemKey         = []byte("mSISl:")
+	miningStakedAmountV2KeyPrefix = []byte("stVx:") // miningStakedAmount: types.Address
 
 	tokenInfoKeyPrefix = []byte("tk:") // token:tokenId
 	vxMinePoolKey      = []byte("vxmPl:")
+	vxBurnAmountKey    = []byte("vxBAt:")
 
 	codeByInviterKeyPrefix    = []byte("itr2cd:")
 	inviterByCodeKeyPrefix    = []byte("cd2itr:")
@@ -169,11 +166,11 @@ const (
 
 //MethodNameDexFundTradeAdminConfig
 const (
-	TradeAdminConfigMineMarket      = 1
-	TradeAdminConfigNewQuoteToken   = 2
-	TradeAdminConfigTradeThreshold  = 4
-	TradeAdminConfigMineThreshold   = 8
-	TradeAdminConfigStartNormalMine = 16
+	TradeAdminConfigMineMarket     = 1
+	TradeAdminConfigNewQuoteToken  = 2
+	TradeAdminConfigTradeThreshold = 4
+	TradeAdminConfigMineThreshold  = 8
+	TradeAdminBurnExtraVx          = 16
 )
 
 const (
@@ -201,7 +198,6 @@ const (
 	MineVxForFeeJob
 	MineVxForStakingJob
 	MineVxForMakerAndMaintainerJob
-
 	FinishVxUnlock
 )
 
@@ -1253,14 +1249,6 @@ func GetLastJobPeriodIdKey(bizType uint8) []byte {
 	return append(lastJobPeriodIdWithBizTypeKey, byte(bizType))
 }
 
-func StartNormalMine(db vm_db.VmDb) {
-	setValueToDb(db, normalMineStartedKey, []byte{1})
-}
-
-func IsNormalMineStarted(db vm_db.VmDb) bool {
-	return len(getValueFromDb(db, normalMineStartedKey)) > 0
-}
-
 func GetFirstMinedVxPeriodId(db vm_db.VmDb) uint64 {
 	if firstMinedVxPeriodIdBytes := getValueFromDb(db, firstMinedVxPeriodIdKey); len(firstMinedVxPeriodIdBytes) == 8 {
 		return BytesToUint64(firstMinedVxPeriodIdBytes)
@@ -1524,20 +1512,6 @@ func NewAndSaveOrderSerialNo(db vm_db.VmDb, timestamp int64) (newSerialNo int32)
 	return
 }
 
-func GetNewMiningStakingKey(db vm_db.VmDb, address types.Address) []byte {
-	var serialNo uint64 = 0
-	if data := getValueFromDb(db, GetMiningStakingSerialNoKey(address)); len(data) == 8 {
-		serialNo = BytesToUint64(data)
-	}
-	serialNo++
-	setValueToDb(db, GetMiningStakingSerialNoKey(address), Uint64ToBytes(serialNo))
-	return append(append(miningStakingItemKey, address.Bytes()...), Uint64ToBytes(serialNo)[2:]...) //6+20+6 = 32
-}
-
-func GetMiningStakingSerialNoKey(address types.Address) []byte {
-	return append(miningStakingItemSerialNoKey, address.Bytes()...)
-}
-
 func IsOwner(db vm_db.VmDb, address types.Address) bool {
 	if storeOwner := getValueFromDb(db, ownerKey); len(storeOwner) == types.AddressSize {
 		return bytes.Equal(storeOwner, address.Bytes())
@@ -1793,8 +1767,8 @@ func ReduceVipStakingHash(stakings *VIPStaking, hash types.Hash) bool {
 	for i, hs := range stakings.StakingHashes {
 		if bytes.Equal(hs, hash.Bytes()) {
 			size := len(stakings.StakingHashes)
-			if i != size - 1 {
-				stakings.StakingHashes[i] = stakings.StakingHashes[size - 1]
+			if i != size-1 {
+				stakings.StakingHashes[i] = stakings.StakingHashes[size-1]
 			}
 			stakings.StakingHashes = stakings.StakingHashes[:size-1]
 			found = true
@@ -2015,6 +1989,18 @@ func GetVxMinePool(db vm_db.VmDb) *big.Int {
 
 func SaveVxMinePool(db vm_db.VmDb, amount *big.Int) {
 	setValueToDb(db, vxMinePoolKey, amount.Bytes())
+}
+
+func GetVxBurnAmount(db vm_db.VmDb) *big.Int {
+	if data := getValueFromDb(db, vxBurnAmountKey); len(data) > 0 {
+		return new(big.Int).SetBytes(data)
+	} else {
+		return new(big.Int)
+	}
+}
+
+func SaveVxBurnAmount(db vm_db.VmDb, amount *big.Int) {
+	setValueToDb(db, vxBurnAmountKey, amount.Bytes())
 }
 
 func GrantMarketToAgent(db vm_db.VmDb, principal, agent types.Address, marketId int32) {

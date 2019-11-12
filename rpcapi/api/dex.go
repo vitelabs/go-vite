@@ -210,7 +210,9 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 		err = fmt.Errorf("no vx available on mine")
 		return
 	}
-	mineInfo.HistoryMinedSum = new(big.Int).Sub(new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100000000)), available).String()
+	total := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100000000))
+	total.Sub(total, dex.GetVxBurnAmount(db))
+	mineInfo.HistoryMinedSum = new(big.Int).Sub(total, available).String()
 	mineInfo.Total = toMine.String()
 	var (
 		amountForItems map[int32]*big.Int
@@ -646,14 +648,6 @@ func (f DexPrivateApi) GetLastSettledMakerMiningInfo() (map[string]uint64, error
 	return lastSettleInfo, nil
 }
 
-func (f DexPrivateApi) IsNormalMiningStarted() (bool, error) {
-	db, err := getVmDb(f.chain, types.AddressDexFund)
-	if err != nil {
-		return false, err
-	}
-	return dex.IsNormalMineStarted(db), nil
-}
-
 func (f DexPrivateApi) GetMarketInfoById(marketId int32) (ordersRes *apidex.RpcMarketInfo, err error) {
 	if tradeDb, err := getVmDb(f.chain, types.AddressDexTrade); err != nil {
 		return nil, err
@@ -671,6 +665,14 @@ func (f DexPrivateApi) GetTradeTimestamp() (timestamp int64, err error) {
 		return -1, err
 	} else {
 		return dex.GetTradeTimestamp(tradeDb), nil
+	}
+}
+
+func (f DexPrivateApi) GetVxBurnAmount() (string, error) {
+	if db, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
+		return "-1", err
+	} else {
+		return dex.GetVxBurnAmount(db).String(), nil
 	}
 }
 
@@ -696,7 +698,7 @@ func StakeListToDexRpc(quotaList *StakeInfoList, chain chain.Chain, getVmDb func
 			if db == nil {
 				*db, _= getVmDb(chain, types.AddressDexFund)
 			}
-			if dexStakeInfo, ok := dex.GetDelegateStakeInfo(*db, *quotaInfo.Id.Bytes()); ok {
+			if dexStakeInfo, ok := dex.GetDelegateStakeInfo(*db, (*quotaInfo).Id.Bytes()); ok {
 				if principal, err := types.BytesToAddress(dexStakeInfo.Principal); err == nil {
 					info.Principal = principal.String()
 				}

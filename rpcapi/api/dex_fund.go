@@ -199,7 +199,9 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 		err = fmt.Errorf("no vx available on mine")
 		return
 	}
-	mineInfo.HistoryMinedSum = new(big.Int).Sub(new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100000000)), available).String()
+	total := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100000000))
+	total.Sub(total, dex.GetVxBurnAmount(db))
+	mineInfo.HistoryMinedSum = new(big.Int).Sub(total, available).String()
 	mineInfo.Total = toMine.String()
 	var (
 		amountForItems map[int32]*big.Int
