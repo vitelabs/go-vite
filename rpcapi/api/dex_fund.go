@@ -59,7 +59,7 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 			info.Locked = "0"
 		}
 
-		if *tokenId == dex.VxTokenId {
+		if v.Token == dex.VxTokenId {
 			if v.VxLocked != nil {
 				info.VxLocked = v.VxLocked.String()
 			}

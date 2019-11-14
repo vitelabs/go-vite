@@ -378,7 +378,7 @@ func (f DexApi) GetVIPStakeInfoList(address types.Address, pageIndex int, pageSi
 	count = len(stakeInfos)
 	totalAmount.Add(totalAmount, newAmount)
 	if count > pageIndex*pageSize {
-		var endIndex = (pageIndex+1)*pageSize
+		var endIndex = (pageIndex + 1) * pageSize
 		if count < endIndex {
 			endIndex = count
 		}
@@ -418,7 +418,7 @@ func (f DexApi) GetMiningStakeInfoList(address types.Address, pageIndex int, pag
 	count = len(stakeInfos)
 	totalAmount.Add(totalAmount, newAmount)
 	if count > pageIndex*pageSize {
-		var endIndex = (pageIndex+1)*pageSize
+		var endIndex = (pageIndex + 1) * pageSize
 		if count < endIndex {
 			endIndex = count
 		}
@@ -605,12 +605,15 @@ func (f DexPrivateApi) GetVIPStakingInfoByAddress(address types.Address) (*dex.V
 	}
 }
 
-func (f DexPrivateApi) GetCurrentMiningStakingAmountByAddress(address types.Address) (string, error) {
+func (f DexPrivateApi) GetCurrentMiningStakingAmountByAddress(address types.Address) (map[string]string, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return dex.GetMiningStakedAmount(db, address).String(), nil
+	res := make(map[string]string, 0)
+	res["v1"] = dex.GetMiningStakedAmount(db, address).String()
+	res["v2"] = dex.GetMiningStakedV2Amount(db, address).String()
+	return res, nil
 }
 
 func (f DexPrivateApi) GetAllMiningStakingInfoByAddress(address types.Address) (*apidex.RpcMiningStakings, error) {
