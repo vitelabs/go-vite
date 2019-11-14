@@ -838,14 +838,15 @@ func (md MethodDexFundDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, block *l
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.StakingInfoByIdNotExistsErr, sendBlock)
 	}
 	address, _ := types.BytesToAddress(info.Address)
+	amount := new(big.Int).SetBytes(info.Amount)
 	if param.Success {
 		switch info.StakeType {
 		case dex.StakeForMining:
 			stakedAmount := dex.GetMiningStakedV2Amount(db, address)
-			stakedAmount.Add(stakedAmount, sendBlock.Amount)
+			stakedAmount.Add(stakedAmount, amount)
 			dex.SaveMiningStakedV2Amount(db, address, stakedAmount)
-			if err := dex.OnMiningStakeSuccess(db, vm.ConsensusReader(), address, sendBlock.Amount, dex.GetMiningStakedAmount(db, address), stakedAmount); err != nil {
-				handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+			if err := dex.OnMiningStakeSuccess(db, vm.ConsensusReader(), address, amount, dex.GetMiningStakedAmount(db, address), stakedAmount); err != nil {
+				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			}
 		case dex.StakeForVIP:
 			if vipStaking, ok := dex.GetVIPStaking(db, address); ok { //duplicate staking for vip
@@ -883,15 +884,15 @@ func (md MethodDexFundDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, block *l
 		switch info.StakeType {
 		case dex.StakeForMining:
 			if bytes.Equal(info.Amount, sendBlock.Amount.Bytes()) {
-				panic(dex.InvalidAmountForStakeCallbackErr)
+				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidAmountForStakeCallbackErr, sendBlock)
 			}
 		case dex.StakeForVIP:
 			if dex.StakeForVIPAmount.Cmp(sendBlock.Amount) != 0 {
-				panic(dex.InvalidAmountForStakeCallbackErr)
+				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidAmountForStakeCallbackErr, sendBlock)
 			}
 		case dex.StakeForSuperVIP, dex.StakeForPrincipalSuperVIP:
 			if dex.StakeForSuperVIPAmount.Cmp(sendBlock.Amount) != 0 {
-				panic(dex.InvalidAmountForStakeCallbackErr)
+				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidAmountForStakeCallbackErr, sendBlock)
 			}
 		}
 		if info.StakeType == dex.StakeForPrincipalSuperVIP {
