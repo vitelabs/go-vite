@@ -133,29 +133,6 @@ func GetIndexFromStakeInfoKey(key []byte) uint64 {
 
 // GetStakeInfoList query stake info list by stake address, excluding delegate stake
 func GetStakeInfoList(db StorageDatabase, stakeAddr types.Address) ([]*types.StakeInfo, *big.Int, error) {
-	return innerGetStakeInfoList(db, stakeAddr, func(info *types.StakeInfo) bool {
-		return info.Amount != nil && info.Amount.Sign() > 0 && !info.IsDelegated
-	})
-}
-
-func GetDelegateStakeInfoListByBids(db StorageDatabase, stakeAddr, delegateAddr types.Address, bids []uint8) ([]*types.StakeInfo, *big.Int, error) {
-	return innerGetStakeInfoList(db, stakeAddr, func(info *types.StakeInfo) bool {
-		if info.IsDelegated && info.DelegateAddress == delegateAddr {
-			if len(bids) > 0 {
-				for _, bid := range bids {
-					if bid == info.Bid {
-						return true
-					}
-				}
-			} else {
-				return true
-			}
-		}
-		return false
-	})
-}
-
-func innerGetStakeInfoList(db StorageDatabase, stakeAddr types.Address, filterStakeInfo func(info *types.StakeInfo) bool) ([]*types.StakeInfo, *big.Int, error) {
 	if *db.Address() != types.AddressQuota {
 		return nil, nil, util.ErrAddressNotMatch
 	}
@@ -177,7 +154,7 @@ func innerGetStakeInfoList(db StorageDatabase, stakeAddr types.Address, filterSt
 			continue
 		}
 		if stakeInfo, err := UnpackStakeInfo(iterator.Value()); err == nil {
-			if filterStakeInfo(stakeInfo) {
+			if stakeInfo.Amount != nil && stakeInfo.Amount.Sign() > 0 && !stakeInfo.IsDelegated {
 				stakeInfoList = append(stakeInfoList, stakeInfo)
 				if stakeInfo.Amount != nil && stakeInfo.Amount.Sign() > 0 {
 					stakeAmount.Add(stakeAmount, stakeInfo.Amount)
@@ -268,6 +245,22 @@ func GetStakeInfoByKey(db StorageDatabase, stakeInfoKey []byte) (*types.StakeInf
 		return nil, nil
 	}
 	return UnpackStakeInfo(value)
+}
+
+func GetStakeInfoById(db StorageDatabase, id []byte) (*types.StakeInfo, error) {
+	if len(id) != types.HashSize {
+		return nil, util.ErrInvalidMethodParam
+	}
+	if storeKey, err := db.GetValue(id); err != nil {
+		return nil, err
+	} else {
+		if value, err := db.GetValue(storeKey); err != nil {
+			return nil, err
+		} else if len(value) > 0 {
+			return UnpackStakeInfo(value)
+		}
+	}
+	return nil, util.ErrDataNotExist
 }
 
 func UnpackStakeInfo(value []byte) (*types.StakeInfo, error) {

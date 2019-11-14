@@ -127,8 +127,14 @@ message DelegateStakeInfo {
     bytes Address = 2;
     bytes Principal = 3; // in case stake for other address
     bytes Amount = 4;
-    int32 SerialNo = 5; // serialNo for mining stake, updated when confirmed
-    int32 Status = 6; // 0 pending, 1 confirmed, 2 cancelling
+    int32 Status = 5; // 0 pending, 1 confirmed, 2 cancelling
+    uint64 SerialNo = 6;
+    bytes Id = 7; //not set on serialize
+}
+
+message DelegateStakeAddressIndex {
+    bytes Id = 1;
+    int32 StakeType = 2;
 }
 
 message MiningStakingByPeriod {

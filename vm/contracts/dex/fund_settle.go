@@ -267,7 +267,7 @@ func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Addre
 	if IsEarthFork(db) {
 		return nil
 	} else {
-		return doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
+		return DoSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
 	}
 }
 
@@ -275,7 +275,7 @@ func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Addr
 	if IsEarthFork(db) {
 		return nil
 	} else {
-		return doSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
+		return DoSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
 	}
 }
 
@@ -284,27 +284,27 @@ func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fund
 		return nil
 	} else {
 		amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
-		return doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
+		return DoSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
 	}
 }
 
-func DepositMinedVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount *big.Int) error {
+func OnVxMined(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount *big.Int) error {
 	if IsEarthFork(db) {
 		if IsAutoLockMinedVx(db, address.Bytes()) {
 			updatedVxAccount := LockMinedVx(db, address, amount)
-			return doSettleVxFunds(db, reader, address.Bytes(), amount, updatedVxAccount)
+			return DoSettleVxFunds(db, reader, address.Bytes(), amount, updatedVxAccount)
 		} else {
 			DepositAccount(db, address, VxTokenId, amount)
 		}
 	} else {
 		updatedVxAccount := DepositAccount(db, address, VxTokenId, amount)
-		doSettleVxFunds(db, reader, address.Bytes(), amount, updatedVxAccount)
+		DoSettleVxFunds(db, reader, address.Bytes(), amount, updatedVxAccount)
 	}
 	return nil
 }
 
 // only settle validAmount and amount changed from previous period
-func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
+func DoSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
 	var (
 		vxFunds               *VxFunds
 		userNewAmt, sumChange *big.Int
@@ -396,7 +396,7 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 
 func getUserNewVxAmtWithForkCheck(db vm_db.VmDb, updatedVxAcc *dexproto.Account) *big.Int {
 	if IsEarthFork(db) {
-		return new(big.Int).SetBytes(updatedVxAcc.Locked)
+		return new(big.Int).SetBytes(updatedVxAcc.VxLocked)
 	} else {
 		return new(big.Int).SetBytes(AddBigInt(updatedVxAcc.Available, updatedVxAcc.Locked))
 	}

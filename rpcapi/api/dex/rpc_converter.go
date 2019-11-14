@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 )
@@ -456,7 +455,7 @@ type VxUnlock struct {
 	ExpirationTime int64  `json:"expirationTime"`
 }
 
-func UnlockListToRpc(unlocks *dex.VxUnlocks, pageIndex int, pageSize int, chain chain.Chain, vite *vite.Vite) *VxUnlockList {
+func UnlockListToRpc(unlocks *dex.VxUnlocks, pageIndex int, pageSize int, chain chain.Chain) *VxUnlockList {
 	genesisTime := chain.GetGenesisSnapshotBlock().Timestamp.Unix()
 	total := new(big.Int)
 	vxUnlockList := new(VxUnlockList)
@@ -475,4 +474,26 @@ func UnlockListToRpc(unlocks *dex.VxUnlocks, pageIndex int, pageSize int, chain 
 	vxUnlockList.UnlockingAmount = total.String()
 	vxUnlockList.Count = count
 	return vxUnlockList
+}
+
+type DelegateStakeInfo struct {
+	StakeType int    `json:"stakeType"`
+	Address   string `json:"address"`
+	Principal string `json:"principal"`
+	Amount    string `json:"amount"`
+	Status    int    `json:"status"`
+}
+
+func DelegateStakeInfoToRpc(info *dex.DelegateStakeInfo) *DelegateStakeInfo {
+	rpcInfo := new(DelegateStakeInfo)
+	rpcInfo.StakeType = int(info.StakeType)
+	addr, _ := types.BytesToAddress(info.Address)
+	rpcInfo.Address = addr.String()
+	if len(info.Principal) > 0 {
+		prAddr, _ := types.BytesToAddress(info.Principal)
+		rpcInfo.Principal = prAddr.String()
+	}
+	rpcInfo.Amount = AmountBytesToString(info.Amount)
+	rpcInfo.Status = int(info.Status)
+	return rpcInfo
 }

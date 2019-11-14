@@ -58,7 +58,9 @@ var (
 	vipStakingKeyPrefix      = []byte("pldVip:")   // vipStaking: types.Address
 	superVIPStakingKeyPrefix = []byte("pldSpVip:") // superVIPStaking: types.Address
 
-	delegateStakeInfoPrefix = []byte("ds:")
+	delegateStakeInfoPrefix          = []byte("ds:")
+	delegateStakeAddressIndexPrefix  = []byte("dA:")
+	delegateStakeIndexSerialNoPrefix = []byte("dsISN:")
 
 	miningStakingsKeyPrefix     = []byte("pldsVx:")  // miningStakings: types.Address
 	dexMiningStakingsKey        = []byte("pldsVxS:") // dexMiningStakings
@@ -166,11 +168,12 @@ const (
 
 //MethodNameDexFundTradeAdminConfig
 const (
-	TradeAdminConfigMineMarket     = 1
-	TradeAdminConfigNewQuoteToken  = 2
-	TradeAdminConfigTradeThreshold = 4
-	TradeAdminConfigMineThreshold  = 8
-	TradeAdminBurnExtraVx          = 16
+	TradeAdminConfigMineMarket        = 1
+	TradeAdminConfigNewQuoteToken     = 2
+	TradeAdminConfigTradeThreshold    = 4
+	TradeAdminConfigMineThreshold     = 8
+	TradeAdminBurnExtraVx             = 16
+	TradeAdminConfigNewQuoteTokenType = 32
 )
 
 const (
@@ -622,6 +625,24 @@ func (dsi *DelegateStakeInfo) DeSerialize(data []byte) error {
 		return err
 	} else {
 		dsi.DelegateStakeInfo = delegateStakeInfo
+		return nil
+	}
+}
+
+type DelegateStakeAddressIndex struct {
+	dexproto.DelegateStakeAddressIndex
+}
+
+func (dsi *DelegateStakeAddressIndex) Serialize() (data []byte, err error) {
+	return proto.Marshal(&dsi.DelegateStakeAddressIndex)
+}
+
+func (dsi *DelegateStakeAddressIndex) DeSerialize(data []byte) error {
+	stakeIndex := dexproto.DelegateStakeAddressIndex{}
+	if err := proto.Unmarshal(data, &stakeIndex); err != nil {
+		return err
+	} else {
+		dsi.DelegateStakeAddressIndex = stakeIndex
 		return nil
 	}
 }
@@ -1568,6 +1589,11 @@ func GetMineThresholdKey(quoteTokenType uint8) []byte {
 	return append(mineThresholdKeyPrefix, quoteTokenType)
 }
 
+func SaveNewQuoteTokenTypeInfo(db vm_db.VmDb, quoteTokenType uint8, tradeThreshold, mineThreshold *big.Int) {
+	SaveTradeThreshold(db, quoteTokenType, tradeThreshold)
+	SaveMineThreshold(db, quoteTokenType, mineThreshold)
+}
+
 func GetMakerMiningAdmin(db vm_db.VmDb) *types.Address {
 	if mmaBytes := getValueFromDb(db, makerMiningAdminKey); len(mmaBytes) == types.AddressSize {
 		if makerMiningAdmin, err := types.BytesToAddress(mmaBytes); err == nil {
@@ -1864,8 +1890,9 @@ func SaveDelegateStakeInfo(db vm_db.VmDb, hash types.Hash, stakeType uint8, addr
 	serializeToDb(db, GetDelegateStakeInfoKey(hash.Bytes()), info)
 }
 
-func ConfirmDelegateStakeInfo(db vm_db.VmDb, hash types.Hash, info *DelegateStakeInfo) {
+func ConfirmDelegateStakeInfo(db vm_db.VmDb, hash types.Hash, info *DelegateStakeInfo, serialNo uint64) {
 	info.Status = int32(StakeConfirmed)
+	info.SerialNo = serialNo
 	serializeToDb(db, GetDelegateStakeInfoKey(hash.Bytes()), info)
 }
 
@@ -1875,6 +1902,38 @@ func DeleteDelegateStakeInfo(db vm_db.VmDb, hash []byte) {
 
 func GetDelegateStakeInfoKey(hash []byte) []byte {
 	return append(delegateStakeInfoPrefix, hash[len(delegateStakeInfoPrefix):]...)
+}
+
+func SaveDelegateStakeAddressIndex(db vm_db.VmDb, id types.Hash, stakeType int32, address []byte) uint64 {
+	serialNo := NewDelegateStakeIndexSerialNo(db, address)
+	index := &DelegateStakeAddressIndex{}
+	index.StakeType = int32(stakeType)
+	index.Id = id.Bytes()
+	serializeToDb(db, GetDelegateStakeAddressIndexKey(address, serialNo), index)
+	return serialNo
+}
+
+func DeleteDelegateStakeAddressIndex(db vm_db.VmDb, address []byte, serialNo uint64) {
+	setValueToDb(db, GetDelegateStakeAddressIndexKey(address, serialNo), nil)
+}
+
+func GetDelegateStakeAddressIndexKey(address []byte, serialNo uint64) []byte {
+	return append(append(delegateStakeAddressIndexPrefix, address...), Uint64ToBytes(serialNo)...) //4+20+8
+}
+
+func NewDelegateStakeIndexSerialNo(db vm_db.VmDb, address []byte) (serialNo uint64) {
+	if data := getValueFromDb(db, GetDelegateStakeIndexSerialNoKey(address)); len(data) == 8 {
+		serialNo = BytesToUint64(data)
+		serialNo++
+	} else {
+		serialNo = 1
+	}
+	setValueToDb(db, GetDelegateStakeIndexSerialNoKey(address), Uint64ToBytes(serialNo))
+	return
+}
+
+func GetDelegateStakeIndexSerialNoKey(address []byte) []byte {
+	return append(delegateStakeIndexSerialNoPrefix, address...)
 }
 
 func GetTimestampInt64(db vm_db.VmDb) int64 {

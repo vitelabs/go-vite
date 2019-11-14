@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
+	"strconv"
 )
 
 type DexApi struct {
@@ -70,7 +71,7 @@ func (f DexApi) GetAccountBalanceInfo(addr types.Address, tokenId *types.TokenTy
 			info.Locked = "0"
 		}
 
-		if *tokenId == dex.VxTokenId {
+		if v.Token == dex.VxTokenId {
 			if v.VxLocked != nil {
 				info.VxLocked = v.VxLocked.String()
 			}
@@ -335,46 +336,116 @@ func (f DexApi) GetOrdersForMarket(tradeToken, quoteToken types.TokenTypeId, sid
 }
 
 func (f DexApi) GetVIPStakeInfoList(address types.Address, pageIndex int, pageSize int) (*apidex.StakeInfoList, error) {
-	db, err := getVmDb(f.chain, types.AddressQuota)
+	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	quotaList, err := innerGetStakeList(db, address, pageIndex, pageSize, func()([]*types.StakeInfo, *big.Int, error){
-		return abi.GetDelegateStakeInfoListByBids(db, address, types.AddressDexFund, []uint8{dex.StakeForVIP, dex.StakeForSuperVIP, dex.StakeForPrincipalSuperVIP})
-	})
-	if err != nil {
+	var (
+		stakeInfos    = make([]*dex.DelegateStakeInfo, 0)
+		newStakeInfos []*dex.DelegateStakeInfo
+		count         int
+		totalAmount   = new(big.Int)
+		newAmount     *big.Int
+	)
+	if vipStaking, ok := dex.GetVIPStaking(db, address); ok && len(vipStaking.StakingHashes) < int(vipStaking.StakedTimes) {
+		vipStakeInfo := &dex.DelegateStakeInfo{}
+		vipStakeInfo.StakeType = dex.StakeForVIP
+		vipStakeInfo.Address = address.Bytes()
+		vipStakeInfo.Amount = dex.StakeForVIPAmount.Bytes()
+		stakeInfos = append(stakeInfos, vipStakeInfo)
+		totalAmount.Add(totalAmount, dex.StakeForVIPAmount)
+	}
+	if superVipStaking, ok := dex.GetSuperVIPStaking(db, address); ok && len(superVipStaking.StakingHashes) < int(superVipStaking.StakedTimes) {
+		superVipStakeInfo := &dex.DelegateStakeInfo{}
+		superVipStakeInfo.StakeType = dex.StakeForSuperVIP
+		superVipStakeInfo.Address = address.Bytes()
+		superVipStakeInfo.Amount = dex.StakeForSuperVIPAmount.Bytes()
+		stakeInfos = append(stakeInfos, superVipStakeInfo)
+		totalAmount.Add(totalAmount, dex.StakeForSuperVIPAmount)
+	}
+	if newStakeInfos, newAmount, err = dex.GetStakeInfoList(db, address, func(index *dex.DelegateStakeAddressIndex) bool {
+		bids := []int32{dex.StakeForVIP, dex.StakeForSuperVIP, dex.StakeForPrincipalSuperVIP}
+		for _, bid := range bids {
+			if index.StakeType == bid {
+				return true
+			}
+		}
+		return false
+	}); err != nil {
 		return nil, err
 	}
-	return StakeListToDexRpc(quotaList, f.chain, getVmDb), nil
+	stakeInfos = append(stakeInfos, newStakeInfos...)
+	count = len(stakeInfos)
+	totalAmount.Add(totalAmount, newAmount)
+	if count > pageIndex*pageSize {
+		var endIndex = (pageIndex+1)*pageSize
+		if count < endIndex {
+			endIndex = count
+		}
+		stakeInfos = stakeInfos[pageIndex*pageSize : endIndex]
+	} else {
+		stakeInfos = nil
+	}
+	return StakeListToDexRpc(stakeInfos, totalAmount, count, f.chain)
 }
 
-func (f DexApi) GetMiningStakeInfoList(address types.Address, pageIndex int, pageSize int) (*StakeInfoList, error) {
-	db, err := getVmDb(f.chain, types.AddressQuota)
+func (f DexApi) GetMiningStakeInfoList(address types.Address, pageIndex int, pageSize int) (*apidex.StakeInfoList, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
-	return innerGetStakeList(db, address, pageIndex, pageSize, func()([]*types.StakeInfo, *big.Int, error){
-		return abi.GetDelegateStakeInfoListByBids(db, address, types.AddressDexFund, []uint8{dex.StakeForMining})
-	})
+	var (
+		stakeInfos    = make([]*dex.DelegateStakeInfo, 0)
+		newStakeInfos []*dex.DelegateStakeInfo
+		count         int
+		totalAmount   = new(big.Int)
+		newAmount     *big.Int
+	)
+	if amount := dex.GetMiningStakedAmount(db, address); amount.Sign() > 0 {
+		miningStakeInfo := &dex.DelegateStakeInfo{}
+		miningStakeInfo.StakeType = dex.StakeForMining
+		miningStakeInfo.Address = address.Bytes()
+		miningStakeInfo.Amount = amount.Bytes()
+		stakeInfos = append(stakeInfos, miningStakeInfo)
+		totalAmount.Add(totalAmount, new(big.Int).SetBytes(miningStakeInfo.Amount))
+	}
+	if newStakeInfos, newAmount, err = dex.GetStakeInfoList(db, address, func(index *dex.DelegateStakeAddressIndex) bool {
+		return index.StakeType == dex.StakeForMining
+	}); err != nil {
+		return nil, err
+	}
+	stakeInfos = append(stakeInfos, newStakeInfos...)
+	count = len(stakeInfos)
+	totalAmount.Add(totalAmount, newAmount)
+	if count > pageIndex*pageSize {
+		var endIndex = (pageIndex+1)*pageSize
+		if count < endIndex {
+			endIndex = count
+		}
+		stakeInfos = stakeInfos[pageIndex*pageSize : endIndex]
+	} else {
+		stakeInfos = nil
+	}
+	return StakeListToDexRpc(stakeInfos, totalAmount, count, f.chain)
 }
 
 func (f DexApi) IsAutoLockMinedVx(address types.Address) (bool, error) {
-	db, err := getVmDb(f.chain, types.AddressQuota)
+	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return false, err
 	}
 	return dex.IsAutoLockMinedVx(db, address.Bytes()), nil
 }
 
-func (f DexApi) GetVxUnlockList(address types.Address, pageIndex int, pageSize int) (*apidex.VxUnlockList, error)  {
-	db, err := getVmDb(f.chain, types.AddressQuota)
+func (f DexApi) GetVxUnlockList(address types.Address, pageIndex int, pageSize int) (*apidex.VxUnlockList, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	} else {
 		if unlocks, ok := dex.GetVxUnlocks(db, address); !ok {
 			return nil, nil
 		} else {
-			return apidex.UnlockListToRpc(unlocks, pageIndex, pageSize, f.chain, f.vite), nil
+			return apidex.UnlockListToRpc(unlocks, pageIndex, pageSize, f.chain), nil
 		}
 	}
 }
@@ -486,7 +557,7 @@ func (f DexPrivateApi) GetAllTotalVxBalance() (*apidex.RpcVxFunds, error) {
 	if err != nil {
 		return nil, err
 	}
-	if vxSumFunds, ok := dex.GetVxSumFunds(db); !ok {
+	if vxSumFunds, ok := dex.GetVxSumFundsWithForkCheck(db); !ok {
 		return nil, nil
 	} else {
 		return apidex.VxFundsToRpc(vxSumFunds), nil
@@ -498,7 +569,7 @@ func (f DexPrivateApi) GetAllVxBalanceByAddress(address types.Address) (*apidex.
 	if err != nil {
 		return nil, err
 	}
-	if vxFunds, ok := dex.GetVxFunds(db, address.Bytes()); !ok {
+	if vxFunds, ok := dex.GetVxFundsWithForkCheck(db, address.Bytes()); !ok {
 		return nil, nil
 	} else {
 		return apidex.VxFundsToRpc(vxFunds), nil
@@ -512,6 +583,14 @@ func (f DexPrivateApi) GetVxPoolBalance() (string, error) {
 	}
 	balance := dex.GetVxMinePool(db)
 	return balance.String(), nil
+}
+
+func (f DexPrivateApi) GetVxBurnBalance() (string, error) {
+	if db, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
+		return "-1", err
+	} else {
+		return dex.GetVxBurnAmount(db).String(), nil
+	}
 }
 
 func (f DexPrivateApi) GetVIPStakingInfoByAddress(address types.Address) (*dex.VIPStaking, error) {
@@ -582,7 +661,6 @@ func (f DexPrivateApi) GetDexConfig() (map[string]string, error) {
 }
 
 func (f DexPrivateApi) GetMinThresholdForTradeAndMining() (map[int]*apidex.RpcThresholdForTradeAndMine, error) {
-
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -668,42 +746,60 @@ func (f DexPrivateApi) GetTradeTimestamp() (timestamp int64, err error) {
 	}
 }
 
-func (f DexPrivateApi) GetVxBurnAmount() (string, error) {
+func (f DexPrivateApi) GetDelegateStakeInfoById(id types.Hash) (*apidex.DelegateStakeInfo, error) {
 	if db, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
-		return "-1", err
+		return nil, err
 	} else {
-		return dex.GetVxBurnAmount(db).String(), nil
+		if info, ok := dex.GetDelegateStakeInfo(db, id.Bytes()); ok {
+			return apidex.DelegateStakeInfoToRpc(info), nil
+		} else {
+			return nil, nil
+		}
 	}
 }
 
-func StakeListToDexRpc(quotaList *StakeInfoList, chain chain.Chain, getVmDb func(chain.Chain, types.Address)(vm_db.VmDb, error)) *apidex.StakeInfoList {
-	var db *vm_db.VmDb
+func StakeListToDexRpc(stakeInfos []*dex.DelegateStakeInfo, totalAmount *big.Int, count int, chain chain.Chain) (*apidex.StakeInfoList, error) {
 	list := new(apidex.StakeInfoList)
-	list.StakeAmount = quotaList.StakeAmount
-	list.Count = quotaList.Count
-	for _, quotaInfo := range quotaList.StakeList {
-		info := new(apidex.StakeInfo)
-		info.Amount = quotaInfo.Amount
-		info.Beneficiary = quotaInfo.Beneficiary.String()
-		info.ExpirationHeight = quotaInfo.ExpirationHeight
-		info.ExpirationTime = quotaInfo.ExpirationTime
-		info.IsDelegated = quotaInfo.IsDelegated
-		info.DelegateAddress = quotaInfo.DelegateAddress.String()
-		info.StakeAddress = quotaInfo.StakeAddress.String()
-		info.Bid = quotaInfo.Bid
-		if quotaInfo.Id != nil {
-			info.Id = quotaInfo.Id.String()
-		}
-		if quotaInfo.Bid == dex.StakeForPrincipalSuperVIP {
-			if db == nil {
-				*db, _= getVmDb(chain, types.AddressDexFund)
-			}
-			if dexStakeInfo, ok := dex.GetDelegateStakeInfo(*db, (*quotaInfo).Id.Bytes()); ok {
-				if principal, err := types.BytesToAddress(dexStakeInfo.Principal); err == nil {
-					info.Principal = principal.String()
+	list.StakeAmount = totalAmount.String()
+	list.Count = count
+	if db, err := getVmDb(chain, types.AddressQuota); err != nil {
+		return nil, err
+	} else {
+		var snapshotBlock *ledger.SnapshotBlock
+		for _, stakeInfo := range stakeInfos {
+			info := new(apidex.StakeInfo)
+			stakeAddr, _ := types.BytesToAddress(stakeInfo.Address)
+			info.Amount = apidex.AmountBytesToString(stakeInfo.Amount)
+			info.Beneficiary = types.AddressDexFund.String()
+			info.IsDelegated = true
+			info.DelegateAddress = types.AddressDexFund.String()
+			info.StakeAddress = stakeAddr.String()
+			info.Bid = uint8(stakeInfo.StakeType)
+			var quotaInfo *types.StakeInfo
+			if len(stakeInfo.Id) > 0 {
+				id, _ := types.BytesToHash(stakeInfo.Id)
+				info.Id = id.String()
+				if quotaInfo, err = abi.GetStakeInfoById(db, stakeInfo.Id); err != nil {
+					return nil, err
+				}
+			} else {
+				if quotaInfo, err = abi.GetStakeInfo(db, stakeAddr, types.AddressDexFund, types.AddressDexFund, true, info.Bid); err != nil {
+					return nil, err
 				}
 			}
+			info.ExpirationHeight = strconv.FormatInt(int64(quotaInfo.ExpirationHeight), 10)
+			if snapshotBlock == nil {
+				if snapshotBlock, err = db.LatestSnapshotBlock(); err != nil {
+					return nil, err
+				}
+			}
+			info.ExpirationTime = getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, quotaInfo.ExpirationHeight)
+			if stakeInfo.StakeType == dex.StakeForPrincipalSuperVIP {
+				principal, _ := types.BytesToAddress(stakeInfo.Principal)
+				info.Principal = principal.String()
+			}
+			list.StakeList = append(list.StakeList, info)
 		}
 	}
-	return list
+	return list, nil
 }

@@ -4,7 +4,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -119,7 +118,7 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 			}
 			minedAmt := new(big.Int).Add(vxMinedForBase, vxMinedForInvite)
 			if minedAmt.Sign() > 0 {
-				if err = DepositMinedVx(db, reader, address, minedAmt); err != nil {
+				if err = OnVxMined(db, reader, address, minedAmt); err != nil {
 					return nil, err
 				}
 			}
@@ -205,7 +204,7 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 		//fmt.Printf("tokenId %s, address %s, vxSumAmt %s, userVxAmount %s, dividedVxAmt %s, toDivideFeeAmt %s, toDivideLeaveAmt %s\n", tokenId.String(), address.String(), vxSumAmt.String(), userVxAmount.String(), dividedVxAmtMap[tokenId], toDivideFeeAmt.String(), toDivideLeaveAmt.String())
 		minedAmt, finished := DivideByProportion(dexMiningStakedAmount, stakedAmt, dividedStakedAmountSum, amountToMine, amtLeavedToMine)
 		if minedAmt.Sign() > 0 {
-			if err = DepositMinedVx(db, reader, address, minedAmt); err != nil {
+			if err = OnVxMined(db, reader, address, minedAmt); err != nil {
 				return amtLeavedToMine, err
 			}
 			AddMinedVxForStakingEvent(db, address, stakedAmt, minedAmt)
@@ -238,7 +237,7 @@ func DoMineVxForMaker(db vm_db.VmDb, periodId uint64, amount *big.Int) {
 func DoMineVxForMaintainer(db vm_db.VmDb, reader util.ConsensusReader, amount *big.Int) (err error) {
 	if amount.Sign() > 0 {
 		maintainer := GetMaintainer(db)
-		if err = DepositMinedVx(db, reader, *maintainer, amount); err != nil {
+		if err = OnVxMined(db, reader, *maintainer, amount); err != nil {
 			return
 		}
 		AddMinedVxForOperationEvent(db, MineForMaintainer, *maintainer, amount)
@@ -253,19 +252,16 @@ func BurnExtraVx(db vm_db.VmDb) ([]*ledger.AccountBlock, error) {
 	} else {
 		SaveVxMinePool(db, new(big.Int).Sub(poolAmt, vxBurnAmt))
 		SaveVxBurnAmount(db, vxBurnAmt)
-		if burnData, err := abi.ABIAsset.PackMethod(abi.MethodNameBurn); err != nil {
-			panic(err)
-		} else {
-			return []*ledger.AccountBlock{
-				{
+		return []*ledger.AccountBlock{
+			{
 				AccountAddress: types.AddressDexFund,
-				ToAddress:      types.AddressAsset,
+				ToAddress:      types.ZERO_ADDRESS,
 				BlockType:      ledger.BlockTypeSendCall,
 				TokenId:        VxTokenId,
 				Amount:         vxBurnAmt,
-				Data:           burnData,
+				Data:           []byte{},
 			}}, nil
-		}
+
 	}
 }
 

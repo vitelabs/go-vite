@@ -31,6 +31,7 @@ var (
 	CancelOrderInvalidStatusErr = errors.New("order status is invalid to cancel")
 
 	OnlyOwnerAllowErr = errors.New("only owner allow")
+	InvalidOperationErr = errors.New("invalid operation")
 
 	ExceedFundAvailableErr           = errors.New("exceed fund available")
 	ExceedFundLockedErr              = errors.New("try release locked amount exceed locked")
