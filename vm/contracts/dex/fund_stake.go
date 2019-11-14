@@ -1,6 +1,7 @@
 package dex
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -10,17 +11,13 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 )
-
-func HandleStakeAction(db vm_db.VmDb, stakeType uint8, actionType uint8, address types.Address, amount *big.Int, stakeHeight uint64) ([]*ledger.AccountBlock, error) {
-	var (
-		methodData []byte
-		err        error
-	)
+//TODO refactory for simple
+func HandleStakeAction(db vm_db.VmDb, stakeType, actionType uint8, address, principal types.Address, amount *big.Int, stakeHeight uint64, block *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
 	if actionType == Stake {
-		if methodData, err = stakeRequest(db, address, stakeType, amount, stakeHeight); err != nil {
+		if methodData, err := stakeRequest(db, address, principal, stakeType, amount, stakeHeight); err != nil {
 			return []*ledger.AccountBlock{}, err
 		} else {
-			return []*ledger.AccountBlock{
+			blocks := []*ledger.AccountBlock{
 				{
 					AccountAddress: types.AddressDexFund,
 					ToAddress:      types.AddressQuota,
@@ -29,60 +26,87 @@ func HandleStakeAction(db vm_db.VmDb, stakeType uint8, actionType uint8, address
 					TokenId:        ledger.ViteTokenId,
 					Data:           methodData,
 				},
-			}, nil
+			}
+			if IsEarthFork(db) {
+				stakeId := util.ComputeSendBlockHash(block, blocks[0], 0)
+				SaveDelegateStakeInfo(db, stakeId, stakeType, address, principal, amount)
+			}
+			return blocks, nil
 		}
 	} else {
-		return DoCancelStake(db, address, stakeType, amount)
+		return DoCancelStake(db, address, principal, stakeType, amount)
 	}
 }
 
-func DoCancelStake(db vm_db.VmDb, address types.Address, stakeType uint8, amount *big.Int) ([]*ledger.AccountBlock, error) {
+// |              | withoutId | withId |
+// | Mining       |    Yes    |   No   |
+// | VIP          |    Yes    |   Yes  |
+// | SVIP         |    Yes    |   Yes  |
+// | PrincipalSVIP|     -     |   Yes  |
+func DoCancelStake(db vm_db.VmDb, address, principal types.Address, stakeType uint8, amount *big.Int) ([]*ledger.AccountBlock, error) {
 	var (
 		methodData []byte
 		err        error
 	)
-	if methodData, err = cancelStakeRequest(db, address, stakeType, amount); err != nil {
+	if methodData, err = cancelStakeRequest(db, address, principal, stakeType, amount); err != nil {
 		return []*ledger.AccountBlock{}, err
 	} else {
-		return []*ledger.AccountBlock{
-			{
-				AccountAddress: types.AddressDexFund,
-				ToAddress:      types.AddressQuota,
-				BlockType:      ledger.BlockTypeSendCall,
-				TokenId:        ledger.ViteTokenId,
-				Amount:         big.NewInt(0),
-				Data:           methodData,
-			},
-		}, nil
+		return composeCancelBlock(methodData), nil
 	}
 }
 
-func stakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, amount *big.Int, stakeHeight uint64) ([]byte, error) {
-	if stakeType == StakeForVIP {
+func DoCancelStakeWithId(id types.Hash)  ([]*ledger.AccountBlock, error) {
+	if methodData, err := abi.ABIQuota.PackMethod(abi.MethodNameCancelStakeWithCallback, id); err != nil {
+		return []*ledger.AccountBlock{}, err
+	} else {
+		return composeCancelBlock(methodData), nil
+	}
+}
+
+func stakeRequest(db vm_db.VmDb, address, principal types.Address, stakeType uint8, amount *big.Int, stakeHeight uint64) ([]byte, error) {
+	switch stakeType {
+	case StakeForVIP:
 		if _, ok := GetVIPStaking(db, address); ok {
 			return nil, VIPStakingExistsErr
 		}
-	} else if stakeType == StakeForSuperVIP {
+	case StakeForSuperVIP:
 		if _, ok := GetSuperVIPStaking(db, address); ok {
+			return nil, SuperVipStakingExistsErr
+		}
+	case StakeForPrincipalSuperVIP:
+		if _, ok := GetSuperVIPStaking(db, principal); ok {
 			return nil, SuperVipStakingExistsErr
 		}
 	}
 	if _, err := ReduceAccount(db, address, ledger.ViteTokenId.Bytes(), amount); err != nil {
 		return nil, err
 	} else {
-		var stakeMethod = abi.MethodNameDelegateStakeV2
-		if !IsLeafFork(db) {
-			stakeMethod = abi.MethodNameDelegateStake
-		}
-		if stakeData, err := abi.ABIQuota.PackMethod(stakeMethod, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
-			return nil, err
+		if IsEarthFork(db) {
+			if stakeData, err := abi.ABIQuota.PackMethod(abi.MethodNameStakeWithCallback, types.AddressDexFund, stakeHeight); err != nil {
+				return nil, err
+			} else {
+				return stakeData, err
+			}
 		} else {
-			return stakeData, err
+			var stakeMethod = abi.MethodNameDelegateStakeV2
+			if !IsLeafFork(db) {
+				stakeMethod = abi.MethodNameDelegateStake
+			}
+			if stakeData, err := abi.ABIQuota.PackMethod(stakeMethod, address, types.AddressDexFund, stakeType, stakeHeight); err != nil {
+				return nil, err
+			} else {
+				return stakeData, err
+			}
 		}
 	}
 }
 
-func cancelStakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, amount *big.Int) ([]byte, error) {
+func cancelStakeRequest(db vm_db.VmDb, address, principal types.Address, stakeType uint8, amount *big.Int) ([]byte, error) {
+	var (
+		vipStaking *VIPStaking
+		stakeId    []byte
+		ok         bool
+	)
 	switch stakeType {
 	case StakeForMining:
 		available := GetMiningStakedAmount(db, address)
@@ -93,31 +117,108 @@ func cancelStakeRequest(db vm_db.VmDb, address types.Address, stakeType uint8, a
 			return nil, StakingAmountLeavedNotValidErr
 		}
 	case StakeForVIP:
-		if _, ok := GetVIPStaking(db, address); !ok {
+		if vipStaking, ok = GetVIPStaking(db, address); !ok {
 			return nil, VIPStakingNotExistsErr
 		}
 	case StakeForSuperVIP:
-		if _, ok := GetSuperVIPStaking(db, address); !ok {
+		if vipStaking, ok = GetSuperVIPStaking(db, address); !ok {
+			return nil, SuperVIPStakingNotExistsErr
+		}
+	case StakeForPrincipalSuperVIP:
+		if vipStaking, ok = GetSuperVIPStaking(db, principal); !ok {
 			return nil, SuperVIPStakingNotExistsErr
 		}
 	}
-	var cancelStakeMethod = abi.MethodNameCancelDelegateStakeV2
-	if !IsLeafFork(db) {
-		cancelStakeMethod = abi.MethodNameCancelDelegateStake
-	}
-	if cancelStakeData, err := abi.ABIQuota.PackMethod(cancelStakeMethod, address, types.AddressDexFund, amount, uint8(stakeType)); err != nil {
-		return nil, err
+	if stakeType == StakeForMining || !IsVipStakingWithId(vipStaking) { // cancel old version stake
+		var cancelStakeMethod = abi.MethodNameCancelDelegateStakeV2
+		if !IsLeafFork(db) {
+			cancelStakeMethod = abi.MethodNameCancelDelegateStake
+		}
+		return abi.ABIQuota.PackMethod(cancelStakeMethod, address, types.AddressDexFund, amount, uint8(stakeType))
+	} else if IsVipStakingWithId(vipStaking) {
+		var matchStakeAddr bool
+		for _, id := range vipStaking.StakingHashes {
+			if info, ok := GetDelegateStakeInfo(db, id); ok {
+				if bytes.Equal(info.Address, address.Bytes()) {
+					stakeId = id
+					matchStakeAddr = true
+					break
+				}
+			}
+		}
+		if !matchStakeAddr {
+			return nil, OnlyOwnerAllowErr
+		}
+		return abi.ABIQuota.PackMethod(abi.MethodNameCancelStakeWithCallback, stakeId)
 	} else {
-		return cancelStakeData, err
+		return nil, InvalidOperationErr
 	}
 }
 
-func OnMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
-	return doChangeMiningStakedAmount(db, reader, address, amount, updatedAmount)
+
+func composeCancelBlock(methodData []byte) []*ledger.AccountBlock {
+	return []*ledger.AccountBlock{
+		{
+			AccountAddress: types.AddressDexFund,
+			ToAddress:      types.AddressQuota,
+			BlockType:      ledger.BlockTypeSendCall,
+			TokenId:        ledger.ViteTokenId,
+			Amount:         big.NewInt(0),
+			Data:           methodData,
+		},
+	}
 }
 
-func OnCancelMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
-	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount)
+func IsVipStakingWithId(staking *VIPStaking) bool {
+	if len(staking.StakingHashes) > 0 {
+		if int(staking.StakedTimes) == len(staking.StakingHashes) {
+			return true
+		} else {
+			return false
+		}
+	} else {
+		return false
+	}
+}
+
+func GetStakeInfoList(db vm_db.VmDb, stakeAddr types.Address, filter func(*DelegateStakeAddressIndex)bool) ([]*DelegateStakeInfo, *big.Int, error) {
+	if *db.Address() != types.AddressDexFund {
+		return nil, nil, InvalidInputParamErr
+	}
+	stakeAmount := big.NewInt(0)
+	iterator, err := db.NewStorageIterator(append(delegateStakeAddressIndexPrefix, stakeAddr.Bytes()...))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer iterator.Release()
+	stakeInfoList := make([]*DelegateStakeInfo, 0)
+	for {
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, nil, iterator.Error()
+			}
+			break
+		}
+		stakeIndex := &DelegateStakeAddressIndex{}
+		if ok := deserializeFromDb(db, iterator.Key(), stakeIndex); ok {
+			if filter(stakeIndex) {
+				if info, ok := GetDelegateStakeInfo(db, stakeIndex.Id); ok {
+					info.Id = stakeIndex.Id
+					stakeInfoList = append(stakeInfoList, info)
+					stakeAmount.Add(stakeAmount, new(big.Int).SetBytes(info.Amount))
+				}
+			}
+		}
+	}
+	return stakeInfoList, stakeAmount, nil
+}
+
+func OnMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount, updatedV2Amount *big.Int) error {
+	return doChangeMiningStakedAmount(db, reader, address, amount, new(big.Int).Add(updatedAmount, updatedV2Amount))
+}
+
+func OnCancelMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount, updatedV2Amount *big.Int) error {
+	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), new(big.Int).Add(updatedAmount, updatedV2Amount))
 }
 
 func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int) error {

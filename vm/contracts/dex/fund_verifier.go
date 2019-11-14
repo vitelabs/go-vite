@@ -101,6 +101,10 @@ func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*b
 		for _, acc := range userFund.Accounts {
 			tokenId, _ := types.BytesToTokenTypeId(acc.Token)
 			total := AddBigInt(acc.Available, acc.Locked)
+			if IsEarthFork(db) && tokenId == VxTokenId {
+				vxLocked := AddBigInt(acc.VxLocked, acc.VxUnlocking)
+				total = AddBigInt(total, vxLocked)
+			}
 			accAccount(tokenId, total, accumulateRes)
 		}
 		count++

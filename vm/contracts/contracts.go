@@ -202,6 +202,14 @@ func newEarthContracts() map[types.Address]*builtinContract {
 	contracts[types.AddressGovernance].m[cabi.MethodNameWithdrawRewardV3] = &MethodWithdrawReward{cabi.MethodNameWithdrawRewardV3}
 	contracts[types.AddressGovernance].m[cabi.MethodNameVoteV3] = &MethodVote{cabi.MethodNameVoteV3}
 	contracts[types.AddressGovernance].m[cabi.MethodNameCancelVoteV3] = &MethodCancelVote{cabi.MethodNameCancelVoteV3}
+
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundLockVxForDividend] = &MethodDexFundLockVxForDividend{cabi.MethodNameDexFundLockVxForDividend}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundSwitchConfig] = &MethodDexFundSwitchConfig{cabi.MethodNameDexFundSwitchConfig}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundStakeForPrincipalSVIP] = &MethodDexFundStakeForPrincipalSVIP{cabi.MethodNameDexFundStakeForPrincipalSVIP}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCancelStakeById] = &MethodDexFundCancelStakeById{cabi.MethodNameDexFundCancelStakeById}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundDelegateStakeCallbackV2] = &MethodDexFundDelegateStakeCallbackV2{cabi.MethodNameDexFundDelegateStakeCallbackV2}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCancelDelegateStakeCallbackV2] = &MethodDexFundCancelDelegateStakeCallbackV2{cabi.MethodNameDexFundCancelDelegateStakeCallbackV2}
+
 	contracts[types.AddressQuota].m[cabi.MethodNameStakeV3] = &MethodStakeV3{cabi.MethodNameStakeV3}
 	contracts[types.AddressQuota].m[cabi.MethodNameCancelStakeV3] = &MethodCancelStakeV3{cabi.MethodNameCancelStakeV3}
 	contracts[types.AddressQuota].m[cabi.MethodNameStakeWithCallback] = &MethodStakeV3{cabi.MethodNameStakeWithCallback}
