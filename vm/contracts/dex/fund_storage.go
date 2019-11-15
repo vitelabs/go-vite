@@ -281,11 +281,6 @@ type ParamStakeForVIP struct {
 	ActionType uint8 // 1: stake 2: cancel stake
 }
 
-type ParamStakeForPrincipalVIP struct {
-	ActionType uint8 // 1: stake 2: cancel stake
-	Principal  types.Address
-}
-
 type ParamDelegateStakeCallback struct {
 	StakeAddress types.Address
 	Beneficiary  types.Address
