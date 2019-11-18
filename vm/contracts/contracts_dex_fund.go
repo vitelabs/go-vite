@@ -588,6 +588,9 @@ func (md *MethodDexFundStakeForPrincipalSVIP) DoSend(db vm_db.VmDb, block *ledge
 func (md MethodDexFundStakeForPrincipalSVIP) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var principal = new(types.Address)
 	cabi.ABIDexFund.UnpackMethod(principal, md.MethodName, sendBlock.Data)
+	if sendBlock.AccountAddress == *principal {
+		return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidInputParamErr, sendBlock)
+	}
 	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForPrincipalSuperVIP, dex.Stake, sendBlock.AccountAddress, *principal, dex.StakeForSuperVIPAmount, nodeConfig.params.DexSuperVipStakeHeight, block); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	} else {
@@ -947,7 +950,7 @@ func (md MethodDexFundCancelDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, bl
 	if param.Success {
 		switch info.StakeType {
 		case dex.StakeForMining:
-			if bytes.Equal(info.Amount, sendBlock.Amount.Bytes()) {
+			if !bytes.Equal(info.Amount, sendBlock.Amount.Bytes()) {
 				panic(dex.InvalidAmountForStakeCallbackErr)
 			}
 			stakedAmount := dex.GetMiningStakedV2Amount(db, address)

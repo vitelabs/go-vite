@@ -141,6 +141,18 @@ func (f DexApi) HasStakedForVIP(address types.Address) (bool, error) {
 	return ok, nil
 }
 
+func (f DexApi) GetStakedForVIP(address types.Address) (*apidex.VIPStakingRpc, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	if vipStaking, ok := dex.GetVIPStaking(db, address); ok {
+		return apidex.VIPStakingToRpc(vipStaking), nil
+	} else {
+		return nil, nil
+	}
+}
+
 func (f DexApi) HasStakedForSVIP(address types.Address) (bool, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
