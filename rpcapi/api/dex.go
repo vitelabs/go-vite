@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"strconv"
 )
@@ -147,7 +148,7 @@ func (f DexApi) GetStakedForVIP(address types.Address) (*apidex.VIPStakingRpc, e
 		return nil, err
 	}
 	if vipStaking, ok := dex.GetVIPStaking(db, address); ok {
-		return apidex.VIPStakingToRpc(vipStaking), nil
+		return VIPStakingToRpc(f.chain, address, vipStaking, dex.StakeForVIP, dex.StakeForVIPAmount)
 	} else {
 		return nil, nil
 	}
@@ -790,25 +791,14 @@ func StakeListToDexRpc(stakeInfos []*dex.DelegateStakeInfo, totalAmount *big.Int
 			info.DelegateAddress = types.AddressDexFund.String()
 			info.StakeAddress = stakeAddr.String()
 			info.Bid = uint8(stakeInfo.StakeType)
-			var quotaInfo *types.StakeInfo
-			if len(stakeInfo.Id) > 0 {
-				id, _ := types.BytesToHash(stakeInfo.Id)
-				info.Id = id.String()
-				if quotaInfo, err = abi.GetStakeInfoById(db, stakeInfo.Id); err != nil {
-					return nil, err
-				}
-			} else {
-				if quotaInfo, err = abi.GetStakeInfo(db, stakeAddr, types.AddressDexFund, types.AddressDexFund, true, info.Bid); err != nil {
-					return nil, err
-				}
-			}
-			info.ExpirationHeight = strconv.FormatInt(int64(quotaInfo.ExpirationHeight), 10)
 			if snapshotBlock == nil {
 				if snapshotBlock, err = db.LatestSnapshotBlock(); err != nil {
 					return nil, err
 				}
 			}
-			info.ExpirationTime = getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, quotaInfo.ExpirationHeight)
+			if info.Id, info.ExpirationHeight, info.ExpirationTime, err = getStakeExpirationInfo(db, stakeInfo.Id, stakeAddr, info.Bid, snapshotBlock); err != nil {
+				return nil, err
+			}
 			if stakeInfo.StakeType == dex.StakeForPrincipalSuperVIP {
 				principal, _ := types.BytesToAddress(stakeInfo.Principal)
 				info.Principal = principal.String()
@@ -817,4 +807,43 @@ func StakeListToDexRpc(stakeInfos []*dex.DelegateStakeInfo, totalAmount *big.Int
 		}
 	}
 	return list, nil
+}
+
+func VIPStakingToRpc(chain chain.Chain, address types.Address, info *dex.VIPStaking, bid uint8, amount *big.Int) (vipStakingRpc *apidex.VIPStakingRpc, err error) {
+	var (
+		db vm_db.VmDb
+		snapshotBlock *ledger.SnapshotBlock
+		id            []byte
+	)
+	if len(info.StakingHashes) > 0 {
+		id = info.StakingHashes[0]
+	}
+	if db, err = getVmDb(chain, types.AddressQuota); err != nil {
+		return
+	}
+	if snapshotBlock, err = db.LatestSnapshotBlock(); err != nil {
+		return nil, err
+	}
+	vipStakingRpc = new(apidex.VIPStakingRpc)
+	vipStakingRpc.Amount = amount.String()
+	vipStakingRpc.Id, vipStakingRpc.ExpirationHeight, vipStakingRpc.ExpirationTime, err = getStakeExpirationInfo(db, id, address, bid, snapshotBlock)
+	return
+}
+
+func getStakeExpirationInfo(db vm_db.VmDb, id []byte, address types.Address, bid uint8, snapshotBlock *ledger.SnapshotBlock) (idStr string, expirationHeight string, expirationTime int64, err error) {
+	var quotaInfo *types.StakeInfo
+	if len(id) > 0 {
+		idHash, _ := types.BytesToHash(id)
+		idStr = idHash.String()
+		if quotaInfo, err = abi.GetStakeInfoById(db, id); err != nil {
+			return
+		}
+	} else {
+		if quotaInfo, err = abi.GetStakeInfo(db, address, types.AddressDexFund, types.AddressDexFund, true, bid); err != nil {
+			return
+		}
+	}
+	expirationHeight = strconv.FormatInt(int64(quotaInfo.ExpirationHeight), 10)
+	expirationTime = getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, quotaInfo.ExpirationHeight)
+	return
 }
