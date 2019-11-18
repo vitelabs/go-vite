@@ -500,23 +500,23 @@ func (p *MethodCancelStakeV3) DoReceive(db vm_db.VmDb, block *ledger.AccountBloc
 	}
 	stakeInfo, err := abi.GetStakeInfoByKey(db, stakeInfoKey)
 	util.DealWithErr(err)
-	stakeInfo.StakeAddress = abi.GetStakeAddrFromStakeInfoKey(stakeInfoKey)
-	if stakeInfo == nil || stakeInfo.StakeAddress != sendBlock.AccountAddress || stakeNotDue(stakeInfo, vm) {
+	stakeAddress := abi.GetStakeAddrFromStakeInfoKey(stakeInfoKey)
+	if stakeInfo == nil || stakeAddress != sendBlock.AccountAddress || stakeNotDue(stakeInfo, vm) {
 		return nil, util.ErrInvalidMethodParam
 	}
+	stakeInfo.StakeAddress = stakeAddress
 
-	util.SetValue(db, stakeInfoKey, nil)
-	util.SetValue(db, id.Bytes(), nil)
-
-	oldBeneficial := new(abi.VariableStakeBeneficial)
 	beneficialKey := abi.GetStakeBeneficialKey(stakeInfo.Beneficiary)
 	v := util.GetValue(db, beneficialKey)
+	oldBeneficial := new(abi.VariableStakeBeneficial)
 	err = abi.ABIQuota.UnpackVariable(oldBeneficial, abi.VariableNameStakeBeneficial, v)
 	if err != nil || oldBeneficial.Amount.Cmp(stakeInfo.Amount) < 0 {
 		return nil, util.ErrInvalidMethodParam
 	}
 	oldBeneficial.Amount.Sub(oldBeneficial.Amount, stakeInfo.Amount)
 
+	util.SetValue(db, stakeInfoKey, nil)
+	util.SetValue(db, id.Bytes(), nil)
 	if oldBeneficial.Amount.Sign() == 0 {
 		util.SetValue(db, beneficialKey, nil)
 	} else {

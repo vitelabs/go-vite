@@ -33,6 +33,7 @@ var (
 	ErrBlockQuotaLimitReached    = errors.New("quota limit for block reached")
 	ErrAccountQuotaLimitReached  = errors.New("quota limit for account reached")
 	ErrOutOfQuota                = errors.New("out of quota")
+	ErrInvalidCodeLength         = errors.New("invalid code length")
 	ErrInvalidUnconfirmedQuota   = errors.New("calc quota failed, invalid unconfirmed quota")
 
 	ErrStackLimitReached      = errors.New("stack limit reached")
