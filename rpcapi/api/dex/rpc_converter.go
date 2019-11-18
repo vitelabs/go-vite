@@ -499,15 +499,8 @@ func DelegateStakeInfoToRpc(info *dex.DelegateStakeInfo) *DelegateStakeInfo {
 }
 
 type VIPStakingRpc struct {
-	Id        string `json:"id,omitempty"`
-	Timestamp int64  `json:"timestamp"`
-}
-
-func VIPStakingToRpc(info *dex.VIPStaking) *VIPStakingRpc {
-	rpcInfo := new(VIPStakingRpc)
-	if len(info.StakingHashes) > 0 {
-		rpcInfo.Id = hex.EncodeToString(info.StakingHashes[0])
-	}
-	rpcInfo.Timestamp = info.Timestamp
-	return rpcInfo
+	Amount           string `json:"stakeAmount"`
+	ExpirationHeight string `json:"expirationHeight"`
+	ExpirationTime   int64  `json:"expirationTime"`
+	Id               string `json:"id,omitempty"`
 }
