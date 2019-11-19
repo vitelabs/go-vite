@@ -228,9 +228,9 @@ func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader ut
 
 func DoMineVxForMaker(db vm_db.VmDb, periodId uint64, amount *big.Int) {
 	if amount.Sign() > 0 {
-		makerMineProxy := GetMakerMiningAdmin(db)
+		makerMiningAdmin := GetMakerMiningAdmin(db)
 		SaveMakerMiningPoolByPeriodId(db, periodId, amount)
-		AddMinedVxForOperationEvent(db, MineForMaker, *makerMineProxy, amount)
+		AddMinedVxForOperationEvent(db, MineForMaker, *makerMiningAdmin, amount)
 	}
 }
 

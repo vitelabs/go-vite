@@ -30,7 +30,7 @@ func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
 		if len(vxUnlocksValue) == 0 {
 			continue
 		}
-		if len(vxUnlocksKey) != 25 {
+		if len(vxUnlocksKey) != len(vxUnlocksKeyPrefix) + types.AddressSize {
 			panic(fmt.Errorf("invalid vx unlocks key"))
 		}
 		address, _ := types.BytesToAddress(vxUnlocksKey[len(vxUnlocksKeyPrefix):])

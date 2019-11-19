@@ -104,7 +104,7 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 				Data:           syncData,
 			})
 		}
-		if !IsEarthFork(db) {
+		if !IsEarthFork(db) { // burn on fee dividend, not on new market
 			if burnData, err = cabi.ABIAsset.PackMethod(cabi.MethodNameBurn); err != nil {
 				panic(err)
 			} else {

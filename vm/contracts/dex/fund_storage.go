@@ -173,7 +173,6 @@ const (
 	TradeAdminConfigTradeThreshold    = 4
 	TradeAdminConfigMineThreshold     = 8
 	TradeAdminBurnExtraVx             = 16
-	TradeAdminConfigNewQuoteTokenType = 32
 )
 
 const (
@@ -1582,11 +1581,6 @@ func SaveMineThreshold(db vm_db.VmDb, quoteTokenType uint8, amount *big.Int) {
 
 func GetMineThresholdKey(quoteTokenType uint8) []byte {
 	return append(mineThresholdKeyPrefix, quoteTokenType)
-}
-
-func SaveNewQuoteTokenTypeInfo(db vm_db.VmDb, quoteTokenType uint8, tradeThreshold, mineThreshold *big.Int) {
-	SaveTradeThreshold(db, quoteTokenType, tradeThreshold)
-	SaveMineThreshold(db, quoteTokenType, mineThreshold)
 }
 
 func GetMakerMiningAdmin(db vm_db.VmDb) *types.Address {

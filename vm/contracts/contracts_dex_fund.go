@@ -579,7 +579,7 @@ func (md *MethodDexFundStakeForPrincipalSVIP) DoSend(db vm_db.VmDb, block *ledge
 	if err = cabi.ABIDexFund.UnpackMethod(principal, md.MethodName, block.Data); err != nil {
 		return err
 	}
-	if principal == nil || *principal == types.ZERO_ADDRESS {
+	if principal == nil || *principal == types.ZERO_ADDRESS || *principal == block.AccountAddress {
 		return dex.InvalidInputParamErr
 	}
 	return nil
@@ -588,9 +588,6 @@ func (md *MethodDexFundStakeForPrincipalSVIP) DoSend(db vm_db.VmDb, block *ledge
 func (md MethodDexFundStakeForPrincipalSVIP) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var principal = new(types.Address)
 	cabi.ABIDexFund.UnpackMethod(principal, md.MethodName, sendBlock.Data)
-	if sendBlock.AccountAddress == *principal {
-		return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidInputParamErr, sendBlock)
-	}
 	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForPrincipalSuperVIP, dex.Stake, sendBlock.AccountAddress, *principal, dex.StakeForSuperVIPAmount, nodeConfig.params.DexSuperVipStakeHeight, block); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	} else {
@@ -898,12 +895,7 @@ func (md MethodDexFundDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, block *l
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidAmountForStakeCallbackErr, sendBlock)
 			}
 		}
-		if info.StakeType == dex.StakeForPrincipalSuperVIP {
-			stakeAddress, _ := types.BytesToAddress(info.Address)
-			dex.DepositAccount(db, stakeAddress, ledger.ViteTokenId, sendBlock.Amount)
-		} else {
-			dex.DepositAccount(db, address, ledger.ViteTokenId, sendBlock.Amount)
-		}
+		dex.DepositAccount(db, address, ledger.ViteTokenId, sendBlock.Amount)
 		dex.DeleteDelegateStakeInfo(db, param.Id.Bytes())
 	}
 	return
@@ -1185,7 +1177,7 @@ func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.A
 			}
 		}
 		if dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigNewQuoteToken) {
-			if !dex.IsEarthFork(db) && param.QuoteTokenType < dex.ViteTokenType || param.QuoteTokenType > dex.UsdTokenType {
+			if param.QuoteTokenType < dex.ViteTokenType || param.QuoteTokenType > dex.UsdTokenType {
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidQuoteTokenTypeErr, sendBlock)
 			} else {
 				if _, ok := dex.QuoteTokenTypeInfos[int32(param.QuoteTokenType)]; !ok {
@@ -1226,9 +1218,6 @@ func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.A
 			} else {
 				return
 			}
-		}
-		if dex.IsEarthFork(db) && dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigNewQuoteTokenType) {
-			dex.SaveNewQuoteTokenTypeInfo(db, param.TokenTypeForTradeThreshold, param.MinTradeThreshold, param.MinMiningThreshold)
 		}
 	} else {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.OnlyOwnerAllowErr, sendBlock)
