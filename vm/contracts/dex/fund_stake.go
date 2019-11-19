@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
@@ -158,38 +159,6 @@ func IsVipStakingWithId(staking *VIPStaking) bool {
 	}
 }
 
-func GetStakeInfoList(db vm_db.VmDb, stakeAddr types.Address, filter func(*DelegateStakeAddressIndex) bool) ([]*DelegateStakeInfo, *big.Int, error) {
-	if *db.Address() != types.AddressDexFund {
-		return nil, nil, InvalidInputParamErr
-	}
-	stakeAmount := big.NewInt(0)
-	iterator, err := db.NewStorageIterator(append(delegateStakeAddressIndexPrefix, stakeAddr.Bytes()...))
-	if err != nil {
-		return nil, nil, err
-	}
-	defer iterator.Release()
-	stakeInfoList := make([]*DelegateStakeInfo, 0)
-	for {
-		if !iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, nil, iterator.Error()
-			}
-			break
-		}
-		stakeIndex := &DelegateStakeAddressIndex{}
-		if ok := deserializeFromDb(db, iterator.Key(), stakeIndex); ok {
-			if filter(stakeIndex) {
-				if info, ok := GetDelegateStakeInfo(db, stakeIndex.Id); ok {
-					info.Id = stakeIndex.Id
-					stakeInfoList = append(stakeInfoList, info)
-					stakeAmount.Add(stakeAmount, new(big.Int).SetBytes(info.Amount))
-				}
-			}
-		}
-	}
-	return stakeInfoList, stakeAmount, nil
-}
-
 func OnMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount, updatedV2Amount *big.Int) error {
 	return doChangeMiningStakedAmount(db, reader, address, amount, new(big.Int).Add(updatedAmount, updatedV2Amount))
 }
@@ -284,4 +253,76 @@ func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, addr
 		SaveDexMiningStakings(db, dexMiningStakings)
 	}
 	return nil
+}
+
+func GetStakeInfoList(db vm_db.VmDb, stakeAddr types.Address, filter func(*DelegateStakeAddressIndex) bool) ([]*DelegateStakeInfo, *big.Int, error) {
+	if *db.Address() != types.AddressDexFund {
+		return nil, nil, InvalidInputParamErr
+	}
+	stakeAmount := big.NewInt(0)
+	iterator, err := db.NewStorageIterator(append(delegateStakeAddressIndexPrefix, stakeAddr.Bytes()...))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer iterator.Release()
+	stakeInfoList := make([]*DelegateStakeInfo, 0)
+	for {
+		if !iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, nil, iterator.Error()
+			}
+			break
+		}
+		stakeIndex := &DelegateStakeAddressIndex{}
+		if ok := deserializeFromDb(db, iterator.Key(), stakeIndex); ok {
+			if filter(stakeIndex) {
+				if info, ok := GetDelegateStakeInfo(db, stakeIndex.Id); ok {
+					info.Id = stakeIndex.Id
+					stakeInfoList = append(stakeInfoList, info)
+					stakeAmount.Add(stakeAmount, new(big.Int).SetBytes(info.Amount))
+				}
+			}
+		}
+	}
+	return stakeInfoList, stakeAmount, nil
+}
+
+func GetStakeListByPage(db abi.StorageDatabase, lastKey []byte, count int) (infos []*DelegateStakeInfo, newLastKey []byte, err error) {
+	var iterator interfaces.StorageIterator
+	if iterator, err = db.NewStorageIterator(delegateStakeInfoPrefix); err != nil {
+		return
+	}
+	defer iterator.Release()
+
+	if !bytes.Equal(lastKey, types.ZERO_HASH.Bytes()) {
+		ok := iterator.Seek(lastKey)
+		if !ok {
+			err = fmt.Errorf("last key not valid for page stake list")
+			return
+		}
+	}
+	infos = make([]*DelegateStakeInfo, 0, count)
+	for {
+		if !iterator.Next() {
+			if err = iterator.Error(); err != nil {
+				return
+			}
+			break
+		}
+
+		data := iterator.Value()
+		if len(data) > 0 {
+			stakeInfo := &DelegateStakeInfo{}
+			if err = stakeInfo.DeSerialize(data); err != nil {
+				return
+			} else {
+				infos = append(infos, stakeInfo)
+				if len(infos) == count {
+					newLastKey = iterator.Key()
+					return
+				}
+			}
+		}
+	}
+	return infos, iterator.Key(), nil //iterator.Key() will keep last valid key when Next() return false
 }
