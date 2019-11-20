@@ -19,6 +19,7 @@ var DefaultNodeConfig = Config{
 	WSPort:      common.DefaultWSPort,
 
 	LogLevel:      "info",
+	HTTPCors:      []string{"*"},
 	WSOrigins:     []string{"*"},
 	WSExposeAll:   true,
 	HttpExposeAll: true,
