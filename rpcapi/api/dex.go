@@ -195,6 +195,18 @@ func (f DexApi) GetInviteCodeBinding(address types.Address) (uint32, error) {
 	}
 }
 
+func (f DexApi) IsInviteCodeValid(code uint32) (bool, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return false, err
+	}
+	if addr, err := dex.GetInviterByCode(db, code); err != nil && err != dex.InvalidInviteCodeErr {
+		return false, err
+	} else {
+		return addr != nil, nil
+	}
+}
+
 func (f DexApi) IsMarketDelegatedTo(principal, agent types.Address, tradeToken, quoteToken types.TokenTypeId) (bool, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
