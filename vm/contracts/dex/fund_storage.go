@@ -52,6 +52,7 @@ var (
 	vxLockedSumFundsKey      = []byte("vxlFS:") // vxLockedFundSum
 
 	lastJobPeriodIdWithBizTypeKey = []byte("ljpBId:")
+	normalMineStartedKey          = []byte("nmst:")
 	firstMinedVxPeriodIdKey       = []byte("fMVPId:")
 	marketInfoKeyPrefix           = []byte("mk:") // market: tradeToke,quoteToken
 
@@ -168,11 +169,12 @@ const (
 
 //MethodNameDexFundTradeAdminConfig
 const (
-	TradeAdminConfigMineMarket        = 1
-	TradeAdminConfigNewQuoteToken     = 2
-	TradeAdminConfigTradeThreshold    = 4
-	TradeAdminConfigMineThreshold     = 8
-	TradeAdminBurnExtraVx             = 16
+	TradeAdminConfigMineMarket     = 1
+	TradeAdminConfigNewQuoteToken  = 2
+	TradeAdminConfigTradeThreshold = 4
+	TradeAdminConfigMineThreshold  = 8
+	TradeAdminStartNormalMine      = 16
+	TradeAdminBurnExtraVx          = 32
 )
 
 const (
@@ -2025,6 +2027,14 @@ func NewInviteCode(db vm_db.VmDb, hash types.Hash) uint32 {
 		}
 	}
 	return 0
+}
+
+func StartNormalMine(db vm_db.VmDb) {
+	setValueToDb(db, normalMineStartedKey, []byte{1})
+}
+
+func IsNormalMiningStarted(db vm_db.VmDb) bool {
+	return len(getValueFromDb(db, normalMineStartedKey)) > 0
 }
 
 func GetVxMinePool(db vm_db.VmDb) *big.Int {

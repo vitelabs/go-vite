@@ -4,6 +4,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -252,16 +253,19 @@ func BurnExtraVx(db vm_db.VmDb) ([]*ledger.AccountBlock, error) {
 	} else {
 		SaveVxMinePool(db, new(big.Int).Sub(poolAmt, vxBurnAmt))
 		SaveVxBurnAmount(db, vxBurnAmt)
-		return []*ledger.AccountBlock{
-			{
-				AccountAddress: types.AddressDexFund,
-				ToAddress:      types.ZERO_ADDRESS,
-				BlockType:      ledger.BlockTypeSendCall,
-				TokenId:        VxTokenId,
-				Amount:         vxBurnAmt,
-				Data:           []byte{},
-			}}, nil
-
+		if burnData, err := abi.ABIAsset.PackMethod(abi.MethodNameBurn); err != nil {
+			panic(err)
+		} else {
+			return []*ledger.AccountBlock{
+				{
+					AccountAddress: types.AddressDexFund,
+					ToAddress:      types.AddressAsset,
+					BlockType:      ledger.BlockTypeSendCall,
+					TokenId:        VxTokenId,
+					Amount:         vxBurnAmt,
+					Data:           burnData,
+				}}, nil
+		}
 	}
 }
 
@@ -331,7 +335,7 @@ func GetVxAmountToBurn(db vm_db.VmDb, poolAmt *big.Int) (*big.Int, error) {
 }
 
 func GetVxToMineByPeriodId(db vm_db.VmDb, periodId uint64) *big.Int {
-	if !IsEarthFork(db) {
+	if !IsNormalMiningStarted(db) {
 		return PreheatMinedAmtPerPeriod
 	} else {
 		var firstPeriodId uint64

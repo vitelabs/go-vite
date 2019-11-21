@@ -134,6 +134,7 @@ func TokenInfoToRpc(tinfo *dex.TokenInfo, tti types.TokenTypeId) *RpcDexTokenInf
 type RpcFeesForDividend struct {
 	Token              string `json:"token"`
 	DividendPoolAmount string `json:"dividendPoolAmount"`
+	NotRoll            bool   `json:"notRoll"`
 }
 
 type RpcFeesForMine struct {
@@ -159,6 +160,7 @@ func DexFeesByPeriodToRpc(dexFeesByPeriod *dex.DexFeesByPeriod) *RpcDexFeesByPer
 		rpcDividend := &RpcFeesForDividend{}
 		rpcDividend.Token = TokenBytesToString(dividend.Token)
 		rpcDividend.DividendPoolAmount = AmountBytesToString(dividend.DividendPoolAmount)
+		rpcDividend.NotRoll = dividend.NotRoll
 		rpcDexFeesByPeriod.FeesForDividend = append(rpcDexFeesByPeriod.FeesForDividend, rpcDividend)
 	}
 	for _, mine := range dexFeesByPeriod.FeesForMine {

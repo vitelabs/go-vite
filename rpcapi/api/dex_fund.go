@@ -193,7 +193,7 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 	if toMine.Cmp(available) > 0 {
 		toMine = available
 	}
-	var isEarthFork = dex.IsEarthFork(db)
+	var isNormalMiningStarted = dex.IsNormalMiningStarted(db)
 	mineInfo = new(apidex.RpcVxMineInfo)
 	if toMine.Sign() == 0 {
 		err = fmt.Errorf("no vx available on mine")
@@ -209,7 +209,7 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 		success bool
 	)
 	var rateSumForFee = dex.RateSumForFeeMineNew
-	if !isEarthFork {
+	if !isNormalMiningStarted {
 		rateSumForFee = dex.RateSumForFeeMine
 	}
 	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, rateSumForFee, dex.ViteTokenType, dex.UsdTokenType); success {
@@ -224,7 +224,7 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 		return
 	}
 	var rateForStaking = dex.RateForStakingMineNew
-	if !isEarthFork {
+	if !isNormalMiningStarted {
 		rateForStaking = dex.RateForStakingMine
 	}
 	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, rateForStaking); success {
@@ -232,7 +232,7 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 	} else {
 		return
 	}
-	if isEarthFork {
+	if isNormalMiningStarted {
 		if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateSumForMakerMineNew); success {
 			mineInfo.MakerMine = amount.String()
 		}

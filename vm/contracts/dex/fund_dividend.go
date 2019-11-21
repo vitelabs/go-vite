@@ -209,6 +209,9 @@ func tryBurnVite(db vm_db.VmDb, feeSumMap map[types.TokenTypeId]*big.Int) []*led
 	if IsEarthFork(db) {
 		for token, amt := range feeSumMap {
 			if token == ledger.ViteTokenId {
+				if amt.Sign() == 0 {
+					return nil
+				}
 				delete(feeSumMap, token)
 				if burnData, err := cabi.ABIAsset.PackMethod(cabi.MethodNameBurn); err != nil {
 					panic(err)
