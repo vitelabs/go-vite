@@ -235,7 +235,7 @@ func (p *MethodBurn) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 func (p *MethodBurn) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	oldTokenInfo, err := abi.GetTokenByID(db, sendBlock.TokenId)
 	util.DealWithErr(err)
-	if oldTokenInfo == nil || !oldTokenInfo.IsReIssuable ||
+	if oldTokenInfo == nil || (!util.CheckFork(db, fork.IsEarthFork) && !oldTokenInfo.IsReIssuable) ||
 		(oldTokenInfo.OwnerBurnOnly && oldTokenInfo.Owner != sendBlock.AccountAddress) {
 		return nil, util.ErrInvalidMethodParam
 	}

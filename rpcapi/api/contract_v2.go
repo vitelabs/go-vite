@@ -329,7 +329,6 @@ func (r *ContractApi) GetSBPList(stakeAddress types.Address) ([]*SBPInfo, error)
 	list = append(list, rewardList...)
 	targetList := make([]*SBPInfo, len(list))
 	if len(list) > 0 {
-		// TODO sort
 		sort.Sort(byRegistrationExpirationHeight(list))
 		for i, info := range list {
 			targetList[i] = newSBPInfo(info, sb)
