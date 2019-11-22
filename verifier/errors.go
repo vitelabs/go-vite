@@ -6,7 +6,7 @@ import "errors"
 var (
 	// can retry
 	ErrVerifyVmGeneratorFailed           = errors.New("generator in verifier run failed")
-	ErrVerifyAccountTypeNotSure          = errors.New("the account address does not exist on the chain") //general account's sendBlock.Height must be larger than 1
+	ErrVerifyAccountNotInvalid           = errors.New("general account's sendBlock.Height must be larger than 1")
 	ErrVerifyContractMetaNotExists       = errors.New("contract meta not exists")
 	ErrVerifyConfirmedTimesNotEnough     = errors.New("verify referred send's confirmedTimes not enough")
 	ErrVerifySeedConfirmedTimesNotEnough = errors.New("verify referred send's seed confirmedTimes not enough")

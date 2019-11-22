@@ -122,6 +122,10 @@ func (v *AccountVerifier) checkAccountAddress(block *ledger.AccountBlock) error 
 		if meta == nil {
 			return ErrVerifyContractMetaNotExists
 		}
+	} else {
+		if block.IsSendBlock() && block.Height <= 1 {
+			return ErrVerifyAccountNotInvalid
+		}
 	}
 	return nil
 }
@@ -236,7 +240,7 @@ func (v *AccountVerifier) verifySendBlockIntegrity(block *ledger.AccountBlock) e
 		}
 	} else {
 		if block.Height <= 1 {
-			return ErrVerifyAccountTypeNotSure
+			return ErrVerifyAccountNotInvalid
 		}
 	}
 	return nil
