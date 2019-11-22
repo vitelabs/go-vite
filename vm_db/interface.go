@@ -45,7 +45,7 @@ type Chain interface {
 
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	GetPledgeBeneficialAmount(addr types.Address) (*big.Int, error)
+	GetStakeBeneficialAmount(addr types.Address) (*big.Int, error)
 
 	GetStorageIterator(address types.Address, prefix []byte) (interfaces.StorageIterator, error)
 
@@ -142,7 +142,7 @@ type VmDb interface {
 	GetUnsavedContractCode() []byte
 
 	// ====== built-in contract ======
-	GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error)
+	GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error)
 
 	// ====== debug ======
 	DebugGetStorage() (map[string][]byte, error)

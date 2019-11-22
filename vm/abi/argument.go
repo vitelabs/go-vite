@@ -39,39 +39,6 @@ func (argument *Argument) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (arguments Arguments) LengthIndexed() int {
-	out := 0
-	for _, arg := range arguments {
-		if arg.Indexed {
-			out++
-		}
-	}
-	return out
-}
-
-// LengthNonIndexed returns the number of arguments when not counting 'indexed' ones. Only events
-// can ever have 'indexed' arguments, it should always be false on arguments for method input/output
-func (arguments Arguments) LengthNonIndexed() int {
-	out := 0
-	for _, arg := range arguments {
-		if !arg.Indexed {
-			out++
-		}
-	}
-	return out
-}
-
-// NonIndexed returns the arguments with indexed arguments filtered out
-func (arguments Arguments) NonIndexed() Arguments {
-	var ret []Argument
-	for _, arg := range arguments {
-		if !arg.Indexed {
-			ret = append(ret, arg)
-		}
-	}
-	return ret
-}
-
 // isTuple returns true for non-atomic constructs, like (uint,uint) or uint[]
 func (arguments Arguments) isTuple() bool {
 	return len(arguments) > 1
@@ -120,7 +87,7 @@ func (arguments Arguments) unpackTuple(v interface{}, marshalledValues []interfa
 			return err
 		}
 	}
-	for i, arg := range arguments.NonIndexed() {
+	for i, arg := range arguments {
 
 		reflectValue := reflect.ValueOf(marshalledValues[i])
 
@@ -166,14 +133,14 @@ func (arguments Arguments) unpackAtomic(v interface{}, marshalledValues []interf
 		if abi2struct, err = mapAbiToStructFields(arguments, elem); err != nil {
 			return err
 		}
-		arg := arguments.NonIndexed()[0]
+		arg := arguments[0]
 		if structField, ok := abi2struct[arg.Name]; ok {
 			return set(elem.FieldByName(structField), reflectValue, arg)
 		}
 		return nil
 	}
 
-	return set(elem, reflectValue, arguments.NonIndexed()[0])
+	return set(elem, reflectValue, arguments[0])
 
 }
 
@@ -196,9 +163,9 @@ func getArraySize(arr *Type) int {
 // without supplying a struct to unpack into. Instead, this method returns a list containing the
 // values. An atomic argument will be a list with one element.
 func (arguments Arguments) UnpackValues(data []byte) ([]interface{}, error) {
-	retval := make([]interface{}, 0, arguments.LengthNonIndexed())
+	retval := make([]interface{}, 0, len(arguments))
 	virtualArgs := 0
-	for index, arg := range arguments.NonIndexed() {
+	for index, arg := range arguments {
 		marshalledValue, err := toGoType((index+virtualArgs)*helper.WordSize, arg.Type, data)
 		if arg.Type.T == ArrayTy {
 			// If we have a static array, like [3]uint256, these are coded as

@@ -47,7 +47,7 @@ func (sd *StorageDatabase) GetValue(key []byte) ([]byte, error) {
 func (sd *StorageDatabase) NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error) {
 	// if use cache
 	if sd.stateDb.consensusCacheLevel == ConsensusReadCache &&
-		sd.addr == types.AddressConsensusGroup {
+		sd.addr == types.AddressGovernance {
 		if iter := sd.stateDb.roundCache.StorageIterator(sd.snapshotHash); iter != nil {
 			return iter, nil
 		}

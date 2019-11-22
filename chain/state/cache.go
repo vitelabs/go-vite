@@ -47,7 +47,7 @@ func (sDB *StateDB) enableCache() {
 }
 
 func (sDB *StateDB) initSnapshotValueCache() error {
-	for _, contractAddr := range types.BuiltinContractAddrList {
+	for _, contractAddr := range types.BuiltinContracts {
 
 		iter := sDB.NewStorageIterator(contractAddr, nil)
 		for iter.Next() {

@@ -17,7 +17,7 @@ import (
 
 // sb height
 func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
-	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressConsensusGroup)
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressGovernance)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed, snapshotHash is %s",
 			snapshotHash))
@@ -30,7 +30,7 @@ func (c *chain) GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*type
 }
 
 func (c *chain) GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error) {
-	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressConsensusGroup)
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressGovernance)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed, snapshotHash is %s",
 			snapshotHash))
@@ -43,7 +43,7 @@ func (c *chain) GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*t
 }
 
 func (c *chain) GetConsensusGroup(snapshotHash types.Hash, gid types.Gid) (*types.ConsensusGroupInfo, error) {
-	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressConsensusGroup)
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressGovernance)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed, snapshotHash is %s",
 			snapshotHash))
@@ -55,7 +55,7 @@ func (c *chain) GetConsensusGroup(snapshotHash types.Hash, gid types.Gid) (*type
 }
 
 func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error) {
-	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressConsensusGroup)
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressGovernance)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed, snapshotHash is %s",
 			snapshotHash))
@@ -64,11 +64,11 @@ func (c *chain) GetConsensusGroupList(snapshotHash types.Hash) ([]*types.Consens
 	}
 
 	// do something
-	return abi.GetActiveConsensusGroupList(sd)
+	return abi.GetConsensusGroupList(sd)
 }
 
 func (c *chain) GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error) {
-	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressConsensusGroup)
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressGovernance)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed, snapshotHash is %s",
 			snapshotHash))
@@ -80,30 +80,30 @@ func (c *chain) GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.Vo
 	return abi.GetVoteList(sd, gid)
 }
 
-func (c *chain) GetPledgeBeneficialAmount(addr types.Address) (*big.Int, error) {
+func (c *chain) GetStakeBeneficialAmount(addr types.Address) (*big.Int, error) {
 
-	sd, err := c.stateDB.NewStorageDatabase(c.GetLatestSnapshotBlock().Hash, types.AddressPledge)
+	sd, err := c.stateDB.NewStorageDatabase(c.GetLatestSnapshotBlock().Hash, types.AddressQuota)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
-		c.log.Error(cErr.Error(), "method", "GetPledgeBeneficialAmount")
+		c.log.Error(cErr.Error(), "method", "GetStakeBeneficialAmount")
 		return nil, cErr
 	}
 
 	// do something
-	return abi.GetPledgeBeneficialAmount(sd, addr)
+	return abi.GetStakeBeneficialAmount(sd, addr)
 }
 
 // total
-func (c *chain) GetPledgeQuota(addr types.Address) (*big.Int, *types.Quota, error) {
+func (c *chain) GetStakeQuota(addr types.Address) (*big.Int, *types.Quota, error) {
 
-	amount, err := c.GetPledgeBeneficialAmount(addr)
+	amount, err := c.GetStakeBeneficialAmount(addr)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	vmDb := vm_db.NewVmDbByAddr(c, &addr)
 
-	quota, err := quota.GetPledgeQuota(vmDb, addr, amount, c.GetLatestSnapshotBlock().Height)
+	quota, err := quota.GetQuota(vmDb, addr, amount, c.GetLatestSnapshotBlock().Height)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -111,30 +111,30 @@ func (c *chain) GetPledgeQuota(addr types.Address) (*big.Int, *types.Quota, erro
 }
 
 // total
-func (c *chain) GetPledgeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error) {
+func (c *chain) GetStakeQuotas(addrList []types.Address) (map[types.Address]*types.Quota, error) {
 	sb := c.GetLatestSnapshotBlock()
-	sd, err := c.stateDB.NewStorageDatabase(sb.Hash, types.AddressPledge)
+	sd, err := c.stateDB.NewStorageDatabase(sb.Hash, types.AddressQuota)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
-		c.log.Error(cErr.Error(), "method", "GetPledgeBeneficialAmount")
+		c.log.Error(cErr.Error(), "method", "GetStakeBeneficialAmount")
 		return nil, cErr
 	}
 
 	quotaMap := make(map[types.Address]*types.Quota, len(addrList))
 
 	for _, addr := range addrList {
-		amount, err := abi.GetPledgeBeneficialAmount(sd, addr)
+		amount, err := abi.GetStakeBeneficialAmount(sd, addr)
 		if err != nil {
-			cErr := errors.New(fmt.Sprintf("abi.GetPledgeBeneficialAmount failed, Addr is %s. Error: %s", addr, err))
-			c.log.Error(cErr.Error(), "method", "GetPledgeQuotas")
+			cErr := errors.New(fmt.Sprintf("abi.GetStakeBeneficialAmount failed, Addr is %s. Error: %s", addr, err))
+			c.log.Error(cErr.Error(), "method", "GetStakeQuotas")
 			return nil, err
 		}
 
 		vmDb := vm_db.NewVmDbByAddr(c, &addr)
-		quota, err := quota.GetPledgeQuota(vmDb, addr, amount, sb.Height)
+		quota, err := quota.GetQuota(vmDb, addr, amount, sb.Height)
 		if err != nil {
-			cErr := errors.New(fmt.Sprintf("quota.GetPledgeQuota failed. Error: %s", err))
-			c.log.Error(cErr.Error(), "method", "GetPledgeQuotas")
+			cErr := errors.New(fmt.Sprintf("quota.GetQuota failed. Error: %s", err))
+			c.log.Error(cErr.Error(), "method", "GetStakeQuotas")
 			return nil, err
 		}
 		quotaMap[addr] = &quota
@@ -144,18 +144,18 @@ func (c *chain) GetPledgeQuotas(addrList []types.Address) (map[types.Address]*ty
 }
 
 func (c *chain) GetTokenInfoById(tokenId types.TokenTypeId) (*types.TokenInfo, error) {
-	sd, err := c.stateDB.NewStorageDatabase(c.GetLatestSnapshotBlock().Hash, types.AddressMintage)
+	sd, err := c.stateDB.NewStorageDatabase(c.GetLatestSnapshotBlock().Hash, types.AddressAsset)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
 		c.log.Error(cErr.Error(), "method", "GetTokenInfoById")
 
 		return nil, cErr
 	}
-	return abi.GetTokenById(sd, tokenId)
+	return abi.GetTokenByID(sd, tokenId)
 }
 
 func (c *chain) GetAllTokenInfo() (map[types.TokenTypeId]*types.TokenInfo, error) {
-	sd, err := c.stateDB.NewStorageDatabase(c.GetLatestSnapshotBlock().Hash, types.AddressMintage)
+	sd, err := c.stateDB.NewStorageDatabase(c.GetLatestSnapshotBlock().Hash, types.AddressAsset)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
 		c.log.Error(cErr.Error(), "method", "GetAllTokenInfo")
@@ -197,8 +197,8 @@ func (c *chain) CalVoteDetails(gid types.Gid, info *core.GroupInfo, snapshotBloc
 func (c *chain) genVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *interfaces.VoteDetails {
 	var addrs []types.Address
 	for _, v := range infos {
-		if v.NodeName == registration.Name {
-			addrs = append(addrs, v.VoterAddr)
+		if v.SbpName == registration.Name {
+			addrs = append(addrs, v.VoteAddr)
 		}
 	}
 	balanceMap, _ := c.GetConfirmedBalanceList(addrs, id, snapshotHash)
@@ -209,31 +209,31 @@ func (c *chain) genVoteDetails(snapshotHash types.Hash, registration *types.Regi
 	return &interfaces.VoteDetails{
 		Vote: core.Vote{
 			Name:    registration.Name,
-			Addr:    registration.NodeAddr,
+			Addr:    registration.BlockProducingAddress,
 			Balance: balanceTotal,
 		},
-		CurrentAddr:  registration.NodeAddr,
+		CurrentAddr:  registration.BlockProducingAddress,
 		RegisterList: registration.HisAddrList,
 		Addr:         balanceMap,
 	}
 }
 
-func (c *chain) GetPledgeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.PledgeInfo, []byte, error) {
-	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressPledge)
+func (c *chain) GetStakeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.StakeInfo, []byte, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressQuota)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
-		c.log.Error(cErr.Error(), "method", "GetPledgeAmountByPage")
+		c.log.Error(cErr.Error(), "method", "GetStakeAmountByPage")
 
 		return nil, nil, cErr
 	}
-	return abi.GetPledgeListByPage(sd, lastKey, count)
+	return abi.GetStakeListByPage(sd, lastKey, count)
 }
 
 func (c *chain) GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.Fund, error) {
 	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
-		c.log.Error(cErr.Error(), "method", "GetPledgeAmountByPage")
+		c.log.Error(cErr.Error(), "method", "GetStakeAmountByPage")
 		return nil, cErr
 	}
 	return dex.GetUserFundsByPage(sd, lastAddress, count)

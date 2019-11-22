@@ -109,7 +109,7 @@ func mockSnapshotState(data *memdb.DB, addrList []types.Address, accountCount, k
 		randNum := rand.Intn(100)
 		var addr types.Address
 		if randNum < 30 {
-			addr = types.AddressConsensusGroup
+			addr = types.AddressGovernance
 		} else {
 			addr = addrList[rand.Intn(len(addrList))]
 		}
@@ -404,7 +404,7 @@ func checkRedoLogs(t *testing.T, redoLogs *RoundCacheRedoLogs,
 			for logIndex, logItem := range logItems {
 				mockLogItem := mockLogItems[logIndex]
 				// check storage
-				if addr == types.AddressConsensusGroup {
+				if addr == types.AddressGovernance {
 					assert.Equal(t, len(logItem.Storage), len(mockLogItem.Storage),
 						fmt.Sprintf("height: %d, address: %s", snapshot.SnapshotHeader.Height, addr))
 					for i, kv := range logItem.Storage {
@@ -476,7 +476,7 @@ func checkStorage(t *testing.T, redoCacheData *memdb.DB,
 	iter1 := NewTransformIterator(redoCacheData.NewIterator(util.BytesPrefix(makeStorageKey(nil))), 1)
 	defer iter1.Release()
 
-	iter2 := NewTransformIterator(mockData.NewIterator(util.BytesPrefix(mockStorageKey(types.AddressConsensusGroup, nil))), 1+types.AddressSize)
+	iter2 := NewTransformIterator(mockData.NewIterator(util.BytesPrefix(mockStorageKey(types.AddressGovernance, nil))), 1+types.AddressSize)
 	defer iter2.Release()
 
 	compareIter(t, iter1, iter2, false)
@@ -648,7 +648,7 @@ func checkRoundCacheQuery(t *testing.T, roundCache *RoundCache, mockData *MockDa
 			}
 
 			// check iter
-			mockIter := NewTransformIterator(snapshot.Data.NewIterator(util.BytesPrefix(mockStorageKey(types.AddressConsensusGroup, nil))), 1+types.AddressSize)
+			mockIter := NewTransformIterator(snapshot.Data.NewIterator(util.BytesPrefix(mockStorageKey(types.AddressGovernance, nil))), 1+types.AddressSize)
 			defer mockIter.Release()
 			compareIter(t, storIter, mockIter, true)
 
@@ -672,7 +672,7 @@ func TestRoundCache(t *testing.T) {
 	defer ctrl.Finish()
 
 	// mock data
-	mockData := NewMockData(append(createAddrList(19), types.AddressConsensusGroup), 90)
+	mockData := NewMockData(append(createAddrList(19), types.AddressGovernance), 90)
 
 	// mock chain
 	mockChain := getMockChain(ctrl, mockData)

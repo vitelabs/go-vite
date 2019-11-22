@@ -122,7 +122,7 @@ func (c *chain) checkIsActiveInCache(point fork.ForkPointItem) bool {
 func (c *chain) checkIsActive(point fork.ForkPointItem) bool {
 	snapshotHeight := point.Height - 1
 
-	producers := c.getTopProducersMap(snapshotHeight, 25)
+	producers := c.getTopProducersMap(snapshotHeight)
 	if producers == nil {
 		return false
 	}
@@ -169,7 +169,7 @@ func (c *chain) checkIsActive(point fork.ForkPointItem) bool {
 	return false
 }
 
-func (c *chain) getTopProducersMap(snapshotHeight uint64, count int) map[types.Address]struct{} {
+func (c *chain) getTopProducersMap(snapshotHeight uint64) map[types.Address]struct{} {
 	snapshotHash, err := c.GetSnapshotHashByHeight(snapshotHeight)
 	if err != nil {
 		panic(fmt.Sprintf("GetSnapshotHashByHeight failed. snapshotHeight is %d. Error: %s", snapshotHeight, err))
@@ -179,6 +179,9 @@ func (c *chain) getTopProducersMap(snapshotHeight uint64, count int) map[types.A
 	}
 
 	snapshotConsensusGroupInfo, err := c.GetConsensusGroup(*snapshotHash, types.SNAPSHOT_GID)
+
+	count := int(snapshotConsensusGroupInfo.NodeCount)
+
 	if err != nil {
 		panic(fmt.Sprintf("GetConsensusGroup failed. Error: %s", err))
 	}
