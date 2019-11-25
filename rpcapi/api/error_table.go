@@ -93,7 +93,7 @@ var (
 
 	// -36001 ~ -36999 verifier_account
 	ErrVerifyAccountAddr = JsonRpc2Error{
-		Message: verifier.ErrVerifyAccountTypeNotSure.Error(),
+		Message: verifier.ErrVerifyAccountNotInvalid.Error(),
 		Code:    -36001,
 	}
 	ErrVerifyHash = JsonRpc2Error{
