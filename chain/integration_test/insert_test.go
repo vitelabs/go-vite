@@ -63,7 +63,7 @@ func TestTmpInsert(t *testing.T) {
 
 	//snapshotPerNum := 0
 	quota.InitQuotaConfig(true, true)
-	vm.InitVMConfig(true, true, false, "")
+	vm.InitVMConfig(true, true, false, false, "")
 
 	chainInstance, err := NewChainInstance("bench_test", false)
 	if err != nil {
@@ -133,7 +133,7 @@ func TestTmpInsert(t *testing.T) {
 
 			//latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 			//if vmBlock.AccountBlock.Height > 1 {
-			//	_, blocks, err := verify.VerifyPoolAccBlock(vmBlock.AccountBlock, &latestSnapshotBlock.Hash)
+			//	_, blocks, err := verify.VerifyPoolAccountBlock(vmBlock.AccountBlock, &latestSnapshotBlock.Hash)
 			//	if err != nil {
 			//		panic(err)
 			//	}
@@ -226,7 +226,7 @@ func BenchmarkInsert(b *testing.B) {
 
 			latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
 			if vmBlock.AccountBlock.Height > 1 {
-				_, blocks, err := verify.VerifyPoolAccBlock(vmBlock.AccountBlock, latestSnapshotBlock)
+				_, blocks, err := verify.VerifyPoolAccountBlock(vmBlock.AccountBlock, latestSnapshotBlock)
 				if err != nil {
 					panic(err)
 				}

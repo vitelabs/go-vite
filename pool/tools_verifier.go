@@ -46,7 +46,7 @@ type accountVerifier struct {
 }
 
 func (accV *accountVerifier) verifyAccountData(b *ledger.AccountBlock) error {
-	if err := accV.v.VerifyNetAb(b); err != nil {
+	if err := accV.v.VerifyNetAccountBlock(b); err != nil {
 		return err
 	}
 	return nil
@@ -59,7 +59,7 @@ func (accV *accountVerifier) verifyAccount(b *accountPoolBlock, latest *ledger.S
 	result := &poolAccountVerifyStat{}
 	// todo how to fix for stat
 
-	task, blocks, err := accV.v.VerifyPoolAccBlock(b.block, latest)
+	task, blocks, err := accV.v.VerifyPoolAccountBlock(b.block, latest)
 	if err != nil {
 		result.err = err
 		result.result = verifier.FAIL

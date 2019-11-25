@@ -69,8 +69,8 @@ type Consensus interface {
 }
 
 type Verifier interface {
-	VerifyNetSb(block *ledger.SnapshotBlock) error
-	VerifyNetAb(block *ledger.AccountBlock) error
+	VerifyNetSnapshotBlock(block *ledger.SnapshotBlock) error
+	VerifyNetAccountBlock(block *ledger.AccountBlock) error
 }
 
 // SnapshotBlockCallback will be invoked when receive a block,
