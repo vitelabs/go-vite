@@ -487,11 +487,11 @@ func newDexAgentQuotaTable() QuotaTable {
 func newEarthQuotaTable() QuotaTable {
 	gt := newDexAgentQuotaTable()
 	gt.UpdateRewardWithdrawAddressQuota = 168000
-	gt.DexFunLockVxForDividendQuota = 115500
-	gt.DexFunSwitchConfigQuota = 115500
-	gt.DexFundStakeForPrincipalSuperVIPQuota = 115500
-	gt.DexFundCancelStakeByIdQuota = 115500
-	gt.DexFundDelegateStakeCallbackV2Quota = 115500
-	gt.DexFundDelegateCancelStakeCallbackV2Quota = 115500
+	gt.DexFunLockVxForDividendQuota = 31500
+	gt.DexFunSwitchConfigQuota = 31500
+	gt.DexFundStakeForPrincipalSuperVIPQuota = 10500
+	gt.DexFundCancelStakeByIdQuota = 10500
+	gt.DexFundDelegateStakeCallbackV2Quota = 31500
+	gt.DexFundDelegateCancelStakeCallbackV2Quota = 33000
 	return gt
 }
