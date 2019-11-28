@@ -397,9 +397,9 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHashHeigh
 	}
 	if genResult.VMBlock == nil {
 		if genResult.Err != nil {
-			return nil, newDetailError(ErrVerifyVmResultInconsistent.Error(), genResult.Err.Error())
+			return nil, newError(genResult.Err.Error())
 		}
-		return nil, newDetailError(ErrVerifyVmResultInconsistent.Error(), "vm failed, blockList is empty")
+		return nil, newError("vm failed, blockList is empty")
 	}
 	if err := v.verifyVMResult(block, genResult.VMBlock.AccountBlock); err != nil {
 		return nil, newDetailError(ErrVerifyVmResultInconsistent.Error(), err.Error())

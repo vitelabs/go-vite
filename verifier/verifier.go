@@ -114,7 +114,7 @@ func (v *verifier) VerifyPoolAccountBlock(block *ledger.AccountBlock, snapshot *
 func (v *verifier) VerifyRPCAccountBlock(block *ledger.AccountBlock, snapshot *ledger.SnapshotBlock) (*vm_db.VmAccountBlock, error) {
 	log := v.log.New("method", "VerifyRPCAccountBlock")
 
-	detail := fmt.Sprintf("sbHash:%v %v; addr:%v, height:%v, hash:%v, pow:(%v,%v), quota:(%v,%v)", snapshot.Hash, snapshot.Height, block.AccountAddress, block.Height, block.Hash, block.Difficulty, block.Nonce, block.Quota, block.QuotaUsed)
+	detail := fmt.Sprintf("sbHash:%v %v; addr:%v, height:%v, hash:%v, pow:(%v,%v)", snapshot.Hash, snapshot.Height, block.AccountAddress, block.Height, block.Hash, block.Difficulty, block.Nonce)
 	if block.IsReceiveBlock() {
 		detail += fmt.Sprintf(",fromH:%v", block.FromBlockHash)
 	}
