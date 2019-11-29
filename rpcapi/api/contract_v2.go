@@ -89,17 +89,35 @@ type CallOffChainMethodParam struct {
 	OffChainCodeBytes []byte         `json:"offchainCodeBytes"` // Deprecated: use code field instead
 	Code              []byte         `json:"code"`
 	Data              []byte         `json:"data"`
+	Height            *uint64        `json:"height"`
+	SnapshotHash      *types.Hash    `json:"snapshotHash"`
 }
 
 func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error) {
 	if param.Addr != nil {
 		param.SelfAddr = *param.Addr
 	}
-	prevHash, err := getPrevBlockHash(c.chain, types.AddressGovernance)
-	if err != nil {
-		return nil, err
+	var prevHash *types.Hash
+	var err error
+	if param.Height == nil {
+		prevHash, err = getPrevBlockHash(c.chain, param.SelfAddr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		prevHash, err = c.chain.GetAccountBlockHashByHeight(param.SelfAddr, *(param.Height))
+		if err != nil {
+			return nil, err
+		}
 	}
-	db, err := vm_db.NewVmDb(c.chain, &param.SelfAddr, &c.chain.GetLatestSnapshotBlock().Hash, prevHash)
+	var snapshotHash *types.Hash
+	if param.SnapshotHash != nil {
+		snapshotHash = &c.chain.GetLatestSnapshotBlock().Hash
+	} else {
+		snapshotHash = param.SnapshotHash
+	}
+
+	db, err := vm_db.NewVmDb(c.chain, &param.SelfAddr, snapshotHash, prevHash)
 	if err != nil {
 		return nil, err
 	}
