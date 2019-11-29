@@ -159,15 +159,25 @@ func IsVipStakingWithId(staking *VIPStaking) bool {
 	}
 }
 
-func OnMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount, updatedV2Amount *big.Int) error {
-	return doChangeMiningStakedAmount(db, reader, address, amount, new(big.Int).Add(updatedAmount, updatedV2Amount))
+func OnMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+	return doChangeMiningStakedAmount(db, reader, address, amount, updatedAmount, false)
 }
 
-func OnCancelMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount, updatedV2Amount *big.Int) error {
-	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), new(big.Int).Add(updatedAmount, updatedV2Amount))
+func OnMiningStakeSuccessV2(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+	return doChangeMiningStakedAmount(db, reader, address, amount, updatedAmount, true)
 }
 
-func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int) error {
+func OnCancelMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount, false)
+}
+
+func OnCancelMiningStakeSuccessV2(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+	doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount, true)
+	AddCancelStake(db, reader, address, amount)
+	return nil
+}
+
+func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int, isV2 bool) error {
 	var (
 		miningStakings    *MiningStakings
 		sumChange         *big.Int
@@ -175,7 +185,7 @@ func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, addr
 		originStakingsLen int
 		needUpdate        bool
 	)
-	miningStakings, _ = GetMiningStakings(db, address)
+	miningStakings, _ = GetMiningStakings(db, address, isV2)
 	periodId = GetCurrentPeriodId(db, reader)
 	originStakingsLen = len(miningStakings.Stakings)
 	if originStakingsLen == 0 { //need append new period
@@ -225,13 +235,13 @@ func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, addr
 	}
 	//update MiningStakings
 	if len(miningStakings.Stakings) > 0 && needUpdate {
-		SaveMiningStakings(db, address, miningStakings)
+		SaveMiningStakings(db, address, isV2, miningStakings)
 	} else if len(miningStakings.Stakings) == 0 && originStakingsLen > 0 {
-		DeleteMiningStakings(db, address)
+		DeleteMiningStakings(db, address, isV2)
 	}
 
 	if sumChange != nil && sumChange.Sign() != 0 {
-		dexMiningStakings, _ := GetDexMiningStakings(db)
+		dexMiningStakings, _ := GetDexMiningStakings(db, isV2)
 		dexStakingsLen := len(dexMiningStakings.Stakings)
 		if dexStakingsLen == 0 {
 			if sumChange.Sign() > 0 {
@@ -250,7 +260,7 @@ func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, addr
 				dexMiningStakings.Stakings = append(dexMiningStakings.Stakings, &dexproto.MiningStakingByPeriod{Amount: sumRes.Bytes(), Period: periodId})
 			}
 		}
-		SaveDexMiningStakings(db, dexMiningStakings)
+		SaveDexMiningStakings(db, dexMiningStakings, isV2)
 	}
 	return nil
 }

@@ -39,7 +39,8 @@ var (
 	marketIdKey                         = []byte("mkId:")
 	orderIdSerialNoKey                  = []byte("orIdSl:")
 
-	vxUnlocksKeyPrefix = []byte("vxUl:")
+	vxUnlocksKeyPrefix    = []byte("vxUl:")
+	cancelStakesKeyPrefix = []byte("vxUl:")
 
 	timeOracleKey       = []byte("tmA:")
 	periodJobTriggerKey = []byte("tgA:")
@@ -63,11 +64,12 @@ var (
 	delegateStakeAddressIndexPrefix  = []byte("dA:")
 	delegateStakeIndexSerialNoPrefix = []byte("dsISN:")
 
-	miningStakingsKeyPrefix     = []byte("pldsVx:")  // miningStakings: types.Address
-	dexMiningStakingsKey        = []byte("pldsVxS:") // dexMiningStakings
-	miningStakedAmountKeyPrefix = []byte("pldVx:")   // miningStakedAmount: types.Address
-
-	miningStakedAmountV2KeyPrefix = []byte("stVx:") // miningStakedAmount: types.Address
+	miningStakingsKeyPrefix       = []byte("pldsVx:")  // miningStakings: types.Address
+	miningStakingsV2KeyPrefix     = []byte("stsVx:")   // miningStakings: types.Address
+	dexMiningStakingsKey          = []byte("pldsVxS:") // dexMiningStakings
+	dexMiningStakingsV2Key        = []byte("stVxS:")   // dexMiningStakings
+	miningStakedAmountKeyPrefix   = []byte("pldVx:")   // miningStakedAmount: types.Address
+	miningStakedAmountV2KeyPrefix = []byte("stVx:")    // miningStakedAmount: types.Address
 
 	tokenInfoKeyPrefix = []byte("tk:") // token:tokenId
 	vxMinePoolKey      = []byte("vxmPl:")
@@ -100,8 +102,8 @@ var (
 	NewMarketFeeBurnAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(5000))
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
-	VxLockThreshold      = new(big.Int).Set(commonTokenPow)
-	VxUnlockScheduleDays = 7 // T+7 schedule
+	VxLockThreshold = new(big.Int).Set(commonTokenPow)
+	DexScheduleDays = 7 // T+7 schedule
 
 	StakeForMiningMinAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
 	StakeForVIPAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
@@ -118,13 +120,9 @@ var (
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
 	usdMineThreshold     = big.NewInt(20000)                                  // 0.02USD
 
-	RateSumForFeeMine                = "0.6" // 15% * 4
-	RateForStakingMine               = "0.2" // 20%
-	RateSumForMakerAndMaintainerMine = "0.2" // 10% + 10%
-	RateSumForFeeMineNew             = "0.65"
-	RateForStakingMineNew            = "0.1"                                             // 10%
-	RateSumForMakerMineNew           = "0.15"                                            // 15%
-	RateSumForMaintainerNew          = "0.1"                                             // 10%
+	RateSumForFeeMine                = "0.6"                                             // 15% * 4
+	RateForStakingMine               = "0.2"                                             // 20%
+	RateSumForMakerAndMaintainerMine = "0.2"                                             // 10% + 10%
 	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 
 	ViteTokenDecimals int32 = 18
@@ -203,6 +201,7 @@ const (
 	MineVxForStakingJob
 	MineVxForMakerAndMaintainerJob
 	FinishVxUnlock
+	FinishCancelMiningStake
 )
 
 const (
@@ -661,6 +660,24 @@ func (vu *VxUnlocks) DeSerialize(data []byte) error {
 	}
 }
 
+type CancelStakes struct {
+	dexproto.CancelStakes
+}
+
+func (cs *CancelStakes) Serialize() (data []byte, err error) {
+	return proto.Marshal(&cs.CancelStakes)
+}
+
+func (cs *CancelStakes) DeSerialize(data []byte) error {
+	cancelStakes := dexproto.CancelStakes{}
+	if err := proto.Unmarshal(data, &cancelStakes); err != nil {
+		return err
+	} else {
+		cs.CancelStakes = cancelStakes
+		return nil
+	}
+}
+
 func GetAccountByToken(fund *Fund, token types.TokenTypeId) (account *dexproto.Account, exists bool) {
 	for _, a := range fund.Accounts {
 		if bytes.Equal(token.Bytes(), a.Token) {
@@ -757,6 +774,26 @@ func FinishVxUnlockForDividend(db vm_db.VmDb, address types.Address, amount *big
 			return nil, ExceedFundAvailableErr
 		} else {
 			acc.VxUnlocking = vxUnlocking.Sub(vxUnlocking, amt).Bytes()
+			acc.Available = AddBigInt(acc.Available, amt.Bytes())
+		}
+		return acc, nil
+	})
+}
+
+func ScheduleCancelStake(db vm_db.VmDb, address types.Address, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
+	return updateFund(db, address, ledger.ViteTokenId.Bytes(), amount, func(acc *dexproto.Account, amt *big.Int) (*dexproto.Account, error) {
+		acc.CancelStake = AddBigInt(acc.CancelStake, amount.Bytes())
+		return acc, nil
+	})
+}
+
+func FinishCancelStake(db vm_db.VmDb, address types.Address, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
+	return updateFund(db, address, ledger.ViteTokenId.Bytes(), amount, func(acc *dexproto.Account, amt *big.Int) (*dexproto.Account, error) {
+		cancelStakeAmount := new(big.Int).SetBytes(acc.CancelStake)
+		if cancelStakeAmount.Cmp(amt) < 0 {
+			return nil, ExceedFundAvailableErr
+		} else {
+			acc.CancelStake = cancelStakeAmount.Sub(cancelStakeAmount, amt).Bytes()
 			acc.Available = AddBigInt(acc.Available, amt.Bytes())
 		}
 		return acc, nil
@@ -1795,32 +1832,44 @@ func ReduceVipStakingHash(stakings *VIPStaking, hash types.Hash) bool {
 	return found
 }
 
-func GetMiningStakings(db vm_db.VmDb, address types.Address) (miningStakings *MiningStakings, ok bool) {
+func GetMiningStakings(db vm_db.VmDb, address types.Address, isV2 bool) (miningStakings *MiningStakings, ok bool) {
 	miningStakings = &MiningStakings{}
-	ok = deserializeFromDb(db, GetMiningStakingsKey(address), miningStakings)
+	ok = deserializeFromDb(db, GetMiningStakingsKeyByVersion(address, isV2), miningStakings)
 	return
 }
 
-func SaveMiningStakings(db vm_db.VmDb, address types.Address, ps *MiningStakings) {
-	serializeToDb(db, GetMiningStakingsKey(address), ps)
+func SaveMiningStakings(db vm_db.VmDb, address types.Address, isV2 bool, ps *MiningStakings) {
+	serializeToDb(db, GetMiningStakingsKeyByVersion(address, isV2), ps)
 }
 
-func DeleteMiningStakings(db vm_db.VmDb, address types.Address) {
-	setValueToDb(db, GetMiningStakingsKey(address), nil)
+func DeleteMiningStakings(db vm_db.VmDb, address types.Address, isV2 bool) {
+	setValueToDb(db, GetMiningStakingsKeyByVersion(address, isV2), nil)
 }
 
-func GetMiningStakingsKey(address types.Address) []byte {
-	return append(miningStakingsKeyPrefix, address.Bytes()...)
+func GetMiningStakingsKeyByVersion(address types.Address, isV2 bool) []byte {
+	if isV2 {
+		return append(miningStakingsV2KeyPrefix, address.Bytes()...)
+	} else {
+		return append(miningStakingsKeyPrefix, address.Bytes()...)
+	}
 }
 
-func GetDexMiningStakings(db vm_db.VmDb) (dexMiningStakings *MiningStakings, ok bool) {
+func GetDexMiningStakings(db vm_db.VmDb, isV2 bool) (dexMiningStakings *MiningStakings, ok bool) {
 	dexMiningStakings = &MiningStakings{}
-	ok = deserializeFromDb(db, dexMiningStakingsKey, dexMiningStakings)
+	if isV2 {
+		ok = deserializeFromDb(db, dexMiningStakingsV2Key, dexMiningStakings)
+	} else {
+		ok = deserializeFromDb(db, dexMiningStakingsKey, dexMiningStakings)
+	}
 	return
 }
 
-func SaveDexMiningStakings(db vm_db.VmDb, ps *MiningStakings) {
-	serializeToDb(db, dexMiningStakingsKey, ps)
+func SaveDexMiningStakings(db vm_db.VmDb, ms *MiningStakings, isV2 bool) {
+	if isV2 {
+		serializeToDb(db, dexMiningStakingsV2Key, ms)
+	} else {
+		serializeToDb(db, dexMiningStakingsKey, ms)
+	}
 }
 
 func IsValidMiningStakeAmount(amount *big.Int) bool {
@@ -2166,6 +2215,44 @@ func UpdateVxUnlocks(db vm_db.VmDb, address types.Address, unlocks *VxUnlocks) {
 
 func GetVxUnlocksKey(address types.Address) []byte {
 	return append(vxUnlocksKeyPrefix, address.Bytes()...)
+}
+
+func GetCancelStakes(db vm_db.VmDb, address types.Address) (cancelStakes *CancelStakes, ok bool) {
+	cancelStakes = &CancelStakes{}
+	ok = deserializeFromDb(db, GetCancelStakesKey(address), cancelStakes)
+	return
+}
+
+func AddCancelStake(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount *big.Int) {
+	cancelStakes := &CancelStakes{}
+	currentPeriodId := GetCurrentPeriodId(db, reader)
+	var updated bool
+	if ok := deserializeFromDb(db, GetCancelStakesKey(address), cancelStakes); ok {
+		size := len(cancelStakes.Cancels)
+		if cancelStakes.Cancels[size-1].PeriodId == currentPeriodId {
+			cancelStakes.Cancels[size-1].Amount = AddBigInt(cancelStakes.Cancels[size-1].Amount, amount.Bytes())
+			updated = true
+		}
+	}
+	if !updated {
+		newCancel := &dexproto.CancelStake{}
+		newCancel.Amount = amount.Bytes()
+		newCancel.PeriodId = currentPeriodId
+		cancelStakes.Cancels = append(cancelStakes.Cancels, newCancel)
+	}
+	serializeToDb(db, GetCancelStakesKey(address), cancelStakes)
+}
+
+func UpdateCancelStakes(db vm_db.VmDb, address types.Address, cancelStakes *CancelStakes) {
+	if len(cancelStakes.Cancels) == 0 {
+		setValueToDb(db, GetCancelStakesKey(address), nil)
+	} else {
+		serializeToDb(db, GetCancelStakesKey(address), cancelStakes)
+	}
+}
+
+func GetCancelStakesKey(address types.Address) []byte {
+	return append(cancelStakesKeyPrefix, address.Bytes()...)
 }
 
 func deserializeFromDb(db vm_db.VmDb, key []byte, serializable SerializableDex) bool {

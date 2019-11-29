@@ -457,6 +457,17 @@ type VxUnlock struct {
 	ExpirationTime int64  `json:"expirationTime"`
 }
 
+type CancelStakeList struct {
+	CancellingAmount string         `json:"cancellingAmount"`
+	Count            int            `json:"count"`
+	Cancels          []*CancelStake `json:"cancels"`
+}
+
+type CancelStake struct {
+	Amount         string `json:"amount"`
+	ExpirationTime int64  `json:"expirationTime"`
+}
+
 func UnlockListToRpc(unlocks *dex.VxUnlocks, pageIndex int, pageSize int, chain chain.Chain) *VxUnlockList {
 	genesisTime := chain.GetGenesisSnapshotBlock().Timestamp.Unix()
 	total := new(big.Int)
@@ -467,7 +478,7 @@ func UnlockListToRpc(unlocks *dex.VxUnlocks, pageIndex int, pageSize int, chain 
 		if i >= pageIndex*pageSize && i < (pageIndex+1)*pageSize {
 			unlock := new(VxUnlock)
 			unlock.Amount = amt.String()
-			unlock.ExpirationTime = genesisTime + int64((ul.PeriodId+uint64(dex.VxUnlockScheduleDays))*3600*24)
+			unlock.ExpirationTime = genesisTime + int64((ul.PeriodId+uint64(dex.DexScheduleDays))*3600*24)
 			vxUnlockList.Unlocks = append(vxUnlockList.Unlocks, unlock)
 		}
 		total.Add(total, amt)
@@ -476,6 +487,27 @@ func UnlockListToRpc(unlocks *dex.VxUnlocks, pageIndex int, pageSize int, chain 
 	vxUnlockList.UnlockingAmount = total.String()
 	vxUnlockList.Count = count
 	return vxUnlockList
+}
+
+func CancelStakeListToRpc(cancelStakes *dex.CancelStakes, pageIndex int, pageSize int, chain chain.Chain) *CancelStakeList {
+	genesisTime := chain.GetGenesisSnapshotBlock().Timestamp.Unix()
+	total := new(big.Int)
+	cancelStakeList := new(CancelStakeList)
+	var count = 0
+	for i, ul := range cancelStakes.Cancels {
+		amt := new(big.Int).SetBytes(ul.Amount)
+		if i >= pageIndex*pageSize && i < (pageIndex+1)*pageSize {
+			cancel := new(CancelStake)
+			cancel.Amount = amt.String()
+			cancel.ExpirationTime = genesisTime + int64((ul.PeriodId+uint64(dex.DexScheduleDays))*3600*24)
+			cancelStakeList.Cancels = append(cancelStakeList.Cancels, cancel)
+		}
+		total.Add(total, amt)
+		count++
+	}
+	cancelStakeList.CancellingAmount = total.String()
+	cancelStakeList.Count = count
+	return cancelStakeList
 }
 
 type DelegateStakeInfo struct {

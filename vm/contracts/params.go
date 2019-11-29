@@ -55,6 +55,6 @@ var (
 		StakeHeight:            3600 * 24 * 3,
 		DexVipStakeHeight:      3600 * 24 * 30,
 		DexSuperVipStakeHeight: 3600 * 24 * 30,
-		DexStakeForMining:      3600 * 24 * 30,
+		DexStakeForMining:      1,
 	}
 )

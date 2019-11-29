@@ -9,6 +9,7 @@ message Account {
     bytes Locked   = 3;
     bytes VxLocked = 4; // lock for dividend, will release after 7 days
     bytes VxUnlocking = 5;
+    bytes CancelStake = 6;
 }
 
 message VxUnlock {
@@ -18,6 +19,15 @@ message VxUnlock {
 
 message VxUnlocks {
     repeated VxUnlock Unlocks = 1;
+}
+
+message CancelStake {
+    uint64 PeriodId = 1;
+    bytes Amount = 2;
+}
+
+message CancelStakes {
+    repeated CancelStake Cancels = 1;
 }
 
 //storage

@@ -218,7 +218,6 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 	if toMine.Cmp(available) > 0 {
 		toMine = available
 	}
-	var isNormalMiningStarted = dex.IsNormalMiningStarted(db)
 	mineInfo = new(apidex.NewRpcVxMineInfo)
 	if toMine.Sign() == 0 {
 		err = fmt.Errorf("no vx available on mine")
@@ -233,11 +232,7 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 		amount         *big.Int
 		success        bool
 	)
-	var rateSumForFee = dex.RateSumForFeeMineNew
-	if !isNormalMiningStarted {
-		rateSumForFee = dex.RateSumForFeeMine
-	}
-	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, rateSumForFee, dex.ViteTokenType, dex.UsdTokenType); success {
+	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
 		mineInfo.FeeMineDetail = make(map[int32]string)
 		feeMineSum := new(big.Int)
 		for tokenType, amount := range amountForItems {
@@ -248,23 +243,13 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 	} else {
 		return
 	}
-	var rateForStaking = dex.RateForStakingMineNew
-	if !isNormalMiningStarted {
-		rateForStaking = dex.RateForStakingMine
-	}
-	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, rateForStaking); success {
+	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateForStakingMine); success {
 		mineInfo.StakingMine = amount.String()
 	} else {
 		return
 	}
-	if isNormalMiningStarted {
-		if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateSumForMakerMineNew); success {
-			mineInfo.MakerMine = amount.String()
-		}
-	} else {
-		if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
-			mineInfo.MakerMine = amountForItems[dex.MineForMaker].String()
-		}
+	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
+		mineInfo.MakerMine = amountForItems[dex.MineForMaker].String()
 	}
 	return
 }
@@ -290,7 +275,7 @@ func (f DexApi) GetCurrentStakingValidForMining() (string, error) {
 	if err != nil {
 		return "0", err
 	}
-	if miningStakings, ok := dex.GetDexMiningStakings(db); !ok {
+	if miningStakings, ok := dex.GetDexMiningStakings(db, dex.IsEarthFork(db)); !ok {
 		return "0", nil
 	} else {
 		stakingsLen := len(miningStakings.Stakings)
@@ -459,6 +444,19 @@ func (f DexApi) GetVxUnlockList(address types.Address, pageIndex int, pageSize i
 			return nil, nil
 		} else {
 			return apidex.UnlockListToRpc(unlocks, pageIndex, pageSize, f.chain), nil
+		}
+	}
+}
+
+func (f DexApi) GetCancelStakeList(address types.Address, pageIndex int, pageSize int) (*apidex.CancelStakeList, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	} else {
+		if cancelStakes, ok := dex.GetCancelStakes(db, address); !ok {
+			return nil, nil
+		} else {
+			return apidex.CancelStakeListToRpc(cancelStakes, pageIndex, pageSize, f.chain), nil
 		}
 	}
 }
@@ -634,7 +632,7 @@ func (f DexPrivateApi) GetAllMiningStakingInfoByAddress(address types.Address) (
 	if err != nil {
 		return nil, err
 	}
-	if miningStakings, ok := dex.GetMiningStakings(db, address); ok {
+	if miningStakings, ok := dex.GetMiningStakings(db, address, dex.IsEarthFork(db)); ok {
 		return apidex.MiningStakingsToRpc(miningStakings), nil
 	} else {
 		return nil, nil
@@ -646,7 +644,7 @@ func (f DexPrivateApi) GetAllMiningStakingInfo() (*apidex.RpcMiningStakings, err
 	if err != nil {
 		return nil, err
 	}
-	if miningStakings, ok := dex.GetDexMiningStakings(db); ok {
+	if miningStakings, ok := dex.GetDexMiningStakings(db, dex.IsEarthFork(db)); ok {
 		return apidex.MiningStakingsToRpc(miningStakings), nil
 	} else {
 		return nil, nil
@@ -819,7 +817,7 @@ func StakeListToDexRpc(stakeInfos []*dex.DelegateStakeInfo, totalAmount *big.Int
 
 func VIPStakingToRpc(chain chain.Chain, address types.Address, info *dex.VIPStaking, bid uint8, amount *big.Int) (vipStakingRpc *apidex.VIPStakingRpc, err error) {
 	var (
-		db vm_db.VmDb
+		db            vm_db.VmDb
 		snapshotBlock *ledger.SnapshotBlock
 		id            []byte
 	)

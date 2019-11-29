@@ -333,7 +333,7 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 	}
 	dex.AddPeriodWithBizEvent(db, param.PeriodId, param.BizType)
 	var blocks []*ledger.AccountBlock
-	if param.BizType <= dex.OperatorFeeDividendJob || param.BizType == dex.FinishVxUnlock {
+	if param.BizType <= dex.OperatorFeeDividendJob || param.BizType == dex.FinishVxUnlock || param.BizType == dex.FinishCancelMiningStake {
 		switch param.BizType {
 		case dex.FeeDividendJob:
 			blocks, err = dex.DoFeesDividend(db, param.PeriodId)
@@ -341,6 +341,8 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 			err = dex.DoOperatorFeesDividend(db, param.PeriodId)
 		case dex.FinishVxUnlock:
 			err = dex.DoFinishVxUnlock(db, param.PeriodId)
+		case dex.FinishCancelMiningStake:
+			err = dex.DoFinishCancelMiningStake(db, param.PeriodId)
 		}
 		if err != nil {
 			return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
@@ -355,11 +357,7 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 		vxPoolLeaved = new(big.Int).Set(vxPool)
 		switch param.BizType {
 		case dex.MineVxForFeeJob:
-			rateSumForFee := dex.RateSumForFeeMineNew
-			if !dex.IsNormalMiningStarted(db) {
-				rateSumForFee = dex.RateSumForFeeMine
-			}
-			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, rateSumForFee, dex.ViteTokenType, dex.UsdTokenType); success {
+			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
 				if refund, err = dex.DoMineVxForFee(db, vm.ConsensusReader(), param.PeriodId, amtForItems, fundLogger); err != nil {
 					return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 				}
@@ -367,11 +365,7 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 				return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for fee"), sendBlock)
 			}
 		case dex.MineVxForStakingJob:
-			rateSumForStaking := dex.RateForStakingMineNew
-			if !dex.IsNormalMiningStarted(db) {
-				rateSumForStaking = dex.RateForStakingMine
-			}
-			if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPool, rateSumForStaking); success {
+			if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPool, dex.RateForStakingMine); success {
 				if refund, err = dex.DoMineVxForStaking(db, vm.ConsensusReader(), param.PeriodId, amount); err != nil {
 					return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 				}
@@ -379,25 +373,12 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.A
 				return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for staking"), sendBlock)
 			}
 		case dex.MineVxForMakerAndMaintainerJob:
-			if dex.IsNormalMiningStarted(db) {
-				if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPool, dex.RateSumForMakerMineNew); success {
-					dex.DoMineVxForMaker(db, param.PeriodId, amount)
-				} else {
-					return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for maker"), sendBlock)
-				}
-				if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPoolLeaved, dex.RateSumForMaintainerNew); success {
-					if err = dex.DoMineVxForMaintainer(db, vm.ConsensusReader(), amount); err != nil {
-						return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
-					}
+			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
+				if err = dex.DoMineVxForMakerMineAndMaintainer(db, param.PeriodId, vm.ConsensusReader(), amtForItems); err != nil {
+					return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 				}
 			} else {
-				if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
-					if err = dex.DoMineVxForMakerMineAndMaintainer(db, param.PeriodId, vm.ConsensusReader(), amtForItems); err != nil {
-						return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
-					}
-				} else {
-					return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for maker and maintainer"), sendBlock)
-				}
+				return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for maker and maintainer"), sendBlock)
 			}
 		}
 		if refund != nil && refund.Sign() > 0 {
@@ -450,10 +431,8 @@ func (md *MethodDexFundStakeForMining) DoSend(db vm_db.VmDb, block *ledger.Accou
 func (md MethodDexFundStakeForMining) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) (appendBlocks []*ledger.AccountBlock, err error) {
 	var param = new(dex.ParamStakeForMining)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
-	var stakeHeight uint64
-	if dex.IsEarthFork(db) {
-		stakeHeight = nodeConfig.params.DexStakeForMining
-	} else {
+	stakeHeight := nodeConfig.params.DexStakeForMining
+	if !dex.IsEarthFork(db) {
 		stakeHeight = nodeConfig.params.StakeHeight
 	}
 	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForMining, param.ActionType, sendBlock.AccountAddress, types.ZERO_ADDRESS, param.Amount, stakeHeight, block); err != nil {
@@ -672,7 +651,7 @@ func (md MethodDexFundDelegateStakeCallback) DoReceive(db vm_db.VmDb, block *led
 			stakedAmount := dex.GetMiningStakedAmount(db, callbackParam.StakeAddress)
 			stakedAmount.Add(stakedAmount, callbackParam.Amount)
 			dex.SaveMiningStakedAmount(db, callbackParam.StakeAddress, stakedAmount)
-			if err := dex.OnMiningStakeSuccess(db, vm.ConsensusReader(), callbackParam.StakeAddress, callbackParam.Amount, stakedAmount, dex.GetMiningStakedV2Amount(db, callbackParam.StakeAddress)); err != nil {
+			if err := dex.OnMiningStakeSuccess(db, vm.ConsensusReader(), callbackParam.StakeAddress, callbackParam.Amount, stakedAmount); err != nil {
 				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			}
 		case dex.StakeForVIP:
@@ -763,7 +742,7 @@ func (md MethodDexFundCancelDelegateStakeCallback) DoReceive(db vm_db.VmDb, bloc
 			} else {
 				dex.SaveMiningStakedAmount(db, param.StakeAddress, leaved)
 			}
-			if err := dex.OnCancelMiningStakeSuccess(db, vm.ConsensusReader(), param.StakeAddress, sendBlock.Amount, leaved, dex.GetMiningStakedV2Amount(db, param.StakeAddress)); err != nil {
+			if err := dex.OnCancelMiningStakeSuccess(db, vm.ConsensusReader(), param.StakeAddress, sendBlock.Amount, leaved); err != nil {
 				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			}
 		case dex.StakeForVIP:
@@ -845,7 +824,7 @@ func (md MethodDexFundDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, block *l
 			stakedAmount := dex.GetMiningStakedV2Amount(db, address)
 			stakedAmount.Add(stakedAmount, amount)
 			dex.SaveMiningStakedV2Amount(db, address, stakedAmount)
-			if err = dex.OnMiningStakeSuccess(db, vm.ConsensusReader(), address, amount, dex.GetMiningStakedAmount(db, address), stakedAmount); err != nil {
+			if err = dex.OnMiningStakeSuccessV2(db, vm.ConsensusReader(), address, amount, stakedAmount); err != nil {
 				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			}
 		case dex.StakeForVIP:
@@ -954,7 +933,7 @@ func (md MethodDexFundCancelDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, bl
 			} else {
 				dex.SaveMiningStakedV2Amount(db, address, leaved)
 			}
-			if err := dex.OnCancelMiningStakeSuccess(db, vm.ConsensusReader(), address, sendBlock.Amount, dex.GetMiningStakedAmount(db, address), leaved); err != nil {
+			if err := dex.OnCancelMiningStakeSuccessV2(db, vm.ConsensusReader(), address, sendBlock.Amount, leaved); err != nil {
 				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			}
 		case dex.StakeForVIP:
@@ -998,6 +977,8 @@ func (md MethodDexFundCancelDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, bl
 		if info.StakeType == dex.StakeForPrincipalSuperVIP {
 			stakeAddress, _ := types.BytesToAddress(info.Address) // address
 			dex.DepositAccount(db, stakeAddress, ledger.ViteTokenId, sendBlock.Amount)
+		} else if info.StakeType == dex.StakeForMining {
+			dex.ScheduleCancelStake(db, address, sendBlock.Amount)
 		} else {
 			dex.DepositAccount(db, address, ledger.ViteTokenId, sendBlock.Amount)
 		}
@@ -1215,7 +1196,7 @@ func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.A
 		if dex.IsEarthFork(db) && dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminStartNormalMine) && !dex.IsNormalMiningStarted(db) {
 			dex.StartNormalMine(db)
 		}
-		if dex.IsEarthFork(db) && dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminBurnExtraVx) && dex.GetVxBurnAmount(db).Sign() == 0 {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminBurnExtraVx) && dex.IsNormalMiningStarted(db) && dex.GetVxBurnAmount(db).Sign() == 0 {
 			if blocks, err = dex.BurnExtraVx(db); err != nil {
 				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			} else {
