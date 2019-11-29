@@ -106,6 +106,9 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 		}
 	} else {
 		prevHash, err = c.chain.GetAccountBlockHashByHeight(param.SelfAddr, *(param.Height))
+		if err != nil {
+			return nil, err
+		}
 	}
 	var snapshotHash *types.Hash
 	if param.SnapshotHash != nil {
