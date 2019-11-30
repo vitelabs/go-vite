@@ -40,7 +40,7 @@ var (
 	orderIdSerialNoKey                  = []byte("orIdSl:")
 
 	vxUnlocksKeyPrefix    = []byte("vxUl:")
-	cancelStakesKeyPrefix = []byte("vxUl:")
+	cancelStakesKeyPrefix = []byte("clSt:")
 
 	timeOracleKey       = []byte("tmA:")
 	periodJobTriggerKey = []byte("tgA:")
