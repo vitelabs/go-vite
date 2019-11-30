@@ -172,9 +172,8 @@ func OnCancelMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, addr
 }
 
 func OnCancelMiningStakeSuccessV2(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
-	doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount, true)
 	AddCancelStake(db, reader, address, amount)
-	return nil
+	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount, true)
 }
 
 func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int, isV2 bool) error {
