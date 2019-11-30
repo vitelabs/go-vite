@@ -35,11 +35,12 @@ func (f DexApi) String() string {
 }
 
 type AccountBalanceInfo struct {
-	TokenInfo   *RpcTokenInfo `json:"tokenInfo,omitempty"`
-	Available   string        `json:"available"`
-	Locked      string        `json:"locked"`
-	VxLocked    string        `json:"vxLocked,omitempty"`
-	VxUnlocking string        `json:"vxUnlocking,omitempty"`
+	TokenInfo       *RpcTokenInfo `json:"tokenInfo,omitempty"`
+	Available       string        `json:"available"`
+	Locked          string        `json:"locked"`
+	VxLocked        string        `json:"vxLocked,omitempty"`
+	VxUnlocking     string        `json:"vxUnlocking,omitempty"`
+	CancellingStake string        `json:"cancellingStake,omitempty"`
 }
 
 func (f DexApi) GetAccountBalanceInfo(addr types.Address, tokenId *types.TokenTypeId) (map[types.TokenTypeId]*AccountBalanceInfo, error) {
@@ -79,6 +80,10 @@ func (f DexApi) GetAccountBalanceInfo(addr types.Address, tokenId *types.TokenTy
 			if v.VxUnlocking != nil {
 				info.VxUnlocking = v.VxUnlocking.String()
 			}
+		}
+
+		if v.Token == ledger.ViteTokenId && v.CancellingStake != nil {
+			info.CancellingStake = v.CancellingStake.String()
 		}
 		balanceInfo[v.Token] = info
 	}

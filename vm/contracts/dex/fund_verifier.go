@@ -2,6 +2,7 @@ package dex
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
@@ -101,9 +102,13 @@ func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*b
 		for _, acc := range userFund.Accounts {
 			tokenId, _ := types.BytesToTokenTypeId(acc.Token)
 			total := AddBigInt(acc.Available, acc.Locked)
-			if IsEarthFork(db) && tokenId == VxTokenId {
-				vxLocked := AddBigInt(acc.VxLocked, acc.VxUnlocking)
-				total = AddBigInt(total, vxLocked)
+			if IsEarthFork(db) {
+				if tokenId == VxTokenId {
+					vxLocked := AddBigInt(acc.VxLocked, acc.VxUnlocking)
+					total = AddBigInt(total, vxLocked)
+				} else if tokenId == ledger.ViteTokenId && len(acc.CancellingStake) > 0 {
+					total = AddBigInt(total, acc.CancellingStake)
+				}
 			}
 			accAccount(tokenId, total, accumulateRes)
 		}

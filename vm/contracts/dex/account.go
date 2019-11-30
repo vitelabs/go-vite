@@ -7,11 +7,12 @@ import (
 )
 
 type Account struct {
-	Token       types.TokenTypeId
-	Available   *big.Int
-	Locked      *big.Int
-	VxLocked    *big.Int
-	VxUnlocking *big.Int
+	Token           types.TokenTypeId
+	Available       *big.Int
+	Locked          *big.Int
+	VxLocked        *big.Int
+	VxUnlocking     *big.Int
+	CancellingStake *big.Int
 }
 
 func (account *Account) Serialize() *dexProto.Account {
@@ -30,6 +31,9 @@ func (account *Account) Serialize() *dexProto.Account {
 	if account.VxUnlocking != nil {
 		pb.VxUnlocking = account.VxUnlocking.Bytes()
 	}
+	if account.CancellingStake != nil {
+		pb.CancellingStake = account.CancellingStake.Bytes()
+	}
 	return pb
 }
 
@@ -46,5 +50,8 @@ func (account *Account) Deserialize(pb *dexProto.Account) {
 	}
 	if len(pb.VxUnlocking) > 0 {
 		account.VxUnlocking = new(big.Int).SetBytes(pb.VxUnlocking)
+	}
+	if len(pb.CancellingStake) > 0 {
+		account.CancellingStake = new(big.Int).SetBytes(pb.CancellingStake)
 	}
 }

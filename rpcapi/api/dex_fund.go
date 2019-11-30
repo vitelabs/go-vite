@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
 	"github.com/vitelabs/go-vite/vite"
@@ -67,6 +68,11 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 				info.VxUnlocking = v.VxUnlocking.String()
 			}
 		}
+
+		if v.Token == ledger.ViteTokenId && v.CancellingStake != nil {
+			info.CancellingStake = v.CancellingStake.String()
+		}
+
 		balanceInfo[v.Token] = info
 	}
 	return balanceInfo, nil

@@ -782,18 +782,18 @@ func FinishVxUnlockForDividend(db vm_db.VmDb, address types.Address, amount *big
 
 func ScheduleCancelStake(db vm_db.VmDb, address types.Address, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
 	return updateFund(db, address, ledger.ViteTokenId.Bytes(), amount, func(acc *dexproto.Account, amt *big.Int) (*dexproto.Account, error) {
-		acc.CancelStake = AddBigInt(acc.CancelStake, amount.Bytes())
+		acc.CancellingStake = AddBigInt(acc.CancellingStake, amount.Bytes())
 		return acc, nil
 	})
 }
 
 func FinishCancelStake(db vm_db.VmDb, address types.Address, amount *big.Int) (updatedAcc *dexproto.Account, err error) {
 	return updateFund(db, address, ledger.ViteTokenId.Bytes(), amount, func(acc *dexproto.Account, amt *big.Int) (*dexproto.Account, error) {
-		cancelStakeAmount := new(big.Int).SetBytes(acc.CancelStake)
-		if cancelStakeAmount.Cmp(amt) < 0 {
+		cancellingStakeAmount := new(big.Int).SetBytes(acc.CancellingStake)
+		if cancellingStakeAmount.Cmp(amt) < 0 {
 			return nil, ExceedFundAvailableErr
 		} else {
-			acc.CancelStake = cancelStakeAmount.Sub(cancelStakeAmount, amt).Bytes()
+			acc.CancellingStake = cancellingStakeAmount.Sub(cancellingStakeAmount, amt).Bytes()
 			acc.Available = AddBigInt(acc.Available, amt.Bytes())
 		}
 		return acc, nil
