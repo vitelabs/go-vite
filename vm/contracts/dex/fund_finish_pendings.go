@@ -41,7 +41,7 @@ func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
 		var i = 0
 		var amount = new(big.Int)
 		for _, ul := range unlocks.Unlocks {
-			if ul.PeriodId+uint64(DexScheduleDays) <= periodId {
+			if ul.PeriodId+uint64(SchedulePeriods) <= periodId {
 				amount.Add(amount, new(big.Int).SetBytes(ul.Amount))
 				i++
 			} else {
@@ -93,7 +93,7 @@ func DoFinishCancelMiningStake(db vm_db.VmDb, periodId uint64) error {
 		var i = 0
 		var amount = new(big.Int)
 		for _, cl := range cancelStakes.Cancels {
-			if cl.PeriodId+uint64(DexScheduleDays) <= periodId {
+			if cl.PeriodId+uint64(SchedulePeriods) <= periodId {
 				amount.Add(amount, new(big.Int).SetBytes(cl.Amount))
 				i++
 			} else {

@@ -774,7 +774,11 @@ func (md MethodDexFundCancelDelegateStakeCallback) DoReceive(db vm_db.VmDb, bloc
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.SuperVIPStakingNotExistsErr, sendBlock)
 			}
 		}
-		dex.DepositAccount(db, param.StakeAddress, ledger.ViteTokenId, sendBlock.Amount)
+		if dex.IsEarthFork(db) && param.Bid == dex.StakeForMining {
+			dex.ScheduleCancelStake(db, param.StakeAddress, sendBlock.Amount)
+		} else {
+			dex.DepositAccount(db, param.StakeAddress, ledger.ViteTokenId, sendBlock.Amount)
+		}
 	}
 	return nil, nil
 }
