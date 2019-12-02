@@ -160,23 +160,26 @@ func IsVipStakingWithId(staking *VIPStaking) bool {
 }
 
 func OnMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
-	return doChangeMiningStakedAmount(db, reader, address, amount, updatedAmount, false)
+	return doChangeMiningStakedAmount(db, reader, address, amount, new(big.Int).Add(updatedAmount, GetMiningStakedV2Amount(db, address)))
 }
 
-func OnMiningStakeSuccessV2(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
-	return doChangeMiningStakedAmount(db, reader, address, amount, updatedAmount, true)
+func OnMiningStakeSuccessV2(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmountV2 *big.Int) error {
+	return doChangeMiningStakedAmount(db, reader, address, amount, new(big.Int).Add(GetMiningStakedAmount(db, address), updatedAmountV2))
 }
 
 func OnCancelMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
-	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount, false)
+	if IsEarthFork(db) {
+		AddCancelStake(db, reader, address, amount)
+	}
+	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), new(big.Int).Add(updatedAmount, GetMiningStakedV2Amount(db, address)))
 }
 
-func OnCancelMiningStakeSuccessV2(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+func OnCancelMiningStakeSuccessV2(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmountV2 *big.Int) error {
 	AddCancelStake(db, reader, address, amount)
-	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), updatedAmount, true)
+	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), new(big.Int).Add(GetMiningStakedAmount(db, address), updatedAmountV2))
 }
 
-func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int, isV2 bool) error {
+func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int) error {
 	var (
 		miningStakings    *MiningStakings
 		sumChange         *big.Int
@@ -184,7 +187,7 @@ func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, addr
 		originStakingsLen int
 		needUpdate        bool
 	)
-	miningStakings, _ = GetMiningStakings(db, address, isV2)
+	miningStakings, _ = GetMiningStakings(db, address)
 	periodId = GetCurrentPeriodId(db, reader)
 	originStakingsLen = len(miningStakings.Stakings)
 	if originStakingsLen == 0 { //need append new period
@@ -234,13 +237,13 @@ func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, addr
 	}
 	//update MiningStakings
 	if len(miningStakings.Stakings) > 0 && needUpdate {
-		SaveMiningStakings(db, address, isV2, miningStakings)
+		SaveMiningStakings(db, address, miningStakings)
 	} else if len(miningStakings.Stakings) == 0 && originStakingsLen > 0 {
-		DeleteMiningStakings(db, address, isV2)
+		DeleteMiningStakings(db, address)
 	}
 
 	if sumChange != nil && sumChange.Sign() != 0 {
-		dexMiningStakings, _ := GetDexMiningStakings(db, isV2)
+		dexMiningStakings, _ := GetDexMiningStakings(db)
 		dexStakingsLen := len(dexMiningStakings.Stakings)
 		if dexStakingsLen == 0 {
 			if sumChange.Sign() > 0 {
@@ -259,7 +262,7 @@ func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, addr
 				dexMiningStakings.Stakings = append(dexMiningStakings.Stakings, &dexproto.MiningStakingByPeriod{Amount: sumRes.Bytes(), Period: periodId})
 			}
 		}
-		SaveDexMiningStakings(db, dexMiningStakings, isV2)
+		SaveDexMiningStakings(db, dexMiningStakings)
 	}
 	return nil
 }

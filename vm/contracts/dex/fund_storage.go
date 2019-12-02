@@ -65,9 +65,7 @@ var (
 	delegateStakeIndexSerialNoPrefix = []byte("dsISN:")
 
 	miningStakingsKeyPrefix       = []byte("pldsVx:")  // miningStakings: types.Address
-	miningStakingsV2KeyPrefix     = []byte("stsVx:")   // miningStakings: types.Address
 	dexMiningStakingsKey          = []byte("pldsVxS:") // dexMiningStakings
-	dexMiningStakingsV2Key        = []byte("stVxS:")   // dexMiningStakings
 	miningStakedAmountKeyPrefix   = []byte("pldVx:")   // miningStakedAmount: types.Address
 	miningStakedAmountV2KeyPrefix = []byte("stVx:")    // miningStakedAmount: types.Address
 
@@ -103,7 +101,7 @@ var (
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
 	VxLockThreshold = new(big.Int).Set(commonTokenPow)
-	DexScheduleDays = 7 // T+7 schedule
+	SchedulePeriods = 7 // T+7 schedule
 
 	StakeForMiningMinAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(134))
 	StakeForVIPAmount       = new(big.Int).Mul(commonTokenPow, big.NewInt(10000))
@@ -1832,44 +1830,32 @@ func ReduceVipStakingHash(stakings *VIPStaking, hash types.Hash) bool {
 	return found
 }
 
-func GetMiningStakings(db vm_db.VmDb, address types.Address, isV2 bool) (miningStakings *MiningStakings, ok bool) {
+func GetMiningStakings(db vm_db.VmDb, address types.Address) (miningStakings *MiningStakings, ok bool) {
 	miningStakings = &MiningStakings{}
-	ok = deserializeFromDb(db, GetMiningStakingsKeyByVersion(address, isV2), miningStakings)
+	ok = deserializeFromDb(db, GetMiningStakingsKey(address), miningStakings)
 	return
 }
 
-func SaveMiningStakings(db vm_db.VmDb, address types.Address, isV2 bool, ps *MiningStakings) {
-	serializeToDb(db, GetMiningStakingsKeyByVersion(address, isV2), ps)
+func SaveMiningStakings(db vm_db.VmDb, address types.Address, ps *MiningStakings) {
+	serializeToDb(db, GetMiningStakingsKey(address), ps)
 }
 
-func DeleteMiningStakings(db vm_db.VmDb, address types.Address, isV2 bool) {
-	setValueToDb(db, GetMiningStakingsKeyByVersion(address, isV2), nil)
+func DeleteMiningStakings(db vm_db.VmDb, address types.Address) {
+	setValueToDb(db, GetMiningStakingsKey(address), nil)
 }
 
-func GetMiningStakingsKeyByVersion(address types.Address, isV2 bool) []byte {
-	if isV2 {
-		return append(miningStakingsV2KeyPrefix, address.Bytes()...)
-	} else {
-		return append(miningStakingsKeyPrefix, address.Bytes()...)
-	}
+func GetMiningStakingsKey(address types.Address) []byte {
+	return append(miningStakingsKeyPrefix, address.Bytes()...)
 }
 
-func GetDexMiningStakings(db vm_db.VmDb, isV2 bool) (dexMiningStakings *MiningStakings, ok bool) {
+func GetDexMiningStakings(db vm_db.VmDb) (dexMiningStakings *MiningStakings, ok bool) {
 	dexMiningStakings = &MiningStakings{}
-	if isV2 {
-		ok = deserializeFromDb(db, dexMiningStakingsV2Key, dexMiningStakings)
-	} else {
-		ok = deserializeFromDb(db, dexMiningStakingsKey, dexMiningStakings)
-	}
+	ok = deserializeFromDb(db, dexMiningStakingsKey, dexMiningStakings)
 	return
 }
 
-func SaveDexMiningStakings(db vm_db.VmDb, ms *MiningStakings, isV2 bool) {
-	if isV2 {
-		serializeToDb(db, dexMiningStakingsV2Key, ms)
-	} else {
-		serializeToDb(db, dexMiningStakingsKey, ms)
-	}
+func SaveDexMiningStakings(db vm_db.VmDb, ms *MiningStakings) {
+	serializeToDb(db, dexMiningStakingsKey, ms)
 }
 
 func IsValidMiningStakeAmount(amount *big.Int) bool {

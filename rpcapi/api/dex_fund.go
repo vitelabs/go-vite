@@ -256,7 +256,7 @@ func (f DexFundApi) GetCurrentPledgeForVxSum() (string, error) {
 	if err != nil {
 		return "0", err
 	}
-	if miningStakings, ok := dex.GetDexMiningStakings(db, dex.IsEarthFork(db)); !ok {
+	if miningStakings, ok := dex.GetDexMiningStakings(db); !ok {
 		return "0", nil
 	} else {
 		pledgesLen := len(miningStakings.Stakings)

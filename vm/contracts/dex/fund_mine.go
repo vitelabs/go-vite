@@ -139,13 +139,12 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 		dexMiningStakings      *MiningStakings
 		dividedStakedAmountSum = big.NewInt(0)
 		amtLeavedToMine        = new(big.Int).Set(amountToMine)
-		ok, isV2               bool
+		ok               bool
 	)
 	if amountToMine == nil {
 		return nil, nil
 	}
-	isV2 = IsEarthFork(db)
-	if dexMiningStakings, ok = GetDexMiningStakings(db, isV2); !ok {
+	if dexMiningStakings, ok = GetDexMiningStakings(db); !ok {
 		return amountToMine, nil
 	}
 	foundDexMiningStaking, dexMiningStakedAmountBytes, needUpdateDexMiningStakings, _ := MatchMiningStakingByPeriod(dexMiningStakings, periodId, false)
@@ -153,7 +152,7 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 		return amountToMine, nil
 	}
 	if needUpdateDexMiningStakings {
-		SaveDexMiningStakings(db, dexMiningStakings, isV2)
+		SaveDexMiningStakings(db, dexMiningStakings)
 	}
 	dexMiningStakedAmount := new(big.Int).SetBytes(dexMiningStakedAmountBytes)
 	if dexMiningStakedAmount.Sign() <= 0 {
@@ -163,11 +162,7 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 	var (
 		miningStakingsKey, miningStakingsValue []byte
 	)
-	keyPrefix := miningStakingsV2KeyPrefix
-	if !isV2 {
-		keyPrefix = miningStakingsKeyPrefix
-	}
-	iterator, err := db.NewStorageIterator(keyPrefix)
+	iterator, err := db.NewStorageIterator(miningStakingsKeyPrefix)
 	if err != nil {
 		panic(err)
 	}
@@ -184,7 +179,7 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 		if len(miningStakingsValue) == 0 {
 			continue
 		}
-		addressBytes := miningStakingsKey[len(keyPrefix):]
+		addressBytes := miningStakingsKey[len(miningStakingsKeyPrefix):]
 		address := types.Address{}
 		if err = address.SetBytes(addressBytes); err != nil {
 			panic(err)
@@ -198,9 +193,9 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 			continue
 		}
 		if needDeleteMiningStakings {
-			DeleteMiningStakings(db, address, isV2)
+			DeleteMiningStakings(db, address)
 		} else if needUpdateMiningStakings {
-			SaveMiningStakings(db, address, isV2, miningStakings)
+			SaveMiningStakings(db, address, miningStakings)
 		}
 		stakedAmt := new(big.Int).SetBytes(miningStakedAmountBytes)
 		if !IsValidMiningStakeAmount(stakedAmt) {

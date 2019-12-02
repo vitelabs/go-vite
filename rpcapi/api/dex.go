@@ -280,7 +280,7 @@ func (f DexApi) GetCurrentStakingValidForMining() (string, error) {
 	if err != nil {
 		return "0", err
 	}
-	if miningStakings, ok := dex.GetDexMiningStakings(db, dex.IsEarthFork(db)); !ok {
+	if miningStakings, ok := dex.GetDexMiningStakings(db); !ok {
 		return "0", nil
 	} else {
 		stakingsLen := len(miningStakings.Stakings)
@@ -637,7 +637,7 @@ func (f DexPrivateApi) GetAllMiningStakingInfoByAddress(address types.Address) (
 	if err != nil {
 		return nil, err
 	}
-	if miningStakings, ok := dex.GetMiningStakings(db, address, dex.IsEarthFork(db)); ok {
+	if miningStakings, ok := dex.GetMiningStakings(db, address); ok {
 		return apidex.MiningStakingsToRpc(miningStakings), nil
 	} else {
 		return nil, nil
@@ -649,7 +649,7 @@ func (f DexPrivateApi) GetAllMiningStakingInfo() (*apidex.RpcMiningStakings, err
 	if err != nil {
 		return nil, err
 	}
-	if miningStakings, ok := dex.GetDexMiningStakings(db, dex.IsEarthFork(db)); ok {
+	if miningStakings, ok := dex.GetDexMiningStakings(db); ok {
 		return apidex.MiningStakingsToRpc(miningStakings), nil
 	} else {
 		return nil, nil
