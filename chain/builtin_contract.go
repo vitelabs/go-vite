@@ -238,3 +238,13 @@ func (c *chain) GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Add
 	}
 	return dex.GetUserFundsByPage(sd, lastAddress, count)
 }
+
+func (c *chain) GetDexStakeListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*dex.DelegateStakeInfo, []byte, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
+		c.log.Error(cErr.Error(), "method", "GetDexStakeListByPage")
+		return nil, nil, cErr
+	}
+	return dex.GetStakeListByPage(sd, lastKey, count)
+}

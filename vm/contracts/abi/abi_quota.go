@@ -153,11 +153,13 @@ func GetStakeInfoList(db StorageDatabase, stakeAddr types.Address) ([]*types.Sta
 		if !filterKeyValue(iterator.Key(), iterator.Value(), IsStakeInfoKey) {
 			continue
 		}
-		if stakeInfo, err := UnpackStakeInfo(iterator.Value()); err == nil &&
-			stakeInfo.Amount != nil && stakeInfo.Amount.Sign() > 0 &&
-			!stakeInfo.IsDelegated {
-			stakeInfoList = append(stakeInfoList, stakeInfo)
-			stakeAmount.Add(stakeAmount, stakeInfo.Amount)
+		if stakeInfo, err := UnpackStakeInfo(iterator.Value()); err == nil {
+			if stakeInfo.Amount != nil && stakeInfo.Amount.Sign() > 0 && !stakeInfo.IsDelegated {
+				stakeInfoList = append(stakeInfoList, stakeInfo)
+				if stakeInfo.Amount != nil && stakeInfo.Amount.Sign() > 0 {
+					stakeAmount.Add(stakeAmount, stakeInfo.Amount)
+				}
+			}
 		}
 	}
 	return stakeInfoList, stakeAmount, nil
@@ -243,6 +245,22 @@ func GetStakeInfoByKey(db StorageDatabase, stakeInfoKey []byte) (*types.StakeInf
 		return nil, nil
 	}
 	return UnpackStakeInfo(value)
+}
+
+func GetStakeInfoById(db StorageDatabase, id []byte) (*types.StakeInfo, error) {
+	if len(id) != types.HashSize {
+		return nil, util.ErrInvalidMethodParam
+	}
+	if storeKey, err := db.GetValue(id); err != nil {
+		return nil, err
+	} else {
+		if value, err := db.GetValue(storeKey); err != nil {
+			return nil, err
+		} else if len(value) > 0 {
+			return UnpackStakeInfo(value)
+		}
+	}
+	return nil, util.ErrDataNotExist
 }
 
 func UnpackStakeInfo(value []byte) (*types.StakeInfo, error) {

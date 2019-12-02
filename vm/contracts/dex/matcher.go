@@ -37,7 +37,8 @@ var (
 
 	PerPeriodDividendRate int32 = 1000 // 0.01
 
-	InviteBonusRate int32 = 5000 // 0.05
+	InviterBonusRate int32 = 5000 // 0.05
+	InviteeBonusRate int32 = 2500 // 0.025
 
 	RateCardinalNum int32 = 100000 // 100,000
 )
