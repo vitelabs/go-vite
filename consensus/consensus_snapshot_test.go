@@ -8,8 +8,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config/gen"
 	"github.com/vitelabs/go-vite/consensus/core"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
@@ -43,8 +45,8 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 		VoteConditionId:        0,
 		VoteConditionParam:     nil,
 		Owner:                  types.Address{},
-		PledgeAmount:           nil,
-		WithdrawHeight:         0,
+		StakeAmount:            nil,
+		ExpirationHeight:       0,
 	}
 
 	info := core.NewGroupInfo(simpleGenesis, group)
@@ -60,50 +62,50 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 	voteTime := cs.GenProofTime(0)
 	mock_chain.EXPECT().GetSnapshotHeaderBeforeTime(gomock.Eq(&voteTime)).Return(b1, nil)
 	registers := []*types.Registration{{
-		Name:           "s1",
-		NodeAddr:       common.MockAddress(0),
-		PledgeAddr:     common.MockAddress(0),
-		Amount:         nil,
-		WithdrawHeight: 0,
-		RewardTime:     0,
-		CancelTime:     0,
-		HisAddrList:    nil,
+		Name:                  "s1",
+		BlockProducingAddress: common.MockAddress(0),
+		StakeAddress:          common.MockAddress(0),
+		Amount:                nil,
+		ExpirationHeight:      0,
+		RewardTime:            0,
+		RevokeTime:            0,
+		HisAddrList:           nil,
 	}, {
-		Name:           "s2",
-		NodeAddr:       common.MockAddress(1),
-		PledgeAddr:     common.MockAddress(1),
-		Amount:         nil,
-		WithdrawHeight: 0,
-		RewardTime:     0,
-		CancelTime:     0,
-		HisAddrList:    nil,
+		Name:                  "s2",
+		BlockProducingAddress: common.MockAddress(1),
+		StakeAddress:          common.MockAddress(1),
+		Amount:                nil,
+		ExpirationHeight:      0,
+		RewardTime:            0,
+		RevokeTime:            0,
+		HisAddrList:           nil,
 	}, {
-		Name:           "s3",
-		NodeAddr:       common.MockAddress(2),
-		PledgeAddr:     common.MockAddress(2),
-		Amount:         nil,
-		WithdrawHeight: 0,
-		RewardTime:     0,
-		CancelTime:     0,
-		HisAddrList:    nil,
+		Name:                  "s3",
+		BlockProducingAddress: common.MockAddress(2),
+		StakeAddress:          common.MockAddress(2),
+		Amount:                nil,
+		ExpirationHeight:      0,
+		RewardTime:            0,
+		RevokeTime:            0,
+		HisAddrList:           nil,
 	}}
 	votes := []*types.VoteInfo{
 		{
-			VoterAddr: common.MockAddress(11),
-			NodeName:  "s1",
+			VoteAddr: common.MockAddress(11),
+			SbpName:  "s1",
 		},
 		{
-			VoterAddr: common.MockAddress(12),
-			NodeName:  "s1",
+			VoteAddr: common.MockAddress(12),
+			SbpName:  "s1",
 		}, {
-			VoterAddr: common.MockAddress(21),
-			NodeName:  "s2",
+			VoteAddr: common.MockAddress(21),
+			SbpName:  "s2",
 		}, {
-			VoterAddr: common.MockAddress(31),
-			NodeName:  "s3",
+			VoteAddr: common.MockAddress(31),
+			SbpName:  "s3",
 		}, {
-			VoterAddr: common.MockAddress(32),
-			NodeName:  "s3",
+			VoteAddr: common.MockAddress(32),
+			SbpName:  "s3",
 		}}
 
 	S1balances := make(map[types.Address]*big.Int)
@@ -165,4 +167,41 @@ func TestSnapshotCs_Tools(t *testing.T) {
 func TestNumber(t *testing.T) {
 	i := uint64(25)/3*2 + 1
 	assert.Equal(t, uint64(17), i)
+}
+
+func TestChainSnapshotAAAA(t *testing.T) {
+	dir := "/Users/jie/Library/GVite/maindata"
+	cfg := config_gen.MakeGenesisConfig("")
+
+	c := chain.NewChain(dir, nil, cfg)
+
+	err := c.Init()
+	if err != nil {
+		panic(err)
+	}
+	err = c.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	rw := newChainRw(c, log15.New(), &lock.EasyImpl{})
+	cs := newSnapshotCs(rw, log15.New())
+
+	rw.init(cs)
+
+	point, err := rw.dayPoints.GetByIndex(95)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(point.Hash, point.Votes.Total)
+
+	votes, err := cs.rw.rw.GetVoteList(point.Hash, types.SNAPSHOT_GID)
+	if err != nil {
+		panic(err)
+	}
+	for _, v := range votes {
+		if v.SbpName == "N4Q.org" {
+			fmt.Println(v.VoteAddr)
+		}
+	}
 }

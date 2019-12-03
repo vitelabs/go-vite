@@ -34,7 +34,10 @@ func NewMemPool(byteSliceLimit int, intSliceLimit int) *MemPool {
 		intSliceLimit = 3
 	}
 
-	return &MemPool{}
+	return &MemPool{
+		byteSliceLimit: byteSliceLimit,
+		intSliceLimit:  intSliceLimit,
+	}
 }
 
 func (mp *MemPool) GetByteSlice(n int) []byte {
@@ -44,12 +47,10 @@ func (mp *MemPool) GetByteSlice(n int) []byte {
 		mp.byteSliceList = mp.byteSliceList[1:]
 		mp.mu.RUnlock()
 
-		if len(byteSlice) >= n {
-			return byteSlice[:n]
-		} else {
+		if len(byteSlice) < n {
 			byteSlice = append(byteSlice, make([]byte, n-len(byteSlice))...)
 		}
-
+		return byteSlice[:n]
 	}
 
 	return make([]byte, n)
@@ -62,12 +63,10 @@ func (mp *MemPool) GetIntSlice(n int) []int {
 		mp.intSliceList = mp.intSliceList[1:]
 		mp.mu.RUnlock()
 
-		if len(intSlice) >= n {
-			return intSlice[:n]
-		} else {
+		if len(intSlice) < n {
 			intSlice = append(intSlice, make([]int, n-len(intSlice))...)
 		}
-
+		return intSlice[:n]
 	}
 
 	return make([]int, n)
@@ -79,12 +78,16 @@ func (mp *MemPool) Put(x interface{}) {
 		mp.mu.Lock()
 		if len(mp.byteSliceList) < mp.byteSliceLimit {
 			mp.byteSliceList = append(mp.byteSliceList, x.([]byte))
+		} else {
+			mp.byteSliceList[0] = x.([]byte)
 		}
 		mp.mu.Unlock()
 	case []int:
 		mp.mu.Lock()
 		if len(mp.intSliceList) < mp.intSliceLimit {
 			mp.intSliceList = append(mp.intSliceList, x.([]int))
+		} else {
+			mp.intSliceList[0] = x.([]int)
 		}
 		mp.mu.Unlock()
 	default:
@@ -122,7 +125,7 @@ func (redoLogs *RoundCacheRedoLogs) Add(snapshotHeight uint64, snapshotLog Snaps
 	filteredSnapshotLog := newRoundCacheSnapshotLog(len(snapshotLog), snapshotHeight)
 
 	for addr, logList := range snapshotLog {
-		needSetStorage := addr == types.AddressConsensusGroup
+		needSetStorage := addr == types.AddressGovernance
 
 		filteredLogList := make([]RoundCacheLogItem, len(logList))
 
@@ -338,6 +341,8 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 		// set prevRoundData.lastSnapshotBlock
 		prevRoundData.lastSnapshotBlock = lastSnapshotBlock
 
+		//fmt.Printf("buildCurrentData %d, %s\n", lastSnapshotBlock.Height, lastSnapshotBlock.Hash)
+
 		prevRoundData.mu.Unlock()
 
 	}
@@ -465,6 +470,7 @@ func (cache *RoundCache) GetSnapshotViteBalanceList(snapshotHash types.Hash, add
 	if currentData == nil {
 		return nil, nil, nil
 	}
+	//fmt.Printf("GetSnapshotViteBalanceList %s\n", snapshotHash)
 
 	balanceMap := make(map[types.Address]*big.Int)
 	var notFoundAddressList []types.Address
@@ -492,6 +498,7 @@ func (cache *RoundCache) StorageIterator(snapshotHash types.Hash) interfaces.Sto
 	if currentData == nil {
 		return nil
 	}
+	//fmt.Printf("StorageIterator %s\n", snapshotHash)
 
 	return NewTransformIterator(currentData.NewIterator(util.BytesPrefix(makeStorageKey(nil))), 1)
 }
@@ -615,7 +622,7 @@ func (cache *RoundCache) queryCurrentData(roundIndex uint64) (*memdb.DB, *ledger
 	}
 
 	// set vote list cache
-	if err := cache.setStorageToCache(roundData, types.AddressConsensusGroup, snapshotBlock.Hash); err != nil {
+	if err := cache.setStorageToCache(roundData, types.AddressGovernance, snapshotBlock.Hash); err != nil {
 		return nil, nil, err
 	}
 

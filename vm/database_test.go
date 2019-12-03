@@ -188,6 +188,14 @@ func (db *testDatabase) GetContractMetaInSnapshot(contractAddress types.Address,
 	meta := db.contractMetaMap[contractAddress]
 	return meta, nil
 }
+func (db *testDatabase) GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error) {
+	for _, sb := range db.snapshotBlockList {
+		if sb.Height == height {
+			return sb, nil
+		}
+	}
+	return nil, nil
+}
 func (db *testDatabase) CanWrite() bool {
 	return false
 }
@@ -267,9 +275,8 @@ func (st testIteratorSorter) Less(i, j int) bool {
 	tkCmp := bytes.Compare(st[i].key, st[j].key)
 	if tkCmp < 0 {
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
 func (db *testDatabase) GetUnsavedStorage() [][2][]byte {
@@ -303,11 +310,11 @@ func (db *testDatabase) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.Ac
 	return nil, nil
 }
 
-func (db *testDatabase) GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error) {
-	data := db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(*addr))]
+func (db *testDatabase) GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error) {
+	data := db.storageMap[types.AddressQuota][ToKey(abi.GetStakeBeneficialKey(*addr))]
 	if len(data) > 0 {
-		amount := new(abi.VariablePledgeBeneficial)
-		abi.ABIPledge.UnpackVariable(amount, abi.VariableNamePledgeBeneficial, data)
+		amount := new(abi.VariableStakeBeneficial)
+		abi.ABIQuota.UnpackVariable(amount, abi.VariableNameStakeBeneficial, data)
 		return amount.Amount, nil
 	}
 	return big.NewInt(0), nil
@@ -336,10 +343,10 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	addr1, _ = types.BytesToAddress(helper.HexToBytes("6c1032417f80329f3abe0a024fa3a7aa0e952b0f00"))
 	privKey, _ = ed25519.HexToPrivateKey("44e9768b7d8320a282e75337df8fc1f12a4f000b9f9906ddb886c6823bb599addfda7318e7824d25aae3c749c1cbd4e72ce9401653c66479554a05a2e3cb4f88")
 	db = newNoDatabase()
-	db.storageMap[types.AddressMintage] = make(map[string][]byte)
-	viteTokenIDKey := abi.GetMintageKey(ledger.ViteTokenId)
+	db.storageMap[types.AddressAsset] = make(map[string][]byte)
+	viteTokenIDKey := abi.GetTokenInfoKey(ledger.ViteTokenId)
 	var err error
-	db.storageMap[types.AddressMintage][ToKey(viteTokenIDKey)], err = abi.ABIMintage.PackVariable(abi.VariableNameTokenInfo, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, true, helper.Tt256m1, false, uint16(1))
+	db.storageMap[types.AddressAsset][ToKey(viteTokenIDKey)], err = abi.ABIAsset.PackVariable(abi.VariableNameTokenInfo, "ViteToken", "ViteToken", viteTotalSupply, uint8(18), addr1, true, helper.Tt256m1, false, uint16(1))
 	if err != nil {
 		panic(err)
 	}
@@ -382,9 +389,9 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	db.balanceMap[addr1] = make(map[types.TokenTypeId]*big.Int)
 	db.balanceMap[addr1][ledger.ViteTokenId] = new(big.Int).Set(viteTotalSupply)
 
-	db.storageMap[types.AddressConsensusGroup] = make(map[string][]byte)
-	consensusGroupKey := abi.GetConsensusGroupKey(types.SNAPSHOT_GID)
-	consensusGroupData, err := abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
+	db.storageMap[types.AddressGovernance] = make(map[string][]byte)
+	consensusGroupKey := abi.GetConsensusGroupInfoKey(types.SNAPSHOT_GID)
+	consensusGroupData, err := abi.ABIGovernance.PackVariable(abi.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(1),
 		int64(3),
@@ -403,9 +410,9 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	if err != nil {
 		panic(err)
 	}
-	db.storageMap[types.AddressConsensusGroup][ToKey(consensusGroupKey)] = consensusGroupData
-	consensusGroupKey = abi.GetConsensusGroupKey(types.DELEGATE_GID)
-	consensusGroupData, err = abi.ABIConsensusGroup.PackVariable(abi.VariableNameConsensusGroupInfo,
+	db.storageMap[types.AddressGovernance][ToKey(consensusGroupKey)] = consensusGroupData
+	consensusGroupKey = abi.GetConsensusGroupInfoKey(types.DELEGATE_GID)
+	consensusGroupData, err = abi.ABIGovernance.PackVariable(abi.VariableNameConsensusGroupInfo,
 		uint8(25),
 		int64(3),
 		int64(1),
@@ -424,19 +431,19 @@ func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address,
 	if err != nil {
 		panic(err)
 	}
-	db.storageMap[types.AddressConsensusGroup][ToKey(consensusGroupKey)] = consensusGroupData
+	db.storageMap[types.AddressGovernance][ToKey(consensusGroupKey)] = consensusGroupData
 
-	db.storageMap[types.AddressPledge] = make(map[string][]byte)
-	db.storageMap[types.AddressPledge][ToKey(abi.GetPledgeBeneficialKey(addr1))], err = abi.ABIPledge.PackVariable(abi.VariableNamePledgeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
+	db.storageMap[types.AddressQuota] = make(map[string][]byte)
+	db.storageMap[types.AddressQuota][ToKey(abi.GetStakeBeneficialKey(addr1))], err = abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 	if err != nil {
 		panic(err)
 	}
 
-	db.storageMap[types.AddressConsensusGroup][ToKey(abi.GetRegisterKey("s1", types.SNAPSHOT_GID))], err = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, "s1", addr1, addr1, helper.Big0, uint64(1), int64(1), int64(0), []types.Address{addr1})
+	db.storageMap[types.AddressGovernance][ToKey(abi.GetRegistrationInfoKey("s1", types.SNAPSHOT_GID))], err = abi.ABIGovernance.PackVariable(abi.VariableNameRegistrationInfo, "s1", addr1, addr1, helper.Big0, uint64(1), int64(1), int64(0), []types.Address{addr1})
 	if err != nil {
 		panic(err)
 	}
-	db.storageMap[types.AddressConsensusGroup][ToKey(abi.GetRegisterKey("s2", types.SNAPSHOT_GID))], err = abi.ABIConsensusGroup.PackVariable(abi.VariableNameRegistration, "s2", addr1, addr1, helper.Big0, uint64(1), int64(1), int64(0), []types.Address{addr1})
+	db.storageMap[types.AddressGovernance][ToKey(abi.GetRegistrationInfoKey("s2", types.SNAPSHOT_GID))], err = abi.ABIGovernance.PackVariable(abi.VariableNameRegistrationInfo, "s2", addr1, addr1, helper.Big0, uint64(1), int64(1), int64(0), []types.Address{addr1})
 	if err != nil {
 		panic(err)
 	}
@@ -454,7 +461,7 @@ func ToBytes(key string) []byte {
 func TestPrepareDb(t *testing.T) {
 	totalSupply := big.NewInt(1e18)
 	db, addr1, _, _, _, _ := prepareDb(totalSupply)
-	db.addr = types.AddressMintage
+	db.addr = types.AddressAsset
 	tokenMap, _ := abi.GetTokenMap(db)
 	if len(tokenMap) != 1 || tokenMap[ledger.ViteTokenId] == nil || tokenMap[ledger.ViteTokenId].TotalSupply.Cmp(totalSupply) != 0 {
 		t.Fatalf("invalid token info")
@@ -467,16 +474,16 @@ func TestPrepareDb(t *testing.T) {
 	if totalSupply.Cmp(balance) != 0 {
 		t.Fatalf("invalid account balance")
 	}
-	db.addr = types.AddressConsensusGroup
-	groupList, _ := abi.GetActiveConsensusGroupList(db)
+	db.addr = types.AddressGovernance
+	groupList, _ := abi.GetConsensusGroupList(db)
 	if len(groupList) != 2 {
 		t.Fatalf("invalid consensus group info")
 	}
 	db.addr = addr1
-	if pledgeAmount, _ := db.GetPledgeBeneficialAmount(&addr1); pledgeAmount == nil || pledgeAmount.Sign() < 0 {
-		t.Fatalf("invalid pledge amount")
+	if stakeAmount, _ := db.GetStakeBeneficialAmount(&addr1); stakeAmount == nil || stakeAmount.Sign() < 0 {
+		t.Fatalf("invalid stake amount")
 	}
-	db.addr = types.AddressConsensusGroup
+	db.addr = types.AddressGovernance
 	registrationList, _ := abi.GetRegistrationList(db, types.SNAPSHOT_GID, addr1)
 	if len(registrationList) != 2 {
 		t.Fatalf("invalid registration list")

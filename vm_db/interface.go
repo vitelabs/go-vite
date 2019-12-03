@@ -33,6 +33,8 @@ type Chain interface {
 
 	GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
 
+	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
 	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
@@ -43,7 +45,7 @@ type Chain interface {
 
 	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
 
-	GetPledgeBeneficialAmount(addr types.Address) (*big.Int, error)
+	GetStakeBeneficialAmount(addr types.Address) (*big.Int, error)
 
 	GetStorageIterator(address types.Address, prefix []byte) (interfaces.StorageIterator, error)
 
@@ -120,6 +122,8 @@ type VmDb interface {
 
 	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
 
+	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+
 	// ====== Meta & Code ======
 	SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta)
 
@@ -138,7 +142,7 @@ type VmDb interface {
 	GetUnsavedContractCode() []byte
 
 	// ====== built-in contract ======
-	GetPledgeBeneficialAmount(addr *types.Address) (*big.Int, error)
+	GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error)
 
 	// ====== debug ======
 	DebugGetStorage() (map[string][]byte, error)

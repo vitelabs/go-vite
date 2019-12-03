@@ -21,7 +21,7 @@ func AddMarketEvent(db vm_db.VmDb, marketInfo *MarketInfo) {
 }
 
 func AddPeriodWithBizEvent(db vm_db.VmDb, periodId uint64, bizType uint8) {
-	event := &PeriodWithBizEvent{}
+	event := &PeriodJobWithBizEvent{}
 	event.Period = periodId
 	event.BizType = int32(bizType)
 	doEmitEventLog(db, event)
@@ -36,13 +36,13 @@ func AddFeeDividendEvent(db vm_db.VmDb, address types.Address, feeToken types.To
 	doEmitEventLog(db, event)
 }
 
-func AddBrokerFeeDividendEvent(db vm_db.VmDb, address types.Address, brokerMarketFee *dexproto.BrokerMarketFee) {
-	event := &BrokerFeeDividendEvent{}
+func AddOperatorFeeDividendEvent(db vm_db.VmDb, address types.Address, operatorMarketFee *dexproto.OperatorMarketFee) {
+	event := &OperatorFeeDividendEvent{}
 	event.Address = address.Bytes()
-	event.MarketId = brokerMarketFee.MarketId
-	event.TakerBrokerFeeRate = brokerMarketFee.TakerBrokerFeeRate
-	event.MakerBrokerFeeRate = brokerMarketFee.MakerBrokerFeeRate
-	event.Amount = brokerMarketFee.Amount
+	event.MarketId = operatorMarketFee.MarketId
+	event.TakerOperatorFeeRate = operatorMarketFee.TakerOperatorFeeRate
+	event.MakerOperatorFeeRate = operatorMarketFee.MakerOperatorFeeRate
+	event.Amount = operatorMarketFee.Amount
 	doEmitEventLog(db, event)
 }
 
@@ -64,10 +64,10 @@ func AddMinedVxForInviteeFeeEvent(db vm_db.VmDb, address types.Address, quoteTok
 	doEmitEventLog(db, event)
 }
 
-func AddMinedVxForPledgeEvent(db vm_db.VmDb, address types.Address, pledgeAmt, minedAmt *big.Int) {
-	event := &MinedVxForPledgeEvent{}
+func AddMinedVxForStakingEvent(db vm_db.VmDb, address types.Address, stakedAmt, minedAmt *big.Int) {
+	event := &MinedVxForStakingEvent{}
 	event.Address = address.Bytes()
-	event.PledgeAmount = pledgeAmt.Bytes()
+	event.StakedAmount = stakedAmt.Bytes()
 	event.MinedAmount = minedAmt.Bytes()
 	doEmitEventLog(db, event)
 }

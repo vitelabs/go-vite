@@ -42,7 +42,7 @@ var (
 	}
 
 	ErrVmIdCollision = JsonRpc2Error{
-		Message: util.ErrIdCollision.Error(),
+		Message: util.ErrIDCollision.Error(),
 		Code:    -35003,
 	}
 	ErrVmInvaildBlockData = JsonRpc2Error{
@@ -59,8 +59,8 @@ var (
 		Code:    -35006,
 	}
 
-	ErrVmInvalidConfirmTime = JsonRpc2Error{
-		Message: util.ErrInvalidConfirmTime.Error(),
+	ErrVmInvalidResponseLatency = JsonRpc2Error{
+		Message: util.ErrInvalidResponseLatency.Error(),
 		Code:    -35007,
 	}
 
@@ -74,8 +74,8 @@ var (
 		Code:    -35009,
 	}
 
-	ErrVmInvalidQuotaRatio = JsonRpc2Error{
-		Message: util.ErrInvalidQuotaRatio.Error(),
+	ErrVmInvalidQuotaMultiplier = JsonRpc2Error{
+		Message: util.ErrInvalidQuotaMultiplier.Error(),
 		Code:    -35010,
 	}
 	ErrVmPoWNotSupported = JsonRpc2Error{
@@ -86,10 +86,14 @@ var (
 		Message: util.ErrBlockQuotaLimitReached.Error(),
 		Code:    -35012,
 	}
+	ErrVmInvalidRandomDegree = JsonRpc2Error{
+		Message: util.ErrInvalidRandomDegree.Error(),
+		Code:    -35013,
+	}
 
 	// -36001 ~ -36999 verifier_account
 	ErrVerifyAccountAddr = JsonRpc2Error{
-		Message: verifier.ErrVerifyAccountTypeNotSure.Error(),
+		Message: verifier.ErrVerifyAccountNotInvalid.Error(),
 		Code:    -36001,
 	}
 	ErrVerifyHash = JsonRpc2Error{
@@ -111,6 +115,30 @@ var (
 	ErrVerifyRPCBlockIsPending = JsonRpc2Error{
 		Message: verifier.ErrVerifyRPCBlockPendingState.Error(),
 		Code:    -36006,
+	}
+	ErrVerifyDependentSendBlockNotExists = JsonRpc2Error{
+		Message: verifier.ErrVerifyDependentSendBlockNotExists.Error(),
+		Code:    -36007,
+	}
+	ErrVerifyPowQualificationNotEnough = JsonRpc2Error{
+		Message: verifier.ErrVerifyPowNotEligible.Error(),
+		Code:    -36008,
+	}
+	ErrVerifyProducerIllegal = JsonRpc2Error{
+		Message: verifier.ErrVerifyProducerIllegal.Error(),
+		Code:    -36009,
+	}
+	ErrVerifyBlockFieldData = JsonRpc2Error{
+		Message: verifier.ErrVerifyBlockFieldData.Error(),
+		Code:    -36010,
+	}
+	ErrVerifyIsAlreadyReceived = JsonRpc2Error{
+		Message: verifier.ErrVerifySendIsAlreadyReceived.Error(),
+		Code:    -36011,
+	}
+	ErrVerifyVmResultInconsistent = JsonRpc2Error{
+		Message: verifier.ErrVerifyVmResultInconsistent.Error(),
+		Code:    -36012,
 	}
 
 	// -37001 ~ -37999 contracts_dex
@@ -163,6 +191,11 @@ var (
 		Code:    -37012,
 	}
 
+	ErrDexFundUserNotExists = JsonRpc2Error{
+		Message: dex.DexFundUserNotExists.Error(),
+		Code:    -37013,
+	}
+
 	concernedErrorMap map[string]JsonRpc2Error
 )
 
@@ -177,12 +210,13 @@ func init() {
 	concernedErrorMap[ErrVmInvaildBlockData.Error()] = ErrVmInvaildBlockData
 	concernedErrorMap[ErrVmCalPoWTwice.Error()] = ErrVmCalPoWTwice
 	concernedErrorMap[ErrVmMethodNotFound.Error()] = ErrVmMethodNotFound
-	concernedErrorMap[ErrVmInvalidConfirmTime.Error()] = ErrVmInvalidConfirmTime
+	concernedErrorMap[ErrVmInvalidResponseLatency.Error()] = ErrVmInvalidResponseLatency
 	concernedErrorMap[ErrVmContractNotExists.Error()] = ErrVmContractNotExists
 	concernedErrorMap[ErrVmNoReliableStatus.Error()] = ErrVmNoReliableStatus
-	concernedErrorMap[ErrVmInvalidQuotaRatio.Error()] = ErrVmInvalidQuotaRatio
+	concernedErrorMap[ErrVmInvalidQuotaMultiplier.Error()] = ErrVmInvalidQuotaMultiplier
 	concernedErrorMap[ErrVmPoWNotSupported.Error()] = ErrVmPoWNotSupported
 	concernedErrorMap[ErrVmQuotaLimitReached.Error()] = ErrVmQuotaLimitReached
+	concernedErrorMap[ErrVmInvalidRandomDegree.Error()] = ErrVmInvalidRandomDegree
 
 	concernedErrorMap[ErrVerifyAccountAddr.Error()] = ErrVerifyAccountAddr
 	concernedErrorMap[ErrVerifyHash.Error()] = ErrVerifyHash
@@ -190,6 +224,12 @@ func init() {
 	concernedErrorMap[ErrVerifyNonce.Error()] = ErrVerifyNonce
 	concernedErrorMap[ErrVerifyPrevBlock.Error()] = ErrVerifyPrevBlock
 	concernedErrorMap[ErrVerifyRPCBlockIsPending.Error()] = ErrVerifyRPCBlockIsPending
+	concernedErrorMap[ErrVerifyDependentSendBlockNotExists.Error()] = ErrVerifyDependentSendBlockNotExists
+	concernedErrorMap[ErrVerifyPowQualificationNotEnough.Error()] = ErrVerifyPowQualificationNotEnough
+	concernedErrorMap[ErrVerifyProducerIllegal.Error()] = ErrVerifyProducerIllegal
+	concernedErrorMap[ErrVerifyBlockFieldData.Error()] = ErrVerifyBlockFieldData
+	concernedErrorMap[ErrVerifyIsAlreadyReceived.Error()] = ErrVerifyIsAlreadyReceived
+	concernedErrorMap[ErrVerifyVmResultInconsistent.Error()] = ErrVerifyVmResultInconsistent
 
 	concernedErrorMap[ErrComposeOrderIdFail.Error()] = ErrComposeOrderIdFail
 	concernedErrorMap[ErrDexInvalidOrderType.Error()] = ErrDexInvalidOrderType
@@ -203,6 +243,8 @@ func init() {
 	concernedErrorMap[ErrDexCancelOrderInvalidStatus.Error()] = ErrDexCancelOrderInvalidStatus
 	concernedErrorMap[ErrDexTradeMarketInvalidQuoteToken.Error()] = ErrDexTradeMarketInvalidQuoteToken
 	concernedErrorMap[ErrDexTradeMarketInvalidTokenPair.Error()] = ErrDexTradeMarketInvalidTokenPair
+	concernedErrorMap[ErrDexFundUserNotExists.Error()] = ErrDexFundUserNotExists
+
 }
 
 func TryMakeConcernedError(err error) (newerr error, concerned bool) {

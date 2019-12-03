@@ -102,7 +102,7 @@ func (c *chain) GetContractList(gid types.Gid) ([]types.Address, error) {
 		return nil, cErr
 	}
 	if util.IsDelegateGid(gid) {
-		addrList = append(addrList, types.BuiltinContractAddrList...)
+		addrList = append(addrList, types.BuiltinContracts...)
 	}
 	return addrList, nil
 }
@@ -122,9 +122,9 @@ func (c *chain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error) 
 }
 
 func (c *chain) GetQuotaUnused(address types.Address) (uint64, error) {
-	_, quotaInfo, err := c.GetPledgeQuota(address)
+	_, quotaInfo, err := c.GetStakeQuota(address)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.GetPledgeQuota failed, address is %s. Error: %s", address, err))
+		cErr := errors.New(fmt.Sprintf("c.GetStakeQuota failed, address is %s. Error: %s", address, err))
 		c.log.Error(cErr.Error(), "method", "GetQuotaUnused")
 		return 0, cErr
 	}

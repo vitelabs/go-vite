@@ -29,7 +29,7 @@ var jsonEventTransfer = []byte(`{
   "type": "event"
 }`)
 
-var jsonEventPledge = []byte(`{
+var jsonEventStake = []byte(`{
   "anonymous": false,
   "inputs": [{
       "indexed": false, "name": "who", "type": "address"
@@ -38,7 +38,7 @@ var jsonEventPledge = []byte(`{
     }, {
       "indexed": false, "name": "currency", "type": "bytes3"
   }],
-  "name": "Pledge",
+  "name": "Stake",
   "type": "event"
 }`)
 
@@ -59,7 +59,7 @@ var jsonEventMixedCase = []byte(`{
 var eventTransferData1 = "00000000000000000000000000000000000000000000000000000000000f4240"
 
 // "0x00Ce0d46d924CC8437c806721496599FC3FFA268", 2218516807680, "usd"
-var eventPledgeData1 = "000000000000000000000000ce0d46d924cc8437c806721496599fc3ffa268000000000000000000000000000000000000000000000000000000020489e800007573640000000000000000000000000000000000000000000000000000000000"
+var eventStakeData1 = "000000000000000000000000ce0d46d924cc8437c806721496599fc3ffa268000000000000000000000000000000000000000000000000000000020489e800007573640000000000000000000000000000000000000000000000000000000000"
 
 // 1000000,2218516807680,1000001
 var eventMixedCaseData1 = "00000000000000000000000000000000000000000000000000000000000f42400000000000000000000000000000000000000000000000000000020489e8000000000000000000000000000000000000000000000000000000000000000f4241"
@@ -146,13 +146,13 @@ func TestEventTupleUnpack(t *testing.T) {
 		Value *big.Int `abi:""`
 	}
 
-	type EventPledge struct {
+	type EventStake struct {
 		Who      types.Address
 		Wad      *big.Int
 		Currency [3]byte
 	}
 
-	type BadEventPledge struct {
+	type BadEventStake struct {
 		Who      string
 		Wad      int
 		Currency [3]byte
@@ -185,13 +185,6 @@ func TestEventTupleUnpack(t *testing.T) {
 		"Can unpack ERC20 Transfer event into structure",
 	}, {
 		eventTransferData1,
-		&[]interface{}{&bigint},
-		&[]interface{}{&bigintExpected},
-		jsonEventTransfer,
-		"",
-		"Can unpack ERC20 Transfer event into slice",
-	}, {
-		eventTransferData1,
 		&EventTransferWithTag{},
 		&EventTransferWithTag{Value1: bigintExpected},
 		jsonEventTransfer,
@@ -219,63 +212,63 @@ func TestEventTupleUnpack(t *testing.T) {
 		"struct: abi tag in 'Value' is empty",
 		"Can not unpack ERC20 Transfer event with an empty tag",
 	}, {
-		eventPledgeData1,
-		&EventPledge{},
-		&EventPledge{
+		eventStakeData1,
+		&EventStake{},
+		&EventStake{
 			addr,
 			bigintExpected2,
 			[3]byte{'u', 's', 'd'}},
-		jsonEventPledge,
+		jsonEventStake,
 		"",
-		"Can unpack Pledge event into structure",
+		"Can unpack Stake event into structure",
 	}, {
-		eventPledgeData1,
+		eventStakeData1,
 		&[]interface{}{&types.Address{}, &bigint, &[3]byte{}},
 		&[]interface{}{
 			&addr,
 			&bigintExpected2,
 			&[3]byte{'u', 's', 'd'}},
-		jsonEventPledge,
+		jsonEventStake,
 		"",
-		"Can unpack Pledge event into slice",
+		"Can unpack Stake event into slice",
 	}, {
-		eventPledgeData1,
+		eventStakeData1,
 		&[3]interface{}{&types.Address{}, &bigint, &[3]byte{}},
 		&[3]interface{}{
 			&addr,
 			&bigintExpected2,
 			&[3]byte{'u', 's', 'd'}},
-		jsonEventPledge,
+		jsonEventStake,
 		"",
-		"Can unpack Pledge event into an array",
+		"Can unpack Stake event into an array",
 	}, {
-		eventPledgeData1,
+		eventStakeData1,
 		&[]interface{}{new(int), 0, 0},
 		&[]interface{}{},
-		jsonEventPledge,
+		jsonEventStake,
 		"abi: cannot unmarshal types.Address in to int",
-		"Can not unpack Pledge event into slice with wrong types",
+		"Can not unpack Stake event into slice with wrong types",
 	}, {
-		eventPledgeData1,
-		&BadEventPledge{},
-		&BadEventPledge{},
-		jsonEventPledge,
+		eventStakeData1,
+		&BadEventStake{},
+		&BadEventStake{},
+		jsonEventStake,
 		"abi: cannot unmarshal types.Address in to string",
-		"Can not unpack Pledge event into struct with wrong filed types",
+		"Can not unpack Stake event into struct with wrong filed types",
 	}, {
-		eventPledgeData1,
+		eventStakeData1,
 		&[]interface{}{types.Address{}, new(big.Int)},
 		&[]interface{}{},
-		jsonEventPledge,
+		jsonEventStake,
 		"abi: insufficient number of elements in the list/array for unpack, want 3, got 2",
-		"Can not unpack Pledge event into too short slice",
+		"Can not unpack Stake event into too short slice",
 	}, {
-		eventPledgeData1,
+		eventStakeData1,
 		new(map[string]interface{}),
 		&[]interface{}{},
-		jsonEventPledge,
+		jsonEventStake,
 		"abi: cannot unmarshal tuple into map[string]interface {}",
-		"Can not unpack Pledge event into map",
+		"Can not unpack Stake event into map",
 	}, {
 		eventMixedCaseData1,
 		&EventMixedCase{},
@@ -291,7 +284,7 @@ func TestEventTupleUnpack(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := unpackTestEventData(tc.dest, tc.data, tc.jsonLog, assert)
 			if tc.error == "" {
-				assert.Nil(err, "Should be able to unpack event data.")
+				assert.Nil(err, tc.name)
 				assert.Equal(tc.expected, tc.dest, tc.name)
 			} else {
 				assert.EqualError(err, tc.error, tc.name)

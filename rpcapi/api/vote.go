@@ -30,11 +30,14 @@ func (v VoteApi) String() string {
 	return "VoteApi"
 }
 
+// Private
 func (v *VoteApi) GetVoteData(gid types.Gid, name string) ([]byte, error) {
-	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameVote, gid, name)
+	return abi.ABIGovernance.PackMethod(abi.MethodNameVote, gid, name)
 }
+
+// Private
 func (v *VoteApi) GetCancelVoteData(gid types.Gid) ([]byte, error) {
-	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelVote, gid)
+	return abi.ABIGovernance.PackMethod(abi.MethodNameCancelVote, gid)
 }
 
 var (
@@ -48,8 +51,9 @@ type VoteInfo struct {
 	Balance    string `json:"balance"`
 }
 
+// Deprecated: use contract_getVotedSBP instead
 func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, error) {
-	db, err := getVmDb(v.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(v.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -62,19 +66,20 @@ func (v *VoteApi) GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, err
 		if err != nil {
 			return nil, err
 		}
-		active, err := abi.IsActiveRegistration(db, voteInfo.NodeName, gid)
+		active, err := abi.IsActiveRegistration(db, voteInfo.SbpName, gid)
 		if err != nil {
 			return nil, err
 		}
 		if active {
-			return &VoteInfo{voteInfo.NodeName, NodeStatusActive, *bigIntToString(balance)}, nil
+			return &VoteInfo{voteInfo.SbpName, NodeStatusActive, *bigIntToString(balance)}, nil
 		} else {
-			return &VoteInfo{voteInfo.NodeName, NodeStatusInActive, *bigIntToString(balance)}, nil
+			return &VoteInfo{voteInfo.SbpName, NodeStatusInActive, *bigIntToString(balance)}, nil
 		}
 	}
 	return nil, nil
 }
 
+// Deprecated: use contract_getSBPVotingDetailsByCycle instead
 func (v *VoteApi) GetVoteDetails(index *uint64) ([]*consensus.VoteDetails, error) {
 	t := time.Now()
 	if index != nil {

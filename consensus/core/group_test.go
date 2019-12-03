@@ -27,8 +27,8 @@ func TestNewGroupInfo(t *testing.T) {
 		VoteConditionId:        0,
 		VoteConditionParam:     nil,
 		Owner:                  types.Address{},
-		PledgeAmount:           nil,
-		WithdrawHeight:         0,
+		StakeAmount:            nil,
+		ExpirationHeight:       0,
 	})
 	idx := info.Time2Index(genesis)
 	assert.Equal(t, uint64(0), uint64(idx))
@@ -101,8 +101,8 @@ func TestGroupInfo_GenPlan(t *testing.T) {
 		VoteConditionId:        0,
 		VoteConditionParam:     nil,
 		Owner:                  types.Address{},
-		PledgeAmount:           nil,
-		WithdrawHeight:         0,
+		StakeAmount:            nil,
+		ExpirationHeight:       0,
 	})
 
 	var n = uint64(10)

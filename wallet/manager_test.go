@@ -115,13 +115,13 @@ func TestManager_NewMnemonicAndSeedStore21(t *testing.T) {
 
 		prim := em.GetPrimaryAddr()
 		fmt.Printf(`"s%d":{
-          "NodeAddr":"%s",
-          "PledgeAddr":"%s",
+          "BlockProducingAddress":"%s",
+          "StakeAddress":"%s",
           "Amount":100000000000000000000000,
-          "WithdrawHeight":7776000,
+          "ExpirationHeight":7776000,
           "RewardTime":1,
-          "CancelTime":0,
-          "HisAddrList":["%s"]
+          "RevokeTime":0,
+          "HistoryAddressList":["%s"]
         },`, i+1, prim.Hex(), prim.Hex(), prim.Hex())
 		fmt.Println()
 		//N := uint32(10)

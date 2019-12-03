@@ -5,8 +5,8 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"math/big"
 )
 
 type ConsensusGroupApi struct {
@@ -23,61 +23,6 @@ func NewConsensusGroupApi(vite *vite.Vite) *ConsensusGroupApi {
 
 func (c ConsensusGroupApi) String() string {
 	return "ConsensusGroupApi"
-}
-
-type CreateConsensusGroupParam struct {
-	SelfAddr               types.Address
-	Height                 uint64
-	PrevHash               types.Hash
-	SnapshotHash           types.Hash
-	NodeCount              uint8
-	Interval               int64
-	PerCount               int64
-	RandCount              uint8
-	RandRank               uint8
-	Repeat                 uint16
-	CheckLevel             uint8
-	CountingTokenId        types.TokenTypeId
-	RegisterConditionId    uint8
-	RegisterConditionParam []byte
-	VoteConditionId        uint8
-	VoteConditionParam     []byte
-}
-
-func (c *ConsensusGroupApi) GetConditionRegisterOfPledge(amount *big.Int, tokenId types.TokenTypeId, height uint64) ([]byte, error) {
-	return abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionRegisterOfPledge, amount, tokenId, height)
-}
-func (c *ConsensusGroupApi) GetConditionVoteOfDefault() ([]byte, error) {
-	return []byte{}, nil
-}
-func (c *ConsensusGroupApi) GetConditionVoteOfKeepToken(amount *big.Int, tokenId types.TokenTypeId) ([]byte, error) {
-	return abi.ABIConsensusGroup.PackVariable(abi.VariableNameConditionVoteOfKeepToken, amount, tokenId)
-}
-func (c *ConsensusGroupApi) GetCreateConsensusGroupData(param CreateConsensusGroupParam) ([]byte, error) {
-	gid := abi.NewGid(param.SelfAddr, param.Height, param.PrevHash, param.SnapshotHash)
-	return abi.ABIConsensusGroup.PackMethod(
-		abi.MethodNameCreateConsensusGroup,
-		gid,
-		param.NodeCount,
-		param.Interval,
-		param.PerCount,
-		param.RandCount,
-		param.RandRank,
-		param.Repeat,
-		param.CheckLevel,
-		param.CountingTokenId,
-		param.RegisterConditionId,
-		param.RegisterConditionParam,
-		param.VoteConditionId,
-		param.VoteConditionParam)
-
-}
-func (c *ConsensusGroupApi) GetCancelConsensusGroupData(gid types.Gid) ([]byte, error) {
-	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameCancelConsensusGroup, gid)
-
-}
-func (c *ConsensusGroupApi) GetReCreateConsensusGroupData(gid types.Gid) ([]byte, error) {
-	return abi.ABIConsensusGroup.PackMethod(abi.MethodNameReCreateConsensusGroup, gid)
 }
 
 type ConsensusGroup struct {
@@ -107,7 +52,7 @@ type RegisterConditionParam struct {
 type VoteConditionParam struct {
 }
 
-func newConsensusGroup(source *types.ConsensusGroupInfo) *ConsensusGroup {
+func newConsensusGroup(source *types.ConsensusGroupInfo, sbHeight uint64) *ConsensusGroup {
 	if source == nil {
 		return nil
 	}
@@ -124,21 +69,22 @@ func newConsensusGroup(source *types.ConsensusGroupInfo) *ConsensusGroup {
 		RegisterConditionId: source.RegisterConditionId,
 		VoteConditionId:     source.VoteConditionId,
 		Owner:               source.Owner,
-		WithdrawHeight:      Uint64ToString(source.WithdrawHeight),
+		WithdrawHeight:      Uint64ToString(source.ExpirationHeight),
 	}
-	if source.PledgeAmount != nil {
-		target.PledgeAmount = *bigIntToString(source.PledgeAmount)
+	if source.StakeAmount != nil {
+		target.PledgeAmount = *bigIntToString(source.StakeAmount)
 	}
-	if param, err := abi.GetRegisterOfPledgeInfo(source.RegisterConditionParam); err == nil {
-		target.RegisterConditionParam = &RegisterConditionParam{PledgeAmount: *bigIntToString(param.PledgeAmount),
-			PledgeToken:  param.PledgeToken,
-			PledgeHeight: Uint64ToString(param.PledgeHeight)}
+	if param, err := abi.GetRegisterStakeParamOfConsensusGroup(source.RegisterConditionParam); err == nil {
+		target.RegisterConditionParam = &RegisterConditionParam{
+			PledgeToken:  param.StakeToken,
+			PledgeHeight: Uint64ToString(param.StakeHeight)}
+		target.RegisterConditionParam.PledgeAmount = *bigIntToString(contracts.SbpStakeAmountMainnet)
 	}
 	return target
 }
 
 func (c *ConsensusGroupApi) GetConsensusGroupById(gid types.Gid) (*ConsensusGroup, error) {
-	db, err := getVmDb(c.chain, types.AddressConsensusGroup)
+	db, err := getVmDb(c.chain, types.AddressGovernance)
 	if err != nil {
 		return nil, err
 	}
@@ -146,21 +92,29 @@ func (c *ConsensusGroupApi) GetConsensusGroupById(gid types.Gid) (*ConsensusGrou
 	if err != nil {
 		return nil, err
 	}
-	return newConsensusGroup(group), nil
-}
-
-func (c *ConsensusGroupApi) GetConsensusGroupList() ([]*ConsensusGroup, error) {
-	db, err := getVmDb(c.chain, types.AddressConsensusGroup)
+	sb, err := db.LatestSnapshotBlock()
 	if err != nil {
 		return nil, err
 	}
-	list, err := abi.GetActiveConsensusGroupList(db)
+	return newConsensusGroup(group, sb.Height), nil
+}
+
+func (c *ConsensusGroupApi) GetConsensusGroupList() ([]*ConsensusGroup, error) {
+	db, err := getVmDb(c.chain, types.AddressGovernance)
+	if err != nil {
+		return nil, err
+	}
+	list, err := abi.GetConsensusGroupList(db)
+	if err != nil {
+		return nil, err
+	}
+	sb, err := db.LatestSnapshotBlock()
 	if err != nil {
 		return nil, err
 	}
 	resultList := make([]*ConsensusGroup, len(list))
 	for i, group := range list {
-		resultList[i] = newConsensusGroup(group)
+		resultList[i] = newConsensusGroup(group, sb.Height)
 	}
 	return resultList, nil
 }

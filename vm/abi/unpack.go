@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"reflect"
 )
@@ -171,9 +172,13 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 
 // interprets a 32 byte slice as an offset and then determines which indice to look to decode the type.
 func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err error) {
-	bigOffsetEnd := big.NewInt(0).SetBytes(output[index : index+helper.WordSize])
+	intpool := util.PoolOfIntPools.Get()
+	defer util.PoolOfIntPools.Put(intpool)
+	bigOffsetEnd := intpool.Get().SetBytes(output[index : index+helper.WordSize])
+	defer intpool.Put(bigOffsetEnd)
 	bigOffsetEnd.Add(bigOffsetEnd, helper.Big32)
-	outputLength := big.NewInt(int64(len(output)))
+	outputLength := intpool.Get().SetInt64(int64(len(output)))
+	defer intpool.Put(outputLength)
 
 	if bigOffsetEnd.Cmp(outputLength) > 0 {
 		return 0, 0, errBigSliceOffsetOverflow(bigOffsetEnd, outputLength)
@@ -184,9 +189,11 @@ func lengthPrefixPointsTo(index int, output []byte) (start int, length int, err 
 	}
 
 	offsetEnd := int(bigOffsetEnd.Uint64())
-	lengthBig := big.NewInt(0).SetBytes(output[offsetEnd-helper.WordSize : offsetEnd])
+	lengthBig := intpool.Get().SetBytes(output[offsetEnd-helper.WordSize : offsetEnd])
+	defer intpool.Put(lengthBig)
 
-	totalSize := big.NewInt(0)
+	totalSize := intpool.GetZero()
+	defer intpool.Put(totalSize)
 	totalSize.Add(totalSize, bigOffsetEnd)
 	totalSize.Add(totalSize, lengthBig)
 	if totalSize.BitLen() > 63 {

@@ -32,15 +32,15 @@ const (
 )
 
 var (
-	AddressPledge, _         = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, ContractAddrByte})
-	AddressConsensusGroup, _ = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, ContractAddrByte})
-	AddressMintage, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, ContractAddrByte})
-	AddressDexFund, _        = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, ContractAddrByte})
-	AddressDexTrade, _       = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, ContractAddrByte})
+	AddressQuota, _      = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, ContractAddrByte})
+	AddressGovernance, _ = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, ContractAddrByte})
+	AddressAsset, _      = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, ContractAddrByte})
+	AddressDexFund, _    = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, ContractAddrByte})
+	AddressDexTrade, _   = BytesToAddress([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, ContractAddrByte})
 
-	BuiltinContractAddrList             = []Address{AddressPledge, AddressConsensusGroup, AddressMintage, AddressDexFund, AddressDexTrade}
-	BuiltinContractWithoutQuotaAddrList = []Address{AddressPledge, AddressConsensusGroup, AddressMintage, AddressDexTrade}
-	BuiltinContractWithSendConfirm      = []Address{AddressPledge, AddressConsensusGroup, AddressMintage}
+	BuiltinContracts                = []Address{AddressQuota, AddressGovernance, AddressAsset, AddressDexFund, AddressDexTrade}
+	BuiltinContractsWithoutQuota    = []Address{AddressQuota, AddressGovernance, AddressAsset, AddressDexTrade}
+	BuiltinContractsWithSendConfirm = []Address{AddressQuota, AddressGovernance, AddressAsset}
 )
 
 func IsContractAddr(addr Address) bool {
@@ -55,7 +55,7 @@ func IsBuiltinContractAddr(addr Address) bool {
 	return false
 }
 func IsBuiltinContractAddrInUse(addr Address) bool {
-	for _, cAddr := range BuiltinContractAddrList {
+	for _, cAddr := range BuiltinContracts {
 		if cAddr == addr {
 			return true
 		}
@@ -64,7 +64,7 @@ func IsBuiltinContractAddrInUse(addr Address) bool {
 }
 
 func IsBuiltinContractAddrInUseWithoutQuota(addr Address) bool {
-	for _, cAddr := range BuiltinContractWithoutQuotaAddrList {
+	for _, cAddr := range BuiltinContractsWithoutQuota {
 		if cAddr == addr {
 			return true
 		}
@@ -73,7 +73,7 @@ func IsBuiltinContractAddrInUseWithoutQuota(addr Address) bool {
 }
 
 func IsBuiltinContractAddrInUseWithSendConfirm(addr Address) bool {
-	for _, cAddr := range BuiltinContractWithSendConfirm {
+	for _, cAddr := range BuiltinContractsWithSendConfirm {
 		if cAddr == addr {
 			return true
 		}
@@ -171,6 +171,9 @@ func (addr Address) Hex() string {
 	} else {
 		return fmt.Sprintf("error address[%d]", byt)
 	}
+}
+func (addr Address) IsZero() bool {
+	return bytes.Equal(addr.Bytes(), ZERO_ADDRESS.Bytes())
 }
 func (addr Address) Bytes() []byte { return addr[:] }
 func (addr Address) String() string {

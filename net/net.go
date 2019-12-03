@@ -741,6 +741,10 @@ func (n *net) PeerKey() ed25519.PrivateKey {
 	return n.peerKey
 }
 
+func (n *net) PeerCount() int {
+	return n.peers.count()
+}
+
 func (n *net) Info() NodeInfo {
 	ps := n.peers.info()
 	info := NodeInfo{

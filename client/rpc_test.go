@@ -1,8 +1,21 @@
 package client
 
-var RawUrl = "http://127.0.0.1:48133"
+import (
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"testing"
 
-//var RawUrl = "http://118.25.182.202:48132"
+	"github.com/vitelabs/go-vite/consensus/core"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
+)
+
+//var RawUrl = "http://127.0.0.1:48133"
+
+var RawUrl = "http://118.25.182.202:48132"
+
 //var RawUrl = "http://134.175.105.236:48132"
 
 //
@@ -217,7 +230,7 @@ var RawUrl = "http://127.0.0.1:48133"
 //		BlockType:      ledger.BlockTypeSendCall,
 //		ToAddr:         &to,
 //		Data:           []byte("hello world"),
-//		UsePledgeQuota: false,
+//		UseStakeQuota: false,
 //	})
 //
 //	if e != nil {
@@ -260,3 +273,143 @@ var RawUrl = "http://127.0.0.1:48133"
 //	byt, _ := json.Marshal(bs)
 //	t.Log(string(byt))
 //}
+
+func Test_GetConfirmedBalances(t *testing.T) {
+	rpc, err := NewRpcClient(RawUrl)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	shash := types.HexToHashPanic("25e11b16de62fe5863266cac3c318cf603759a647049672fdb9db5524cc26282")
+	gids := []types.TokenTypeId{ledger.ViteTokenId}
+
+	data := []string{
+		"vite_002f27f64a3e52b8ff62b28c4bb52441cb7d7dcf038032a52f",
+		"vite_0033e7c54bd8bc63a4885aa194c15cb6d20465dc035cdab3a2",
+		"vite_0065513a57258a84af95a438cf04efbb2071734cf29dabd7df",
+		"vite_01b0cb6e49a9e1a86b76562a46f406efcf0ed14d31f9cc68a8",
+		"vite_01c92aba4b6e5278e9c4b9fdd559bc9fe7ead97b30a2f55de5",
+		"vite_02473e87c77ab8891dda88797764f960379c81b2380b749959",
+		"vite_ffe984e5754cfcb852920147fcd931832d85f051363f50aee4",
+	}
+
+	var addrList []types.Address
+
+	for _, v := range data {
+		addrList = append(addrList, types.HexToAddressPanic(v))
+	}
+
+	balancesRes, err := rpc.GetConfirmedBalances(shash, addrList, gids)
+	if err != nil {
+		panic(err)
+	}
+	total := big.NewInt(0)
+	for k, v := range balancesRes {
+		for kk, vv := range v {
+			fmt.Println(k, kk, vv.String())
+			total.Add(total, vv)
+		}
+	}
+
+	fmt.Println("total", total)
+
+}
+
+func TestSBPStats(t *testing.T) {
+	rpc, err := NewRpcClient(RawUrl)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	stats, err := rpc.GetHourSBPStats(1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rate := make(map[string][]*core.SbpStats)
+
+	for _, v := range stats {
+		//fmt.Println(k, v)
+		stats := v["stat"]
+		bytes, err := json.Marshal(stats)
+		if err != nil {
+			t.Fatal(err)
+		}
+		hourStats := &core.HourStats{}
+		err = json.Unmarshal(bytes, hourStats)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		//fmt.Println(hourStats.Stats)
+		totalNum := uint64(0)
+		totalExcepted := uint64(0)
+		for kk, vv := range hourStats.Stats {
+			totalNum += vv.BlockNum
+			totalExcepted += vv.ExceptedBlockNum
+			rate[kk.String()] = append(rate[kk.String()], vv)
+		}
+		fmt.Println(v["stime"], totalNum, totalExcepted, float64(totalNum)/float64(totalExcepted))
+	}
+
+	for k, v := range rate {
+		fmt.Print(k)
+		for _, vv := range v {
+			fmt.Printf("\t\t%.4f", float64(vv.BlockNum)/float64(vv.ExceptedBlockNum))
+		}
+		fmt.Println()
+
+	}
+
+	for k, v := range rate {
+		fmt.Print(k)
+		for _, vv := range v {
+			fmt.Printf("\t\t(%d/%d)", vv.BlockNum, vv.ExceptedBlockNum)
+		}
+		fmt.Println()
+	}
+
+	for k, v := range rate {
+		fmt.Print(k)
+		for _, vv := range v {
+			fmt.Printf("\t%d-%d", vv.ExceptedBlockNum-vv.BlockNum, vv.ExceptedBlockNum)
+		}
+		fmt.Println()
+	}
+
+	for k, v := range rate {
+		fmt.Print(k)
+		for _, vv := range v {
+			fmt.Printf("\t%d", vv.ExceptedBlockNum-vv.BlockNum)
+		}
+		fmt.Println()
+	}
+}
+
+func TestSbpHash(t *testing.T) {
+	hashs := []string{
+		"f348100aa8ef02f3dfa0938bc1c050073ddb2d73259357d3cbcb0610374350fc",
+		"b111255964406a4c319fd41c941b6da7921273dea3139373bb7ce686623d6022",
+		"ff044e6dff2fa64afa7d453d0addc663f93b560266759af42f69130b978687e4",
+		"f2f071e4c09664d6023d9f5063e13c975e2d45249a15fc4d4e2521ec91b2ee0e",
+		"b282eec7feaad79eff119637c5a5585a8d0ea468b8b3d4bb26f6d21ff4fded07",
+		"bc6b714c5156467c771fc8e5faf933e8da67c4988b5846a9ed6f5d805e5a2e57",
+		"cdd1d81a8cee589217f301b1acc4a571384340325c7e9df9aa673b2694406b2a",
+		"c69280cc3daf4be24187fe3132046efa9dd4c4eba5e264dba55d2e4090b635c9",
+	}
+
+	rpc, err := NewRpcClient(RawUrl)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	for _, v := range hashs {
+		block, err := rpc.GetSnapshotBlockByHash(types.HexToHashPanic(v))
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(v, block.Producer)
+	}
+}

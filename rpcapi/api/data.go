@@ -27,8 +27,8 @@ func (p DataApi) String() string {
 }
 
 type GetPledgeListByPageResult struct {
-	PledgeInfoList []*types.PledgeInfo `json:"list"`
-	LastKey        string              `json:"lastKey"`
+	PledgeInfoList []*types.StakeInfo `json:"list"`
+	LastKey        string             `json:"lastKey"`
 }
 
 func (p *DataApi) GetPledgeListByPage(snapshotHash types.Hash, lastKey string, count uint64) (*GetPledgeListByPageResult, error) {
@@ -36,14 +36,14 @@ func (p *DataApi) GetPledgeListByPage(snapshotHash types.Hash, lastKey string, c
 	if err != nil {
 		return nil, err
 	}
-	list, lastKeyBytes, err := p.chain.GetPledgeListByPage(snapshotHash, lastKeyBytes, count)
+	list, lastKeyBytes, err := p.chain.GetStakeListByPage(snapshotHash, lastKeyBytes, count)
 	if err != nil {
 		return nil, err
 	}
 	return &GetPledgeListByPageResult{list, hex.EncodeToString(lastKeyBytes)}, nil
 }
 
-func (f DataApi) GetDexUserFundsByPage(snapshotHash types.Hash, lastAddress string, count int) (*apidex.UserFunds, error) {
+func (f DataApi) GetDexUserFundsByPage(snapshotHash types.Hash, lastAddress string, count int) (*apidex.Funds, error) {
 	if count <= 0 {
 		return nil, dex.InvalidInputParamErr
 	}
@@ -58,9 +58,9 @@ func (f DataApi) GetDexUserFundsByPage(snapshotHash types.Hash, lastAddress stri
 	if funds, err := f.chain.GetDexFundsByPage(snapshotHash, lastAddr, count); err != nil {
 		return nil, err
 	} else {
-		fundsRes := &apidex.UserFunds{}
+		fundsRes := &apidex.Funds{}
 		for _, fund := range funds {
-			simpleFund := &apidex.SimpleUserFund{}
+			simpleFund := &apidex.SimpleFund{}
 			if address, err := types.BytesToAddress(fund.Address); err != nil {
 				return nil, err
 			} else {

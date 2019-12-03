@@ -43,7 +43,7 @@ func testBuiltInContract(t *testing.T, chainInstance *chain, accounts map[types.
 				//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(1000), rand.Intn(20), false)...)
 
 				// insert snapshot block
-				snapshotBlock := createSnapshotBlock(chainInstance,  createSbOption{
+				snapshotBlock := createSnapshotBlock(chainInstance, createSbOption{
 					SnapshotAll: false,
 				})
 
@@ -114,7 +114,7 @@ func TestVoteList(t *testing.T) {
 	}
 
 	for _, voteInfo := range voteMap {
-		addr := voteInfo.VoterAddr
+		addr := voteInfo.VoteAddr
 		latest, e := chainInstance.GetLatestAccountBlock(addr)
 		if e != nil {
 			panic(e)
