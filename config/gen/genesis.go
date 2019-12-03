@@ -69,7 +69,7 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 				Version: 5,
 			},
 			EarthFork: &config.ForkPoint{
-				Height:  50000000,
+				Height:  16634530,
 				Version: 6,
 			},
 		}
