@@ -3,4 +3,6 @@ set -e
 
 echo "\\n\\n\\n=====================================================================\\n\\n" >> gvite.log
 
+ulimit -n 40960
+
 nohup ./gvite -pprof >> gvite.log 2>&1 &
