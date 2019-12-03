@@ -16,7 +16,6 @@ import (
 	"github.com/vitelabs/go-vite/generator"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vite"
 	"go.uber.org/atomic"
 )
@@ -61,12 +60,7 @@ func (t Tx) SendRawTx(block *AccountBlock) error {
 		return dex.InvalidOrderPriceErr
 	}
 
-	v := verifier.NewVerifier(nil, verifier.NewAccountVerifier(t.vite.Chain(), t.vite.Consensus()))
-	err = v.VerifyNetAb(lb)
-	if err != nil {
-		return err
-	}
-	result, err := v.VerifyRPCAccBlock(lb, latestSb)
+	result, err := t.vite.Verifier().VerifyRPCAccountBlock(lb, latestSb)
 	if err != nil {
 		return err
 	}

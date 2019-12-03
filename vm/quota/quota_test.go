@@ -74,21 +74,21 @@ func TestCalcPoWDifficulty(t *testing.T) {
 		err           error
 		name          string
 	}{
-		{1, 0, 1000001, types.NewQuota(0, 0, 0, 0, false), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached_before_hardfork"},
-		{1, 0, 21000, types.NewQuota(0, 0, 0, 0, false), big.NewInt(67108863), nil, "no_stake_quota_before_hardfork"},
-		{1, 0, 22000, types.NewQuota(0, 0, 0, 0, false), big.NewInt(70689140), nil, "stake_quota_not_enough_before_hardfork"},
-		{1, 0, 21000, types.NewQuota(0, 21000, 0, 0, false), big.NewInt(0), nil, "current_quota_enough_before_hardfork"},
-		{1, 0, 21000, types.NewQuota(0, 21001, 0, 0, false), big.NewInt(0), nil, "current_quota_enough_2_before_hardfork"},
-		{200, 0, 1000001, types.NewQuota(0, 0, 0, 0, false), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached_after_hardfork"},
-		{200, 0, 21000, types.NewQuota(0, 0, 0, 0, false), big.NewInt(67108863), nil, "no_stake_quota_after_hardfork"},
-		{200, 0, 22000, types.NewQuota(0, 0, 0, 0, false), big.NewInt(70689140), nil, "stake_quota_not_enough_after_hardfork"},
-		{200, 0, 21000, types.NewQuota(0, 21000, 0, 0, false), big.NewInt(0), nil, "current_quota_enough_after_hardfork"},
-		{200, 0, 21000, types.NewQuota(0, 21001, 0, 0, false), big.NewInt(0), nil, "current_quota_enough_2_after_hardfork"},
-		{200, 0, 1000001, types.NewQuota(0, 0, 0, 0, false), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached_with_congestion_after_hardfork"},
-		{200, 74 * 51 * 21000, 21000, types.NewQuota(0, 0, 0, 0, false), big.NewInt(67987247), nil, "no_stake_quota_with_congestion_after_hardfork"},
-		{200, 74 * 51 * 21000, 22000, types.NewQuota(0, 0, 0, 0, false), big.NewInt(71614386), nil, "stake_quota_not_enough_with_congestion_after_hardfork"},
-		{200, 74 * 51 * 21000, 21000, types.NewQuota(0, 21000, 0, 0, false), big.NewInt(0), nil, "current_quota_enough_with_congestion_after_hardfork"},
-		{200, 74 * 51 * 21000, 21000, types.NewQuota(0, 21001, 0, 0, false), big.NewInt(0), nil, "current_quota_enough_2_with_congestion_after_hardfork"},
+		{1, 0, 1000001, types.NewQuota(0, 0, 0, 0, false, 0), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached_before_hardfork"},
+		{1, 0, 21000, types.NewQuota(0, 0, 0, 0, false, 0), big.NewInt(67108863), nil, "no_stake_quota_before_hardfork"},
+		{1, 0, 22000, types.NewQuota(0, 0, 0, 0, false, 0), big.NewInt(70689140), nil, "stake_quota_not_enough_before_hardfork"},
+		{1, 0, 21000, types.NewQuota(0, 21000, 0, 0, false, 0), big.NewInt(0), nil, "current_quota_enough_before_hardfork"},
+		{1, 0, 21000, types.NewQuota(0, 21001, 0, 0, false, 0), big.NewInt(0), nil, "current_quota_enough_2_before_hardfork"},
+		{200, 0, 1000001, types.NewQuota(0, 0, 0, 0, false, 0), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached_after_hardfork"},
+		{200, 0, 21000, types.NewQuota(0, 0, 0, 0, false, 0), big.NewInt(67108863), nil, "no_stake_quota_after_hardfork"},
+		{200, 0, 22000, types.NewQuota(0, 0, 0, 0, false, 0), big.NewInt(70689140), nil, "stake_quota_not_enough_after_hardfork"},
+		{200, 0, 21000, types.NewQuota(0, 21000, 0, 0, false, 0), big.NewInt(0), nil, "current_quota_enough_after_hardfork"},
+		{200, 0, 21000, types.NewQuota(0, 21001, 0, 0, false, 0), big.NewInt(0), nil, "current_quota_enough_2_after_hardfork"},
+		{200, 0, 1000001, types.NewQuota(0, 0, 0, 0, false, 0), nil, errors.New("quota limit for block reached"), "block_quota_limit_reached_with_congestion_after_hardfork"},
+		{200, 74 * 51 * 21000, 21000, types.NewQuota(0, 0, 0, 0, false, 0), big.NewInt(67987247), nil, "no_stake_quota_with_congestion_after_hardfork"},
+		{200, 74 * 51 * 21000, 22000, types.NewQuota(0, 0, 0, 0, false, 0), big.NewInt(71614386), nil, "stake_quota_not_enough_with_congestion_after_hardfork"},
+		{200, 74 * 51 * 21000, 21000, types.NewQuota(0, 21000, 0, 0, false, 0), big.NewInt(0), nil, "current_quota_enough_with_congestion_after_hardfork"},
+		{200, 74 * 51 * 21000, 21000, types.NewQuota(0, 21001, 0, 0, false, 0), big.NewInt(0), nil, "current_quota_enough_2_with_congestion_after_hardfork"},
 	}
 	for _, testCase := range testCases {
 		difficulty, err := CalcPoWDifficulty(&testQuotaDb{globalQuota: types.QuotaInfo{QuotaUsedTotal: testCase.globalTotal}}, testCase.quotaRequired, testCase.q, testCase.sbHeight)
@@ -920,7 +920,7 @@ func TestCalcQuotaV3(t *testing.T) {
 	initForkPointsForQuotaTest()
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, updateUnconfirmedQuotaInfo(testCase.quotaInfoList, testCase.unconfirmedList), testCase.unconfirmedList, types.QuotaInfo{QuotaUsedTotal: testCase.globalQuota}}
-		quotaTotal, stakeQuota, quotaAddition, snapshotCurrentQuota, quotaAvg, _, err := calcQuotaV3(db, testCase.addr, getStakeAmount(testCase.stakeAmount), testCase.difficulty, testCase.sbHeight)
+		quotaTotal, stakeQuota, quotaAddition, snapshotCurrentQuota, quotaAvg, _, _, err := calcQuotaV3(db, testCase.addr, getStakeAmount(testCase.stakeAmount), testCase.difficulty, testCase.sbHeight)
 		if (err == nil && testCase.err != nil) || (err != nil && testCase.err == nil) || (err != nil && testCase.err != nil && err.Error() != testCase.err.Error()) {
 			t.Fatalf("%v calcQuotaV3 failed, error not match, expected %v, got %v", testCase.name, testCase.err, err)
 		}

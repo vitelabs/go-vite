@@ -30,14 +30,14 @@ var (
 type Vite struct {
 	config *config.Config
 
-	walletManager   *wallet.Manager
-	accountVerifier verifier.Verifier
-	chain           chain.Chain
-	producer        producer.Producer
-	net             net.Net
-	pool            pool.BlockPool
-	consensus       consensus.Consensus
-	onRoad          *onroad.Manager
+	walletManager *wallet.Manager
+	verifier      verifier.Verifier
+	chain         chain.Chain
+	producer      producer.Producer
+	net           net.Net
+	pool          pool.BlockPool
+	consensus     consensus.Consensus
+	onRoad        *onroad.Manager
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
@@ -93,11 +93,8 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// consensus
 	cs := consensus.NewConsensus(chain, pl)
 
-	// sb verifier
-	aVerifier := verifier.NewAccountVerifier(chain, cs)
-	sbVerifier := verifier.NewSnapshotVerifier(chain, cs)
+	verifier := verifier.NewVerifier2(chain, cs)
 
-	verifier := verifier.NewVerifier(sbVerifier, aVerifier)
 	// net
 	net, err := net.New(cfg.Net, chain, verifier, cs, pl)
 	if err != nil {
@@ -106,17 +103,17 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 
 	// vite
 	vite = &Vite{
-		config:          cfg,
-		walletManager:   walletManager,
-		net:             net,
-		chain:           chain,
-		pool:            pl,
-		consensus:       cs,
-		accountVerifier: verifier,
+		config:        cfg,
+		walletManager: walletManager,
+		net:           net,
+		chain:         chain,
+		pool:          pl,
+		consensus:     cs,
+		verifier:      verifier,
 	}
 
 	if addressContext != nil {
-		vite.producer = producer.NewProducer(chain, net, addressContext, cs, sbVerifier, walletManager, pl)
+		vite.producer = producer.NewProducer(chain, net, addressContext, cs, verifier.GetSnapshotVerifier(), walletManager, pl)
 	}
 
 	// onroad
@@ -140,7 +137,7 @@ func (v *Vite) Init() (err error) {
 
 	// initOnRoadPool
 	v.onRoad.Init(v.chain)
-	v.accountVerifier.InitOnRoadPool(v.onRoad)
+	v.verifier.InitOnRoadPool(v.onRoad)
 
 	return nil
 }
@@ -155,7 +152,7 @@ func (v *Vite) Start() (err error) {
 		return err
 	}
 	// hack
-	v.pool.Init(v.net, v.walletManager, v.accountVerifier.GetSnapshotVerifier(), v.accountVerifier, v.consensus)
+	v.pool.Init(v.net, v.walletManager, v.verifier.GetSnapshotVerifier(), v.verifier, v.consensus)
 
 	v.consensus.Start()
 
@@ -222,6 +219,10 @@ func (v *Vite) OnRoad() *onroad.Manager {
 
 func (v *Vite) Config() *config.Config {
 	return v.config
+}
+
+func (v *Vite) Verifier() verifier.Verifier {
+	return v.verifier
 }
 
 func parseCoinbase(coinbaseCfg string) (*types.Address, uint32, error) {

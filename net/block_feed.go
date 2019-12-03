@@ -93,7 +93,7 @@ type safeBlockNotifier struct {
 }
 
 func (s *safeBlockNotifier) receiveAccountBlock(block *ledger.AccountBlock, source types.BlockSource) error {
-	err := s.Verifier.VerifyNetAb(block)
+	err := s.Verifier.VerifyNetAccountBlock(block)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func (s *safeBlockNotifier) receiveAccountBlock(block *ledger.AccountBlock, sour
 }
 
 func (s *safeBlockNotifier) receiveSnapshotBlock(block *ledger.SnapshotBlock, source types.BlockSource) error {
-	err := s.Verifier.VerifyNetSb(block)
+	err := s.Verifier.VerifyNetSnapshotBlock(block)
 	if err != nil {
 		return err
 	}

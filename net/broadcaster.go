@@ -474,7 +474,7 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 			return nil
 		}
 
-		if err = b.verifier.VerifyNetSb(block); err != nil {
+		if err = b.verifier.VerifyNetSnapshotBlock(block); err != nil {
 			b.log.Error(fmt.Sprintf("verify new snapshotblock %s/%d from %s error: %v", hash, block.Height, msg.Sender, err))
 			return err
 		}
@@ -539,7 +539,7 @@ func (b *broadcaster) handle(msg Msg) (err error) {
 			}
 		}
 
-		if err = b.verifier.VerifyNetAb(block); err != nil {
+		if err = b.verifier.VerifyNetAccountBlock(block); err != nil {
 			b.log.Error(fmt.Sprintf("verify new accountblock %s from %s error: %v", hash, msg.Sender, err))
 			return err
 		}

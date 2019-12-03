@@ -30,12 +30,12 @@ var (
 	CancelOrderOwnerInvalidErr  = errors.New("order to cancel not own to initiator")
 	CancelOrderInvalidStatusErr = errors.New("order status is invalid to cancel")
 
-	OnlyOwnerAllowErr = errors.New("only owner allow")
+	OnlyOwnerAllowErr   = errors.New("only owner allow")
 	InvalidOperationErr = errors.New("invalid operation")
 
-	ExceedFundAvailableErr           = errors.New("exceed fund available")
-	ExceedFundLockedErr              = errors.New("try release locked amount exceed locked")
-	InvalidStakeAmountErr            = errors.New("invalid stake amount")
+	ExceedFundAvailableErr         = errors.New("exceed fund available")
+	ExceedFundLockedErr            = errors.New("try release locked amount exceed locked")
+	InvalidStakeAmountErr          = errors.New("invalid stake amount")
 	InvalidStakeActionTypeErr      = errors.New("invalid stake action type")
 	ExceedStakedAvailableErr       = errors.New("exceed staked available")
 	StakingAmountLeavedNotValidErr = errors.New("staking amount leaved not valid")
@@ -47,7 +47,7 @@ var (
 
 	InvalidSourceAddressErr          = errors.New("invalid source address")
 	InvalidAmountForStakeCallbackErr = errors.New("invalid amount for stake callback")
-	InvalidIdForStakeCallbackErr = errors.New("invalid id for stake callback")
+	InvalidIdForStakeCallbackErr     = errors.New("invalid id for stake callback")
 
 	InvalidTokenErr                      = errors.New("invalid token")
 	PendingNewMarketInnerConflictErr     = errors.New("pending new market inner conflict")
@@ -73,6 +73,7 @@ var (
 
 	MultiMarketsInOneActionErr = errors.New("multi markets one action")
 
+	DexFundUserNotExists            = errors.New("fund user doesn't exist.")
 	LockedVxAmountLeavedNotValidErr = errors.New("locked vx amount leaved not valid")
 
 	InternalErr = errors.New("internal error")
