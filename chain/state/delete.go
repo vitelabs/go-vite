@@ -366,7 +366,11 @@ func (sDB *StateDB) recoverLatestIndexByRedo(batch *leveldb.Batch, addrMap map[t
 		redoLogList := redoLogMap[addr]
 		for _, redoLog := range redoLogList {
 			for _, kv := range redoLog.Storage {
-				batch.Put(chain_utils.CreateStorageValueKey(&addr, kv[0]), kv[1])
+				if len(kv[1]) <= 0 {
+					batch.Delete(chain_utils.CreateStorageValueKey(&addr, kv[0]))
+				} else {
+					batch.Put(chain_utils.CreateStorageValueKey(&addr, kv[0]), kv[1])
+				}
 				if _, ok := rollbackKeySet[addr]; ok {
 					delete(rollbackKeySet[addr], string(kv[0]))
 				}
