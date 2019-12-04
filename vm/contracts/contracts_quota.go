@@ -1,9 +1,11 @@
 package contracts
 
 import (
+	"encoding/hex"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -95,6 +97,9 @@ func getStakeInfo(db vm_db.VmDb, stakeAddr types.Address, beneficiary types.Addr
 			continue
 		}
 		stakeInfo, _ := abi.UnpackStakeInfo(iterator.Value())
+		if stakeInfo == nil {
+			log15.Error("getStakeInfo failed", hex.EncodeToString(iterator.Key()), hex.EncodeToString(iterator.Value()))
+		}
 		if stakeInfo.Beneficiary == beneficiary && stakeInfo.IsDelegated == isDelegated &&
 			stakeInfo.DelegateAddress == delegateAddr && stakeInfo.Bid == bid {
 			return iterator.Key(), stakeInfo
