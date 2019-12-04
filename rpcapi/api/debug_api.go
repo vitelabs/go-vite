@@ -215,6 +215,9 @@ func (api DebugApi) peersDetails() map[string]interface{} {
 func (api DebugApi) GetForkInfo() config.ForkPoints {
 	return fork.GetForkPoints()
 }
+func (api DebugApi) GetRecentActiveFork() *fork.ForkPointItem {
+	return fork.GetRecentActiveFork(api.v.Chain().GetLatestSnapshotBlock().Height)
+}
 
 func (api DebugApi) GetOnRoadInfoUnconfirmed(addr types.Address) ([]*types.Hash, error) {
 	return api.v.Chain().GetOnRoadInfoUnconfirmedHashList(addr)
