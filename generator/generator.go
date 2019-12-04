@@ -13,7 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
-	"runtime/debug"
 )
 
 // Consensus is for Vm to read the SBP information
@@ -118,7 +117,7 @@ func (gen *Generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, produce
 func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc) (result *GenResult, resultErr error) {
 	defer func() {
 		if err := recover(); err != nil {
-			debug.PrintStack()
+			// debug.PrintStack()
 			errDetail := fmt.Sprintf("block(addr:%v prevHash:%v)", block.AccountAddress, block.PrevHash)
 			if fromBlock != nil {
 				errDetail += fmt.Sprintf("fromBlock(addr:%v hash:%v)", fromBlock.AccountAddress, fromBlock.Hash)

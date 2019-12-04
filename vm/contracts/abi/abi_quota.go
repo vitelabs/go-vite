@@ -267,12 +267,12 @@ func UnpackStakeInfo(value []byte) (*types.StakeInfo, error) {
 	stakeInfo := new(types.StakeInfo)
 	if len(value) == stakeInfoValueSize {
 		if err := ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfo, value); err != nil {
-			return nil, err
+			return stakeInfo, err
 		}
 	} else {
 		stakeInfo.Id = &types.Hash{}
 		if err := ABIQuota.UnpackVariable(stakeInfo, VariableNameStakeInfoV2, value); err != nil {
-			return nil, err
+			return stakeInfo, err
 		}
 	}
 	return stakeInfo, nil
