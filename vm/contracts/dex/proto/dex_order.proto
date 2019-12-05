@@ -31,8 +31,8 @@ message Order {
 }
 
 //storage
-message OrderIdSerialNo {
-    int32 SerialNo = 1;
+message SerialNo {
+    int32 No = 1;
     int64 Timestamp = 2;
 }
 

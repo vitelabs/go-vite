@@ -2,9 +2,9 @@ package api
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
 	"github.com/vitelabs/go-vite/vite"
@@ -48,51 +48,32 @@ func (f DexFundApi) GetAccountFundInfo(addr types.Address, tokenId *types.TokenT
 			return nil, err
 		}
 		info := &AccountBalanceInfo{TokenInfo: RawTokenInfoToRpc(tokenInfo, v.Token)}
-		a := "0"
 		if v.Available != nil {
-			a = v.Available.String()
+			info.Available = v.Available.String()
+		} else {
+			info.Available = "0"
 		}
-		info.Available = a
 
-		l := "0"
 		if v.Locked != nil {
-			l = v.Locked.String()
+			info.Locked = v.Locked.String()
+		} else {
+			info.Locked = "0"
 		}
-		info.Locked = l
+
+		if v.Token == dex.VxTokenId {
+			if v.VxLocked != nil {
+				info.VxLocked = v.VxLocked.String()
+			}
+			if v.VxUnlocking != nil {
+				info.VxUnlocking = v.VxUnlocking.String()
+			}
+		}
+
+		if v.Token == ledger.ViteTokenId && v.CancellingStake != nil {
+			info.CancellingStake = v.CancellingStake.String()
+		}
+
 		balanceInfo[v.Token] = info
-	}
-	return balanceInfo, nil
-}
-
-func (f DexFundApi) GetAccountFundInfoByStatus(addr types.Address, tokenId *types.TokenTypeId, status byte) (map[types.TokenTypeId]string, error) {
-	if status != 0 && status != 1 && status != 2 {
-		return nil, errors.New("args's status error, 1 for available, 2 for locked, 0 for total")
-	}
-
-	db, err := getVmDb(f.chain, types.AddressDexFund)
-	if err != nil {
-		return nil, err
-	}
-	fund, _ := dex.GetFund(db, addr)
-	fundInfo, err := dex.GetAccounts(fund, tokenId)
-	if err != nil {
-		return nil, err
-	}
-
-	balanceInfo := make(map[types.TokenTypeId]string, 0)
-	for _, v := range fundInfo {
-		amount := big.NewInt(0)
-		if a := v.Available; a != nil {
-			if status == 0 || status == 1 {
-				amount.Add(amount, a)
-			}
-		}
-		if l := v.Locked; l != nil {
-			if status == 0 || status == 2 {
-				amount.Add(amount, l)
-			}
-		}
-		balanceInfo[v.Token] = amount.String()
 	}
 	return balanceInfo, nil
 }
@@ -223,12 +204,14 @@ func (f DexFundApi) GetCurrentVxMineInfo() (mineInfo *apidex.RpcVxMineInfo, err 
 		err = fmt.Errorf("no vx available on mine")
 		return
 	}
-	mineInfo.HistoryMinedSum = new(big.Int).Sub(new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100000000)), available).String()
+	total := new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100000000))
+	total.Sub(total, dex.GetVxBurnAmount(db))
+	mineInfo.HistoryMinedSum = new(big.Int).Sub(total, available).String()
 	mineInfo.Total = toMine.String()
 	var (
 		amountForItems map[int32]*big.Int
-		amount *big.Int
-		success bool
+		amount         *big.Int
+		success        bool
 	)
 	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
 		mineInfo.FeeMineDetail = make(map[int32]string)

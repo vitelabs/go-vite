@@ -7,6 +7,27 @@ message Account {
     bytes Token = 1;
     bytes Available = 2;
     bytes Locked   = 3;
+    bytes VxLocked = 4; // lock for dividend, will release after 7 days
+    bytes VxUnlocking = 5;
+    bytes CancellingStake = 6;
+}
+
+message VxUnlock {
+    uint64 PeriodId = 1;
+    bytes Amount = 2;
+}
+
+message VxUnlocks {
+    repeated VxUnlock Unlocks = 1;
+}
+
+message CancelStake {
+    uint64 PeriodId = 1;
+    bytes Amount = 2;
+}
+
+message CancelStakes {
+    repeated CancelStake Cancels = 1;
 }
 
 //storage
@@ -48,6 +69,7 @@ message FeeForDividend { // for dividend
                          // create new inviter fee +
                          // trade baseFee[include markets allow mine and not allow mine]
     bytes DividendPoolAmount = 2;
+    bool NotRoll = 3;
 }
 
 message FeeForMine { // for mine, sum amounts with same quoteTokenType
@@ -106,7 +128,23 @@ message VxFunds {
 
 message VIPStaking {
     int64 Timestamp = 1;
-    int32 StakedTimes = 2; // Staked times in case duplicate stake happen
+    int32 StakedTimes = 2; // Staked times in case duplicate stakes happen
+    repeated bytes StakingHashes = 3; // in case duplicate stakes happen
+}
+
+message DelegateStakeInfo {
+    int32 StakeType = 1; // 1 StakeForMining, 2 StakeForVIP, 3 StakeForSuperVIP, 4, AgentSuperVIP
+    bytes Address = 2;
+    bytes Principal = 3; // in case stake for other address
+    bytes Amount = 4;
+    int32 Status = 5; // 0 pending, 1 confirmed, 2 cancelling
+    uint64 SerialNo = 6;
+    bytes Id = 7; //not set on serialize
+}
+
+message DelegateStakeAddressIndex {
+    bytes Id = 1;
+    int32 StakeType = 2;
 }
 
 message MiningStakingByPeriod {
@@ -193,4 +231,10 @@ message MarketAgentRelation {
     bytes Principal = 1;
     bytes Agent = 2;
     int32 MarketId = 3;
+}
+
+//event
+message BurnVite {
+    int32 BizType = 1; // 1 BurnForDexViteFee
+    bytes Amount = 2;
 }

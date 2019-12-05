@@ -57,6 +57,7 @@ var (
 	dexContracts      = newDexContracts()
 	dexAgentContracts = newDexAgentContracts()
 	leafContracts     = newLeafContracts()
+	earthContracts    = newEarthContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
@@ -191,10 +192,37 @@ func newLeafContracts() map[types.Address]*builtinContract {
 	return contracts
 }
 
+func newEarthContracts() map[types.Address]*builtinContract {
+	contracts := newLeafContracts()
+	contracts[types.AddressAsset].m[cabi.MethodNameGetTokenInfoV3] = &MethodGetTokenInfo{cabi.MethodNameGetTokenInfoV3}
+	contracts[types.AddressGovernance].m[cabi.MethodNameRegisterV3] = &MethodRegister{cabi.MethodNameRegisterV3}
+	contracts[types.AddressGovernance].m[cabi.MethodNameUpdateBlockProducintAddressV3] = &MethodUpdateBlockProducingAddress{cabi.MethodNameUpdateBlockProducintAddressV3}
+	contracts[types.AddressGovernance].m[cabi.MethodNameUpdateSBPRewardWithdrawAddress] = &MethodUpdateRewardWithdrawAddress{cabi.MethodNameUpdateSBPRewardWithdrawAddress}
+	contracts[types.AddressGovernance].m[cabi.MethodNameRevokeV3] = &MethodRevoke{cabi.MethodNameRevokeV3}
+	contracts[types.AddressGovernance].m[cabi.MethodNameWithdrawRewardV3] = &MethodWithdrawReward{cabi.MethodNameWithdrawRewardV3}
+	contracts[types.AddressGovernance].m[cabi.MethodNameVoteV3] = &MethodVote{cabi.MethodNameVoteV3}
+	contracts[types.AddressGovernance].m[cabi.MethodNameCancelVoteV3] = &MethodCancelVote{cabi.MethodNameCancelVoteV3}
+
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundLockVxForDividend] = &MethodDexFundLockVxForDividend{cabi.MethodNameDexFundLockVxForDividend}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundSwitchConfig] = &MethodDexFundSwitchConfig{cabi.MethodNameDexFundSwitchConfig}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundStakeForPrincipalSVIP] = &MethodDexFundStakeForPrincipalSVIP{cabi.MethodNameDexFundStakeForPrincipalSVIP}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCancelStakeById] = &MethodDexFundCancelStakeById{cabi.MethodNameDexFundCancelStakeById}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundDelegateStakeCallbackV2] = &MethodDexFundDelegateStakeCallbackV2{cabi.MethodNameDexFundDelegateStakeCallbackV2}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCancelDelegateStakeCallbackV2] = &MethodDexFundCancelDelegateStakeCallbackV2{cabi.MethodNameDexFundCancelDelegateStakeCallbackV2}
+
+	contracts[types.AddressQuota].m[cabi.MethodNameStakeV3] = &MethodStakeV3{cabi.MethodNameStakeV3}
+	contracts[types.AddressQuota].m[cabi.MethodNameCancelStakeV3] = &MethodCancelStakeV3{cabi.MethodNameCancelStakeV3}
+	contracts[types.AddressQuota].m[cabi.MethodNameStakeWithCallback] = &MethodStakeV3{cabi.MethodNameStakeWithCallback}
+	contracts[types.AddressQuota].m[cabi.MethodNameCancelStakeWithCallback] = &MethodCancelStakeV3{cabi.MethodNameCancelStakeWithCallback}
+	return contracts
+}
+
 // GetBuiltinContractMethod finds method instance of built-in contract method by address and method id
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if fork.IsLeafFork(sbHeight) {
+	if fork.IsEarthFork(sbHeight) {
+		contractsMap = earthContracts
+	} else if fork.IsLeafFork(sbHeight) {
 		contractsMap = leafContracts
 	} else if fork.IsStemFork(sbHeight) {
 		contractsMap = dexAgentContracts

@@ -24,6 +24,7 @@ const inviteRelationEventName = "inviteRelationEvent"
 const settleMakerMinedVxEventName = "settleMakerMinedVxEvent"
 const grantMarketToAgentEventName = "grantMarketToAgentEvent"
 const revokeMarketFromAgentEventName = "revokeMarketFromAgentEvent"
+const burnViteEventName = "burnViteEvent"
 const errEventName = "errEvent"
 
 type DexEvent interface {
@@ -94,6 +95,10 @@ type GrantMarketToAgentEvent struct {
 
 type RevokeMarketFromAgentEvent struct {
 	dexproto.MarketAgentRelation
+}
+
+type BurnViteEvent struct {
+	dexproto.BurnVite
 }
 
 type ErrEvent struct {
@@ -382,6 +387,24 @@ func (rmfa RevokeMarketFromAgentEvent) toDataBytes() []byte {
 func (rmfa RevokeMarketFromAgentEvent) FromBytes(data []byte) interface{} {
 	event := RevokeMarketFromAgentEvent{}
 	if err := proto.Unmarshal(data, &event.MarketAgentRelation); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (bv BurnViteEvent) GetTopicId() types.Hash {
+	return fromNameToHash(burnViteEventName)
+}
+
+func (bv BurnViteEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&bv.BurnVite)
+	return data
+}
+
+func (bv BurnViteEvent) FromBytes(data []byte) interface{} {
+	event := BurnViteEvent{}
+	if err := proto.Unmarshal(data, &event.BurnVite); err != nil {
 		return nil
 	} else {
 		return event
