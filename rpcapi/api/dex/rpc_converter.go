@@ -480,8 +480,8 @@ func UnlockListToRpc(unlocks *dex.VxUnlocks, pageIndex int, pageSize int, chain 
 		if i >= pageIndex*pageSize && i < (pageIndex+1)*pageSize {
 			unlock := new(VxUnlock)
 			unlock.Amount = amt.String()
-			unlock.ExpirationTime = genesisTime + int64((ul.PeriodId+uint64(dex.SchedulePeriods))*3600*24)
-			unlock.ExpirationPeriod = ul.PeriodId + uint64(dex.SchedulePeriods)
+			unlock.ExpirationTime = genesisTime + int64((ul.PeriodId+1+uint64(dex.SchedulePeriods))*3600*24)
+			unlock.ExpirationPeriod = ul.PeriodId + 1 + uint64(dex.SchedulePeriods)
 			vxUnlockList.Unlocks = append(vxUnlockList.Unlocks, unlock)
 		}
 		total.Add(total, amt)
@@ -502,8 +502,8 @@ func CancelStakeListToRpc(cancelStakes *dex.CancelStakes, pageIndex int, pageSiz
 		if i >= pageIndex*pageSize && i < (pageIndex+1)*pageSize {
 			cancel := new(CancelStake)
 			cancel.Amount = amt.String()
-			cancel.ExpirationTime = genesisTime + int64((ul.PeriodId+uint64(dex.SchedulePeriods))*3600*24) + 1200
-			cancel.ExpirationPeriod = ul.PeriodId + uint64(dex.SchedulePeriods)
+			cancel.ExpirationTime = genesisTime + int64((ul.PeriodId+1+uint64(dex.SchedulePeriods))*3600*24) + 1200
+			cancel.ExpirationPeriod = ul.PeriodId + 1 + uint64(dex.SchedulePeriods)
 			cancelStakeList.Cancels = append(cancelStakeList.Cancels, cancel)
 		}
 		total.Add(total, amt)
