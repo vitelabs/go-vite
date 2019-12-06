@@ -251,6 +251,25 @@ func GetLastForkPoint() *ForkPointItem {
 	return forkPointList[forkPointList.Len()-1]
 }
 
+func GetNextForkPoint(sbHeight uint64) *ForkPointItem  {
+	fplLen := len(forkPointList)
+	if fplLen <= 0 {
+		return  nil
+	}
+	i := fplLen - 1
+	for ; i >= 0; i-- {
+		forkPoint := forkPointList[i]
+		if forkPoint.Height < sbHeight {
+			break
+		}
+	}
+	if i >= fplLen - 1 {
+		return  nil
+	}
+
+	return  forkPointList[i+1]
+}
+
 func IsForkActive(point ForkPointItem) bool {
 	return activeChecker.IsForkActive(point)
 }
