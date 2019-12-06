@@ -111,7 +111,7 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 		}
 	}
 	var snapshotHash *types.Hash
-	if param.SnapshotHash != nil {
+	if param.SnapshotHash == nil {
 		snapshotHash = &c.chain.GetLatestSnapshotBlock().Hash
 	} else {
 		snapshotHash = param.SnapshotHash
