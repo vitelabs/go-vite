@@ -27,12 +27,13 @@ func init() {
 
 func initFork() {
 	fork.SetForkPoints(&config.ForkPoints{
-		SeedFork:   &config.ForkPoint{Height: 100, Version: 1},
-		DexFork:    &config.ForkPoint{Height: 200, Version: 2},
-		DexFeeFork: &config.ForkPoint{Height: 250, Version: 3},
-		StemFork:   &config.ForkPoint{Height: 300, Version: 4},
-		LeafFork:   &config.ForkPoint{Height: 400, Version: 5},
-		EarthFork:  &config.ForkPoint{Height: 500, Version: 6}})
+		SeedFork:      &config.ForkPoint{Height: 100, Version: 1},
+		DexFork:       &config.ForkPoint{Height: 200, Version: 2},
+		DexFeeFork:    &config.ForkPoint{Height: 250, Version: 3},
+		StemFork:      &config.ForkPoint{Height: 300, Version: 4},
+		LeafFork:      &config.ForkPoint{Height: 400, Version: 5},
+		EarthFork:     &config.ForkPoint{Height: 500, Version: 6},
+		DexMiningFork: &config.ForkPoint{Height: 600, Version: 7}})
 	fork.SetActiveChecker(mockActiveChecker{})
 }
 

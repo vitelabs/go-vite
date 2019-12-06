@@ -431,9 +431,9 @@ func (md *MethodDexFundStakeForMining) DoSend(db vm_db.VmDb, block *ledger.Accou
 func (md MethodDexFundStakeForMining) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) (appendBlocks []*ledger.AccountBlock, err error) {
 	var param = new(dex.ParamStakeForMining)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
-	stakeHeight := nodeConfig.params.DexStakeForMining
-	if !dex.IsEarthFork(db) {
-		stakeHeight = nodeConfig.params.StakeHeight
+	stakeHeight := nodeConfig.params.StakeHeight
+	if !dex.IsDexMiningFork(db) && dex.IsEarthFork(db) {
+		stakeHeight = 1
 	}
 	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForMining, param.ActionType, sendBlock.AccountAddress, types.ZERO_ADDRESS, param.Amount, stakeHeight, block); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)

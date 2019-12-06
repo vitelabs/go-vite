@@ -41,7 +41,6 @@ type contractsParams struct {
 	StakeHeight            uint64 // locking height for stake
 	DexVipStakeHeight      uint64 // locking height for dex_fund contract, in order to upgrade to dex vip
 	DexSuperVipStakeHeight uint64 // locking height for dex_fund contract, in order to upgrade to dex super vip
-	DexStakeForMining      uint64 // locking height for dex_fund contract, in order to mining vx
 }
 
 var (
@@ -49,12 +48,10 @@ var (
 		StakeHeight:            600,
 		DexVipStakeHeight:      1,
 		DexSuperVipStakeHeight: 1,
-		DexStakeForMining:      1,
 	}
 	contractsParamsMainNet = contractsParams{
 		StakeHeight:            3600 * 24 * 3,
 		DexVipStakeHeight:      3600 * 24 * 30,
 		DexSuperVipStakeHeight: 3600 * 24 * 30,
-		DexStakeForMining:      1,
 	}
 )
