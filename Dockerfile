@@ -21,5 +21,6 @@ RUN apk add --no-cache ca-certificates
 
 COPY --from=maker /go/gvite .
 COPY ./node_config.json .
+COPY ./docker-gvite .
 EXPOSE 8483 8484 48132 41420 8483/udp
-ENTRYPOINT ["/gvite"]
+ENTRYPOINT ["/docker-gvite"] 

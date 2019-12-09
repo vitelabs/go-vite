@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+echo "\\n\\n\\n=====================================================================\\n\\n" >> /root/.gvite/std.log
+
+if [ -f "/root/.gvite/node_config.json" ]; then
+   echo "use custom node config." >> /root/.gvite/std.log
+   ./gvite --config /root/.gvite/node_config.json >> /root/.gvite/std.log 2>&1
+else
+   echo "use default node config." >> /root/.gvite/std.log
+   ./gvite >> /root/.gvite/std.log 2>&1
+fi
+
