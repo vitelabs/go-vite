@@ -528,6 +528,14 @@ func IsEarthFork(db vm_db.VmDb) bool {
 	}
 }
 
+func IsDexMiningFork(db vm_db.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return fork.IsDexMiningFork(latestSb.Height)
+	}
+}
+
 func ValidOperatorFeeRate(feeRate int32) bool {
 	return feeRate >= 0 && feeRate <= MaxOperatorFeeRate
 }
