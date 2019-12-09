@@ -252,5 +252,7 @@ func GetLastForkPoint() *ForkPointItem {
 }
 
 func IsForkActive(point ForkPointItem) bool {
-	return activeChecker.IsForkActive(point)
+	// TODO suppose all point is active.
+	return true
+	//return activeChecker.IsForkActive(point)
 }
