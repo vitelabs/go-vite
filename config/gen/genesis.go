@@ -75,7 +75,7 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 			},
 
 			DexMiningFork: &config.ForkPoint{
-				Height:  17000000,
+				Height:  17142720,
 				Version: 7,
 			},
 		}
