@@ -22,15 +22,9 @@
   "IPCEnabled": true,
   "PublicModules": [
     "ledger",
-    "public_onroad",
     "net",
     "contract",
-    "pledge",
-    "register",
-    "vote",
-    "mintage",
-    "consensusGroup",
-    "tx",
+    "util",
     "debug",
     "sbpstats",
     "dashboard"
