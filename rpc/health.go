@@ -1,15 +1,12 @@
 package rpc
 
 import (
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/rpcapi/api"
-	"net/http"
 	"net/url"
 	"strings"
-	"time"
 )
 
-var TimeAlarmLimit time.Duration = 10 * time.Minute
+/*
+var TimeAlarmLimit time.Duration = 5 * time.Minute
 
 type HealthCheck struct {
 	client *Client
@@ -44,8 +41,8 @@ func checkTime(snapshotTime int64) bool {
 		return false
 	}
 	return true
-}
+}*/
 
-func IsHealthCheckRouter(url *url.URL) bool {
+func isHealthCheckRouter(url *url.URL) bool {
 	return strings.EqualFold(url.Path, "/health")
 }
