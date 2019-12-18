@@ -43,6 +43,11 @@ func StartHTTPEndpoint(endpoint string, apis []API, modules []string, cors []str
 			log.Debug("HTTP registered", "namespace", api.Namespace)
 		}
 	}
+	healthCheck, hErr := NewHealthCheckClient("http://" + endpoint)
+	if hErr != nil {
+		return nil, nil, hErr
+	}
+	handler.healthCheck = healthCheck
 	// All APIs registered, start the HTTP listener
 	var (
 		listener net.Listener

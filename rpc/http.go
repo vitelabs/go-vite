@@ -224,8 +224,14 @@ func NewHTTPServer(cors []string, vhosts []string, timeouts HTTPTimeouts, srv *S
 // ServeHTTP serves JSON-RPC requests over HTTP.
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Permit dumb empty requests for remote health-checks (AWS)
-	if r.Method == http.MethodGet && r.ContentLength == 0 && r.URL.RawQuery == "" {
-		return
+	if r.Method == http.MethodGet && r.ContentLength == 0 {
+		if IsHealthCheckRouter(r.URL) {
+			srv.healthCheck.HealthCheck(w, r)
+			return
+		}
+		if r.URL.RawQuery == "" {
+			return
+		}
 	}
 	if code, err := validateRequest(r); err != nil {
 		http.Error(w, err.Error(), code)
