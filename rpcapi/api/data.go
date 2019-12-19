@@ -8,6 +8,7 @@ import (
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"math/big"
 )
 
 type DataApi struct {
@@ -43,7 +44,7 @@ func (p *DataApi) GetPledgeListByPage(snapshotHash types.Hash, lastKey string, c
 	return &GetPledgeListByPageResult{list, hex.EncodeToString(lastKeyBytes)}, nil
 }
 
-func (f DataApi) GetDexUserFundsByPage(snapshotHash types.Hash, lastAddress string, count int) (*apidex.Funds, error) {
+func (p DataApi) GetDexUserFundsByPage(snapshotHash types.Hash, lastAddress string, count int) (*apidex.Funds, error) {
 	if count <= 0 {
 		return nil, dex.InvalidInputParamErr
 	}
@@ -55,7 +56,7 @@ func (f DataApi) GetDexUserFundsByPage(snapshotHash types.Hash, lastAddress stri
 			lastAddr = addr
 		}
 	}
-	if funds, err := f.chain.GetDexFundsByPage(snapshotHash, lastAddr, count); err != nil {
+	if funds, err := p.chain.GetDexFundsByPage(snapshotHash, lastAddr, count); err != nil {
 		return nil, err
 	} else {
 		fundsRes := &apidex.Funds{}
@@ -85,4 +86,29 @@ func (f DataApi) GetDexUserFundsByPage(snapshotHash types.Hash, lastAddress stri
 		}
 		return fundsRes, nil
 	}
+}
+
+func (p DataApi) GetDexPledgeListByPage(snapshotHash types.Hash, lastKey string, count int) (*GetPledgeListByPageResult, error) {
+	lastKeyBytes, err := hex.DecodeString(lastKey)
+	if err != nil {
+		return nil, err
+	}
+	list, lastKeyBytes, err := p.chain.GetDexStakeListByPage(snapshotHash, lastKeyBytes, count)
+	if err != nil {
+		return nil, err
+	}
+	var plist = make([]*types.StakeInfo, len(list))
+	if len(list) > 0 {
+		for i, info := range list {
+			pInfo := &types.StakeInfo{}
+			pInfo.Amount = new(big.Int).SetBytes(info.Amount)
+			pInfo.Beneficiary = types.AddressDexFund
+			pInfo.IsDelegated = true
+			pInfo.DelegateAddress = types.AddressDexFund
+			pInfo.Bid = uint8(info.StakeType)
+			pInfo.StakeAddress, _ = types.BytesToAddress(info.Address)
+			plist[i] = pInfo
+		}
+	}
+	return &GetPledgeListByPageResult{plist, hex.EncodeToString(lastKeyBytes)}, nil
 }

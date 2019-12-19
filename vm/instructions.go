@@ -810,6 +810,22 @@ func opOffchainCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 	return nil, nil
 }
 
+func opCall2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	returnData, err := opCall(pc, vm, c, mem, stack)
+	if err != nil {
+		return returnData, err
+	}
+	h := util.ComputeSendBlockHash(c.block, vm.sendBlockList[len(vm.sendBlockList)-1], uint8(len(vm.sendBlockList)-1))
+	stack.push(c.intPool.Get().SetBytes(h.Bytes()))
+	return returnData, nil
+}
+
+func opOffchainCall2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	opOffchainCall(pc, vm, c, mem, stack)
+	stack.push(c.intPool.GetZero())
+	return nil, nil
+}
+
 func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	offset, size := stack.pop(), stack.pop()
 	ret := mem.getPtr(offset.Int64(), size.Int64())

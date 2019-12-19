@@ -111,7 +111,7 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 		}
 	}
 	var snapshotHash *types.Hash
-	if param.SnapshotHash != nil {
+	if param.SnapshotHash == nil {
 		snapshotHash = &c.chain.GetLatestSnapshotBlock().Hash
 	} else {
 		snapshotHash = param.SnapshotHash
@@ -195,6 +195,7 @@ type StakeInfo struct {
 	DelegateAddress  types.Address `json:"delegateAddress"`
 	StakeAddress     types.Address `json:"stakeAddress"`
 	Bid              uint8         `json:"bid"`
+	Id               *types.Hash   `json:"id"`
 }
 
 func NewStakeInfo(addr types.Address, info *types.StakeInfo, snapshotBlock *ledger.SnapshotBlock) *StakeInfo {
@@ -206,7 +207,8 @@ func NewStakeInfo(addr types.Address, info *types.StakeInfo, snapshotBlock *ledg
 		info.IsDelegated,
 		info.DelegateAddress,
 		addr,
-		info.Bid}
+		info.Bid,
+		info.Id}
 }
 
 func (p *ContractApi) GetStakeList(address types.Address, pageIndex int, pageSize int) (*StakeInfoList, error) {
@@ -282,6 +284,7 @@ type StakeQueryParams struct {
 }
 
 func (p *ContractApi) GetDelegatedStakeInfo(params StakeQueryParams) (*StakeInfo, error) {
+	// TODO get from dex contract
 	db, err := getVmDb(p.chain, types.AddressQuota)
 	if err != nil {
 		return nil, err
@@ -303,6 +306,7 @@ func (p *ContractApi) GetDelegatedStakeInfo(params StakeQueryParams) (*StakeInfo
 type SBPInfo struct {
 	Name                  string        `json:"name"`
 	BlockProducingAddress types.Address `json:"blockProducingAddress"`
+	RewardWithdrawAddress types.Address `json:"rewardWithdrawAddress"`
 	StakeAddr             types.Address `json:"stakeAddress"`
 	StakeAmount           string        `json:"stakeAmount"`
 	ExpirationHeight      string        `json:"expirationHeight"`
@@ -314,6 +318,7 @@ func newSBPInfo(info *types.Registration, sb *ledger.SnapshotBlock) *SBPInfo {
 	return &SBPInfo{
 		Name:                  info.Name,
 		BlockProducingAddress: info.BlockProducingAddress,
+		RewardWithdrawAddress: info.RewardWithdrawAddress,
 		StakeAddr:             info.StakeAddress,
 		StakeAmount:           *bigIntToString(info.Amount),
 		ExpirationHeight:      Uint64ToString(info.ExpirationHeight),
@@ -335,6 +340,11 @@ func (r *ContractApi) GetSBPList(stakeAddress types.Address) ([]*SBPInfo, error)
 	if err != nil {
 		return nil, err
 	}
+	rewardList, err := abi.GetRegistrationListByRewardWithdrawAddr(db, types.SNAPSHOT_GID, stakeAddress)
+	if err != nil {
+		return nil, err
+	}
+	list = append(list, rewardList...)
 	targetList := make([]*SBPInfo, len(list))
 	if len(list) > 0 {
 		sort.Sort(byRegistrationExpirationHeight(list))

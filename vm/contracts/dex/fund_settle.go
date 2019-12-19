@@ -154,10 +154,13 @@ func settleUserFees(db vm_db.VmDb, periodId uint64, tokenDecimals, quoteTokenTyp
 	if inviteRelations == nil {
 		inviteRelations = make(map[types.Address]*types.Address)
 	}
-	needAddSum, addBaseSum, addInviteeSum := innerSettleUserFee(db, periodId, mineThreshold, feeAction.Address, tokenDecimals, quoteTokenType, feeAction.BaseFee, nil)
-	isInvited, inviter, inviteBonusAmt := getInviteBonusInfo(db, feeAction.Address, &inviteRelations, feeAction.BaseFee)
+	isInvited, inviter, inviterBonus, inviteeBonus := getInviteBonusInfo(db, feeAction.Address, &inviteRelations, feeAction.BaseFee)
+	if isInvited && !IsEarthFork(db) {
+		inviteeBonus = nil
+	}
+	needAddSum, addBaseSum, addInviteeSum := innerSettleUserFee(db, periodId, mineThreshold, feeAction.Address, tokenDecimals, quoteTokenType, feeAction.BaseFee, inviteeBonus)
 	if isInvited {
-		if neeAddSum1, addBaseSum1, addInviteeSum1 := innerSettleUserFee(db, periodId, mineThreshold, inviter.Bytes(), tokenDecimals, quoteTokenType, nil, inviteBonusAmt); neeAddSum1 {
+		if neeAddSum1, addBaseSum1, addInviteeSum1 := innerSettleUserFee(db, periodId, mineThreshold, inviter.Bytes(), tokenDecimals, quoteTokenType, nil, inviterBonus); neeAddSum1 {
 			needAddSum = true
 			addBaseSum = AddBigInt(addBaseSum, addBaseSum1)
 			addInviteeSum = AddBigInt(addInviteeSum, addInviteeSum1)
@@ -261,26 +264,47 @@ func SettleOperatorFees(db vm_db.VmDb, reader util.ConsensusReader, feeActions [
 }
 
 func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
-	return doSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
+	if IsEarthFork(db) {
+		return nil
+	} else {
+		return DoSettleVxFunds(db, reader, address.Bytes(), depositAmount, updatedVxAccount)
+	}
 }
 
 func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
-	return doSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
+	if IsEarthFork(db) {
+		return nil
+	} else {
+		return DoSettleVxFunds(db, reader, address.Bytes(), new(big.Int).Neg(withdrawAmount), updatedVxAccount)
+	}
 }
 
 func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.AccountSettle, updatedVxAccount *dexproto.Account) error {
-	amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
-	return doSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
+	if IsEarthFork(db) {
+		return nil
+	} else {
+		amtChange := SubBigInt(fundSettle.IncAvailable, fundSettle.ReduceLocked)
+		return DoSettleVxFunds(db, reader, address, amtChange, updatedVxAccount)
+	}
 }
 
-func splitDividendPool(dividend *dexproto.FeeForDividend) (toDividendAmt, rolledAmount *big.Int) {
-	toDividendAmt = new(big.Int).SetBytes(CalculateAmountForRate(dividend.DividendPoolAmount, PerPeriodDividendRate)) // %1
-	rolledAmount = new(big.Int).Sub(new(big.Int).SetBytes(dividend.DividendPoolAmount), toDividendAmt)                // 99%
-	return
+func OnVxMined(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount *big.Int) error {
+	if IsEarthFork(db) {
+		if IsAutoLockMinedVx(db, address.Bytes()) {
+			updatedVxAccount := LockMinedVx(db, address, amount)
+			return DoSettleVxFunds(db, reader, address.Bytes(), amount, updatedVxAccount)
+		} else {
+			DepositAccount(db, address, VxTokenId, amount)
+		}
+	} else {
+		updatedVxAccount := DepositAccount(db, address, VxTokenId, amount)
+		DoSettleVxFunds(db, reader, address.Bytes(), amount, updatedVxAccount)
+	}
+	return nil
 }
 
 // only settle validAmount and amount changed from previous period
-func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
+func DoSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
 	var (
 		vxFunds               *VxFunds
 		userNewAmt, sumChange *big.Int
@@ -288,10 +312,10 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 		originFundsLen        int
 		needUpdate            bool
 	)
-	vxFunds, _ = GetVxFunds(db, addressBytes)
+	vxFunds, _ = GetVxFundsWithForkCheck(db, addressBytes)
 	periodId = GetCurrentPeriodId(db, reader)
 	originFundsLen = len(vxFunds.Funds)
-	userNewAmt = new(big.Int).SetBytes(AddBigInt(updatedVxAccount.Available, updatedVxAccount.Locked))
+	userNewAmt = getUserNewVxAmtWithForkCheck(db, updatedVxAccount)
 	if originFundsLen == 0 { //need append new period
 		if IsValidVxAmountForDividend(userNewAmt) {
 			fundByPeriod := &dexproto.VxFundByPeriod{Period: periodId, Amount: userNewAmt.Bytes()}
@@ -339,13 +363,13 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 	}
 
 	if len(vxFunds.Funds) > 0 && needUpdate {
-		SaveVxFunds(db, addressBytes, vxFunds)
+		SaveVxFundsWithForkCheck(db, addressBytes, vxFunds)
 	} else if len(vxFunds.Funds) == 0 && originFundsLen > 0 {
-		DeleteVxFunds(db, addressBytes)
+		DeleteVxFundsWithForkCheck(db, addressBytes)
 	}
 
 	if sumChange != nil && sumChange.Sign() != 0 {
-		vxSumFunds, _ := GetVxSumFunds(db)
+		vxSumFunds, _ := GetVxSumFundsWithForkCheck(db)
 		sumFundsLen := len(vxSumFunds.Funds)
 		if sumFundsLen == 0 {
 			if sumChange.Sign() > 0 {
@@ -365,12 +389,31 @@ func doSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 				vxSumFunds.Funds = append(vxSumFunds.Funds, &dexproto.VxFundByPeriod{Amount: sumRes.Bytes(), Period: periodId})
 			}
 		}
-		SaveVxSumFunds(db, vxSumFunds)
+		SaveVxSumFundsWithForkCheck(db, vxSumFunds)
 	}
 	return nil
 }
 
-func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.Address]*types.Address, fee []byte) (bool, *types.Address, []byte) {
+func getUserNewVxAmtWithForkCheck(db vm_db.VmDb, updatedVxAcc *dexproto.Account) *big.Int {
+	if IsEarthFork(db) {
+		return new(big.Int).SetBytes(updatedVxAcc.VxLocked)
+	} else {
+		return new(big.Int).SetBytes(AddBigInt(updatedVxAcc.Available, updatedVxAcc.Locked))
+	}
+}
+
+func splitDividendPool(dividend *dexproto.FeeForDividend) (toDividendAmt, rolledAmount *big.Int) {
+	if !dividend.NotRoll {
+		toDividendAmt = new(big.Int).SetBytes(CalculateAmountForRate(dividend.DividendPoolAmount, PerPeriodDividendRate)) // %1
+		rolledAmount = new(big.Int).Sub(new(big.Int).SetBytes(dividend.DividendPoolAmount), toDividendAmt)                // 99%
+	} else {
+		toDividendAmt = new(big.Int).SetBytes(dividend.DividendPoolAmount)
+		rolledAmount = big.NewInt(0)
+	}
+	return
+}
+
+func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.Address]*types.Address, fee []byte) (bool, *types.Address, []byte, []byte) {
 	if address, err := types.BytesToAddress(addr); err != nil {
 		panic(InternalErr)
 	} else {
@@ -388,9 +431,9 @@ func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.A
 			}
 		}
 		if inviter != nil {
-			return true, inviter, CalculateAmountForRate(fee, InviteBonusRate)
+			return true, inviter, CalculateAmountForRate(fee, InviterBonusRate), CalculateAmountForRate(fee, InviteeBonusRate)
 		} else {
-			return false, nil, nil
+			return false, nil, nil, nil
 		}
 	}
 }

@@ -112,6 +112,13 @@ func AddRevokeMarketFromAgentEvent(db vm_db.VmDb, principal, agent types.Address
 	doEmitEventLog(db, event)
 }
 
+func AddBurnViteEvent(db vm_db.VmDb, bizType int, amount *big.Int) {
+	event := &BurnViteEvent{}
+	event.BizType = int32(bizType)
+	event.Amount = amount.Bytes()
+	doEmitEventLog(db, event)
+}
+
 func AddErrEvent(db vm_db.VmDb, err error) {
 	event := &ErrEvent{}
 	event.error = err

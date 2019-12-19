@@ -45,7 +45,7 @@ type contractsParams struct {
 
 var (
 	contractsParamsTest = contractsParams{
-		StakeHeight:            1,
+		StakeHeight:            600,
 		DexVipStakeHeight:      1,
 		DexSuperVipStakeHeight: 1,
 	}

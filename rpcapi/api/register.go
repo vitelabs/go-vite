@@ -53,13 +53,14 @@ func (r *RegisterApi) GetUpdateRegistrationData(gid types.Gid, name string, node
 }
 
 type RegistrationInfo struct {
-	Name           string        `json:"name"`
-	NodeAddr       types.Address `json:"nodeAddr"`
-	PledgeAddr     types.Address `json:"pledgeAddr"`
-	PledgeAmount   string        `json:"pledgeAmount"`
-	WithdrawHeight string        `json:"withdrawHeight"`
-	WithdrawTime   int64         `json:"withdrawTime"`
-	CancelTime     int64         `json:"cancelTime"`
+	Name                  string        `json:"name"`
+	NodeAddr              types.Address `json:"nodeAddr"`
+	PledgeAddr            types.Address `json:"pledgeAddr"`
+	RewardWithdrawAddress types.Address `json:"rewardWithdrawAddress"`
+	PledgeAmount          string        `json:"pledgeAmount"`
+	WithdrawHeight        string        `json:"withdrawHeight"`
+	WithdrawTime          int64         `json:"withdrawTime"`
+	CancelTime            int64         `json:"cancelTime"`
 }
 
 type byRegistrationExpirationHeight []*types.Registration
@@ -96,13 +97,14 @@ func (r *RegisterApi) GetRegistrationList(gid types.Gid, pledgeAddr types.Addres
 		sort.Sort(byRegistrationExpirationHeight(list))
 		for i, info := range list {
 			targetList[i] = &RegistrationInfo{
-				Name:           info.Name,
-				NodeAddr:       info.BlockProducingAddress,
-				PledgeAddr:     info.StakeAddress,
-				PledgeAmount:   *bigIntToString(info.Amount),
-				WithdrawHeight: Uint64ToString(info.ExpirationHeight),
-				WithdrawTime:   getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.ExpirationHeight),
-				CancelTime:     info.RevokeTime,
+				Name:                  info.Name,
+				NodeAddr:              info.BlockProducingAddress,
+				PledgeAddr:            info.StakeAddress,
+				RewardWithdrawAddress: info.RewardWithdrawAddress,
+				PledgeAmount:          *bigIntToString(info.Amount),
+				WithdrawHeight:        Uint64ToString(info.ExpirationHeight),
+				WithdrawTime:          getWithdrawTime(snapshotBlock.Timestamp, snapshotBlock.Height, info.ExpirationHeight),
+				CancelTime:            info.RevokeTime,
 			}
 		}
 	}

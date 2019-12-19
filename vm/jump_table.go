@@ -34,7 +34,30 @@ var (
 	offchainSimpleInstructionSet = newOffchainSimpleInstructionSet()
 	randInstructionSet           = newRandInstructionSet()
 	offchainRandInstructionSet   = newRandOffchainInstructionSet()
+	earthInstructionSet          = newEarthInstructionSet()
+	offchainEarthInstructionSet  = newEarthOffchainInstructionSet()
 )
+
+func newEarthInstructionSet() [256]operation {
+	instructionSet := newRandInstructionSet()
+	instructionSet[CALL2] = operation{
+		execute:       opCall2,
+		gasCost:       gasCall2,
+		validateStack: makeStackFunc(5, 1),
+		valid:         true,
+	}
+	return instructionSet
+}
+func newEarthOffchainInstructionSet() [256]operation {
+	instructionSet := newRandOffchainInstructionSet()
+	instructionSet[CALL2] = operation{
+		execute:       opOffchainCall2,
+		gasCost:       gasCall2,
+		validateStack: makeStackFunc(5, 1),
+		valid:         true,
+	}
+	return instructionSet
+}
 
 func newRandInstructionSet() [256]operation {
 	instructionSet := newSimpleInstructionSet()

@@ -163,7 +163,22 @@ func IsLeafFork(snapshotHeight uint64) bool {
 		panic("check leaf fork failed. LeafFork is not existed.")
 	}
 	return snapshotHeight >= leafForkPoint.Height && IsForkActive(*leafForkPoint)
+}
 
+func IsEarthFork(snapshotHeight uint64) bool {
+	earthForkPoint, ok := forkPointMap["EarthFork"]
+	if !ok {
+		panic("check earth fork failed. EarthFork is not existed.")
+	}
+	return snapshotHeight >= earthForkPoint.Height && IsForkActive(*earthForkPoint)
+}
+
+func IsDexMiningFork(snapshotHeight uint64) bool {
+	dexMiningForkPoint, ok := forkPointMap["DexMiningFork"]
+	if !ok {
+		panic("check dex mining fork failed. DexMiningFork is not existed.")
+	}
+	return snapshotHeight >= dexMiningForkPoint.Height && IsForkActive(*dexMiningForkPoint)
 }
 
 func GetLeafForkPoint() *ForkPointItem {
@@ -245,5 +260,7 @@ func GetLastForkPoint() *ForkPointItem {
 }
 
 func IsForkActive(point ForkPointItem) bool {
-	return activeChecker.IsForkActive(point)
+	// TODO suppose all point is active.
+	return true
+	//return activeChecker.IsForkActive(point)
 }

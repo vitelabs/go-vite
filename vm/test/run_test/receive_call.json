@@ -1,0 +1,63 @@
+{
+  "receive_selfdestruct_before_hardfork": {
+    "sbHeight": 299,
+    "blockType": 4,
+    "sendBlockType": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "",
+    "amount": "0100",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "0174d15b6d885c50bcc1b540bdf97701d77e06401fc300ff",
+    "pledgeBeneficialAmount": "10000000000000000000000",
+    "err": "invalid opcode",
+    "success": true,
+    "quota": 21001,
+    "quotaUsed": 21001,
+    "preContractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "contractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "sendBlockList": [
+      {
+        "blockType": 6,
+        "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+        "amount": "0100",
+        "tokenID": "tti_5649544520544f4b454e6e40"
+      }
+    ]
+  },
+  "receive_send_call_to_non_exist_contract_before_hardfork": {
+    "sbHeight": 299,
+    "blockType": 4,
+    "sendBlockType": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "",
+    "amount": "00",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "01600060006000695649544520544f4b454e74339a7c0e4f325014ec5bc11f7633ed32b2aa605901f1",
+    "needGlobalStatus":true,
+    "pledgeBeneficialAmount": "10000000000000000000000",
+    "err": "contract not exists",
+    "success": true,
+    "quota": 21005,
+    "quotaUsed": 21005,
+    "preContractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "contractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    }
+  }
+}

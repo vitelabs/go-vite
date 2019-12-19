@@ -44,7 +44,7 @@ gvite-linux-amd64:
 	@echo "const VITE_BUILD_VERSION = \""$(VITE_VERSION)"\"" >> $(shell pwd)/buildversion.go
 	env GOOS=linux GOARCH=amd64 go build -i -o $(GOBIN)/gvite-$(VITE_VERSION)-linux/gvite $(SERVERMAIN)
 	@cp  $(shell pwd)/node_config.json $(GOBIN)/gvite-$(VITE_VERSION)-linux/node_config.json
-	@cp  $(shell pwd)/bootstrap $(GOBIN)/gvite-$(VITE_VERSION)-linux/bootstrap
+	@cp  $(shell pwd)/bootstraplinux $(GOBIN)/gvite-$(VITE_VERSION)-linux/bootstrap
 	@echo "Build server done."
 	@ls -ld $(GOBIN)/gvite-$(VITE_VERSION)-linux/gvite
 

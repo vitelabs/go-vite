@@ -431,6 +431,9 @@ func (vm *VM) receiveCreate(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock
 			}
 		}
 	}
+	if err == nil && len(code) > maxCodeSize && fork.IsEarthFork(vm.latestSnapshotHeight) {
+		err = util.ErrInvalidCodeLength
+	}
 	vm.revert(db)
 
 	// try refund

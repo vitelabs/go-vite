@@ -22,6 +22,7 @@ type VMRunTestCase struct {
 	SbHeight uint64
 	SbTime   int64
 	SbHash   string
+	CsDetail map[uint64]map[string]*ConsensusDetail
 	// block
 	BlockType        byte
 	SendBlockType    byte
@@ -30,16 +31,17 @@ type VMRunTestCase struct {
 	ToAddress        types.Address
 	Data             string
 	Amount           string
-	TokenID          types.TokenTypeId
+	TokenId          types.TokenTypeId
 	Fee              string
 	Code             string
 	NeedGlobalStatus bool
+	BlockHeight      uint64
 	// environment
-	StakeBeneficialAmount string
-	PreStorage            map[string]string
-	PreBalanceMap         map[types.TokenTypeId]string
-	PreContractMetaMap    map[types.Address]*ledger.ContractMeta
-	ContractMetaMap       map[types.Address]*ledger.ContractMeta
+	PledgeBeneficialAmount string
+	PreStorage             map[string]string
+	PreBalanceMap          map[types.TokenTypeId]string
+	PreContractMetaMap     map[types.Address]*ledger.ContractMeta
+	ContractMetaMap        map[types.Address]*ledger.ContractMeta
 	// result
 	Err           string
 	IsRetry       bool
@@ -58,6 +60,11 @@ var (
 	prevHash, _   = types.HexToHash("82a8ecfe0df3dea6256651ee3130747386d4d6ab61201ce0050a6fe394a0f595")
 	// testAddr,_ = types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
 	// testContractAddr,_ = types.HexToAddress("vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86")
+)
+
+const (
+	genesisTimestamp int64 = 1546272000
+	csInterval       int64 = 24 * 3600
 )
 
 func TestVM_RunV2(t *testing.T) {
@@ -79,6 +86,7 @@ func TestVM_RunV2(t *testing.T) {
 			t.Fatalf("decode test file %v failed, %v", testFile.Name(), ok)
 		}
 		for k, testCase := range *testCaseMap {
+			fmt.Println(testFile.Name() + ":" + k)
 			var currentTime time.Time
 			if testCase.SbTime > 0 {
 				currentTime = time.Unix(testCase.SbTime, 0)
@@ -97,11 +105,11 @@ func TestVM_RunV2(t *testing.T) {
 				latestSnapshotBlock.Hash = sbHash
 			}
 			var ok bool
-			stakeBeneficialAmount := big.NewInt(0)
-			if len(testCase.StakeBeneficialAmount) > 0 {
-				stakeBeneficialAmount, ok = new(big.Int).SetString(testCase.StakeBeneficialAmount, 16)
+			pledgeBeneficialAmount := big.NewInt(0)
+			if len(testCase.PledgeBeneficialAmount) > 0 {
+				pledgeBeneficialAmount, ok = new(big.Int).SetString(testCase.PledgeBeneficialAmount, 16)
 				if !ok {
-					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "stakeBeneficialAmount", testCase.StakeBeneficialAmount)
+					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "pledgeBeneficialAmount", testCase.PledgeBeneficialAmount)
 				}
 			}
 			code, parseErr := hex.DecodeString(testCase.Code)
@@ -116,7 +124,7 @@ func TestVM_RunV2(t *testing.T) {
 
 			sendBlock := &ledger.AccountBlock{
 				Amount:  big.NewInt(0),
-				TokenId: testCase.TokenID,
+				TokenId: testCase.TokenId,
 				Fee:     big.NewInt(0),
 			}
 			if len(testCase.Fee) > 0 {
@@ -152,7 +160,7 @@ func TestVM_RunV2(t *testing.T) {
 				sendBlock.AccountAddress = testCase.FromAddress
 				sendBlock.ToAddress = testCase.ToAddress
 				var newDbErr error
-				db, newDbErr = newMockDB(&testCase.FromAddress, latestSnapshotBlock, prevBlock, quotaInfoList, stakeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code)
+				db, newDbErr = NewMockDB(&testCase.FromAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code, genesisTimestamp, forkSnapshotBlockMap)
 				if newDbErr != nil {
 					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
 				}
@@ -190,13 +198,18 @@ func TestVM_RunV2(t *testing.T) {
 						Height:         prevBlock.Height + 1,
 						AccountAddress: testCase.ToAddress,
 					}
+					if testCase.BlockHeight > 1 {
+						receiveBlock.Height = testCase.BlockHeight
+						prevBlock.Height = testCase.BlockHeight - 1
+					}
 				}
 				var newDbErr error
-				db, newDbErr = newMockDB(&testCase.ToAddress, latestSnapshotBlock, prevBlock, quotaInfoList, stakeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code)
+				db, newDbErr = NewMockDB(&testCase.ToAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code, genesisTimestamp, forkSnapshotBlockMap)
 				if newDbErr != nil {
 					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
 				}
-				vm := NewVM(nil)
+				cs := util.NewVMConsensusReader(newConsensusReaderTest(genesisTimestamp, csInterval, testCase.CsDetail))
+				vm := NewVM(cs)
 				var status util.GlobalStatus
 				if testCase.NeedGlobalStatus {
 					status = NewTestGlobalStatus(0, latestSnapshotBlock)
@@ -205,7 +218,6 @@ func TestVM_RunV2(t *testing.T) {
 			} else {
 				t.Fatal("invalid test case block type", "filename", testFile.Name(), "caseName", k, "blockType", testCase.BlockType)
 			}
-
 			if !errorEquals(testCase.Err, err) {
 				t.Fatal("invalid test case run result, err", "filename", testFile.Name(), "caseName", k, "expected", testCase.Err, "got", err)
 			} else if testCase.IsRetry != isRetry {
@@ -248,15 +260,20 @@ func TestVM_RunV2(t *testing.T) {
 					} else if expected := append([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, byte(2)); err != nil && err.Error() == util.ErrDepth.Error() && !bytes.Equal(vmBlock.AccountBlock.Data, expected) {
 						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", bytesToString(expected), "got", bytesToString(vmBlock.AccountBlock.Data))
 					}
+					if testCase.SendBlockType == ledger.BlockTypeSendCreate {
+						if got := hex.EncodeToString(db.code); got != testCase.Code {
+							t.Fatal("invalid test case run result, result code", "filename", testFile.Name(), "caseName", k, "expected", testCase.Code, "got", got)
+						}
+					}
 				} else if vmBlock.AccountBlock.IsReceiveBlock() {
 					if len(vmBlock.AccountBlock.Data) > 0 {
-						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", "nil", "got", bytesToString(vmBlock.AccountBlock.Data))
+						t.Fatal("invalid test case run result, receive block data", "filename", testFile.Name(), "caseName", k, "expected", "nil", "got", bytesToString(vmBlock.AccountBlock.Data))
 					}
 				} else {
 					if testCase.BlockData == nil && !bytes.Equal(vmBlock.AccountBlock.Data, stringToBytes(testCase.Data)) {
-						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", testCase.Data, "got", bytesToString(vmBlock.AccountBlock.Data))
+						t.Fatal("invalid test case run result, send block data", "filename", testFile.Name(), "caseName", k, "expected", testCase.Data, "got", bytesToString(vmBlock.AccountBlock.Data))
 					} else if testCase.BlockData != nil && !bytes.Equal(vmBlock.AccountBlock.Data, stringToBytes(*testCase.BlockData)) {
-						t.Fatal("invalid test case run result, data", "filename", testFile.Name(), "caseName", k, "expected", testCase.BlockData, "got", bytesToString(vmBlock.AccountBlock.Data))
+						t.Fatal("invalid test case run result, send block data", "filename", testFile.Name(), "caseName", k, "expected", testCase.BlockData, "got", bytesToString(vmBlock.AccountBlock.Data))
 					}
 				}
 			} else if vmBlock != nil {

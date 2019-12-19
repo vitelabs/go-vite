@@ -2,8 +2,10 @@ package dex
 
 import (
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"math/big"
 )
 
 type DividendPoolInfo struct {
@@ -132,6 +134,7 @@ func TokenInfoToRpc(tinfo *dex.TokenInfo, tti types.TokenTypeId) *RpcDexTokenInf
 type RpcFeesForDividend struct {
 	Token              string `json:"token"`
 	DividendPoolAmount string `json:"dividendPoolAmount"`
+	NotRoll            bool   `json:"notRoll"`
 }
 
 type RpcFeesForMine struct {
@@ -157,6 +160,7 @@ func DexFeesByPeriodToRpc(dexFeesByPeriod *dex.DexFeesByPeriod) *RpcDexFeesByPer
 		rpcDividend := &RpcFeesForDividend{}
 		rpcDividend.Token = TokenBytesToString(dividend.Token)
 		rpcDividend.DividendPoolAmount = AmountBytesToString(dividend.DividendPoolAmount)
+		rpcDividend.NotRoll = dividend.NotRoll
 		rpcDexFeesByPeriod.FeesForDividend = append(rpcDexFeesByPeriod.FeesForDividend, rpcDividend)
 	}
 	for _, mine := range dexFeesByPeriod.FeesForMine {
@@ -421,4 +425,120 @@ func OrdersToRpc(orders []*dex.Order) []*RpcOrder {
 		}
 		return rpcOrders
 	}
+}
+
+type StakeInfoList struct {
+	StakeAmount string       `json:"totalStakeAmount"`
+	Count       int          `json:"totalStakeCount"`
+	StakeList   []*StakeInfo `json:"stakeList"`
+}
+
+type StakeInfo struct {
+	Amount           string `json:"stakeAmount"`
+	Beneficiary      string `json:"beneficiary"`
+	ExpirationHeight string `json:"expirationHeight"`
+	ExpirationTime   int64  `json:"expirationTime"`
+	IsDelegated      bool   `json:"isDelegated"`
+	DelegateAddress  string `json:"delegateAddress"`
+	StakeAddress     string `json:"stakeAddress"`
+	Bid              uint8  `json:"bid"`
+	Id               string `json:"id,omitempty"`
+	Principal        string `json:"principal,omitempty"`
+}
+
+type VxUnlockList struct {
+	UnlockingAmount string      `json:"unlockingAmount"`
+	Count           int         `json:"count"`
+	Unlocks         []*VxUnlock `json:"unlocks"`
+}
+
+type VxUnlock struct {
+	Amount           string `json:"amount"`
+	ExpirationTime   int64  `json:"expirationTime"`
+	ExpirationPeriod uint64 `json:"expirationPeriod"`
+}
+
+type CancelStakeList struct {
+	CancellingAmount string         `json:"cancellingAmount"`
+	Count            int            `json:"count"`
+	Cancels          []*CancelStake `json:"cancels"`
+}
+
+type CancelStake struct {
+	Amount           string `json:"amount"`
+	ExpirationTime   int64  `json:"expirationTime"`
+	ExpirationPeriod uint64 `json:"expirationPeriod"`
+}
+
+func UnlockListToRpc(unlocks *dex.VxUnlocks, pageIndex int, pageSize int, chain chain.Chain) *VxUnlockList {
+	genesisTime := chain.GetGenesisSnapshotBlock().Timestamp.Unix()
+	total := new(big.Int)
+	vxUnlockList := new(VxUnlockList)
+	var count = 0
+	for i, ul := range unlocks.Unlocks {
+		amt := new(big.Int).SetBytes(ul.Amount)
+		if i >= pageIndex*pageSize && i < (pageIndex+1)*pageSize {
+			unlock := new(VxUnlock)
+			unlock.Amount = amt.String()
+			unlock.ExpirationTime = genesisTime + int64((ul.PeriodId+1+uint64(dex.SchedulePeriods))*3600*24)
+			unlock.ExpirationPeriod = ul.PeriodId + 1 + uint64(dex.SchedulePeriods)
+			vxUnlockList.Unlocks = append(vxUnlockList.Unlocks, unlock)
+		}
+		total.Add(total, amt)
+		count++
+	}
+	vxUnlockList.UnlockingAmount = total.String()
+	vxUnlockList.Count = count
+	return vxUnlockList
+}
+
+func CancelStakeListToRpc(cancelStakes *dex.CancelStakes, pageIndex int, pageSize int, chain chain.Chain) *CancelStakeList {
+	genesisTime := chain.GetGenesisSnapshotBlock().Timestamp.Unix()
+	total := new(big.Int)
+	cancelStakeList := new(CancelStakeList)
+	var count = 0
+	for i, ul := range cancelStakes.Cancels {
+		amt := new(big.Int).SetBytes(ul.Amount)
+		if i >= pageIndex*pageSize && i < (pageIndex+1)*pageSize {
+			cancel := new(CancelStake)
+			cancel.Amount = amt.String()
+			cancel.ExpirationTime = genesisTime + int64((ul.PeriodId+1+uint64(dex.SchedulePeriods))*3600*24) + 1200
+			cancel.ExpirationPeriod = ul.PeriodId + 1 + uint64(dex.SchedulePeriods)
+			cancelStakeList.Cancels = append(cancelStakeList.Cancels, cancel)
+		}
+		total.Add(total, amt)
+		count++
+	}
+	cancelStakeList.CancellingAmount = total.String()
+	cancelStakeList.Count = count
+	return cancelStakeList
+}
+
+type DelegateStakeInfo struct {
+	StakeType int    `json:"stakeType"`
+	Address   string `json:"address"`
+	Principal string `json:"principal"`
+	Amount    string `json:"amount"`
+	Status    int    `json:"status"`
+}
+
+func DelegateStakeInfoToRpc(info *dex.DelegateStakeInfo) *DelegateStakeInfo {
+	rpcInfo := new(DelegateStakeInfo)
+	rpcInfo.StakeType = int(info.StakeType)
+	addr, _ := types.BytesToAddress(info.Address)
+	rpcInfo.Address = addr.String()
+	if len(info.Principal) > 0 {
+		prAddr, _ := types.BytesToAddress(info.Principal)
+		rpcInfo.Principal = prAddr.String()
+	}
+	rpcInfo.Amount = AmountBytesToString(info.Amount)
+	rpcInfo.Status = int(info.Status)
+	return rpcInfo
+}
+
+type VIPStakingRpc struct {
+	Amount           string `json:"stakeAmount"`
+	ExpirationHeight string `json:"expirationHeight"`
+	ExpirationTime   int64  `json:"expirationTime"`
+	Id               string `json:"id,omitempty"`
 }
