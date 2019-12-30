@@ -66,7 +66,6 @@ type subscriptions map[string]*callback  // collection of subscription callbacks
 // Server represents a RPC server
 type Server struct {
 	services serviceRegistry
-
 	run      int32
 	codecsMu sync.Mutex
 	codecs   mapset.Set

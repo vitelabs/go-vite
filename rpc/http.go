@@ -27,6 +27,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -225,6 +226,18 @@ func NewHTTPServer(cors []string, vhosts []string, timeouts HTTPTimeouts, srv *S
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Permit dumb empty requests for remote health-checks (AWS)
 	if r.Method == http.MethodGet && r.ContentLength == 0 && r.URL.RawQuery == "" {
+		if isHealthCheckRouter(r.URL) {
+			req := srv.healthRequest()
+			if req.err != nil {
+				http.Error(w, req.err.Error(), http.StatusInternalServerError)
+				return
+			}
+			err := srv.execHeader(nil, nil, req)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
 		return
 	}
 	if code, err := validateRequest(r); err != nil {
@@ -245,6 +258,55 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("content-type", contentType)
 	srv.ServeSingleRequest(ctx, codec, OptionMethodInvocation)
+}
+
+func (srv *Server) healthRequest() *serverRequest {
+	method := "health"
+	service := "health"
+	svc, ok := srv.services[service]
+	if !ok {
+		return &serverRequest{id: 0, err: &methodNotFoundError{service, method, nil}}
+	}
+	callb, ok := svc.callbacks[method]
+	if !ok {
+		return &serverRequest{id: 0, err: &methodNotFoundError{service, method, nil}}
+	}
+	r := &serverRequest{
+		id:            0,
+		svcname:       svc.name,
+		callb:         callb,
+		args:          nil,
+		isUnsubscribe: false,
+		err:           nil,
+	}
+	return r
+}
+
+// get exec executes the given request and writes the result back using the codec.
+func (s *Server) execHeader(ctx context.Context, codec ServerCodec, req *serverRequest) (e error) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Error(fmt.Sprintf("%v\n", err))
+			errors.New(fmt.Sprintf("%v", err))
+		}
+	}()
+	arguments := []reflect.Value{req.callb.rcvr}
+	if req.callb.hasCtx {
+		arguments = append(arguments, reflect.ValueOf(ctx))
+	}
+	// execute RPC method and return result
+	reply := req.callb.method.Func.Call(arguments)
+	if len(reply) == 0 {
+		return
+	}
+	if req.callb.errPos >= 0 { // test if method returned an error
+		if !reply[req.callb.errPos].IsNil() {
+			err := reply[req.callb.errPos].Interface().(error)
+			e = err
+			return
+		}
+	}
+	return
 }
 
 // validateRequest returns chain non-zero response code and error message if the
