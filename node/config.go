@@ -28,9 +28,6 @@ type Config struct {
 
 	KeyStoreDir string `json:"KeyStoreDir"`
 
-	// template：["broker1,broker2,...|topic",""]
-	KafkaProducers []string `json:"KafkaProducers"`
-
 	// chain
 	LedgerGcRetain uint64          `json:"LedgerGcRetain"`
 	LedgerGc       *bool           `json:"LedgerGc"`
