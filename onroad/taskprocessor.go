@@ -118,7 +118,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 	// judge generator result
 	if err != nil || genResult == nil {
 		blog.Error(fmt.Sprintf("GenerateWithOnRoad failed, err:%v", err))
-		if err != nil && strings.EqualFold(err.Error(), generator.ErrVmRunPanic.Error()) {
+		if err != nil && strings.EqualFold(err.Error(), types.ErrVmRunPanic.Error()) {
 			tp.restrictContract(task.Addr, RETRY)
 			return false
 		}

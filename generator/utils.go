@@ -23,13 +23,13 @@ type stateChain interface {
 func GetAddressStateForGenerator(chain stateChain, addr *types.Address) (*EnvPrepareForGenerator, error) {
 	latestSnapshot := chain.GetLatestSnapshotBlock()
 	if latestSnapshot == nil {
-		return nil, ErrGetLatestSnapshotBlock
+		return nil, types.ErrGetLatestSnapshotBlock
 	}
 	var prevAccHash types.Hash
 	var prevAccHeight uint64
 	prevAccountBlock, err := chain.GetLatestAccountBlock(*addr)
 	if err != nil {
-		return nil, ErrGetLatestAccountBlock
+		return nil, types.ErrGetLatestAccountBlock
 	}
 	if prevAccountBlock != nil {
 		prevAccHash = prevAccountBlock.Hash
