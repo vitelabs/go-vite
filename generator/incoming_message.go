@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/header"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -12,7 +13,7 @@ import (
 )
 
 // IncomingMessageToBlock returns a complete block by a IncomingMessage.
-func IncomingMessageToBlock(vmDb vm_db.VmDb, im *IncomingMessage) (*ledger.AccountBlock, error) {
+func IncomingMessageToBlock(vmDb vm_db.VmDb, im *header.IncomingMessage) (*ledger.AccountBlock, error) {
 	block := &ledger.AccountBlock{
 		BlockType:      im.BlockType,
 		AccountAddress: im.AccountAddress,

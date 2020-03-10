@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/header"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 	"math/rand"
@@ -120,7 +121,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		blockType = ledger.BlockTypeSendCall
 	}
 
-	msg := &generator.IncomingMessage{
+	msg := &header.IncomingMessage{
 		BlockType:      blockType,
 		AccountAddress: *param.SelfAddr,
 		ToAddress:      param.ToAddr,

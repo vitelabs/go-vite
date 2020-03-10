@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/header"
 	"math/big"
 
 	"github.com/vitelabs/go-vite/chain"
@@ -292,7 +293,7 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 		}
 	}
 
-	msg := &generator.IncomingMessage{
+	msg := &header.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: params.SelfAddr,
 		ToAddress:      &params.ToAddr,

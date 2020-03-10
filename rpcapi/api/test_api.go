@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/vitelabs/go-vite/header"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 	"math/rand"
@@ -87,7 +88,7 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		return dex.InvalidOrderPriceErr
 	}
 
-	msg := &generator.IncomingMessage{
+	msg := &header.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: params.SelfAddr,
 		ToAddress:      &params.ToAddr,
@@ -144,7 +145,7 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 		return errors.New("AccountTypeContract can't receiveTx without consensus's control")
 	}
 
-	msg := &generator.IncomingMessage{
+	msg := &header.IncomingMessage{
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: params.SelfAddr,
 		FromBlockHash:  &params.FromHash,

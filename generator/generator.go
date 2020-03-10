@@ -6,6 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/header"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
@@ -27,12 +28,8 @@ type chain interface {
 	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
 }
 
-// SignFunc is the function type defining the callback when a block requires a
-// method to sign the transaction in generator.
-type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
-
 // Generator implements the logic to generate a account transaction block.
-type Generator struct {
+type generator struct {
 	chain chain
 
 	vmDb vm_db.VmDb
@@ -41,19 +38,12 @@ type Generator struct {
 	log log15.Logger
 }
 
-// GenResult represents the result of a block being validated by vm.
-type GenResult struct {
-	VMBlock *vm_db.VmAccountBlock
-	IsRetry bool
-	Err     error
-}
-
 // NewGenerator needs to new a vm_db.VmDb with state of the world and SBP information for Vm,
 //
 // the third "addr" needs to be filled with the address of the account chain to be blocked,
 // and the last needs to be filled with the previous/latest block's hash on the account chain.
-func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (*Generator, error) {
-	gen := &Generator{
+func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (header.Generator, error) {
+	gen := &generator{
 		log: log15.New("module", "Generator"),
 	}
 	gen.chain = chain
@@ -71,7 +61,7 @@ func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, la
 
 // GenerateWithBlock implements the method to generate a transaction with VM execution results
 // from a block which contains the complete transaction info.
-func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock) (*GenResult, error) {
+func (gen *generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock) (*header.GenResult, error) {
 	genResult, err := gen.generateBlock(block, fromBlock, nil, nil)
 	if err != nil {
 		return nil, err
@@ -81,7 +71,7 @@ func (gen *Generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *l
 
 // GenerateWithMessage implements the method to generate a transaction with VM execution results
 // from a IncomingMessage which contains the necessary transaction info.
-func (gen *Generator) GenerateWithMessage(message *IncomingMessage, producer *types.Address, signFunc SignFunc) (*GenResult, error) {
+func (gen *generator) GenerateWithMessage(message *header.IncomingMessage, producer *types.Address, signFunc header.SignFunc) (*header.GenResult, error) {
 	block, err := IncomingMessageToBlock(gen.vmDb, message)
 	if err != nil {
 		return nil, err
@@ -102,7 +92,7 @@ func (gen *Generator) GenerateWithMessage(message *IncomingMessage, producer *ty
 
 // GenerateWithOnRoad implements the method to generate a transaction with VM execution results
 // from a sendBlock(onroad block).
-func (gen *Generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error) {
+func (gen *generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc header.SignFunc, difficulty *big.Int) (*header.GenResult, error) {
 	block, err := gen.packReceiveBlockWithSend(sendBlock, difficulty)
 	if err != nil {
 		return nil, err
@@ -114,7 +104,7 @@ func (gen *Generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, produce
 	return genResult, nil
 }
 
-func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock, producer *types.Address, signFunc SignFunc) (result *GenResult, resultErr error) {
+func (gen *generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock, producer *types.Address, signFunc header.SignFunc) (result *header.GenResult, resultErr error) {
 	defer func() {
 		if err := recover(); err != nil {
 			// debug.PrintStack()
@@ -123,7 +113,7 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 				errDetail += fmt.Sprintf("fromBlock(addr:%v hash:%v)", fromBlock.AccountAddress, fromBlock.Hash)
 			}
 			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
-			result = &GenResult{}
+			result = &header.GenResult{}
 			resultErr = ErrVmRunPanic
 		}
 	}()
@@ -191,14 +181,14 @@ func (gen *Generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 		}
 	}
 
-	return &GenResult{
+	return &header.GenResult{
 		VMBlock: vmBlock,
 		IsRetry: isRetry,
 		Err:     err,
 	}, nil
 }
 
-func (gen *Generator) packReceiveBlockWithSend(sendBlock *ledger.AccountBlock, difficulty *big.Int) (*ledger.AccountBlock, error) {
+func (gen *generator) packReceiveBlockWithSend(sendBlock *ledger.AccountBlock, difficulty *big.Int) (*ledger.AccountBlock, error) {
 	recvBlock := &ledger.AccountBlock{
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: sendBlock.ToAddress,
@@ -247,6 +237,6 @@ func (gen *Generator) packReceiveBlockWithSend(sendBlock *ledger.AccountBlock, d
 }
 
 // GetVMDB returns the vm_db.VmDb the current Generator used.
-func (gen *Generator) GetVMDB() vm_db.VmDb {
+func (gen *generator) GetVMDB() vm_db.VmDb {
 	return gen.vmDb
 }
