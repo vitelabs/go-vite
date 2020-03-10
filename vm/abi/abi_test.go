@@ -816,6 +816,7 @@ func TestABI_MethodById(t *testing.T) {
 }
 
 func TestPackEvent(t *testing.T) {
+	genesisAccount := types.HexToAddressPanic("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
 	var testCases = []struct {
 		abiJson   string
 		eventName string
@@ -835,7 +836,7 @@ func TestPackEvent(t *testing.T) {
 		{
 			`[{"type":"event","name":"burn","inputs":[{"name":"tokenId","type":"tokenId","indexed":true},{"name":"address","type":"address"},{"name":"amount","type":"uint256"}]}]`,
 			"burn",
-			[]interface{}{ledger.ViteTokenId, ledger.GenesisAccountAddress, big.NewInt(1e18)},
+			[]interface{}{ledger.ViteTokenId, genesisAccount, big.NewInt(1e18)},
 			[]types.Hash{
 				{97, 183, 48, 235, 101, 233, 99, 47, 158, 102, 219, 185, 87, 54, 55, 226, 222, 80, 17, 178, 245, 18, 137, 74, 55, 152, 28, 98, 222, 60, 189, 64},
 				{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N'}},

@@ -1,6 +1,6 @@
 package ledger
 
-type Block interface {
+type Serializable interface {
 	Serialize() ([]byte, error)
 	Deserialize([]byte) error
 }

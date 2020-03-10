@@ -56,8 +56,22 @@ func (vll VmLogList) Proto() *vitepb.VmLogList {
 	return pb
 }
 
-func VmLogListDeProto(pb *vitepb.VmLogList) VmLogList {
-	var vll VmLogList
+
+
+func (vll VmLogList) Serialize() ([]byte, error) {
+	return proto.Marshal(vll.Proto())
+}
+
+func (vll *VmLogList) Deserialize(buf []byte) error {
+	pb := &vitepb.VmLogList{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return err
+	}
+	return vll.DeProto(pb)
+}
+
+func (vll *VmLogList )DeProto(pb *vitepb.VmLogList) error{
+	var tmp VmLogList
 	for _, vmLogPb := range pb.List {
 
 		var topics []types.Hash
@@ -66,23 +80,11 @@ func VmLogListDeProto(pb *vitepb.VmLogList) VmLogList {
 			topics = append(topics, topic)
 		}
 
-		vll = append(vll, &VmLog{
+		tmp = append(tmp, &VmLog{
 			Topics: topics,
 			Data:   vmLogPb.Data,
 		})
 	}
-	return vll
-}
-
-func (vll VmLogList) Serialize() ([]byte, error) {
-	return proto.Marshal(vll.Proto())
-}
-
-func VmLogListDeserialize(buf []byte) (VmLogList, error) {
-	pb := &vitepb.VmLogList{}
-	if err := proto.Unmarshal(buf, pb); err != nil {
-		return nil, err
-	}
-
-	return VmLogListDeProto(pb), nil
+	*vll = tmp
+	return nil
 }

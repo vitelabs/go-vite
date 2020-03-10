@@ -24,7 +24,7 @@ func TestContractMeta_Serialize(t *testing.T) {
 	}
 
 	//[0 0 0 0 0 0 0 0 0 2 1 219 122 3 190 3 55 44 73 158 214 162 17 245 181 216 186 95 214 70 152 105 246 228 65 91 46 88 229 221 50 22 54 10 1]
-	byteBuf := cm.Serialize()
+	byteBuf, _ := cm.Serialize()
 
 	if len(byteBuf) != LengthBeforeSeedFork+1 {
 		t.Fatal(fmt.Sprintf("must be equal %d, but is  %d", LengthBeforeSeedFork+1, len(byteBuf)))
@@ -40,7 +40,8 @@ func TestContractMeta_Serialize(t *testing.T) {
 	cmNew2 := *cm
 	cmNew2.SeedConfirmedTimes = cmNew2.SendConfirmedTimes
 
-	if err := checkSame(cmNew2, cm.Serialize()[:LengthBeforeSeedFork]); err != nil {
+	cmByt, _ := cm.Serialize()
+	if err := checkSame(cmNew2, cmByt[:LengthBeforeSeedFork]); err != nil {
 		t.Fatal(err)
 	}
 
@@ -54,7 +55,7 @@ func TestContractMeta_Serialize(t *testing.T) {
 	}
 
 	// [0 0 0 0 0 0 0 0 0 2 1 219 122 3 190 3 55 44 73 158 214 162 17 245 181 216 186 95 214 70 152 105 246 228 65 91 46 88 229 221 50 22 54 10 0]
-	byteBuf2 := cm2.Serialize()
+	byteBuf2, _ := cm2.Serialize()
 	if len(byteBuf2) != LengthBeforeSeedFork+1 {
 		t.Fatal(fmt.Sprintf("must be equal %d, but is  %d", LengthBeforeSeedFork+1, len(byteBuf2)))
 	}

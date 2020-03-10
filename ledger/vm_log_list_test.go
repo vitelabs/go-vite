@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
+	"gotest.tools/assert"
 	"testing"
 )
 
@@ -70,4 +71,29 @@ func TestVmLogList_Hash(t *testing.T) {
 		t.Fatal(fmt.Sprintf("vmloghash105 should be equal with vmLogHash100 , %+v, %+v", vmLogHash105, vmLogHash100))
 	}
 
+}
+
+func TestVmLogList_Serialize(t *testing.T) {
+	hash1 := types.HexToHashPanic("0dede580455f970517210ae2b9c0fbba74d5b7eea07eb0c62725e06c45061711")
+	hash2 := types.HexToHashPanic("c512660e3ee7d1dc005a6206ccaf84e6b567592d543f537566d871c2440e187e")
+
+	var vmLogList VmLogList
+	vmLogList = append(vmLogList, &VmLog{
+		Topics: []types.Hash{hash1, hash2},
+		Data:   []byte("test"),
+	})
+
+	byt, err := vmLogList.Serialize()
+	assert.NilError(t, err)
+
+	var vmLogList2 = &VmLogList{}
+
+	err = vmLogList2.Deserialize(byt)
+	assert.NilError(t, err)
+
+	assert.Equal(t, len(vmLogList), len(*vmLogList2))
+	for i, vmLog := range vmLogList {
+		assert.DeepEqual(t, (*vmLogList2)[i].Data, vmLog.Data)
+		assert.DeepEqual(t, (*vmLogList2)[i].Topics, vmLog.Topics)
+	}
 }

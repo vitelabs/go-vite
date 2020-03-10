@@ -257,7 +257,9 @@ func (sDB *StateDB) GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error) 
 	if len(value) <= 0 {
 		return nil, nil
 	}
-	return ledger.VmLogListDeserialize(value)
+	vmList := &ledger.VmLogList{}
+	err = vmList.Deserialize(value)
+	return *vmList,err
 }
 
 func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {

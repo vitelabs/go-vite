@@ -71,7 +71,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 			contractKey := chain_utils.CreateContractMetaKey(addr)
 			gidContractKey := chain_utils.CreateGidContractKey(meta.Gid, &addr)
 
-			metaBytes := meta.Serialize()
+			metaBytes, _ := meta.Serialize()
 
 			// set meta
 			sDB.writeContractMeta(batch, contractKey, metaBytes)

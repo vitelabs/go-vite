@@ -15,7 +15,7 @@ type ContractMeta struct {
 
 const LengthBeforeSeedFork = types.GidSize + 1 + types.HashSize + 1
 
-func (cm *ContractMeta) Serialize() []byte {
+func (cm *ContractMeta) Serialize() ([]byte, error) {
 	buf := make([]byte, 0, LengthBeforeSeedFork+1)
 
 	buf = append(buf, cm.Gid.Bytes()...)
@@ -25,7 +25,7 @@ func (cm *ContractMeta) Serialize() []byte {
 
 	buf = append(buf, cm.SeedConfirmedTimes)
 
-	return buf
+	return buf, nil
 }
 
 func (cm *ContractMeta) Deserialize(buf []byte) error {
