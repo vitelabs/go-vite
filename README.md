@@ -23,7 +23,7 @@ The go-vite binary files can be download from [releases](https://github.com/vite
 ## Guides & Documentation
    * [White Paper](https://www.vite.org/whitepaper/vite_en.pdf)
    * [Documentation](https://vite.wiki/)
-   * [Techblog](https://vite.blog/)
+   * [Techblog](https://vite.blog/) [WIKI](https://vite.wiki/)
    * [Runing a node](https://vite.wiki/tutorial/node/install.html)
    
 
@@ -32,7 +32,7 @@ The go-vite binary files can be download from [releases](https://github.com/vite
    * [Web Wallet](https://wallet.vite.net)
    * [Desktop Wallet](https://github.com/vitelabs/vite-wallet)
    * [Wallet App](https://app.vite.net) open through mobile browser
-   * [TestNet Block Explorer](https://testnet.vite.net)
+   * [Block Explorer](https://explorer.vite.net)
    
 ## Links & Resources
    * [Project Vite official Website](https://www.vite.org/)
