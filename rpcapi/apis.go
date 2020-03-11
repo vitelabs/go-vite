@@ -222,6 +222,25 @@ func GetApis(vite *vite.Vite, apiModule ...string) []rpc.API {
 	}
 	return apis
 }
+func MergeApis(apis ...[]rpc.API) []rpc.API {
+	resultMap := make(map[string]rpc.API)
+	for _, apiArr := range apis {
+		for _, r := range apiArr {
+			_, ok := resultMap[r.Namespace]
+			if ok {
+				continue
+			}
+			resultMap[r.Namespace] = r
+		}
+	}
+
+	var result []rpc.API
+
+	for _, r := range resultMap {
+		result = append(result, r)
+	}
+	return result
+}
 
 func GetPublicApis(vite *vite.Vite) []rpc.API {
 	return GetApis(vite, "ledger", "net", "contract", "util", "health")

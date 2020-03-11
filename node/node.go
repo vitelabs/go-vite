@@ -8,12 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/metrics"
@@ -307,60 +305,70 @@ func (node *Node) startVite() error {
 	return node.viteServer.Start()
 }
 
-func (node *Node) startRPC() error {
+func (node *Node) startRPC() (e error) {
 
 	// Init rpc log
 	rpcapi.Init(node.config.DataDir, node.config.LogLevel, node.config.TestTokenHexPrivKey, node.config.TestTokenTti, uint(node.config.NetID), node.config.TxDexEnable)
 
+	publicApis := rpcapi.MergeApis(rpcapi.GetPublicApis(node.viteServer))
+	customApis := rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
+	apis := rpcapi.MergeApis(publicApis, customApis)
+
 	// Start the various API endpoints, terminating all in case of errors
-	if err := node.startInProcess(node.GetInProcessApis()); err != nil {
+	if err := node.startInProcess(apis); err != nil {
 		return err
 	}
+	defer func() {
+		if e != nil {
+			node.stopInProcess()
+		}
+	}()
 
 	// start event system
 	if node.config.SubscribeEnabled {
 		filters.Es = filters.NewEventSystem(node.Vite())
 		filters.Es.Start()
 	}
+	defer func() {
+		if e != nil {
+			filters.Es.Stop()
+		}
+	}()
 
 	// Start rpc
 	if node.config.IPCEnabled {
-		if err := node.startIPC(node.GetIpcApis()); err != nil {
-			node.stopInProcess()
+		if err := node.startIPC(apis); err != nil {
 			return err
 		}
+		defer func() {
+			if e != nil {
+				node.stopIPC()
+			}
+		}()
 	}
 
 	if node.config.RPCEnabled {
-		apis := rpcapi.GetPublicApis(node.viteServer)
-		if len(node.config.PublicModules) != 0 {
-			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
-		}
 		if err := node.startHTTP(node.httpEndpoint, apis, nil, node.config.HTTPCors, node.config.HttpVirtualHosts, rpc.HTTPTimeouts{}, node.config.HttpExposeAll); err != nil {
-			node.stopInProcess()
-			node.stopIPC()
 			return err
 		}
+		defer func() {
+			if e != nil {
+				node.stopHTTP()
+			}
+		}()
 	}
 
 	if node.config.WSEnabled {
-		apis := rpcapi.GetPublicApis(node.viteServer)
-		if len(node.config.PublicModules) != 0 {
-			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
-		}
 		if err := node.startWS(node.wsEndpoint, apis, nil, node.config.WSOrigins, node.config.WSExposeAll); err != nil {
-			node.stopInProcess()
-			node.stopIPC()
-			node.stopHTTP()
 			return err
 		}
+		defer func() {
+			if e != nil {
+				node.stopWS()
+			}
+		}()
 	}
 	if len(node.config.DashboardTargetURL) > 0 {
-		apis := rpcapi.GetPublicApis(node.viteServer)
-		if len(node.config.PublicModules) != 0 {
-			apis = rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
-		}
-
 		targetUrl := node.config.DashboardTargetURL + "/ws/gvite/" + strconv.FormatUint(uint64(node.config.NetID), 10) + "@" + node.Vite().Net().Info().ID.String()
 
 		u, e := url.Parse(targetUrl)
@@ -379,6 +387,12 @@ func (node *Node) startRPC() error {
 		} else {
 			node.wsCli = cli
 		}
+		defer func() {
+			if e != nil {
+				cli.Close()
+				server.Stop()
+			}
+		}()
 	}
 
 	return nil
@@ -443,21 +457,4 @@ func (node *Node) openDataDir() error {
 	log.Info(fmt.Sprintf("Open NodeServer.walletConfig.DataDir:%v", node.walletConfig.DataDir))
 
 	return nil
-}
-
-func parseCoinBase(coinBase string) (types.Address, uint32, error) {
-	splits := strings.Split(coinBase, ":")
-	if len(splits) != 2 {
-		return types.Address{}, 0, errors.New("len is not equals 2.")
-	}
-	i, err := strconv.Atoi(splits[0])
-	if err != nil {
-		return types.Address{}, 0, err
-	}
-	addr, err := types.HexToAddress(splits[1])
-	if err != nil {
-		return types.Address{}, 0, err
-	}
-
-	return addr, uint32(i), nil
 }
