@@ -3,14 +3,16 @@ package chain_db
 import (
 	"encoding/binary"
 	"fmt"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/allegro/bigcache"
+	"github.com/gobuffalo/syncx"
 	"github.com/patrickmn/go-cache"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
 	"github.com/syndtr/goleveldb/leveldb/memdb"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 func BenchmarkLevelDb(b *testing.B) {
@@ -24,6 +26,9 @@ func BenchmarkBigCache(b *testing.B) {
 	benchmarkCache(b, newBigCacheBenchCache(cache))
 }
 
+//BenchmarkGoCache/put-8         	 1000000	      1024 ns/op
+//BenchmarkGoCache/get-8         	 5680088	       211 ns/op
+//BenchmarkGoCache/delete-8      	 5147698	       238 ns/op
 func BenchmarkGoCache(b *testing.B) {
 	c := cache.New(5*time.Minute, 10*time.Minute)
 
@@ -31,11 +36,56 @@ func BenchmarkGoCache(b *testing.B) {
 	benchmarkCache(b, newGoCacheBenchCache(c))
 }
 
+//BenchmarkSyncMapCache/put-8         	 1000000	      1571 ns/op
+//BenchmarkSyncMapCache/get-8         	 6393415	       191 ns/op
+//BenchmarkSyncMapCache/delete-8      	 6371491	       197 ns/op
+func BenchmarkSyncMapCache(b *testing.B) {
+	c := &syncx.ByteMap{}
+
+	//cache := memdb.New(comparer.DefaultComparer, 0)
+	benchmarkCache(b, newSyncMapCache(c))
+}
+
 type BenchCache interface {
 	Put(key, value []byte) error
 	Get(key []byte) ([]byte, error)
 	Delete(key []byte) error
 	Size() int
+}
+
+type syncMapCache struct {
+	cache *syncx.ByteMap
+}
+
+func newSyncMapCache(db *syncx.ByteMap) BenchCache {
+	return &syncMapCache{
+		cache: db,
+	}
+}
+func (c *syncMapCache) Put(key, value []byte) error {
+	c.cache.Store(string(key), value)
+	return nil
+}
+
+func (c *syncMapCache) Get(key []byte) ([]byte, error) {
+	value, ok := c.cache.Load(string(key))
+	if !ok {
+		return nil, nil
+	}
+	return value, nil
+}
+func (c *syncMapCache) Delete(key []byte) error {
+	c.cache.Delete(string(key))
+	return nil
+}
+
+func (c *syncMapCache) Size() int {
+	i := 0
+	c.cache.Range(func(key string, value []byte) bool {
+		i++
+		return true
+	})
+	return i
 }
 
 type bigCacheBenchCache struct {
@@ -120,7 +170,6 @@ func benchmarkCache(b *testing.B, cache BenchCache) {
 	})
 	fmt.Println(cache.Size())
 
-	return
 	b.Run("get", func(b *testing.B) {
 		key := make([]byte, 24)
 		for i := 0; i < b.N; i++ {
