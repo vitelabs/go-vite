@@ -22,5 +22,5 @@ func TestGenesisCfg(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log(hash)
-	assert.Equal(t, "445e457d30a15a74da9989f5cb989221c048ba230f069bb43b6668f56c3b3533", hash.String())
+	assert.Equal(t, "79803fa6fc50f7e7ce18366fd6595394d6d257a191ed47850ca09609749e8f21", hash.String())
 }
