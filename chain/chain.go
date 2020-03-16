@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+
 	"github.com/olebedev/emitter"
 	"github.com/vitelabs/go-vite/common/fork"
 
@@ -56,8 +57,10 @@ type chain struct {
 
 	emitter *emitter.Emitter
 
+	// memory cache for query
 	cache *chain_cache.Cache
 
+	// genesis checksum
 	metaDB *leveldb.DB
 
 	indexDB *chain_index.IndexDB
