@@ -8,6 +8,10 @@ import (
 
 type MockConsensus struct{}
 
+func (c *MockConsensus) VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
+	panic("implement me")
+}
+
 func (c *MockConsensus) SBPReader() core.SBPStatReader {
 	return nil
 }
