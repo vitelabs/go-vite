@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
+
+	"github.com/vitelabs/go-vite/crypto"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common"
@@ -59,6 +62,36 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 
 	//fmt.Println(em.GetPrimaryAddr())
 	//fmt.Println(em.GetEntropyStoreFile())
+}
+
+func TestManager_RecoverEntropyStoreFromMnemonic(t *testing.T) {
+	mnemonic := ""
+	manager := wallet.New(&wallet.Config{
+		DataDir: deskTopDir(),
+	})
+	em, _ := manager.RecoverEntropyStoreFromMnemonic(mnemonic, "123456")
+	em.Unlock("123456")
+	addr := em.GetPrimaryAddr()
+
+	t.Log(addr)
+
+	_, key, err := em.DeriveForIndexPath(0)
+	assert.NoError(t, err)
+	privateKey, err := key.PrivateKey()
+	t.Log(hex.EncodeToString(privateKey))
+	publicKey, err := key.PublicKey()
+	assert.NoError(t, err)
+	hexPubKey := hex.EncodeToString(publicKey)
+	t.Log(hexPubKey)
+	now := time.Now().Unix()
+	data, pub, err := key.SignData([]byte(fmt.Sprintf("%d", now)))
+	assert.NoError(t, err)
+	t.Log(hex.EncodeToString(pub))
+
+	pubKeyddd, _ := hex.DecodeString(hex.EncodeToString(publicKey))
+	sig, err := crypto.VerifySig(pubKeyddd, []byte(fmt.Sprintf("%d", now)), data)
+	t.Log(sig, err)
+
 }
 
 func TestManager_NewMnemonicAndSeedStore2(t *testing.T) {
