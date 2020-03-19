@@ -3,12 +3,17 @@ package api
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"math/big"
+	"time"
+
+	"github.com/vitelabs/go-vite/common/hexutil"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/pow/remote"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/quota"
-	"math/big"
 )
 
 type UtilApi struct {
@@ -62,4 +67,29 @@ func (p UtilApi) GetPoWNonce(difficulty string, data types.Hash) ([]byte, error)
 	}
 
 	return nn, nil
+}
+
+// Pow Plan Ref[] todo
+func (p Pow) GetPowNoncePrivate(address types.Address, height uint64, difficulty string, data types.Hash, timestamp uint64, sig []byte) (result []byte, e error) {
+	log.Info("GetPowNoncePrivate ", "address", address, "height", height,
+		"difficulty", difficulty, "data", data.Hex(), "timestamp", timestamp, "sig", hexutil.Encode(sig))
+	s := time.Now()
+	defer func() {
+		log.Info("GetPowNoncePrivate ", "address", address, "height", height,
+			"difficulty", difficulty, "data", data.Hex(), "timestamp", timestamp, "sig", hexutil.Encode(sig),
+			"err", e, "duration_ms", time.Now().Sub(s).Milliseconds())
+	}()
+
+	flag, err := crypto.VerifySig(p.pubKey, []byte(fmt.Sprintf("%d", timestamp)), sig)
+	if err != nil {
+		return nil, err
+	}
+	if !flag {
+		return nil, errors.New("auth fail")
+	}
+	realDifficulty, ok := new(big.Int).SetString(difficulty, 10)
+	if !ok {
+		return nil, ErrStrToBigInt
+	}
+	return pow.GetPowNonce(realDifficulty, data)
 }

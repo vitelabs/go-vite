@@ -4,17 +4,19 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/pow"
 	"io/ioutil"
 	"math/big"
 	"net/http"
+
+	"github.com/pkg/errors"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/pow"
 )
 
 var (
 	powClientLog = log15.New("module", "pow_request")
 	requestUrl   string
+	working      bool
 )
 
 const (
@@ -28,7 +30,17 @@ func InitRawUrl(rawurl string) {
 	requestUrl = rawurl
 }
 
+func Working() bool {
+	if len(requestUrl) == 0 {
+		return false
+	}
+	return true
+}
+
 func GenerateWork(dataHash []byte, difficulty *big.Int) (*string, error) {
+	if !Working() {
+		return nil, errors.New("not supported")
+	}
 	threshold := pow.DifficultyToTarget(difficulty)
 	wg := &workGenerate{
 		Threshold: threshold.Text(16),
@@ -47,6 +59,9 @@ func GenerateWork(dataHash []byte, difficulty *big.Int) (*string, error) {
 }
 
 func CancelWork(dataHash []byte) error {
+	if !Working() {
+		return nil
+	}
 	wg := &workCancel{
 		DataHash: hex.EncodeToString(dataHash),
 	}
