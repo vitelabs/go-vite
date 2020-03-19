@@ -1,11 +1,14 @@
 package pow
 
 import (
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
+	"time"
+
+	"github.com/vitelabs/go-vite/common/helper"
 
 	"encoding/binary"
 	"errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"golang.org/x/crypto/blake2b"
@@ -41,11 +44,20 @@ func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
 
 	data := dataHash.Bytes()
 	target256 := helper.LeftPadBytes(target.Bytes(), 32)
+	i := 0
+	t := time.Now()
 	for {
 		nonce := crypto.GetEntropyCSPRNG(8)
 		out := powHash256(nonce, data)
 		if QuickGreater(out, target256) {
 			return nonce, nil
+		}
+		i++
+		if i > 10000 {
+			if time.Now().Sub(t).Minutes() > 10 {
+				break
+			}
+			i = 0
 		}
 	}
 	return nil, errors.New("get pow nonce error")
