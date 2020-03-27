@@ -27,7 +27,7 @@ func Init(vMTestParamEnabled bool) {
 	VMTestParamEnabled = vMTestParamEnabled
 }
 
-// data = Hash(address + prehash); data + nonce < target.
+// data = Hash(address + prev_hash); data + nonce < target.
 func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
 	var target *big.Int = nil
 	if VMTestParamEnabled {

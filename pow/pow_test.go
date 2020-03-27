@@ -5,15 +5,16 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"math"
+	"math/big"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/pow"
 	"golang.org/x/crypto/blake2b"
-	"math"
-	"math/big"
-	"testing"
-	"time"
 )
 
 func TestGetPowNonce(t *testing.T) {
@@ -48,9 +49,7 @@ func TestCheckPowNonce(t *testing.T) {
 	data, _ := hex.DecodeString("718CC2121C3E641059BC1C2CFC45666C718CC2121C3E641059BC1C2CFC45666C")
 
 	d, ok := new(big.Int).SetString("67108863", 10)
-	if !ok {
-		fmt.Println("!ok")
-	}
+	assert.True(t, ok)
 	assert.True(t, pow.CheckPowNonce(d, nn, data))
 
 }
@@ -87,8 +86,8 @@ func TestQuickInc(t *testing.T) {
 	}{
 		{[]byte{1, 2}, []byte{1, 3}, true},
 		{[]byte{1, 0xFF}, []byte{2, 0}, true},
-		{[]byte{0XFF, 0xFF}, []byte{0, 0}, true},
-		{[]byte{0X1F, 0xFF}, []byte{0, 0}, false},
+		{[]byte{0xFF, 0xFF}, []byte{0, 0}, true},
+		{[]byte{0x1F, 0xFF}, []byte{0, 0}, false},
 	}
 	for _, v := range data {
 		t1 := pow.QuickInc(v.x)
