@@ -70,7 +70,7 @@ func (p UtilApi) GetPoWNonce(difficulty string, data types.Hash) ([]byte, error)
 }
 
 // Pow Plan Ref[] todo
-func (p Pow) GetPowNoncePrivate(address types.Address, height uint64, difficulty string, data types.Hash, timestamp uint64, sig []byte) (result []byte, e error) {
+func (p Pow) GetPowNoncePrivate(address types.Address, height uint64, difficulty string, data types.Hash, timestamp uint64, sig []byte, cnt uint64) (result []byte, e error) {
 	log.Info("GetPowNoncePrivate ", "address", address, "height", height,
 		"difficulty", difficulty, "data", data.Hex(), "timestamp", timestamp, "sig", hexutil.Encode(sig))
 	s := time.Now()
@@ -91,5 +91,6 @@ func (p Pow) GetPowNoncePrivate(address types.Address, height uint64, difficulty
 	if !ok {
 		return nil, ErrStrToBigInt
 	}
-	return pow.GetPowNonce(realDifficulty, data)
+	nonce, _, err := pow.MapPowNonce2(realDifficulty, data, cnt)
+	return nonce, err
 }

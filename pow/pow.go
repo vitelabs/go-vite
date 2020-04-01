@@ -1,6 +1,7 @@
 package pow
 
 import (
+	"hash"
 	"math/big"
 	"time"
 
@@ -61,6 +62,91 @@ func GetPowNonce(difficulty *big.Int, dataHash types.Hash) ([]byte, error) {
 		}
 	}
 	return nil, errors.New("get pow nonce error")
+}
+
+// data = Hash(address + prev_hash); data + nonce < target.
+func MapPowNonce(difficulty *big.Int, dataHash types.Hash, from uint64, to uint64) ([]byte, uint64, error) {
+	var target *big.Int = nil
+	if VMTestParamEnabled {
+		target = defaultTarget
+	} else {
+		if difficulty == nil {
+			return nil, 0, errors.New("difficulty can't be nil")
+		}
+		target = DifficultyToTarget(difficulty)
+		if target == nil || target.BitLen() > 256 {
+			return nil, 0, errors.New("target too long")
+		}
+	}
+
+	data := dataHash.Bytes()
+	target256 := helper.LeftPadBytes(target.Bytes(), 32)
+	t := time.Now()
+	i := 0
+	nonce := make([]byte, 8)
+	hash, _ := blake2b.New256(nil)
+	for from < to {
+		binary.BigEndian.PutUint64(nonce, from)
+		out := powHash256FromHash(hash, nonce, data)
+		if QuickGreater(out, target256) {
+			return nonce, from, nil
+		}
+		hash.Reset()
+		from++
+		if i > 100000 {
+			if time.Now().Sub(t).Minutes() > 10 {
+				break
+			}
+			i = 0
+		}
+	}
+	return nil, 0, errors.New("get pow nonce error")
+}
+
+// data = Hash(address + prev_hash); data + nonce < target.
+func MapPowNonce2(difficulty *big.Int, dataHash types.Hash, len uint64) ([]byte, uint64, error) {
+	var target *big.Int = nil
+	if VMTestParamEnabled {
+		target = defaultTarget
+	} else {
+		if difficulty == nil {
+			return nil, 0, errors.New("difficulty can't be nil")
+		}
+		target = DifficultyToTarget(difficulty)
+		if target == nil || target.BitLen() > 256 {
+			return nil, 0, errors.New("target too long")
+		}
+	}
+
+	data := dataHash.Bytes()
+	target256 := helper.LeftPadBytes(target.Bytes(), 32)
+	t := time.Now()
+	i := 0
+	hash, _ := blake2b.New256(nil)
+	ii := uint64(0)
+	for ii < len {
+		nonce := crypto.GetEntropyCSPRNG(8)
+		out := powHash256FromHash(hash, nonce, data)
+		if QuickGreater(out, target256) {
+			return nonce, ii, nil
+		}
+		hash.Reset()
+		ii++
+		if i > 100000 {
+			if time.Now().Sub(t).Minutes() > 10 {
+				break
+			}
+			i = 0
+		}
+	}
+	return nil, 0, errors.New("get pow nonce error")
+}
+
+func powHash256FromHash(hash hash.Hash, nonce []byte, data []byte) []byte {
+	hash.Write(nonce)
+	hash.Write(data)
+	out := hash.Sum(nil)
+	return out
 }
 
 func powHash256(nonce []byte, data []byte) []byte {

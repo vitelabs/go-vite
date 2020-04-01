@@ -4,7 +4,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/big"
+	//_ "net/http/pprof"
 	"testing"
+	"time"
+
+	"github.com/vitelabs/go-vite/crypto"
+
+	"github.com/vitelabs/go-vite/pow"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -127,4 +133,39 @@ func TestTx_SendRawTx_VerifyHashAndSig(t *testing.T) {
 
 func TestTx_Auto(t *testing.T) {
 
+}
+
+func TestPow(t *testing.T) {
+	address := types.HexToAddressPanic("vite_f1a9bed77ce7caf9774d0bb82b98e0946570b3531f8f554a00")
+	hash := types.HexToHashPanic("92a44a90ca60b4bdf4dbdcff5f3452df892271c217e492910013f5c6be6e22ec")
+
+	//go func() {
+	//	listenAddress := fmt.Sprintf("%s:%d", "0.0.0.0", 8009)
+	//	http.ListenAndServe(listenAddress, nil)
+	//}()
+	now := time.Now()
+	dataHash := types.DataHash(append(address.Bytes(), hash.Bytes()...))
+	difficulty := "67108863"
+	realDifficulty, _ := new(big.Int).SetString(difficulty, 10)
+	i := uint64(0)
+	step := uint64(1000000)
+	for {
+		s := time.Now()
+		nonce, _, _ := pow.MapPowNonce2(realDifficulty, dataHash, step)
+		if nonce != nil {
+			check := pow.CheckPowNonce(realDifficulty, nonce, dataHash.Bytes())
+			t.Log(base64.StdEncoding.EncodeToString(nonce), time.Now().Sub(now).String(), check)
+			break
+		}
+		fmt.Println(step, time.Now().Sub(s).String())
+		i = i + step
+	}
+	// tx_test.go:149: AAAAAAX1IF0= 99950685 950685 37.093220171s
+
+}
+
+func Benchmark_Rand(b *testing.B) {
+	for i := 0; i < b.N; i++ { //use b.N for looping
+		crypto.GetEntropyCSPRNG(8)
+	}
 }
