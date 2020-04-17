@@ -2,9 +2,10 @@ package api
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/vm/quota"
 	"math/big"
 	"strconv"
+
+	"github.com/vitelabs/go-vite/vm/quota"
 
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
@@ -66,8 +67,9 @@ type AccountBlock struct {
 	ConfirmedTimes *string `json:"confirmedTimes"`
 	Confirmations  *string `json:"confirmations"`
 
-	ConfirmedHash     *types.Hash `json:"confirmedHash"`
-	FirstSnapshotHash *types.Hash `json:"firstSnapshotHash"`
+	ConfirmedHash       *types.Hash `json:"confirmedHash"`
+	FirstSnapshotHash   *types.Hash `json:"firstSnapshotHash"`
+	FirstSnapshotHeight *string     `json:"firstSnapshotHeight"`
 
 	ReceiveBlockHeight *string     `json:"receiveBlockHeight"`
 	ReceiveBlockHash   *types.Hash `json:"receiveBlockHash"`
@@ -252,6 +254,8 @@ func (block *AccountBlock) addExtraInfo(chain chain.Chain) error {
 
 		block.ConfirmedHash = &confirmedBlock.Hash
 		block.FirstSnapshotHash = &confirmedBlock.Hash
+		firstSnapshotHeight := strconv.FormatUint(confirmedBlock.Height, 10)
+		block.FirstSnapshotHeight = &firstSnapshotHeight
 
 		block.Timestamp = confirmedBlock.Timestamp.Unix()
 	}
