@@ -18,8 +18,8 @@ const (
 		{"type":"function","name":"CancelOrder", "inputs":[{"name":"orderId","type":"bytes"}]},
 		{"type":"function","name":"SyncNewMarket", "inputs":[{"name":"data","type":"bytes"}]},
 		{"type":"function","name":"ClearExpiredOrders", "inputs":[{"name":"data","type":"bytes"}]},
-		{"type":"function","name":"CancelOrderByTransactionHash", "inputs":[{"name":"sendHash","type":"bytes32"}]}
-
+		{"type":"function","name":"CancelOrderByTransactionHash", "inputs":[{"name":"sendHash","type":"bytes32"}]},
+		{"type":"function","name":"InnerCancelOrderBySendHash", "inputs":[{"name":"sendHash","type":"bytes32"}, {"name":"owner","type":"address"}]}
 ]`
 	MethodNameDexTradeNewOrder          = "DexTradeNewOrder"
 	MethodNameDexTradeCancelOrder       = "DexTradeCancelOrder"
@@ -32,6 +32,8 @@ const (
 	MethodNameDexTradeSyncNewMarket                = "SyncNewMarket"
 	MethodNameDexTradeClearExpiredOrders           = "ClearExpiredOrders"
 	MethodNameDexTradeCancelOrderByTransactionHash = "CancelOrderByTransactionHash"
+
+	MethodNameDexTradeInnerCancelOrderBySendHash = "InnerCancelOrderBySendHash"
 )
 
 var (

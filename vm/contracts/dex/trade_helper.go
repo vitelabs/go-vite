@@ -18,6 +18,10 @@ const CleanExpireOrdersMaxCount = 200
 type ParamDexCancelOrder struct {
 	OrderId []byte
 }
+type ParamDexInnerCancelOrder struct {
+	SendHash types.Hash
+	Owner    types.Address
+}
 
 func CleanExpireOrders(db vm_db.VmDb, orderIds []byte) (map[types.Address]map[bool]*dexproto.AccountSettle, *MarketInfo, error) {
 	var (

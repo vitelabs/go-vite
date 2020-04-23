@@ -58,6 +58,7 @@ var (
 	dexAgentContracts = newDexAgentContracts()
 	leafContracts     = newLeafContracts()
 	earthContracts    = newEarthContracts()
+	dexRobotContracts    = newDexRobotContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
@@ -217,10 +218,20 @@ func newEarthContracts() map[types.Address]*builtinContract {
 	return contracts
 }
 
+func newDexRobotContracts() map[types.Address]*builtinContract {
+	contracts := newEarthContracts()
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCancelOrderBySendHash] = &MethodDexCancelOrderBySendHash{cabi.MethodNameDexFundCancelOrderBySendHash}
+	contracts[types.AddressDexTrade].m[cabi.MethodNameDexTradeInnerCancelOrderBySendHash] = &MethodDexTradeInnerCancelOrderBySendHash{cabi.MethodNameDexTradeInnerCancelOrderBySendHash}
+	return contracts
+
+}
+
 // GetBuiltinContractMethod finds method instance of built-in contract method by address and method id
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if fork.IsEarthFork(sbHeight) {
+	if fork.IsDexRobotFork(sbHeight) {
+		contractsMap = dexRobotContracts
+	} else if fork.IsEarthFork(sbHeight) {
 		contractsMap = earthContracts
 	} else if fork.IsLeafFork(sbHeight) {
 		contractsMap = leafContracts

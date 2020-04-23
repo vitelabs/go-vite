@@ -231,18 +231,21 @@ type QuotaTable struct {
 	DexFundEndorseVxQuota                     uint64
 	DexFundSettleMakerMinedVxQuota            uint64
 	DexFundConfigMarketAgentsQuota            uint64
-	DexFunPlaceAgentOrderQuota                uint64
-	DexFunLockVxForDividendQuota              uint64
-	DexFunSwitchConfigQuota                   uint64
+	DexFundPlaceAgentOrderQuota               uint64
+	DexFundLockVxForDividendQuota             uint64
+	DexFundSwitchConfigQuota                  uint64
 	DexFundStakeForPrincipalSuperVIPQuota     uint64
 	DexFundCancelStakeByIdQuota               uint64
 	DexFundDelegateStakeCallbackV2Quota       uint64
 	DexFundDelegateCancelStakeCallbackV2Quota uint64
+	DexFundCancelOrderBySendHashQuota         uint64
 }
 
 // QuotaTableByHeight returns different quota table by hard fork version
 func QuotaTableByHeight(sbHeight uint64) *QuotaTable {
-	if fork.IsEarthFork(sbHeight) {
+	if fork.IsDexRobotFork(sbHeight) {
+		return &dexRobotQuotaTable
+	} else if fork.IsEarthFork(sbHeight) {
 		return &earthQuotaTable
 	} else if fork.IsStemFork(sbHeight) {
 		return &dexAgentQuotaTable
@@ -353,6 +356,7 @@ var (
 	viteQuotaTable     = newViteQuotaTable()
 	dexAgentQuotaTable = newDexAgentQuotaTable()
 	earthQuotaTable    = newEarthQuotaTable()
+	dexRobotQuotaTable    = newDexRobotQuotaTable()
 )
 
 func newViteQuotaTable() QuotaTable {
@@ -480,18 +484,24 @@ func newDexAgentQuotaTable() QuotaTable {
 	gt := newViteQuotaTable()
 	gt.DexFundStakeForSuperVIPQuota = 33600
 	gt.DexFundConfigMarketAgentsQuota = 8400
-	gt.DexFunPlaceAgentOrderQuota = 25200
+	gt.DexFundPlaceAgentOrderQuota = 25200
 	return gt
 }
 
 func newEarthQuotaTable() QuotaTable {
 	gt := newDexAgentQuotaTable()
 	gt.UpdateRewardWithdrawAddressQuota = 168000
-	gt.DexFunLockVxForDividendQuota = 31500
-	gt.DexFunSwitchConfigQuota = 31500
+	gt.DexFundLockVxForDividendQuota = 31500
+	gt.DexFundSwitchConfigQuota = 31500
 	gt.DexFundStakeForPrincipalSuperVIPQuota = 10500
 	gt.DexFundCancelStakeByIdQuota = 10500
 	gt.DexFundDelegateStakeCallbackV2Quota = 31500
 	gt.DexFundDelegateCancelStakeCallbackV2Quota = 33000
+	return gt
+}
+
+func newDexRobotQuotaTable() QuotaTable {
+	gt := newEarthQuotaTable()
+	gt.DexFundCancelOrderBySendHashQuota = 15200
 	return gt
 }

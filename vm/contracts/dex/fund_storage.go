@@ -365,6 +365,13 @@ type ParamDelegateStakeCallbackV2 struct {
 	Success bool
 }
 
+type ParamCancelOrderByHash struct {
+	SendHash   types.Hash
+	Principal  types.Address
+	TradeToken types.TokenTypeId
+	QuoteToken types.TokenTypeId
+}
+
 type Fund struct {
 	dexproto.Fund
 }
