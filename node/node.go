@@ -310,7 +310,7 @@ func (node *Node) startRPC() (e error) {
 	// Init rpc log
 	rpcapi.Init(node.config.DataDir, node.config.LogLevel, node.config.TestTokenHexPrivKey, node.config.TestTokenTti, uint(node.config.NetID), node.config.TxDexEnable)
 
-	publicApis := rpcapi.MergeApis(rpcapi.GetPublicApis(node.viteServer))
+	publicApis := rpcapi.GetPublicApis(node.viteServer)
 	customApis := rpcapi.GetApis(node.viteServer, node.config.PublicModules...)
 	apis := rpcapi.MergeApis(publicApis, customApis)
 
