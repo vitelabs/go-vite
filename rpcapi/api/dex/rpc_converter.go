@@ -470,6 +470,16 @@ type CancelStake struct {
 	ExpirationPeriod uint64 `json:"expirationPeriod"`
 }
 
+type PlaceOrderInfo struct {
+	Available   string `json:"available"`   // account available, side == true tradeToken, side == false quoteToken
+	MinAmount   string `json:"minAmount"`   // min trade amount by quoteToken
+	LockFeeRate int32  `json:"lockFeeRate"` // max(takerFeeRateSum, makerFeeRateSum)
+	Side        bool   `json:"side"`
+	IsVIP       bool   `json:"isVIP"`
+	IsSVIP      bool   `json:"isSVIP"`
+	IsInvited   bool   `json:"isInvited"`
+}
+
 func UnlockListToRpc(unlocks *dex.VxUnlocks, pageIndex int, pageSize int, chain chain.Chain) *VxUnlockList {
 	genesisTime := chain.GetGenesisSnapshotBlock().Timestamp.Unix()
 	total := new(big.Int)
