@@ -510,9 +510,9 @@ func (f DexApi) GetPlaceOrderInfo(address types.Address, tradeToken, quoteToken 
 			takerRateSum := takerFeeRate + takerOperatorFeeRate
 			makerRateSum := makerFeeRate + makerOperatorFeeRate
 			if takerRateSum > makerRateSum {
-				placeOrderInfo.LockFeeRate = takerRateSum
+				placeOrderInfo.FeeRate = takerRateSum
 			} else {
-				placeOrderInfo.LockFeeRate = makerRateSum
+				placeOrderInfo.FeeRate = makerRateSum
 			}
 			placeOrderInfo.Available = "0"
 			if fund, ok := dex.GetFund(db, address); ok {
@@ -526,7 +526,7 @@ func (f DexApi) GetPlaceOrderInfo(address types.Address, tradeToken, quoteToken 
 					placeOrderInfo.Available = apidex.AmountBytesToString(acc.Available)
 				}
 			}
-			placeOrderInfo.MinAmount = dex.GetTradeThreshold(db, marketInfo.QuoteTokenType).String()
+			placeOrderInfo.MinTradeAmount = dex.GetTradeThreshold(db, marketInfo.QuoteTokenType).String()
 		}
 		return placeOrderInfo, nil
 	}
