@@ -14,11 +14,11 @@ type reqSnapshotBlocksHandler struct {
 	sender  Sender
 }
 
-func (self *reqSnapshotBlocksHandler) Types() []common.NetMsgType {
+func (handler *reqSnapshotBlocksHandler) Types() []common.NetMsgType {
 	return []common.NetMsgType{common.RequestSnapshotBlocks}
 }
 
-func (self *reqSnapshotBlocksHandler) Handle(t common.NetMsgType, d []byte, p p2p.Peer) {
+func (handler *reqSnapshotBlocksHandler) Handle(t common.NetMsgType, d []byte, p p2p.Peer) {
 	msg := &requestSnapshotBlockMsg{}
 	err := json.Unmarshal(d, msg)
 	if err != nil {
@@ -31,14 +31,14 @@ func (self *reqSnapshotBlocksHandler) Handle(t common.NetMsgType, d []byte, p p2
 	}
 	var blocks []*common.SnapshotBlock
 	for _, v := range hashes {
-		block := self.sReader.GetSnapshotByHashH(v)
+		block := handler.sReader.GetSnapshotByHashH(v)
 		if block == nil {
 			continue
 		}
 		blocks = append(blocks, block)
 	}
 	if len(blocks) > 0 {
-		self.sender.SendSnapshotBlocks(blocks, p)
+		handler.sender.SendSnapshotBlocks(blocks, p)
 	}
 }
 

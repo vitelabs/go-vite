@@ -20,19 +20,19 @@ func NewSnapshotVerifier(r face.ChainReader, v *version.Version) *SnapshotVerifi
 	return verifier
 }
 
-func (self *SnapshotVerifier) VerifyReferred(b common.Block) BlockVerifyStat {
+func (snapV *SnapshotVerifier) VerifyReferred(b common.Block) BlockVerifyStat {
 	block := b.(*common.SnapshotBlock)
-	stat := self.newVerifyStat(VerifyReferred, block)
+	stat := snapV.newVerifyStat(VerifyReferred, block)
 	accounts := block.Accounts
 
-	task := &verifyTask{v: self.v, version: self.v.Val(), reader: self.reader, t: time.Now()}
+	task := &verifyTask{v: snapV.v, version: snapV.v.Val(), reader: snapV.reader, t: time.Now()}
 
 	i := 0
 	for _, v := range accounts {
 		addr := v.Addr
 		hash := v.Hash
 		height := v.Height
-		block := self.reader.GetAccountByHeight(addr, height)
+		block := snapV.reader.GetAccountByHeight(addr, height)
 		if block == nil {
 			stat.results[v.Addr] = PENDING
 			task.pendingAccount(v.Addr, v.Height, v.Hash, 1)
@@ -90,7 +90,7 @@ func (self *SnapshotBlockVerifyStat) Reset() {
 	self.results = make(map[string]VerifyResult)
 }
 
-func (self *SnapshotVerifier) newVerifyStat(t VerifyType, b common.Block) *SnapshotBlockVerifyStat {
+func (snapV *SnapshotVerifier) newVerifyStat(t VerifyType, b common.Block) *SnapshotBlockVerifyStat {
 	block := b.(*common.SnapshotBlock)
 
 	stat := &SnapshotBlockVerifyStat{result: PENDING, accounts: block.Accounts}

@@ -27,48 +27,48 @@ func newSnapshotPool(name string, v *version.Version) *snapshotPool {
 	return pool
 }
 
-func (self *snapshotPool) init(rw chainRw,
+func (spl *snapshotPool) init(rw chainRw,
 	verifier verifier.Verifier,
 	syncer *fetcher,
 	rwMu *sync.RWMutex,
 	pool *pool) {
-	self.rwMu = rwMu
-	//self.consensus = accountsConsensus
-	self.pool = pool
-	self.BCPool.init(rw, verifier, syncer)
+	spl.rwMu = rwMu
+	//spl.consensus = accountsConsensus
+	spl.pool = pool
+	spl.BCPool.init(rw, verifier, syncer)
 }
 
-func (self *snapshotPool) loopCheckFork() {
-	defer self.wg.Done()
+func (spl *snapshotPool) loopCheckFork() {
+	defer spl.wg.Done()
 	for {
 		select {
-		case <-self.closed:
+		case <-spl.closed:
 			return
 		default:
-			self.checkFork()
+			spl.checkFork()
 			// check fork every 2 sec.
 			time.Sleep(2 * time.Second)
 		}
 	}
 }
 
-func (self *snapshotPool) checkFork() {
-	longest := self.LongestChain()
-	current := self.CurrentChain()
+func (spl *snapshotPool) checkFork() {
+	longest := spl.LongestChain()
+	current := spl.CurrentChain()
 	if longest.ChainId() == current.ChainId() {
 		return
 	}
-	self.snapshotFork(longest, current)
+	spl.snapshotFork(longest, current)
 
 }
 
-func (self *snapshotPool) snapshotFork(longest Chain, current Chain) {
+func (spl *snapshotPool) snapshotFork(longest Chain, current Chain) {
 	log.Warn("[try]snapshot chain start fork.longest chain:%s, currentchain:%s", longest.ChainId(), current.ChainId())
-	self.rwMu.Lock()
-	defer self.rwMu.Unlock()
+	spl.rwMu.Lock()
+	defer spl.rwMu.Unlock()
 	log.Warn("[lock]snapshot chain start fork.longest chain:%s, currentchain:%s", longest.ChainId(), current.ChainId())
 
-	k, f, err := self.getForkPoint(longest, current)
+	k, f, err := spl.getForkPoint(longest, current)
 	if err != nil {
 		log.Error("get snapshot forkPoint err. err:%v", err)
 		return
@@ -76,58 +76,58 @@ func (self *snapshotPool) snapshotFork(longest Chain, current Chain) {
 	forkPoint := f.(*common.SnapshotBlock)
 	keyPoint := k.(*common.SnapshotBlock)
 
-	startAcs, endAcs := self.getUnlockAccountSnapshot(forkPoint)
+	startAcs, endAcs := spl.getUnlockAccountSnapshot(forkPoint)
 
-	err = self.pool.UnLockAccounts(startAcs, endAcs)
+	err = spl.pool.UnLockAccounts(startAcs, endAcs)
 	if err != nil {
 		log.Error("unlock accounts fail. err:%v", err)
 		return
 	}
-	err = self.pool.ForkAccounts(keyPoint, forkPoint)
+	err = spl.pool.ForkAccounts(keyPoint, forkPoint)
 	if err != nil {
 		log.Error("rollback accounts fail. err:%v", err)
 		return
 	}
-	err = self.Rollback(forkPoint.Height(), forkPoint.Hash())
+	err = spl.Rollback(forkPoint.Height(), forkPoint.Hash())
 	if err != nil {
 		log.Error("rollback snapshot fail. err:%v", err)
 		return
 	}
-	err = self.CurrentModifyToChain(longest)
+	err = spl.CurrentModifyToChain(longest)
 	if err != nil {
 		log.Error("snapshot modify current fail. err:%v", err)
 		return
 	}
-	self.version.Inc()
+	spl.version.Inc()
 }
 
-func (self *snapshotPool) loop() {
-	defer self.wg.Done()
+func (spl *snapshotPool) loop() {
+	defer spl.wg.Done()
 	for {
 		select {
-		case <-self.closed:
+		case <-spl.closed:
 			return
 		default:
-			self.loopGenSnippetChains()
-			self.loopAppendChains()
-			self.loopFetchForSnippets()
-			self.loopCheckCurrentInsert()
+			spl.loopGenSnippetChains()
+			spl.loopAppendChains()
+			spl.loopFetchForSnippets()
+			spl.loopCheckCurrentInsert()
 			time.Sleep(200 * time.Millisecond)
 		}
 	}
 }
 
-func (self *snapshotPool) loopCheckCurrentInsert() {
-	if self.chainpool.current.size() == 0 {
+func (spl *snapshotPool) loopCheckCurrentInsert() {
+	if spl.chainpool.current.size() == 0 {
 		return
 	}
-	self.rwMu.RLock()
-	defer self.rwMu.RUnlock()
-	self.snapshotTryInsert()
+	spl.rwMu.RLock()
+	defer spl.rwMu.RUnlock()
+	spl.snapshotTryInsert()
 }
 
-func (self *snapshotPool) snapshotTryInsert() {
-	pool := self.chainpool
+func (spl *snapshotPool) snapshotTryInsert() {
+	pool := spl.chainpool
 	current := pool.current
 	minH := current.tailHeight + 1
 	headH := current.headHeight
@@ -147,12 +147,12 @@ L:
 		result := stat.VerifyResult()
 		switch result {
 		case verifier.PENDING:
-			self.insertVerifyPending(block, stat)
+			spl.insertVerifyPending(block, stat)
 			break L
 		case verifier.FAIL:
 			log.Error("snapshot verify fail. block info:hash[%s],height[%d], %s",
 				result, block.Hash(), block.Height(), stat.ErrMsg())
-			self.insertVerifyFail(block, stat)
+			spl.insertVerifyFail(block, stat)
 			break L
 		case verifier.SUCCESS:
 			if block.Height() == current.tailHeight+1 {
@@ -162,7 +162,7 @@ L:
 						block.Hash(), block.Height(), err)
 					break L
 				} else {
-					self.blockpool.afterInsert(wrapper)
+					spl.blockpool.afterInsert(wrapper)
 				}
 			} else {
 				break L
@@ -174,20 +174,20 @@ L:
 		}
 	}
 }
-func (self *snapshotPool) Start() {
-	self.wg.Add(1)
-	go self.loop()
-	self.wg.Add(1)
-	go self.loopCheckFork()
-	log.Info("snapshot_pool[%s] started.", self.Id)
+func (spl *snapshotPool) Start() {
+	spl.wg.Add(1)
+	go spl.loop()
+	spl.wg.Add(1)
+	go spl.loopCheckFork()
+	log.Info("snapshot_pool[%s] started.", spl.Id)
 }
-func (self *snapshotPool) Stop() {
-	close(self.closed)
-	self.wg.Wait()
-	log.Info("snapshot_pool[%s] stopped.", self.Id)
+func (spl *snapshotPool) Stop() {
+	close(spl.closed)
+	spl.wg.Wait()
+	log.Info("snapshot_pool[%s] stopped.", spl.Id)
 }
 
-func (self *snapshotPool) insertVerifyFail(b common.Block, s verifier.BlockVerifyStat) {
+func (spl *snapshotPool) insertVerifyFail(b common.Block, s verifier.BlockVerifyStat) {
 	block := b.(*common.SnapshotBlock)
 	stat := s.(*verifier.SnapshotBlockVerifyStat)
 	results := stat.Results()
@@ -195,13 +195,13 @@ func (self *snapshotPool) insertVerifyFail(b common.Block, s verifier.BlockVerif
 	for _, account := range block.Accounts {
 		result := results[account.Addr]
 		if result == verifier.FAIL {
-			self.pool.ForkAccountTo(account)
+			spl.pool.ForkAccountTo(account)
 		}
 	}
-	self.version.Inc()
+	spl.version.Inc()
 }
 
-func (self *snapshotPool) insertVerifyPending(b common.Block, s verifier.BlockVerifyStat) {
+func (spl *snapshotPool) insertVerifyPending(b common.Block, s verifier.BlockVerifyStat) {
 	block := b.(*common.SnapshotBlock)
 	stat := s.(*verifier.SnapshotBlockVerifyStat)
 	results := stat.Results()
@@ -209,29 +209,29 @@ func (self *snapshotPool) insertVerifyPending(b common.Block, s verifier.BlockVe
 	for _, account := range block.Accounts {
 		result := results[account.Addr]
 		if result == verifier.PENDING {
-			self.pool.PendingAccountTo(account)
+			spl.pool.PendingAccountTo(account)
 		}
 	}
 }
 
-func (self *snapshotPool) getUnlockAccountSnapshot(block *common.SnapshotBlock) (map[string]*common.SnapshotPoint, map[string]*common.SnapshotPoint) {
-	h := self.chainpool.diskChain.Head()
+func (spl *snapshotPool) getUnlockAccountSnapshot(block *common.SnapshotBlock) (map[string]*common.SnapshotPoint, map[string]*common.SnapshotPoint) {
+	h := spl.chainpool.diskChain.Head()
 	head := h.(*common.SnapshotBlock)
 	startAcs := make(map[string]*common.SnapshotPoint)
 	endAcs := make(map[string]*common.SnapshotPoint)
 
-	self.accounts(startAcs, endAcs, head)
+	spl.accounts(startAcs, endAcs, head)
 	for i := head.Height() - 1; i > block.Height(); i-- {
-		b := self.chainpool.diskChain.getBlock(i, false)
+		b := spl.chainpool.diskChain.getBlock(i, false)
 		if b != nil {
 			block := b.block.(*common.SnapshotBlock)
-			self.accounts(startAcs, endAcs, block)
+			spl.accounts(startAcs, endAcs, block)
 		}
 	}
 	return startAcs, endAcs
 }
 
-func (self *snapshotPool) accounts(start map[string]*common.SnapshotPoint, end map[string]*common.SnapshotPoint, block *common.SnapshotBlock) {
+func (spl *snapshotPool) accounts(start map[string]*common.SnapshotPoint, end map[string]*common.SnapshotPoint, block *common.SnapshotBlock) {
 	hs := block.Accounts
 	for _, v := range hs {
 		point := &common.SnapshotPoint{SnapshotHeight: block.Height(), SnapshotHash: block.Hash(), AccountHeight: v.Height, AccountHash: v.Hash}

@@ -17,8 +17,8 @@ const (
 	SUCCESS
 )
 
-func (self VerifyResult) Done() bool {
-	if self == FAIL || self == SUCCESS {
+func (result VerifyResult) Done() bool {
+	if result == FAIL || result == SUCCESS {
 		return true
 	} else {
 		return false
@@ -59,7 +59,7 @@ var successT = &successTask{}
 type successTask struct {
 }
 
-func (self *successTask) Done() bool {
+func (t *successTask) Done() bool {
 	return true
 }
 
@@ -91,9 +91,9 @@ type verifyTask struct {
 	t       time.Time
 }
 
-func (self *verifyTask) Requests() []face.FetchRequest {
+func (vt *verifyTask) Requests() []face.FetchRequest {
 	var reqs []face.FetchRequest
-	for _, t := range self.tasks {
+	for _, t := range vt.tasks {
 		for _, r := range t.Requests() {
 			reqs = append(reqs, r)
 		}
@@ -101,21 +101,21 @@ func (self *verifyTask) Requests() []face.FetchRequest {
 	return reqs
 }
 
-func (self *verifyTask) Done() bool {
+func (vt *verifyTask) Done() bool {
 	// if version increase.  task has done.
-	if self.v.Val() != self.version {
+	if vt.v.Val() != vt.version {
 		return true
 	}
 
-	if time.Now().After(self.t.Add(time.Second * 5)) {
+	if time.Now().After(vt.t.Add(time.Second * 5)) {
 		return true
 	}
 	// if because fail, must wait for version increase.
-	if self.fail {
+	if vt.fail {
 		return false
 	}
 	// pending task check
-	for _, t := range self.tasks {
+	for _, t := range vt.tasks {
 		if !t.Done() {
 			return false
 		}
@@ -152,31 +152,31 @@ type snapshotPendingTask struct {
 	request face.FetchRequest
 }
 
-func (self *snapshotPendingTask) Requests() []face.FetchRequest {
+func (spt *snapshotPendingTask) Requests() []face.FetchRequest {
 	var reqs []face.FetchRequest
-	return append(reqs, self.request)
+	return append(reqs, spt.request)
 }
 
-func (self *snapshotPendingTask) Done() bool {
-	if self.result {
+func (spt *snapshotPendingTask) Done() bool {
+	if spt.result {
 		return true
 	}
 
-	block, e := self.reader.HeadSnapshot()
-	if e == nil && block != nil && block.Height() >= self.request.Height {
-		self.result = true
+	block, e := spt.reader.HeadSnapshot()
+	if e == nil && block != nil && block.Height() >= spt.request.Height {
+		spt.result = true
 		return true
 	}
 	return false
 }
 
-func (self *verifyTask) pendingSnapshot(hash string, height uint64) {
+func (vt *verifyTask) pendingSnapshot(hash string, height uint64) {
 	request := face.FetchRequest{Chain: "", Hash: hash, Height: height, PrevCnt: 1}
-	self.tasks = append(self.tasks, &snapshotPendingTask{self.reader, false, request})
+	vt.tasks = append(vt.tasks, &snapshotPendingTask{vt.reader, false, request})
 }
-func (self *verifyTask) pendingAccount(addr string, height uint64, hash string, prevCnt uint64) {
+func (vt *verifyTask) pendingAccount(addr string, height uint64, hash string, prevCnt uint64) {
 	request := face.FetchRequest{Chain: addr, Hash: hash, Height: height, PrevCnt: prevCnt}
-	self.tasks = append(self.tasks, &accountPendingTask{self.reader, false, request})
+	vt.tasks = append(vt.tasks, &accountPendingTask{vt.reader, false, request})
 }
 
 func VerifyAccount(block *common.AccountStateBlock) bool {

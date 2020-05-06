@@ -20,15 +20,15 @@ func NewFetcher(address string, f syncer.Fetcher) *fetcher {
 	return self
 }
 
-func (self *fetcher) fetch(hashHeight common.HashHeight, prevCnt uint64) {
-	self.fetcher.Fetch(face.FetchRequest{Hash: hashHeight.Hash, Height: hashHeight.Height, PrevCnt: prevCnt, Chain: self.address})
+func (f *fetcher) fetch(hashHeight common.HashHeight, prevCnt uint64) {
+	f.fetcher.Fetch(face.FetchRequest{Hash: hashHeight.Hash, Height: hashHeight.Height, PrevCnt: prevCnt, Chain: f.address})
 }
 
-func (self *fetcher) fetchRequest(request face.FetchRequest) {
-	self.fetcher.Fetch(request)
+func (f *fetcher) fetchRequest(request face.FetchRequest) {
+	f.fetcher.Fetch(request)
 }
-func (self *fetcher) fetchReqs(reqs []face.FetchRequest) {
+func (f *fetcher) fetchReqs(reqs []face.FetchRequest) {
 	for _, r := range reqs {
-		self.fetcher.Fetch(r)
+		f.fetcher.Fetch(r)
 	}
 }

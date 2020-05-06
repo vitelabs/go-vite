@@ -20,32 +20,32 @@ type wallet struct {
 	current  string
 }
 
-func (self *wallet) Accounts() []string {
+func (w *wallet) Accounts() []string {
 	var accs []string
-	for k, _ := range self.accounts {
+	for k, _ := range w.accounts {
 		accs = append(accs, k)
 	}
 	sort.Strings(accs)
 	return accs
 }
-func (self *wallet) SetCoinBase(address string) {
-	self.accounts[address] = address
-	self.current = address
+func (w *wallet) SetCoinBase(address string) {
+	w.accounts[address] = address
+	w.current = address
 }
-func (self *wallet) CoinBase() string {
-	if self.current == "" {
-		accs := self.Accounts()
+func (w *wallet) CoinBase() string {
+	if w.current == "" {
+		accs := w.Accounts()
 		if len(accs) > 0 {
-			self.current = accs[0]
+			w.current = accs[0]
 		}
 	}
-	return self.current
+	return w.current
 }
-func (self *wallet) CreateAccount(address string) string {
-	self.accounts[address] = address
+func (w *wallet) CreateAccount(address string) string {
+	w.accounts[address] = address
 	return address
 }
 
-func (self *wallet) Sign(address string, data []byte) []byte {
+func (w *wallet) Sign(address string, data []byte) []byte {
 	return data
 }

@@ -16,14 +16,14 @@ type sender struct {
 	net p2p.P2P
 }
 
-func (self *sender) broadcastState(s stateMsg) error {
+func (ser *sender) broadcastState(s stateMsg) error {
 	bytM, err := json.Marshal(&s)
 	msg := p2p.NewMsg(common.State, bytM)
 
 	if err != nil {
 		return errors.New("broadcastState, format fail. err:" + err.Error())
 	}
-	peers, err := self.net.AllPeer()
+	peers, err := ser.net.AllPeer()
 	if err != nil {
 		log.Error("broadcastState, can't get all peer.%v", err)
 		return err
@@ -43,7 +43,7 @@ func (self *sender) broadcastState(s stateMsg) error {
 	return err
 }
 
-func (self *sender) BroadcastAccountBlocks(address string, blocks []*common.AccountStateBlock) error {
+func (ser *sender) BroadcastAccountBlocks(address string, blocks []*common.AccountStateBlock) error {
 	defer monitor.LogTime("net", "broadcastAccount", time.Now())
 	bytM, err := json.Marshal(&accountBlocksMsg{Address: address, Blocks: blocks})
 	msg := p2p.NewMsg(common.AccountBlocks, bytM)
@@ -51,7 +51,7 @@ func (self *sender) BroadcastAccountBlocks(address string, blocks []*common.Acco
 	if err != nil {
 		return errors.New("BroadcastAccountBlocks, format fail. err:" + err.Error())
 	}
-	peers, err := self.net.AllPeer()
+	peers, err := ser.net.AllPeer()
 	if err != nil {
 		log.Error("BroadcastAccountBlocks, can't get all peer.%v", err)
 		return err
@@ -71,7 +71,7 @@ func (self *sender) BroadcastAccountBlocks(address string, blocks []*common.Acco
 	return err
 }
 
-func (self *sender) BroadcastSnapshotBlocks(blocks []*common.SnapshotBlock) error {
+func (ser *sender) BroadcastSnapshotBlocks(blocks []*common.SnapshotBlock) error {
 	defer monitor.LogTime("net", "broadcastSnapshot", time.Now())
 	bytM, err := json.Marshal(&snapshotBlocksMsg{Blocks: blocks})
 	msg := p2p.NewMsg(common.SnapshotBlocks, bytM)
@@ -79,7 +79,7 @@ func (self *sender) BroadcastSnapshotBlocks(blocks []*common.SnapshotBlock) erro
 	if err != nil {
 		return errors.New("BroadcastSnapshotBlocks, format fail. err:" + err.Error())
 	}
-	peers, err := self.net.AllPeer()
+	peers, err := ser.net.AllPeer()
 	if err != nil {
 		log.Error("BroadcastSnapshotBlocks, can't get all peer.%v", err)
 		return err
@@ -99,7 +99,7 @@ func (self *sender) BroadcastSnapshotBlocks(blocks []*common.SnapshotBlock) erro
 	return err
 }
 
-func (self *sender) SendAccountBlocks(address string, blocks []*common.AccountStateBlock, peer p2p.Peer) error {
+func (ser *sender) SendAccountBlocks(address string, blocks []*common.AccountStateBlock, peer p2p.Peer) error {
 	bytM, err := json.Marshal(&accountBlocksMsg{Address: address, Blocks: blocks})
 	if err != nil {
 		return errors.New("SendAccountBlocks, format fail. err:" + err.Error())
@@ -112,7 +112,7 @@ func (self *sender) SendAccountBlocks(address string, blocks []*common.AccountSt
 	return err
 }
 
-func (self *sender) SendSnapshotBlocks(blocks []*common.SnapshotBlock, peer p2p.Peer) error {
+func (ser *sender) SendSnapshotBlocks(blocks []*common.SnapshotBlock, peer p2p.Peer) error {
 	bytM, err := json.Marshal(&snapshotBlocksMsg{Blocks: blocks})
 	if err != nil {
 		return errors.New("SendSnapshotBlocks, format fail. err:" + err.Error())
@@ -126,7 +126,7 @@ func (self *sender) SendSnapshotBlocks(blocks []*common.SnapshotBlock, peer p2p.
 
 }
 
-func (self *sender) SendAccountHashes(address string, hashes []common.HashHeight, peer p2p.Peer) error {
+func (ser *sender) SendAccountHashes(address string, hashes []common.HashHeight, peer p2p.Peer) error {
 	bytM, err := json.Marshal(&accountHashesMsg{Address: address, Hashes: hashes})
 	if err != nil {
 		return errors.New("SendAccountHashes, format fail. err:" + err.Error())
@@ -139,7 +139,7 @@ func (self *sender) SendAccountHashes(address string, hashes []common.HashHeight
 	return err
 }
 
-func (self *sender) SendSnapshotHashes(hashes []common.HashHeight, peer p2p.Peer) error {
+func (ser *sender) SendSnapshotHashes(hashes []common.HashHeight, peer p2p.Peer) error {
 	bytM, err := json.Marshal(&snapshotHashesMsg{Hashes: hashes})
 	if err != nil {
 		return errors.New("SendSnapshotHashes, format fail. err:" + err.Error())
@@ -153,9 +153,9 @@ func (self *sender) SendSnapshotHashes(hashes []common.HashHeight, peer p2p.Peer
 
 }
 
-func (self *sender) RequestAccountHash(address string, height common.HashHeight, prevCnt uint64) error {
+func (ser *sender) RequestAccountHash(address string, height common.HashHeight, prevCnt uint64) error {
 	log.Info("fetch account data, account:%s, height:%d, prevCnt:%d, hash:%s.", address, height.Height, prevCnt, height.Hash)
-	peer, e := self.net.BestPeer()
+	peer, e := ser.net.BestPeer()
 	if e != nil {
 		log.Error("sendAccountHash, can't get best peer. err:%v", e)
 		return e
@@ -173,9 +173,9 @@ func (self *sender) RequestAccountHash(address string, height common.HashHeight,
 	return err
 }
 
-func (self *sender) RequestSnapshotHash(height common.HashHeight, prevCnt uint64) error {
+func (ser *sender) RequestSnapshotHash(height common.HashHeight, prevCnt uint64) error {
 	log.Info("fetch snapshot data, height:%d, prevCnt:%d, hash:%s.", height.Height, prevCnt, height.Hash)
-	peer, e := self.net.BestPeer()
+	peer, e := ser.net.BestPeer()
 	if e != nil {
 		log.Error("sendSnapshotHash, can't get best peer. err:%v", e)
 		return e
@@ -193,7 +193,7 @@ func (self *sender) RequestSnapshotHash(height common.HashHeight, prevCnt uint64
 	return err
 }
 
-func (self *sender) requestSnapshotBlockByPeer(height common.HashHeight, peer p2p.Peer) error {
+func (ser *sender) requestSnapshotBlockByPeer(height common.HashHeight, peer p2p.Peer) error {
 	m := requestSnapshotBlockMsg{Hashes: []common.HashHeight{height}}
 	bytM, err := json.Marshal(&m)
 	if err != nil {
@@ -207,8 +207,8 @@ func (self *sender) requestSnapshotBlockByPeer(height common.HashHeight, peer p2
 	return err
 }
 
-func (self *sender) RequestAccountBlocks(address string, hashes []common.HashHeight) error {
-	peer, e := self.net.BestPeer()
+func (ser *sender) RequestAccountBlocks(address string, hashes []common.HashHeight) error {
+	peer, e := ser.net.BestPeer()
 	if e != nil {
 		log.Error("RequestAccountBlocks, can't get best peer. err:%v", e)
 		return e
@@ -225,8 +225,8 @@ func (self *sender) RequestAccountBlocks(address string, hashes []common.HashHei
 	}
 	return err
 }
-func (self *sender) RequestSnapshotBlocks(hashes []common.HashHeight) error {
-	peer, e := self.net.BestPeer()
+func (ser *sender) RequestSnapshotBlocks(hashes []common.HashHeight) error {
+	peer, e := ser.net.BestPeer()
 	if e != nil {
 		log.Error("RequestSnapshotBlocks, can't get best peer. err:%v", e)
 		return e

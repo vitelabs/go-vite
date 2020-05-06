@@ -78,8 +78,8 @@ type syncer struct {
 	bus EventBus.Bus
 }
 
-func (self *syncer) DefaultHandler() MsgHandler {
-	return self.receiver
+func (s *syncer) DefaultHandler() MsgHandler {
+	return s.receiver
 }
 
 func NewSyncer(net p2p.P2P, bus EventBus.Bus) Syncer {
@@ -89,33 +89,33 @@ func NewSyncer(net p2p.P2P, bus EventBus.Bus) Syncer {
 	self.fetcher = &fetcher{sender: self.sender, retryPolicy: &defaultRetryPolicy{fetchedHashs: make(map[string]*RetryStatus)}, addressRetry: &addressRetryPolicy{}}
 	return self
 }
-func (self *syncer) Init(reader face.ChainReader, writer face.PoolWriter) {
+func (s *syncer) Init(reader face.ChainReader, writer face.PoolWriter) {
 	rw := &chainRw{ChainReader: reader, PoolWriter: writer}
-	self.state = newState(rw, self.fetcher, self.sender, self.p2p, self.bus)
-	self.receiver = newReceiver(self.fetcher, rw, self.sender, self.state)
-	self.p2p.SetHandlerFn(self.DefaultHandler().Handle)
-	self.p2p.SetHandShaker(self.state)
+	s.state = newState(rw, s.fetcher, s.sender, s.p2p, s.bus)
+	s.receiver = newReceiver(s.fetcher, rw, s.sender, s.state)
+	s.p2p.SetHandlerFn(s.DefaultHandler().Handle)
+	s.p2p.SetHandShaker(s.state)
 }
 
-func (self *syncer) Start() {
-	self.state.start()
+func (s *syncer) Start() {
+	s.state.start()
 }
-func (self *syncer) Stop() {
-	self.state.stop()
-}
-
-func (self *syncer) Fetcher() Fetcher {
-	return self.fetcher
+func (s *syncer) Stop() {
+	s.state.stop()
 }
 
-func (self *syncer) Sender() Sender {
-	return self.sender
+func (s *syncer) Fetcher() Fetcher {
+	return s.fetcher
 }
 
-func (self *syncer) Handlers() Handlers {
-	return self.receiver
+func (s *syncer) Sender() Sender {
+	return s.sender
 }
 
-func (self *syncer) Done() bool {
-	return self.state.syncDone()
+func (s *syncer) Handlers() Handlers {
+	return s.receiver
+}
+
+func (s *syncer) Done() bool {
+	return s.state.syncDone()
 }

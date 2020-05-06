@@ -14,11 +14,11 @@ type reqAccountHashHandler struct {
 	sender  Sender
 }
 
-func (self *reqAccountHashHandler) Types() []common.NetMsgType {
+func (handler *reqAccountHashHandler) Types() []common.NetMsgType {
 	return []common.NetMsgType{common.RequestAccountHash}
 }
 
-func (self *reqAccountHashHandler) Handle(t common.NetMsgType, d []byte, p p2p.Peer) {
+func (handler *reqAccountHashHandler) Handle(t common.NetMsgType, d []byte, p p2p.Peer) {
 	msg := &requestAccountHashMsg{}
 	err := json.Unmarshal(d, msg)
 	if err != nil {
@@ -32,7 +32,7 @@ func (self *reqAccountHashHandler) Handle(t common.NetMsgType, d []byte, p p2p.P
 		if i < 0 {
 			break
 		}
-		block := self.aReader.GetAccountByHashH(msg.Address, hashH)
+		block := handler.aReader.GetAccountByHashH(msg.Address, hashH)
 		if block == nil {
 			break
 		}
@@ -47,11 +47,11 @@ func (self *reqAccountHashHandler) Handle(t common.NetMsgType, d []byte, p p2p.P
 	m := split(hashes, 1000)
 
 	for _, m1 := range m {
-		self.sender.SendAccountHashes(msg.Address, m1, p)
+		handler.sender.SendAccountHashes(msg.Address, m1, p)
 		log.Info("send account hashes, address:%s, hashSize:%d, PId:%s", msg.Address, len(m1), p.Id())
 	}
 }
 
-func (self *reqAccountHashHandler) Id() string {
+func (handler *reqAccountHashHandler) Id() string {
 	return "default-request-account-hash-handler"
 }

@@ -14,11 +14,11 @@ type reqSnapshotHashHandler struct {
 	sender  Sender
 }
 
-func (self *reqSnapshotHashHandler) Types() []common.NetMsgType {
+func (handler *reqSnapshotHashHandler) Types() []common.NetMsgType {
 	return []common.NetMsgType{common.RequestSnapshotHash}
 }
 
-func (self *reqSnapshotHashHandler) Handle(t common.NetMsgType, d []byte, p p2p.Peer) {
+func (handler *reqSnapshotHashHandler) Handle(t common.NetMsgType, d []byte, p p2p.Peer) {
 	msg := &requestSnapshotHashMsg{}
 	err := json.Unmarshal(d, msg)
 	if err != nil {
@@ -33,7 +33,7 @@ func (self *reqSnapshotHashHandler) Handle(t common.NetMsgType, d []byte, p p2p.
 		if i < 0 {
 			break
 		}
-		block := self.sReader.GetSnapshotByHashH(hashH)
+		block := handler.sReader.GetSnapshotByHashH(hashH)
 		if block == nil {
 			break
 		}
@@ -44,9 +44,9 @@ func (self *reqSnapshotHashHandler) Handle(t common.NetMsgType, d []byte, p p2p.
 	if len(hashes) == 0 {
 		return
 	}
-	self.sender.SendSnapshotHashes(hashes, p)
+	handler.sender.SendSnapshotHashes(hashes, p)
 }
 
-func (self *reqSnapshotHashHandler) Id() string {
+func (handler *reqSnapshotHashHandler) Id() string {
 	return "default-request-snapshot-hash-handler"
 }

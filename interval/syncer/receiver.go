@@ -15,11 +15,11 @@ type receiver struct {
 	handlers      map[common.NetMsgType]map[string]MsgHandler
 }
 
-func (self *receiver) Types() []common.NetMsgType {
+func (r *receiver) Types() []common.NetMsgType {
 	return nil
 }
 
-func (self *receiver) Id() string {
+func (r *receiver) Id() string {
 	return "default-handler"
 }
 
@@ -57,20 +57,20 @@ type stateHandler struct {
 	state *state
 }
 
-func (self *stateHandler) Types() []common.NetMsgType {
+func (handler *stateHandler) Types() []common.NetMsgType {
 	return []common.NetMsgType{common.State, common.PeerConnected, common.PeerClosed}
 }
 
-func (self *stateHandler) Id() string {
+func (handler *stateHandler) Id() string {
 	return "default-state-handler"
 }
 
-func (self *stateHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
+func (handler *stateHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
 	switch t {
 	case common.PeerClosed:
-		self.state.peerClosed(peer)
+		handler.state.peerClosed(peer)
 	case common.PeerConnected:
-		self.state.peerConnected(peer)
+		handler.state.peerConnected(peer)
 	case common.State:
 		stateMsg := &stateMsg{}
 
@@ -80,7 +80,7 @@ func (self *stateHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer)
 			return
 		}
 
-		self.state.update(stateMsg, peer)
+		handler.state.update(stateMsg, peer)
 	}
 
 	//prevState := peer.GetState()
@@ -97,22 +97,22 @@ type snapshotHashHandler struct {
 	fetcher *fetcher
 }
 
-func (self *snapshotHashHandler) Types() []common.NetMsgType {
+func (handler *snapshotHashHandler) Types() []common.NetMsgType {
 	return []common.NetMsgType{common.SnapshotHashes}
 }
 
-func (self *snapshotHashHandler) Id() string {
+func (handler *snapshotHashHandler) Id() string {
 	return "default-snapshotHashHandler"
 }
 
-func (self *snapshotHashHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
+func (handler *snapshotHashHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
 	hashesMsg := &snapshotHashesMsg{}
 
 	err := json.Unmarshal(msg, hashesMsg)
 	if err != nil {
 		log.Error("snapshotHashHandler.Handle unmarshal fail.")
 	}
-	self.fetcher.fetchSnapshotBlockByHash(hashesMsg.Hashes)
+	handler.fetcher.fetchSnapshotBlockByHash(hashesMsg.Hashes)
 }
 
 type accountHashHandler struct {
@@ -120,19 +120,19 @@ type accountHashHandler struct {
 	fetcher *fetcher
 }
 
-func (self *accountHashHandler) Types() []common.NetMsgType {
+func (handler *accountHashHandler) Types() []common.NetMsgType {
 	return []common.NetMsgType{common.AccountHashes}
 }
 
-func (self *accountHashHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
+func (handler *accountHashHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
 	hashesMsg := &accountHashesMsg{}
 	err := json.Unmarshal(msg, hashesMsg)
 	if err != nil {
 		log.Error("accountHashHandler.Handle unmarshal fail.")
 	}
-	self.fetcher.fetchAccountBlockByHash(hashesMsg.Address, hashesMsg.Hashes)
+	handler.fetcher.fetchAccountBlockByHash(hashesMsg.Address, hashesMsg.Hashes)
 }
-func (self *accountHashHandler) Id() string {
+func (handler *accountHashHandler) Id() string {
 	return "default-accountHashHandler"
 }
 
@@ -142,11 +142,11 @@ type snapshotBlocksHandler struct {
 	sWriter *chainRw
 }
 
-func (self *snapshotBlocksHandler) Types() []common.NetMsgType {
+func (handler *snapshotBlocksHandler) Types() []common.NetMsgType {
 	return []common.NetMsgType{common.SnapshotBlocks}
 }
 
-func (self *snapshotBlocksHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
+func (handler *snapshotBlocksHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
 	hashesMsg := &snapshotBlocksMsg{}
 	err := json.Unmarshal(msg, hashesMsg)
 	if err != nil {
@@ -158,12 +158,12 @@ func (self *snapshotBlocksHandler) Handle(t common.NetMsgType, msg []byte, peer 
 			log.Warn("error hash for snapshot block. %v", v)
 			continue
 		}
-		self.fetcher.done(v.Hash(), v.Height())
-		self.sWriter.AddSnapshotBlock(v)
+		handler.fetcher.done(v.Hash(), v.Height())
+		handler.sWriter.AddSnapshotBlock(v)
 	}
 }
 
-func (self *snapshotBlocksHandler) Id() string {
+func (handler *snapshotBlocksHandler) Id() string {
 	return "default-snapshotBlocksHandler"
 }
 
@@ -173,11 +173,11 @@ type accountBlocksHandler struct {
 	aWriter *chainRw
 }
 
-func (self *accountBlocksHandler) Types() []common.NetMsgType {
+func (handler *accountBlocksHandler) Types() []common.NetMsgType {
 	return []common.NetMsgType{common.AccountBlocks}
 }
 
-func (self *accountBlocksHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
+func (handler *accountBlocksHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
 	hashesMsg := &accountBlocksMsg{}
 	err := json.Unmarshal(msg, hashesMsg)
 	if err != nil {
@@ -189,20 +189,20 @@ func (self *accountBlocksHandler) Handle(t common.NetMsgType, msg []byte, peer p
 			log.Warn("error hash for account block. %v", v)
 			continue
 		}
-		self.fetcher.done(v.Hash(), v.Height())
-		self.aWriter.AddAccountBlock(v.Signer(), v)
+		handler.fetcher.done(v.Hash(), v.Height())
+		handler.aWriter.AddAccountBlock(v.Signer(), v)
 	}
 }
 
-func (self *accountBlocksHandler) Id() string {
+func (handler *accountBlocksHandler) Id() string {
 	return "default-accountBlocksHandler"
 }
 
-func (self *receiver) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
-	self.innerHandle(t, msg, peer, self.innerHandlers)
-	self.handle(t, msg, peer, self.handlers)
+func (r *receiver) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
+	r.innerHandle(t, msg, peer, r.innerHandlers)
+	r.handle(t, msg, peer, r.handlers)
 }
-func (self *receiver) innerHandle(t common.NetMsgType, msg []byte, peer p2p.Peer, handlers map[common.NetMsgType][]MsgHandler) {
+func (r *receiver) innerHandle(t common.NetMsgType, msg []byte, peer p2p.Peer, handlers map[common.NetMsgType][]MsgHandler) {
 	hs := handlers[t]
 
 	if hs != nil {
@@ -212,7 +212,7 @@ func (self *receiver) innerHandle(t common.NetMsgType, msg []byte, peer p2p.Peer
 	}
 }
 
-func (self *receiver) handle(t common.NetMsgType, msg []byte, peer p2p.Peer, handlers map[common.NetMsgType]map[string]MsgHandler) {
+func (r *receiver) handle(t common.NetMsgType, msg []byte, peer p2p.Peer, handlers map[common.NetMsgType]map[string]MsgHandler) {
 	hs := handlers[t]
 	if hs != nil {
 		for _, h := range hs {
@@ -221,16 +221,16 @@ func (self *receiver) handle(t common.NetMsgType, msg []byte, peer p2p.Peer, han
 	}
 }
 
-func (self *receiver) RegisterHandler(handler MsgHandler) {
-	self.append(self.handlers, handler)
+func (r *receiver) RegisterHandler(handler MsgHandler) {
+	r.append(r.handlers, handler)
 	log.Info("register msg handler, type:%v, handler:%s", handler.Types(), handler.Id())
 }
 
-func (self *receiver) UnRegisterHandler(handler MsgHandler) {
-	self.delete(self.handlers, handler)
+func (r *receiver) UnRegisterHandler(handler MsgHandler) {
+	r.delete(r.handlers, handler)
 	log.Info("unregister msg handler, type:%v, handler:%s", handler.Types(), handler.Id())
 }
-func (self *receiver) append(hmap map[common.NetMsgType]map[string]MsgHandler, h MsgHandler) {
+func (r *receiver) append(hmap map[common.NetMsgType]map[string]MsgHandler, h MsgHandler) {
 	for _, t := range h.Types() {
 		hs := hmap[t]
 		if hs == nil {
@@ -241,7 +241,7 @@ func (self *receiver) append(hmap map[common.NetMsgType]map[string]MsgHandler, h
 	}
 }
 
-func (self *receiver) delete(hmap map[common.NetMsgType]map[string]MsgHandler, h MsgHandler) {
+func (r *receiver) delete(hmap map[common.NetMsgType]map[string]MsgHandler, h MsgHandler) {
 	for _, t := range h.Types() {
 		hs := hmap[t]
 		delete(hs, h.Id())

@@ -20,9 +20,9 @@ func NewAccountVerifier(r face.ChainReader, v *version.Version) *AccountVerifier
 	verifier := &AccountVerifier{reader: r, v: v}
 	return verifier
 }
-func (self *AccountVerifier) verifyGenesis(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) bool {
+func (acctV *AccountVerifier) verifyGenesis(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountGenesis", time.Now())
-	genesis, _ := self.reader.GenesisSnapshot()
+	genesis, _ := acctV.reader.GenesisSnapshot()
 	for _, a := range genesis.Accounts {
 		if a.Hash == block.Hash() && a.Height == block.Height() {
 			stat.referredFromResult = SUCCESS
@@ -34,12 +34,12 @@ func (self *AccountVerifier) verifyGenesis(block *common.AccountStateBlock, stat
 	stat.referredSelfResult = FAIL
 	return true
 }
-func (self *AccountVerifier) verifySelf(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) bool {
+func (acctV *AccountVerifier) verifySelf(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountSelf", time.Now())
 	// self amount and response
 	if block.BlockType == common.RECEIVED && block.Height() == common.FirstHeight {
 		// check genesis block logic
-		genesisCheck := self.checkGenesis(block)
+		genesisCheck := acctV.checkGenesis(block)
 		stat.referredSelfResult = genesisCheck
 		if genesisCheck == FAIL {
 			stat.errMsg = fmt.Sprintf("block[%s][%d][%s] error, genesis check fail.",
@@ -50,7 +50,7 @@ func (self *AccountVerifier) verifySelf(block *common.AccountStateBlock, stat *A
 	} else {
 		if block.BlockType == common.RECEIVED {
 			//check if it has been received
-			same := self.reader.GetAccountBySourceHash(block.To, block.Source.Hash)
+			same := acctV.reader.GetAccountBySourceHash(block.To, block.Source.Hash)
 			if same != nil {
 				stat.errMsg = fmt.Sprintf("block[%s][%d][%s] error, send block has received.",
 					block.Signer(), block.Height(), block.Hash())
@@ -58,7 +58,7 @@ func (self *AccountVerifier) verifySelf(block *common.AccountStateBlock, stat *A
 				return true
 			}
 		}
-		selfAmount := self.checkSelfAmount(block, stat)
+		selfAmount := acctV.checkSelfAmount(block, stat)
 		stat.referredSelfResult = selfAmount
 		if selfAmount == FAIL {
 			return true
@@ -67,12 +67,12 @@ func (self *AccountVerifier) verifySelf(block *common.AccountStateBlock, stat *A
 	return false
 }
 
-func (self *AccountVerifier) verifyFrom(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) bool {
+func (acctV *AccountVerifier) verifyFrom(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) bool {
 	// from amount
 	if block.BlockType == common.RECEIVED {
 		defer monitor.LogTime("verify", "accountFrom", time.Now())
 
-		fromAmount := self.checkFromAmount(block, stat)
+		fromAmount := acctV.checkFromAmount(block, stat)
 		stat.referredFromResult = fromAmount
 		if fromAmount == FAIL {
 			return true
@@ -83,14 +83,14 @@ func (self *AccountVerifier) verifyFrom(block *common.AccountStateBlock, stat *A
 	return false
 }
 
-func (self *AccountVerifier) verifySnapshot(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) bool {
+func (acctV *AccountVerifier) verifySnapshot(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountSnapshot", time.Now())
 	// referred snapshot
 	snapshotHeight := block.SnapshotHeight
 	snapshotHash := block.SnapshotHash
 
 	{ // check snapshot referred
-		snapshotR := self.reader.GetSnapshotByHashH(common.HashHeight{Hash: snapshotHash, Height: snapshotHeight})
+		snapshotR := acctV.reader.GetSnapshotByHashH(common.HashHeight{Hash: snapshotHash, Height: snapshotHeight})
 		if snapshotR != nil {
 			stat.referredSnapshotResult = SUCCESS
 		} else {
@@ -100,29 +100,29 @@ func (self *AccountVerifier) verifySnapshot(block *common.AccountStateBlock, sta
 	}
 	return false
 }
-func (self *AccountVerifier) VerifyReferred(b common.Block) BlockVerifyStat {
+func (acctV *AccountVerifier) VerifyReferred(b common.Block) BlockVerifyStat {
 	defer monitor.LogTime("verify", "accountBlock", time.Now())
 	block := b.(*common.AccountStateBlock)
-	stat := self.newVerifyStat(VerifyReferred, b)
+	stat := acctV.newVerifyStat(VerifyReferred, b)
 
 	// genesis account block
 	if block.BlockType == common.GENESIS {
-		if self.verifyGenesis(block, stat) {
+		if acctV.verifyGenesis(block, stat) {
 			return stat
 		}
 	}
 
 	// check snapshot
-	if self.verifySnapshot(block, stat) {
+	if acctV.verifySnapshot(block, stat) {
 		return stat
 	}
 
 	// check self
-	if self.verifySelf(block, stat) {
+	if acctV.verifySelf(block, stat) {
 		return stat
 	}
 	// check from
-	if self.verifyFrom(block, stat) {
+	if acctV.verifyFrom(block, stat) {
 		return stat
 	}
 	return stat
@@ -167,12 +167,12 @@ func (self *AccountBlockVerifyStat) Reset() {
 	self.referredSnapshotResult = PENDING
 	self.referredSelfResult = PENDING
 }
-func (self *AccountVerifier) newVerifyStat(t VerifyType, block common.Block) *AccountBlockVerifyStat {
-	task := &verifyTask{v: self.v, version: self.v.Val(), reader: self.reader, t: time.Now()}
+func (acctV *AccountVerifier) newVerifyStat(t VerifyType, block common.Block) *AccountBlockVerifyStat {
+	task := &verifyTask{v: acctV.v, version: acctV.v.Val(), reader: acctV.reader, t: time.Now()}
 	return &AccountBlockVerifyStat{task: task}
 }
-func (self *AccountVerifier) checkSelfAmount(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) VerifyResult {
-	last, _ := self.reader.HeadAccount(block.Signer())
+func (acctV *AccountVerifier) checkSelfAmount(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) VerifyResult {
+	last, _ := acctV.reader.HeadAccount(block.Signer())
 
 	if last == nil {
 		stat.errMsg = fmt.Sprintf("block[%s][%d][%s] error, last block is nil.",
@@ -211,8 +211,8 @@ func (self *AccountVerifier) checkSelfAmount(block *common.AccountStateBlock, st
 	}
 }
 
-func (self *AccountVerifier) checkGenesis(block *common.AccountStateBlock) VerifyResult {
-	head, _ := self.reader.HeadAccount(block.Signer())
+func (acctV *AccountVerifier) checkGenesis(block *common.AccountStateBlock) VerifyResult {
+	head, _ := acctV.reader.HeadAccount(block.Signer())
 	if head != nil {
 		return FAIL
 	}
@@ -222,8 +222,8 @@ func (self *AccountVerifier) checkGenesis(block *common.AccountStateBlock) Verif
 	return SUCCESS
 }
 
-func (self *AccountVerifier) checkFromAmount(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) VerifyResult {
-	source := self.reader.GetAccountByHeight(block.From, block.Source.Height)
+func (acctV *AccountVerifier) checkFromAmount(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) VerifyResult {
+	source := acctV.reader.GetAccountByHeight(block.From, block.Source.Height)
 	if source == nil {
 		stat.task.pendingAccount(block.From, block.Source.Height, block.Source.Hash, 1)
 		return PENDING

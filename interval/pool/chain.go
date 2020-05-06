@@ -25,37 +25,37 @@ type accountCh struct {
 	version *version.Version
 }
 
-func (self *accountCh) insertChain(block common.Block, forkVersion int) error {
-	if forkVersion != self.version.Val() {
-		return errors.New("error fork version. current:" + self.version.String() + ", target:" + strconv.Itoa(forkVersion))
+func (acctCh *accountCh) insertChain(block common.Block, forkVersion int) error {
+	if forkVersion != acctCh.version.Val() {
+		return errors.New("error fork version. current:" + acctCh.version.String() + ", target:" + strconv.Itoa(forkVersion))
 	}
-	return self.bc.InsertAccountBlock(self.address, block.(*common.AccountStateBlock))
+	return acctCh.bc.InsertAccountBlock(acctCh.address, block.(*common.AccountStateBlock))
 }
 
-func (self *accountCh) removeChain(block common.Block) error {
-	return self.bc.RemoveAccountHead(self.address, block.(*common.AccountStateBlock))
+func (acctCh *accountCh) removeChain(block common.Block) error {
+	return acctCh.bc.RemoveAccountHead(acctCh.address, block.(*common.AccountStateBlock))
 }
 
-func (self *accountCh) head() common.Block {
-	block, _ := self.bc.HeadAccount(self.address)
+func (acctCh *accountCh) head() common.Block {
+	block, _ := acctCh.bc.HeadAccount(acctCh.address)
 	if block == nil {
 		return nil
 	}
 	return block
 }
 
-func (self *accountCh) getBlock(height uint64) common.Block {
+func (acctCh *accountCh) getBlock(height uint64) common.Block {
 	if height == common.EmptyHeight {
 		return common.NewAccountBlock(height, "", "", "", time.Unix(0, 0), 0, 0, 0, "", common.SEND, "", "", nil)
 	}
-	block := self.bc.GetAccountByHeight(self.address, height)
+	block := acctCh.bc.GetAccountByHeight(acctCh.address, height)
 	if block == nil {
 		return nil
 	}
 	return block
 }
-func (self *accountCh) findAboveSnapshotHeight(height uint64) *common.AccountStateBlock {
-	return self.bc.FindAccountAboveSnapshotHeight(self.address, height)
+func (acctCh *accountCh) findAboveSnapshotHeight(height uint64) *common.AccountStateBlock {
+	return acctCh.bc.FindAccountAboveSnapshotHeight(acctCh.address, height)
 }
 
 type snapshotCh struct {

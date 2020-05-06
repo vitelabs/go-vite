@@ -13,18 +13,18 @@ type ViteForkWall struct {
 }
 
 
-func (self *ViteForkWall) Lock() {
-	self.rw.Lock()
+func (fw *ViteForkWall) Lock() {
+	fw.rw.Lock()
 }
 
-func (self *ViteForkWall) UnLock(delta int) {
-	self.rw.Unlock()
+func (fw *ViteForkWall) UnLock(delta int) {
+	fw.rw.Unlock()
 }
 
-func (self *ViteForkWall) RLock() {
-	self.rw.RLock()
+func (fw *ViteForkWall) RLock() {
+	fw.rw.RLock()
 }
 
-func (self *ViteForkWall) RUnLock() {
-	self.rw.RUnlock()
+func (fw *ViteForkWall) RUnLock() {
+	fw.rw.RUnlock()
 }

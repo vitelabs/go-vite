@@ -13,24 +13,24 @@ type TestBlock struct {
 	Ttimestamp time.Time
 }
 
-func (self *TestBlock) Height() int {
-	return self.Theight
+func (tb *TestBlock) Height() int {
+	return tb.Theight
 }
 
-func (self *TestBlock) Hash() string {
-	return self.Thash
+func (tb *TestBlock) Hash() string {
+	return tb.Thash
 }
 
-func (self *TestBlock) PreHash() string {
-	return self.TpreHash
+func (tb *TestBlock) PreHash() string {
+	return tb.TpreHash
 }
 
-func (self *TestBlock) Signer() string {
-	return self.Tsigner
+func (tb *TestBlock) Signer() string {
+	return tb.Tsigner
 }
-func (self *TestBlock) Timestamp() time.Time {
-	return self.Ttimestamp
+func (tb *TestBlock) Timestamp() time.Time {
+	return tb.Ttimestamp
 }
-func (self *TestBlock) String() string {
-	return "Theight:[" + strconv.Itoa(self.Theight) + "]\tThash:[" + self.Thash + "]\tTpreHash:[" + self.TpreHash + "]\tTsigner:[" + self.Tsigner + "]"
+func (tb *TestBlock) String() string {
+	return "Theight:[" + strconv.Itoa(tb.Theight) + "]\tThash:[" + tb.Thash + "]\tTpreHash:[" + tb.TpreHash + "]\tTsigner:[" + tb.Tsigner + "]"
 }

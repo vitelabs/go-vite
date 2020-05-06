@@ -14,11 +14,11 @@ type reqAccountBlocksHandler struct {
 	sender  Sender
 }
 
-func (self *reqAccountBlocksHandler) Types() []common.NetMsgType {
+func (handler *reqAccountBlocksHandler) Types() []common.NetMsgType {
 	return []common.NetMsgType{common.RequestAccountBlocks}
 }
 
-func (self *reqAccountBlocksHandler) Handle(t common.NetMsgType, d []byte, p p2p.Peer) {
+func (handler *reqAccountBlocksHandler) Handle(t common.NetMsgType, d []byte, p p2p.Peer) {
 	msg := &requestAccountBlockMsg{}
 	err := json.Unmarshal(d, msg)
 	if err != nil {
@@ -31,7 +31,7 @@ func (self *reqAccountBlocksHandler) Handle(t common.NetMsgType, d []byte, p p2p
 	}
 	var blocks []*common.AccountStateBlock
 	for _, v := range hashes {
-		block := self.aReader.GetAccountByHashH(msg.Address, v)
+		block := handler.aReader.GetAccountByHashH(msg.Address, v)
 		if block == nil {
 			continue
 		}
@@ -39,7 +39,7 @@ func (self *reqAccountBlocksHandler) Handle(t common.NetMsgType, d []byte, p p2p
 	}
 	if len(blocks) > 0 {
 		log.Info("send account blocks, address:%s, blockSize:%d, PId:%s", msg.Address, len(blocks), p.Id())
-		self.sender.SendAccountBlocks(msg.Address, blocks, p)
+		handler.sender.SendAccountBlocks(msg.Address, blocks, p)
 	}
 }
 

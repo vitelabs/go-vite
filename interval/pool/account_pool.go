@@ -31,31 +31,31 @@ func newAccountPool(name string, rw *accountCh, v *version.Version) *accountPool
 	return pool
 }
 
-func (self *accountPool) Init(
+func (al *accountPool) Init(
 	verifier verifier.Verifier,
 	syncer *fetcher,
 	mu sync.Locker) {
 
-	self.mu = mu
-	self.BCPool.init(self.rw, verifier, syncer)
+	al.mu = mu
+	al.BCPool.init(al.rw, verifier, syncer)
 }
 
 // 1. must be in diskchain
-func (self *accountPool) TryRollback(rollbackHeight uint64, rollbackHash string) ([]*common.AccountStateBlock, error) {
+func (al *accountPool) TryRollback(rollbackHeight uint64, rollbackHash string) ([]*common.AccountStateBlock, error) {
 	{ // check logic
-		w := self.chainpool.diskChain.getBlock(rollbackHeight, false)
+		w := al.chainpool.diskChain.getBlock(rollbackHeight, false)
 		if w == nil || w.block.Hash() != rollbackHash {
 			return nil, errors.New("error rollback cmd.")
 		}
 	}
 
-	head := self.chainpool.diskChain.Head()
+	head := al.chainpool.diskChain.Head()
 
 	var sendBlocks []*common.AccountStateBlock
 
 	headHeight := head.Height()
 	for i := headHeight; i > rollbackHeight; i-- {
-		w := self.chainpool.diskChain.getBlock(i, false)
+		w := al.chainpool.diskChain.getBlock(i, false)
 		if w == nil {
 			continue
 		}
@@ -68,13 +68,13 @@ func (self *accountPool) TryRollback(rollbackHeight uint64, rollbackHash string)
 }
 
 // rollback to current
-func (self *accountPool) FindRollbackPointByReferSnapshot(snapshotHeight uint64, snapshotHash string) (bool, *common.AccountStateBlock, error) {
-	head := self.chainpool.diskChain.Head().(*common.AccountStateBlock)
+func (al *accountPool) FindRollbackPointByReferSnapshot(snapshotHeight uint64, snapshotHash string) (bool, *common.AccountStateBlock, error) {
+	head := al.chainpool.diskChain.Head().(*common.AccountStateBlock)
 	if head.SnapshotHeight < snapshotHeight {
 		return false, nil, nil
 	}
 
-	accountBlock := self.rw.findAboveSnapshotHeight(snapshotHeight)
+	accountBlock := al.rw.findAboveSnapshotHeight(snapshotHeight)
 	if accountBlock == nil {
 		return true, nil, nil
 	} else {
@@ -82,38 +82,22 @@ func (self *accountPool) FindRollbackPointByReferSnapshot(snapshotHeight uint64,
 	}
 }
 
-func (self *accountPool) FindRollbackPointForAccountHashH(height uint64, hash string) (bool, *common.AccountStateBlock, Chain, error) {
-	chain := self.whichChain(height, hash)
+func (al *accountPool) FindRollbackPointForAccountHashH(height uint64, hash string) (bool, *common.AccountStateBlock, Chain, error) {
+	chain := al.whichChain(height, hash)
 	if chain == nil {
 		return false, nil, nil, nil
 	}
-	if chain.id() == self.chainpool.current.id() {
+	if chain.id() == al.chainpool.current.id() {
 		return false, nil, nil, nil
 	}
-	_, forkPoint, err := self.getForkPointByChains(chain, self.chainpool.current)
+	_, forkPoint, err := al.getForkPointByChains(chain, al.chainpool.current)
 	if err != nil {
 		return false, nil, nil, err
 	}
 	return true, forkPoint.(*common.AccountStateBlock), chain, nil
 }
 
-func (self *accountPool) loop() int {
-	//if !self.compactLock.TryLock() {
-	//	return 0
-	//} else {
-	//	defer self.compactLock.UnLock()
-	//}
-	//
-	//now := time.Now()
-	//if now.After(self.loopTime.Add(time.Millisecond * 200)) {
-	//	self.loopTime = now
-	//	sum := 0
-	//	sum = sum + self.loopGenSnippetChains()
-	//	sum = sum + self.loopAppendChains()
-	//	sum = sum + self.loopFetchForSnippets()
-	//	sum = sum + self.TryInsert()
-	//	return sum
-	//}
+func (al *accountPool) loop() int {
 	return 0
 }
 
@@ -123,27 +107,27 @@ func (self *accountPool) loop() int {
 	1.2. snippet chain
 2. fetch block for snippet chain.
 */
-func (self *accountPool) Compact() int {
+func (al *accountPool) Compact() int {
 	// If no new data arrives, do nothing.
-	if len(self.blockpool.freeBlocks) == 0 {
+	if len(al.blockpool.freeBlocks) == 0 {
 		return 0
 	}
 	// if an insert operation is in progress, do nothing.
-	if !self.compactLock.TryLock() {
+	if !al.compactLock.TryLock() {
 		return 0
 	} else {
-		defer self.compactLock.UnLock()
+		defer al.compactLock.UnLock()
 	}
 
 	//	this is a rate limiter
 	now := time.Now()
-	if now.After(self.loopTime.Add(time.Millisecond * 200)) {
+	if now.After(al.loopTime.Add(time.Millisecond * 200)) {
 		defer monitor.LogTime("pool", "accountCompact", now)
-		self.loopTime = now
+		al.loopTime = now
 		sum := 0
-		sum = sum + self.loopGenSnippetChains()
-		sum = sum + self.loopAppendChains()
-		sum = sum + self.loopFetchForSnippets()
+		sum = sum + al.loopGenSnippetChains()
+		sum = sum + al.loopAppendChains()
+		sum = sum + al.loopFetchForSnippets()
 		return sum
 	}
 	return 0
@@ -152,31 +136,31 @@ func (self *accountPool) Compact() int {
 /**
 try insert block to real chain.
 */
-func (self *accountPool) TryInsert() verifier.Task {
+func (al *accountPool) TryInsert() verifier.Task {
 	// if current size is empty, do nothing.
-	if self.chainpool.current.size() <= 0 {
+	if al.chainpool.current.size() <= 0 {
 		return nil
 	}
 
 	// if an compact operation is in progress, do nothing.
-	if !self.compactLock.TryLock() {
+	if !al.compactLock.TryLock() {
 		return nil
 	} else {
-		defer self.compactLock.UnLock()
+		defer al.compactLock.UnLock()
 	}
 
 	// if last verify task has not done
-	if self.verifyTask != nil && !self.verifyTask.Done() {
+	if al.verifyTask != nil && !al.verifyTask.Done() {
 		return nil
 	}
 	// lock other chain insert
-	self.mu.Lock()
-	defer self.mu.Unlock()
+	al.mu.Lock()
+	defer al.mu.Unlock()
 
 	// try insert block to real chain
 	defer monitor.LogTime("pool", "accountTryInsert", time.Now())
-	task := self.tryInsert()
-	self.verifyTask = task
+	task := al.tryInsert()
+	al.verifyTask = task
 	if task != nil {
 		return task
 	} else {
@@ -200,10 +184,10 @@ pending:
 success:
 	really insert to chain.
 */
-func (self *accountPool) tryInsert() verifier.Task {
-	self.rMu.Lock()
-	defer self.rMu.Unlock()
-	cp := self.chainpool
+func (al *accountPool) tryInsert() verifier.Task {
+	al.rMu.Lock()
+	defer al.rMu.Unlock()
+	cp := al.chainpool
 	current := cp.current
 	minH := current.tailHeight + 1
 	headH := current.headHeight
@@ -234,7 +218,7 @@ func (self *accountPool) tryInsert() verifier.Task {
 						result, block.Signer(), block.Hash(), block.Height(), err)
 					return verifier.NewFailTask()
 				} else {
-					self.blockpool.afterInsert(wrapper)
+					al.blockpool.afterInsert(wrapper)
 				}
 			} else {
 				return verifier.NewSuccessTask()
@@ -250,16 +234,16 @@ func (self *accountPool) tryInsert() verifier.Task {
 	return verifier.NewSuccessTask()
 }
 
-func (self *accountPool) insertAccountFailCallback(b common.Block, s verifier.BlockVerifyStat) {
-	log.Info("do nothing. height:%d, hash:%s, pool:%s", b.Height(), b.Hash(), self.Id)
+func (al *accountPool) insertAccountFailCallback(b common.Block, s verifier.BlockVerifyStat) {
+	log.Info("do nothing. height:%d, hash:%s, pool:%s", b.Height(), b.Hash(), al.Id)
 }
 
-func (self *accountPool) insertAccountSuccessCallback(b common.Block, s verifier.BlockVerifyStat) {
-	log.Info("do nothing. height:%d, hash:%s, pool:%s", b.Height(), b.Hash(), self.Id)
+func (al *accountPool) insertAccountSuccessCallback(b common.Block, s verifier.BlockVerifyStat) {
+	log.Info("do nothing. height:%d, hash:%s, pool:%s", b.Height(), b.Hash(), al.Id)
 }
-func (self *accountPool) FindInChain(hash string, height uint64) bool {
+func (al *accountPool) FindInChain(hash string, height uint64) bool {
 
-	for _, c := range self.chainpool.chains {
+	for _, c := range al.chainpool.chains {
 		b := c.heightBlocks[height]
 		if b == nil {
 			continue

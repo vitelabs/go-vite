@@ -28,10 +28,10 @@ type Version struct {
 	version int32
 }
 
-func (self *Version) Inc() {
+func (v *Version) Inc() {
 	for {
-		i := self.version
-		if atomic.CompareAndSwapInt32(&self.version, i, i+1) {
+		i := v.version
+		if atomic.CompareAndSwapInt32(&v.version, i, i+1) {
 			return
 		} else {
 			log.Info("fork version concurrent for %d.", i)
@@ -39,10 +39,10 @@ func (self *Version) Inc() {
 	}
 }
 
-func (self *Version) Val() int {
-	return int(self.version)
+func (v *Version) Val() int {
+	return int(v.version)
 }
 
-func (self *Version) String() string {
-	return strconv.Itoa(int(self.version))
+func (v *Version) String() string {
+	return strconv.Itoa(int(v.version))
 }

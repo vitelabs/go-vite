@@ -18,24 +18,24 @@ type TestPeer struct {
 	state interface{}
 }
 
-func (self *TestPeer) SetState(state interface{}) {
-	self.state = state
+func (peer *TestPeer) SetState(state interface{}) {
+	peer.state = state
 }
 
-func (self *TestPeer) GetState() interface{} {
-	return self.state
+func (peer *TestPeer) GetState() interface{} {
+	return peer.state
 }
-func (self *TestPeer) RemoteAddr() string {
+func (peer *TestPeer) RemoteAddr() string {
 	return ""
 }
 
-func (self *TestPeer) Write(msg *p2p.Msg) error {
+func (peer *TestPeer) Write(msg *p2p.Msg) error {
 	log.Info("write msg, msgType:%s", msg.T)
-	self.fn(msg.T, msg.Data, self)
+	peer.fn(msg.T, msg.Data, peer)
 	return nil
 }
 
-func (self *TestPeer) Id() string {
+func (peer *TestPeer) Id() string {
 	return "testPeer"
 }
 
@@ -43,55 +43,55 @@ type TestP2P struct {
 	bestPeer *TestPeer
 }
 
-func (self *TestP2P) Start() {
+func (test *TestP2P) Start() {
 	panic("implement me")
 }
 
-func (self *TestP2P) Stop() {
+func (test *TestP2P) Stop() {
 	panic("implement me")
 }
 
-func (self *TestP2P) Id() string {
+func (test *TestP2P) Id() string {
 	panic("implement me")
 }
 
-func (self *TestP2P) SetHandlerFn(fn p2p.MsgHandle) {
-	self.bestPeer.fn = fn
+func (test *TestP2P) SetHandlerFn(fn p2p.MsgHandle) {
+	test.bestPeer.fn = fn
 }
 
-func (self *TestP2P) BestPeer() (p2p.Peer, error) {
-	return self.bestPeer, nil
+func (test *TestP2P) BestPeer() (p2p.Peer, error) {
+	return test.bestPeer, nil
 }
 
-func (self *TestP2P) AllPeer() ([]p2p.Peer, error) {
-	return []p2p.Peer{self.bestPeer}, nil
+func (test *TestP2P) AllPeer() ([]p2p.Peer, error) {
+	return []p2p.Peer{test.bestPeer}, nil
 }
 
 type TestAccountReader struct {
 }
 
-func (self *TestAccountReader) GenesisSnapshost() (*common.SnapshotBlock, error) {
+func (reader *TestAccountReader) GenesisSnapshost() (*common.SnapshotBlock, error) {
 	panic("implement me")
 }
 
-func (self *TestAccountReader) HeadSnapshost() (*common.SnapshotBlock, error) {
+func (reader *TestAccountReader) HeadSnapshost() (*common.SnapshotBlock, error) {
 	panic("implement me")
 }
 
-func (self *TestAccountReader) AddAccountBlock(account string, block *common.AccountStateBlock) error {
+func (reader *TestAccountReader) AddAccountBlock(account string, block *common.AccountStateBlock) error {
 	panic("implement me")
 }
 
-func (self *TestAccountReader) AddSnapshotBlock(block *common.SnapshotBlock) {
+func (reader *TestAccountReader) AddSnapshotBlock(block *common.SnapshotBlock) {
 	panic("implement me")
 }
 
-func (self *TestAccountReader) GetSnapshotBlocksByHashH(hashH common.HashHeight) *common.SnapshotBlock {
+func (reader *TestAccountReader) GetSnapshotBlocksByHashH(hashH common.HashHeight) *common.SnapshotBlock {
 	log.Info("TestSnapshotReader#GetSnapshotBlocksByHashH, hash:%s, height:%d", hashH.Hash, hashH.Height)
 	return genSnapshotBlock(hashH)
 }
 
-func (self *TestAccountReader) GetAccountBlocksByHashH(address string, hashH common.HashHeight) *common.AccountStateBlock {
+func (reader *TestAccountReader) GetAccountBlocksByHashH(address string, hashH common.HashHeight) *common.AccountStateBlock {
 	log.Info("TestAccountReader#GetAccountBlocksByHashH, address:%s, hash:%s, height:%d", address, hashH.Hash, hashH.Height)
 	return genAccountBlock(address, hashH)
 }
@@ -126,29 +126,29 @@ type TestHandler struct {
 	cnt int
 }
 
-func (self *TestHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
+func (handler *TestHandler) Handle(t common.NetMsgType, msg []byte, peer p2p.Peer) {
 	if t == common.SnapshotBlocks {
 		hashesMsg := &snapshotBlocksMsg{}
 		err := json.Unmarshal(msg, hashesMsg)
 		if err != nil {
 			log.Error("TestHandler.Handle unmarshal fail.")
 		}
-		self.cnt = self.cnt + len(hashesMsg.Blocks)
+		handler.cnt = handler.cnt + len(hashesMsg.Blocks)
 	} else if t == common.AccountBlocks {
 		hashesMsg := &accountBlocksMsg{}
 		err := json.Unmarshal(msg, hashesMsg)
 		if err != nil {
 			log.Error("TestHandler.Handle unmarshal fail.")
 		}
-		self.cnt = self.cnt + len(hashesMsg.Blocks)
+		handler.cnt = handler.cnt + len(hashesMsg.Blocks)
 	}
 }
 
-func (self *TestHandler) Types() []common.NetMsgType {
+func (handler *TestHandler) Types() []common.NetMsgType {
 	return []common.NetMsgType{common.SnapshotBlocks, common.AccountBlocks}
 }
 
-func (self *TestHandler) Id() string {
+func (handler *TestHandler) Id() string {
 	return "testHandler"
 }
 

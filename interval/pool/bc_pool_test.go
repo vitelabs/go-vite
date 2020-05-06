@@ -21,15 +21,15 @@ type TestBlockVerifyStat struct {
 	result verifier.VerifyResult
 }
 
-func (self *TestBlockVerifyStat) VerifyResult() verifier.VerifyResult {
-	return self.result
+func (tstat *TestBlockVerifyStat) VerifyResult() verifier.VerifyResult {
+	return tstat.result
 }
 
-func (self *TestBlockVerifyStat) Reset() {
-	self.result = verifier.PENDING
+func (tstat *TestBlockVerifyStat) Reset() {
+	tstat.result = verifier.PENDING
 }
 
-func (self *TestVerifier) VerifyReferred(block common.Block, stat verifier.BlockVerifyStat) {
+func (v *TestVerifier) VerifyReferred(block common.Block, stat verifier.BlockVerifyStat) {
 	switch stat.(type) {
 	case *TestBlockVerifyStat:
 		testStat := stat.(*TestBlockVerifyStat)
@@ -40,7 +40,7 @@ func (self *TestVerifier) VerifyReferred(block common.Block, stat verifier.Block
 	}
 }
 
-func (self *TestVerifier) NewVerifyStat(t verifier.VerifyType, block common.Block) verifier.BlockVerifyStat {
+func (v *TestVerifier) NewVerifyStat(t verifier.VerifyType, block common.Block) verifier.BlockVerifyStat {
 	return &TestBlockVerifyStat{result: verifier.PENDING}
 }
 
@@ -54,42 +54,42 @@ type TestChainReader struct {
 	store map[int]common.Block
 }
 
-func (self *TestChainReader) GetBlock(height int) common.Block {
-	return self.store[height]
+func (chReader *TestChainReader) GetBlock(height int) common.Block {
+	return chReader.store[height]
 }
 
-func (self *TestChainReader) init() {
-	self.store = make(map[int]common.Block)
-	self.head = genesis
-	self.store[genesis.Theight] = genesis
+func (chReader *TestChainReader) init() {
+	chReader.store = make(map[int]common.Block)
+	chReader.head = genesis
+	chReader.store[genesis.Theight] = genesis
 }
 
-func (self *TestChainReader) Head() common.Block {
-	return self.head
+func (chReader *TestChainReader) Head() common.Block {
+	return chReader.head
 }
-func (self *TestChainReader) insertChain(block common.Block, forkVersion int) error {
+func (chReader *TestChainReader) insertChain(block common.Block, forkVersion int) error {
 	log.Info("insert to forkedChain: %s", block)
-	self.head = block
-	self.store[block.Height()] = block
+	chReader.head = block
+	chReader.store[block.Height()] = block
 	return nil
 }
 
-func (self *TestChainReader) removeChain(block common.Block) error {
+func (chReader *TestChainReader) removeChain(block common.Block) error {
 	log.Info("remove from forkedChain: %s", block)
-	self.head = self.store[block.Height()-1]
-	delete(self.store, block.Height())
+	chReader.head = chReader.store[block.Height()-1]
+	delete(chReader.store, block.Height())
 	return nil
 }
-func (self *TestSyncer) fetch(hash common.HashHeight, prevCnt int) {
+func (syn *TestSyncer) fetch(hash common.HashHeight, prevCnt int) {
 	log.Info("fetch request,cnt:%d, hash:%v", prevCnt, hash)
 	go func() {
 		prev := hash.Hash
 
 		for i := 0; i < prevCnt; i++ {
-			block, ok := self.blocks[prev]
+			block, ok := syn.blocks[prev]
 			if ok {
 				log.Info("recv from net: %s", block)
-				self.pool.AddBlock(block)
+				syn.pool.AddBlock(block)
 			} else {
 				return
 			}
@@ -98,26 +98,26 @@ func (self *TestSyncer) fetch(hash common.HashHeight, prevCnt int) {
 
 	}()
 }
-func (self *TestSyncer) FetchAccount(address string, hash common.HashHeight, prevCnt int) {
-	self.fetch(hash, prevCnt)
+func (syn *TestSyncer) FetchAccount(address string, hash common.HashHeight, prevCnt int) {
+	syn.fetch(hash, prevCnt)
 }
 
-func (self *TestSyncer) FetchSnapshot(hash common.HashHeight, prevCnt int) {
-	self.fetch(hash, prevCnt)
+func (syn *TestSyncer) FetchSnapshot(hash common.HashHeight, prevCnt int) {
+	syn.fetch(hash, prevCnt)
 }
 
-func (self *TestSyncer) genLinkedData() {
-	self.blocks = genLinkBlock("A-", 1, 100, genesis)
-	block := self.blocks["A-5"]
+func (syn *TestSyncer) genLinkedData() {
+	syn.blocks = genLinkBlock("A-", 1, 100, genesis)
+	block := syn.blocks["A-5"]
 	tmp := genLinkBlock("B-", 6, 30, block)
 	for k, v := range tmp {
-		self.blocks[k] = v
+		syn.blocks[k] = v
 	}
 
-	block = self.blocks["A-6"]
+	block = syn.blocks["A-6"]
 	tmp = genLinkBlock("C-", 7, 30, block)
 	for k, v := range tmp {
-		self.blocks[k] = v
+		syn.blocks[k] = v
 	}
 }
 

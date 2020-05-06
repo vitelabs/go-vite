@@ -44,17 +44,17 @@ type handState struct {
 	S           peerState
 }
 
-func (self *state) GetState() (interface{}, error) {
-	return self.getHandState()
+func (se *state) GetState() (interface{}, error) {
+	return se.getHandState()
 }
 
-func (self *state) Handshake(peerId string, state []byte) error {
+func (se *state) Handshake(peerId string, state []byte) error {
 	msg := &handState{}
 	err := json.Unmarshal(state, msg)
 	if err != nil {
 		return err
 	}
-	hs, err := self.getHandState()
+	hs, err := se.getHandState()
 	if err != nil {
 		return err
 	}
@@ -68,13 +68,13 @@ func (self *state) Handshake(peerId string, state []byte) error {
 	return nil
 }
 
-func (self *state) getHandState() (*handState, error) {
-	head, e := self.rw.HeadSnapshot()
+func (se *state) getHandState() (*handState, error) {
+	head, e := se.rw.HeadSnapshot()
 	if e != nil {
 		return nil, errors.New("get snapshot head block fail.")
 
 	}
-	genesis, e := self.rw.GenesisSnapshot()
+	genesis, e := se.rw.GenesisSnapshot()
 	if e != nil {
 		return nil, errors.New("get genesis block fail.")
 	}
@@ -82,7 +82,7 @@ func (self *state) getHandState() (*handState, error) {
 	return msg, nil
 }
 
-func (self *state) DecodeState(state []byte) interface{} {
+func (se *state) DecodeState(state []byte) interface{} {
 	if state == nil {
 		return nil
 	}
@@ -95,7 +95,7 @@ func (self *state) DecodeState(state []byte) interface{} {
 	return msg
 }
 
-func (self *state) EncodeState(state interface{}) []byte {
+func (se *state) EncodeState(state interface{}) []byte {
 	if state == nil {
 		return nil
 	}
@@ -119,7 +119,7 @@ func newState(rw *chainRw, fetcher *fetcher, s *sender, p p2p.P2P, bus EventBus.
 	return self
 }
 
-func (self *state) update(msg *stateMsg, peer p2p.Peer) {
+func (se *state) update(msg *stateMsg, peer p2p.Peer) {
 	//syncP := self.peers[peer.Id()]
 	//if syncP == nil {
 	//	log.Warn("peer[%s] not exist", peer.Id())
@@ -137,59 +137,59 @@ func (self *state) update(msg *stateMsg, peer p2p.Peer) {
 		state.S.Height = msg.Height
 		state.S.Hash = msg.Hash
 	}
-	head, e := self.rw.HeadSnapshot()
+	head, e := se.rw.HeadSnapshot()
 	if e != nil {
 		log.Error("read snapshot head error:%v", e)
 		return
 	}
 	if msg.Height > head.Height() {
-		self.fetcher.fetchSnapshotBlockFromPeer(common.HashHeight{Hash: msg.Hash, Height: msg.Height}, peer)
+		se.fetcher.fetchSnapshotBlockFromPeer(common.HashHeight{Hash: msg.Hash, Height: msg.Height}, peer)
 	}
 }
-func (self *state) peerConnected(peer p2p.Peer) {
-	self.peers.Store(peer.Id(), &syncPeer{peer: peer})
+func (se *state) peerConnected(peer p2p.Peer) {
+	se.peers.Store(peer.Id(), &syncPeer{peer: peer})
 }
-func (self *state) peerClosed(peer p2p.Peer) {
-	self.peers.Delete(peer.Id())
+func (se *state) peerClosed(peer p2p.Peer) {
+	se.peers.Delete(peer.Id())
 }
-func (self *state) start() {
-	go self.loop()
-	go self.syncFirst()
+func (se *state) start() {
+	go se.loop()
+	go se.syncFirst()
 }
 
-func (self *state) loop() {
-	self.wg.Add(1)
-	defer self.wg.Done()
+func (se *state) loop() {
+	se.wg.Add(1)
+	defer se.wg.Done()
 	ticker := time.NewTicker(time.Second * 20)
 	for {
 		select {
-		case <-self.closed:
+		case <-se.closed:
 			return
 		case <-ticker.C:
-			head, e := self.rw.HeadSnapshot()
+			head, e := se.rw.HeadSnapshot()
 			if e != nil {
 				log.Error("read snapshot head error:%v", e)
 				continue
 			}
 			stateMsg := stateMsg{Hash: head.Hash(), Height: head.Height()}
 			log.Info("sync state, state:%v", stateMsg)
-			self.sender.broadcastState(stateMsg)
+			se.sender.broadcastState(stateMsg)
 		}
 	}
 }
 
-func (self *state) syncDone() bool {
-	return self.firstTa.done > 0
+func (se *state) syncDone() bool {
+	return se.firstTa.done > 0
 }
 
-func (self *state) stop() {
-	close(self.closed)
-	self.wg.Wait()
+func (se *state) stop() {
+	close(se.closed)
+	se.wg.Wait()
 }
-func (self *state) syncFirst() {
-	self.wg.Add(1)
-	defer self.wg.Done()
-	ta := self.firstTa
+func (se *state) syncFirst() {
+	se.wg.Add(1)
+	defer se.wg.Done()
+	ta := se.firstTa
 
 	t := time.NewTicker(time.Second * 2)
 
@@ -197,21 +197,21 @@ func (self *state) syncFirst() {
 NET:
 	for {
 		select {
-		case <-self.closed:
+		case <-se.closed:
 			return
 		case <-ta.closed:
 			return
 		case <-timeout.C:
 			log.Info("link other node fail. but started.")
-			self.firstSyncDone()
+			se.firstSyncDone()
 		case <-t.C:
 			i := 0
-			self.peers.Range(func(_, _ interface{}) bool {
+			se.peers.Range(func(_, _ interface{}) bool {
 				i++
 				return true
 			})
 			if i > 0 {
-				p := self.bestPeer()
+				p := se.bestPeer()
 				if p != nil {
 					s := p.GetState().(*handState)
 					ta.hash = s.S.Hash
@@ -224,33 +224,33 @@ NET:
 		}
 	}
 
-	head, e := self.rw.HeadSnapshot()
+	head, e := se.rw.HeadSnapshot()
 	if e != nil {
 		log.Error("read snapshot head error:%v", e)
 		return
 	}
 	if head.Height() >= ta.height {
 		log.Info("need not sync, self height:%d, peer height:%d, peer id:%s", head.Height(), ta.height, ta.peer.Id())
-		self.firstSyncDone()
+		se.firstSyncDone()
 		return
 	}
-	self.sender.requestSnapshotBlockByPeer(common.HashHeight{Hash: ta.hash, Height: ta.height}, ta.peer)
+	se.sender.requestSnapshotBlockByPeer(common.HashHeight{Hash: ta.hash, Height: ta.height}, ta.peer)
 
 	for {
 		select {
-		case <-self.closed:
+		case <-se.closed:
 			return
 		case <-ta.closed:
 			return
 		case <-t.C:
-			head, e := self.rw.HeadSnapshot()
+			head, e := se.rw.HeadSnapshot()
 			if e != nil {
 				log.Error("read snapshot head error:%v", e)
 				continue
 			}
 			if head.Height() > ta.height {
 				log.Info("sync first finish.")
-				self.firstSyncDone()
+				se.firstSyncDone()
 				return
 			}
 		}
@@ -258,17 +258,17 @@ NET:
 
 }
 
-func (self *state) firstSyncDone() {
-	close(self.firstTa.closed)
-	self.firstTa.done = 1
-	self.bus.Publish(common.DwlDone)
+func (se *state) firstSyncDone() {
+	close(se.firstTa.closed)
+	se.firstTa.done = 1
+	se.bus.Publish(common.DwlDone)
 }
 
-func (self *state) bestPeer() p2p.Peer {
+func (se *state) bestPeer() p2p.Peer {
 	var r p2p.Peer
 	h := uint64(0)
 
-	self.peers.Range(func(_, p interface{}) bool {
+	se.peers.Range(func(_, p interface{}) bool {
 		p1 := p.(*syncPeer)
 		s := p1.peer.GetState().(*handState)
 		if s.S.Height > h {

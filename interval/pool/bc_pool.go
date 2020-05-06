@@ -91,20 +91,20 @@ type diskChain struct {
 	v       *version.Version
 }
 
-func (self *diskChain) getBlock(height uint64, refer bool) *PoolBlock {
+func (ch *diskChain) getBlock(height uint64, refer bool) *PoolBlock {
 	if height < 0 {
 		return nil
 	}
-	block := self.rw.getBlock(height)
+	block := ch.rw.getBlock(height)
 	if block == nil {
 		return nil
 	} else {
-		return &PoolBlock{block: block, forkVersion: self.v.Val(), v: self.v}
+		return &PoolBlock{block: block, forkVersion: ch.v.Val(), v: ch.v}
 	}
 }
-func (self *diskChain) getBlockBetween(tail int, head int, refer bool) *PoolBlock {
+func (ch *diskChain) getBlockBetween(tail int, head int, refer bool) *PoolBlock {
 	//forkVersion := version.ForkVersion()
-	//block := self.rw.GetBlock(height)
+	//block := ch.rw.GetBlock(height)
 	//if block == nil {
 	//	return nil
 	//} else {
@@ -113,18 +113,18 @@ func (self *diskChain) getBlockBetween(tail int, head int, refer bool) *PoolBloc
 	return nil
 }
 
-func (self *diskChain) contains(height uint64) bool {
-	return self.rw.head().Height() >= height
+func (ch *diskChain) contains(height uint64) bool {
+	return ch.rw.head().Height() >= height
 }
 
-func (self *diskChain) id() string {
-	return self.chainId
+func (ch *diskChain) id() string {
+	return ch.chainId
 }
 
-func (self *diskChain) Head() common.Block {
-	head := self.rw.head()
+func (ch *diskChain) Head() common.Block {
+	head := ch.rw.head()
 	if head == nil {
-		return self.rw.getBlock(common.EmptyHeight) // hack implement
+		return ch.rw.getBlock(common.EmptyHeight) // hack implement
 	}
 
 	return head
