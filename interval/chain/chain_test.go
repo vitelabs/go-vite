@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/interval/common"
-	"github.com/vitelabs/go-vite/interval/tools"
+	"github.com/vitelabs/go-vite/interval/utils"
 )
 
 func TestGenesis(t *testing.T) {
@@ -17,7 +17,7 @@ func TestGenesis(t *testing.T) {
 	for _, a := range genesisAccounts {
 		genesis := common.NewAccountBlock(common.FirstHeight, "", "", a, time.Unix(0, 0),
 			200, 0, 0, "", common.GENESIS, a, a, nil)
-		genesis.SetHash(tools.CalculateAccountHash(genesis))
+		genesis.SetHash(utils.CalculateAccountHash(genesis))
 
 		fmt.Println(a, &common.HashHeight{Hash: genesis.Hash(), Height: genesis.Height()})
 	}
@@ -28,7 +28,7 @@ func TestGenesis(t *testing.T) {
 	}
 
 	var genesisSnapshot = common.NewSnapshotBlock(0, "a601ad0af8123a9dd85a201273276a82e41d6cc1e708bd62ea432dea76038639", "", "viteshan", time.Unix(1533550878, 0), genesisAcc)
-	fmt.Println(tools.CalculateSnapshotHash(genesisSnapshot))
+	fmt.Println(utils.CalculateSnapshotHash(genesisSnapshot))
 }
 
 func TestInsert(t *testing.T) {

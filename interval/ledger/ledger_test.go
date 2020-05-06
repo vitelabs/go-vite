@@ -14,7 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/interval/p2p"
 	"github.com/vitelabs/go-vite/interval/syncer"
 	"github.com/vitelabs/go-vite/interval/test"
-	"github.com/vitelabs/go-vite/interval/tools"
+	"github.com/vitelabs/go-vite/interval/utils"
 )
 
 type TestSyncer struct {
@@ -107,7 +107,7 @@ func TestTime(t *testing.T) {
 	now := time.Now()
 	fmt.Printf("%d\n", now.Unix())
 	block := common.NewSnapshotBlock(0, "460780b73084275422b520a42ebb9d4f8a8326e1522c79817a19b41ba69dca5b", "", "viteshan", time.Unix(1533550878, 0), nil)
-	hash := tools.CalculateSnapshotHash(block)
+	hash := utils.CalculateSnapshotHash(block)
 	fmt.Printf("hash:%s\n", hash) //460780b73084275422b520a42ebb9d4f8a8326e1522c79817a19b41ba69dca5b
 }
 
@@ -235,7 +235,7 @@ func TestAccountFork(t *testing.T) {
 
 func genSnapshotBlockBy(block *common.SnapshotBlock) *common.SnapshotBlock {
 	snapshot := common.NewSnapshotBlock(block.Height()+1, "", block.Hash(), "viteshan", time.Now(), nil)
-	snapshot.SetHash(tools.CalculateSnapshotHash(snapshot))
+	snapshot.SetHash(utils.CalculateSnapshotHash(snapshot))
 	return snapshot
 }
 
@@ -245,7 +245,7 @@ func genSnapAccounts(block *common.SnapshotBlock, stateBlocks ...*common.Account
 		accounts = append(accounts, common.NewAccountHashH(v.Signer(), v.Hash(), v.Height()))
 	}
 	snapshot := common.NewSnapshotBlock(block.Height()+1, "", block.Hash(), "viteshan", time.Now(), accounts)
-	snapshot.SetHash(tools.CalculateSnapshotHash(snapshot))
+	snapshot.SetHash(utils.CalculateSnapshotHash(snapshot))
 	return snapshot
 }
 
@@ -253,7 +253,7 @@ func genAccountBlockBy(address string, snapshotBlock *common.SnapshotBlock, prev
 	to := "viteshan"
 	block := common.NewAccountBlock(prev.Height()+1, "", prev.Hash(), address, time.Now(),
 		prev.Amount+modifiedAmount, modifiedAmount, snapshotBlock.Height(), snapshotBlock.Hash(), common.SEND, address, to, "", -1)
-	block.SetHash(tools.CalculateAccountHash(block))
+	block.SetHash(utils.CalculateAccountHash(block))
 	return block
 }
 
@@ -261,7 +261,7 @@ func genSnapshotBlock(ledger *ledger) *common.SnapshotBlock {
 	block := ledger.sc.head
 
 	snapshot := common.NewSnapshotBlock(block.Height()+1, "", block.Hash(), "viteshan", time.Now(), nil)
-	snapshot.SetHash(tools.CalculateSnapshotHash(snapshot))
+	snapshot.SetHash(utils.CalculateSnapshotHash(snapshot))
 	return snapshot
 }
 

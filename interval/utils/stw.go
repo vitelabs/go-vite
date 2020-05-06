@@ -1,4 +1,4 @@
-package tools
+package utils
 
 import "sync"
 
@@ -11,7 +11,6 @@ type ForkWall interface {
 type ViteForkWall struct {
 	rw sync.RWMutex
 }
-
 
 func (fw *ViteForkWall) Lock() {
 	fw.rw.Lock()

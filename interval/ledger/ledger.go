@@ -11,7 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/interval/monitor"
 	"github.com/vitelabs/go-vite/interval/pool"
 	"github.com/vitelabs/go-vite/interval/syncer"
-	"github.com/vitelabs/go-vite/interval/tools"
+	"github.com/vitelabs/go-vite/interval/utils"
 )
 
 type Ledger interface {
@@ -72,7 +72,7 @@ func (l *ledger) MiningSnapshotBlock(address string, timestamp int64) error {
 	}
 
 	block := common.NewSnapshotBlock(hashH.Height+1, "", hashH.Hash, address, time.Unix(timestamp, 0), accounts)
-	block.SetHash(tools.CalculateSnapshotHash(block))
+	block.SetHash(utils.CalculateSnapshotHash(block))
 
 	err = l.bpool.AddDirectSnapshotBlock(block)
 	if err != nil {
@@ -90,7 +90,7 @@ func (l *ledger) RequestAccountBlock(from string, to string, amount int) error {
 
 	newBlock := common.NewAccountBlockFrom(headAccount, from, time.Now(), amount, headSnaphost,
 		common.SEND, from, to, nil)
-	newBlock.SetHash(tools.CalculateAccountHash(newBlock))
+	newBlock.SetHash(utils.CalculateAccountHash(newBlock))
 	err := l.bpool.AddDirectAccountBlock(from, newBlock)
 	if err == nil {
 		l.syncer.Sender().BroadcastAccountBlocks(from, []*common.AccountStateBlock{newBlock})
@@ -123,7 +123,7 @@ func (l *ledger) ResponseAccountBlock(from string, to string, reqHash string) er
 	modifiedAmount := -reqBlock.ModifiedAmount
 	block := common.NewAccountBlock(height, "", prevHash, to, time.Now(), prevAmount+modifiedAmount, modifiedAmount, snapshotBlock.Height(), snapshotBlock.Hash(),
 		common.RECEIVED, from, to, &common.HashHeight{Hash: reqHash, Height: reqBlock.Height()})
-	block.SetHash(tools.CalculateAccountHash(block))
+	block.SetHash(utils.CalculateAccountHash(block))
 
 	err := l.bpool.AddDirectAccountBlock(to, block)
 	if err == nil {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/vitelabs/go-vite/interval/common"
 	"github.com/vitelabs/go-vite/interval/common/face"
-	"github.com/vitelabs/go-vite/interval/tools"
+	"github.com/vitelabs/go-vite/interval/utils"
 	"github.com/vitelabs/go-vite/interval/version"
 )
 
@@ -180,11 +180,11 @@ func (vt *verifyTask) pendingAccount(addr string, height uint64, hash string, pr
 }
 
 func VerifyAccount(block *common.AccountStateBlock) bool {
-	hash := tools.CalculateAccountHash(block)
+	hash := utils.CalculateAccountHash(block)
 	return block.Hash() == hash
 }
 
 func VerifySnapshotHash(block *common.SnapshotBlock) bool {
-	hash := tools.CalculateSnapshotHash(block)
+	hash := utils.CalculateSnapshotHash(block)
 	return block.Hash() == hash
 }

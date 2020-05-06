@@ -8,7 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/interval/common"
 	"github.com/vitelabs/go-vite/interval/common/config"
 	"github.com/vitelabs/go-vite/interval/common/log"
-	"github.com/vitelabs/go-vite/interval/tools"
+	"github.com/vitelabs/go-vite/interval/utils"
 )
 
 type BlockStore interface {
@@ -41,7 +41,7 @@ func init() {
 	for _, a := range genesisAccounts {
 		genesis := common.NewAccountBlock(common.FirstHeight, "", "", a, time.Unix(0, 0),
 			200, 0, 0, "", common.GENESIS, a, a, nil)
-		genesis.SetHash(tools.CalculateAccountHash(genesis))
+		genesis.SetHash(utils.CalculateAccountHash(genesis))
 		genesisBlocks = append(genesisBlocks, genesis)
 	}
 }

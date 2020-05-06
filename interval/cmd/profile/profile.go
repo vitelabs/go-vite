@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/google/gops/agent"
-	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/interval/common/config"
 	"github.com/vitelabs/go-vite/interval/common/log"
+	"github.com/vitelabs/go-vite/interval/consensus"
 	"github.com/vitelabs/go-vite/interval/node"
+	"github.com/vitelabs/go-vite/interval/utils"
 )
 
 import (
@@ -109,11 +110,12 @@ func main() {
 }
 
 func startNode(bootAddr string, port int, nodeId string) node.Node {
-	cfg := config.Node{
-		P2pCfg:       config.P2P{NodeId: nodeId, Port: port, LinkBootAddr: bootAddr, NetId: 0},
-		ConsensusCfg: config.Consensus{Interval: 1, MemCnt: len(consensus.DefaultMembers)},
+	cfg := &config.Node{
+		P2pCfg:       &config.P2P{NodeId: nodeId, Port: port, LinkBootAddr: bootAddr, NetId: 0},
+		ConsensusCfg: &config.Consensus{Interval: 1, MemCnt: len(consensus.DefaultMembers)},
 	}
-	n := node.NewNode(cfg)
+	n, err := node.NewNode(cfg)
+	utils.NotNil(err)
 	n.Init()
 	n.Start()
 	return n
