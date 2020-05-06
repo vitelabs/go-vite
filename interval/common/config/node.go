@@ -17,50 +17,50 @@ type Node struct {
 	BootCfg      *Boot      `yaml:"boot"`
 }
 
-func (self *Node) Check() error {
-	if self.BaseCfg == nil {
+func (nCfg *Node) Check() error {
+	if nCfg.BaseCfg == nil {
 		return errors.New("base config is empty")
 	}
-	if self.P2pCfg == nil {
+	if nCfg.P2pCfg == nil {
 		return errors.New("p2p config is empty")
 	}
 
-	if self.ConsensusCfg == nil {
+	if nCfg.ConsensusCfg == nil {
 		return errors.New("consensus config is empty")
 	}
 
-	if self.ChainCfg == nil {
+	if nCfg.ChainCfg == nil {
 		return errors.New("chain config is empty")
 	}
 
-	e := self.BaseCfg.Check()
+	e := nCfg.BaseCfg.Check()
 	if e != nil {
 		return e
 	}
 
-	e = self.P2pCfg.Check(self.BaseCfg)
+	e = nCfg.P2pCfg.Check(nCfg.BaseCfg)
 	if e != nil {
 		return e
 	}
 
-	e = self.ConsensusCfg.Check(self.BaseCfg)
+	e = nCfg.ConsensusCfg.Check(nCfg.BaseCfg)
 	if e != nil {
 		return e
 	}
 
-	e = self.ChainCfg.Check(self.BaseCfg)
+	e = nCfg.ChainCfg.Check(nCfg.BaseCfg)
 	if e != nil {
 		return e
 	}
 
-	if self.MinerCfg != nil {
-		e = self.MinerCfg.Check(self.BaseCfg)
+	if nCfg.MinerCfg != nil {
+		e = nCfg.MinerCfg.Check(nCfg.BaseCfg)
 		if e != nil {
 			return e
 		}
 	}
-	if self.BootCfg != nil {
-		e = self.BootCfg.Check(self.BaseCfg)
+	if nCfg.BootCfg != nil {
+		e = nCfg.BootCfg.Check(nCfg.BaseCfg)
 		if e != nil {
 			return e
 		}
@@ -69,14 +69,14 @@ func (self *Node) Check() error {
 	return nil
 }
 
-func (self *Node) Parse(cfg string) error {
+func (nCfg *Node) Parse(cfg string) error {
 	yamlFile, err := ioutil.ReadFile(cfg)
 	if err != nil {
 		log.Printf("cfg file err #%v ", err)
 		return err
 	}
 
-	err = yaml.Unmarshal(yamlFile, self)
+	err = yaml.Unmarshal(yamlFile, nCfg)
 	if err != nil {
 		log.Fatalf("Unmarshal fail: %v", err)
 		return err

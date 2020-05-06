@@ -11,12 +11,12 @@ type Chain struct {
 	DataDir   string
 }
 
-func (self *Chain) Check(cfg *Base) error {
-	if self.StoreType == common.LevelDB {
-		if len(self.DBPath) == 0 {
+func (ch *Chain) Check(cfg *Base) error {
+	if ch.StoreType == common.LevelDB {
+		if len(ch.DBPath) == 0 {
 			return errors.New("chain db path must be set")
 		}
-		self.DataDir = cfg.DataDir
+		ch.DataDir = cfg.DataDir
 	}
 	return nil
 }

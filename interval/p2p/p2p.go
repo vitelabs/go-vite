@@ -41,19 +41,19 @@ type HandShaker interface {
 type defaultHandShaker struct {
 }
 
-func (self *defaultHandShaker) GetState() (interface{}, error) {
+func (handler *defaultHandShaker) GetState() (interface{}, error) {
 	return nil, nil
 }
 
-func (self *defaultHandShaker) Handshake(peerId string, state []byte) error {
+func (handler *defaultHandShaker) Handshake(peerId string, state []byte) error {
 	return nil
 }
 
-func (self *defaultHandShaker) DecodeState(state []byte) interface{} {
+func (handler *defaultHandShaker) DecodeState(state []byte) interface{} {
 	return nil
 }
 
-func (self *defaultHandShaker) EncodeState(state interface{}) []byte {
+func (handler *defaultHandShaker) EncodeState(state interface{}) []byte {
 	return nil
 }
 
@@ -112,21 +112,21 @@ func NewP2P(config *config.P2P) P2P {
 	return p2p
 }
 
-func (self *p2p) Id() string {
-	return self.id
+func (pp *p2p) Id() string {
+	return pp.id
 }
-func (self *p2p) BestPeer() (Peer, error) {
-	if len(self.peers) > 0 {
-		for _, v := range self.peers {
+func (pp *p2p) BestPeer() (Peer, error) {
+	if len(pp.peers) > 0 {
+		for _, v := range pp.peers {
 			return v, nil
 		}
 	}
 	return nil, errors.New("can't find best peer.")
 }
 
-func (self *p2p) AllPeer() ([]Peer, error) {
+func (pp *p2p) AllPeer() ([]Peer, error) {
 	var result []Peer
-	for _, v := range self.peers {
+	for _, v := range pp.peers {
 		result = append(result, v)
 	}
 	if len(result) > 0 {
@@ -135,45 +135,45 @@ func (self *p2p) AllPeer() ([]Peer, error) {
 	return nil, nil
 }
 
-func (self *p2p) SetHandlerFn(handler MsgHandle) {
-	if self.Status() >= common.PreStart {
+func (pp *p2p) SetHandlerFn(handler MsgHandle) {
+	if pp.Status() >= common.PreStart {
 		panic("p2p has started, could not set handleFn.")
 	}
-	self.msgHandleFn = handler
+	pp.msgHandleFn = handler
 }
-func (self *p2p) SetHandShaker(hs HandShaker) {
-	if self.Status() >= common.PreInit {
+func (pp *p2p) SetHandShaker(hs HandShaker) {
+	if pp.Status() >= common.PreInit {
 		panic("p2p has started, could not set HandShaker.")
 	}
-	self.bizHs = hs
+	pp.bizHs = hs
 }
 
-func (self *p2p) addPeer(peer *peer) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	old, ok := self.peers[peer.peerId]
+func (pp *p2p) addPeer(peer *peer) {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	old, ok := pp.peers[peer.peerId]
 	if ok && old != peer {
 		log.Warn("peer exist, close new peer: %v", peer.info())
 		peer.close()
 		return
 	}
-	self.peers[peer.peerId] = peer
-	go self.loopRead(peer)
+	pp.peers[peer.peerId] = peer
+	go pp.loopRead(peer)
 	go peer.loopWrite()
 }
-func (self *p2p) loopRead(peer *peer) {
-	self.loopWg.Add(1)
-	defer self.loopWg.Done()
+func (pp *p2p) loopRead(peer *peer) {
+	pp.loopWg.Add(1)
+	defer pp.loopWg.Done()
 	conn := peer.conn
 	defer peer.close()
-	defer delete(self.peers, peer.peerId)
-	if self.msgHandleFn != nil {
-		self.msgHandleFn(common.PeerConnected, nil, peer)
-		defer self.msgHandleFn(common.PeerClosed, nil, peer)
+	defer delete(pp.peers, peer.peerId)
+	if pp.msgHandleFn != nil {
+		pp.msgHandleFn(common.PeerConnected, nil, peer)
+		defer pp.msgHandleFn(common.PeerClosed, nil, peer)
 	}
 	for {
 		select {
-		case <-self.closed:
+		case <-pp.closed:
 			log.Info("peer[%s] closed.", peer.info())
 			return
 		default:
@@ -193,8 +193,8 @@ func (self *p2p) loopRead(peer *peer) {
 					log.Error("serialize msg fail. messageType:%d, msg:%v", messageType, p)
 					continue
 				}
-				if self.msgHandleFn != nil {
-					self.msgHandleFn(msg.T, msg.Data, peer)
+				if pp.msgHandleFn != nil {
+					pp.msgHandleFn(msg.T, msg.Data, peer)
 				}
 			} else {
 				log.Info("read message: %s", string(p))
@@ -203,86 +203,86 @@ func (self *p2p) loopRead(peer *peer) {
 	}
 }
 
-func (self *p2p) allPeers() map[string]*peer {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	result := make(map[string]*peer, len(self.peers))
-	for k, v := range self.peers {
+func (pp *p2p) allPeers() map[string]*peer {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	result := make(map[string]*peer, len(pp.peers))
+	for k, v := range pp.peers {
 		result[k] = v
 	}
 	return result
 }
 
-func (self *p2p) Init() {
-	defer self.PreInit().PostInit()
-	self.pendingDials = make(map[string]string)
-	self.peers = make(map[string]*peer)
-	if self.bizHs == nil {
-		self.bizHs = &defaultHandShaker{}
+func (pp *p2p) Init() {
+	defer pp.PreInit().PostInit()
+	pp.pendingDials = make(map[string]string)
+	pp.peers = make(map[string]*peer)
+	if pp.bizHs == nil {
+		pp.bizHs = &defaultHandShaker{}
 	}
-	self.hs = &handShaker{self, self.bizHs}
-	self.dial = &dial{p2p: self, hs: self.hs}
-	self.server = &server{id: self.id, addr: self.addr, bootAddr: self.linkBootAddr, p2p: self, hs: self.hs}
-	self.linker = newLinker(self, url.URL{Scheme: "ws", Host: self.linkBootAddr, Path: "/ws"})
+	pp.hs = &handShaker{pp, pp.bizHs}
+	pp.dial = &dial{p2p: pp, hs: pp.hs}
+	pp.server = &server{id: pp.id, addr: pp.addr, bootAddr: pp.linkBootAddr, p2p: pp, hs: pp.hs}
+	pp.linker = newLinker(pp, url.URL{Scheme: "ws", Host: pp.linkBootAddr, Path: "/ws"})
 }
-func (self *p2p) Start() {
-	defer self.PreStart().PostStart()
-	self.server.start()
-	self.linker.start()
-	go self.loop()
+func (pp *p2p) Start() {
+	defer pp.PreStart().PostStart()
+	pp.server.start()
+	pp.linker.start()
+	go pp.loop()
 }
 
-func (self *p2p) loop() {
-	self.loopWg.Add(1)
-	defer self.loopWg.Done()
+func (pp *p2p) loop() {
+	pp.loopWg.Add(1)
+	defer pp.loopWg.Done()
 	for {
 		ticker := time.NewTicker(3 * time.Second)
 
 		select {
 		case <-ticker.C:
-			for i, v := range self.pendingDials {
-				_, ok := self.peers[i]
+			for i, v := range pp.pendingDials {
+				_, ok := pp.peers[i]
 				if !ok {
-					log.Info("node " + self.server.id + " try to connect to " + i)
-					connectted := self.dial.connect(v)
+					log.Info("node " + pp.server.id + " try to connect to " + i)
+					connectted := pp.dial.connect(v)
 					if connectted {
-						log.Info("connect success." + self.server.id + ":" + i)
-						delete(self.pendingDials, i)
+						log.Info("connect success." + pp.server.id + ":" + i)
+						delete(pp.pendingDials, i)
 					} else {
-						delete(self.pendingDials, i)
+						delete(pp.pendingDials, i)
 					}
 				} else {
-					log.Info("has connected for " + self.server.id + ":" + i)
+					log.Info("has connected for " + pp.server.id + ":" + i)
 				}
 			}
-		case <-self.closed:
-			log.Info("p2p[%s] closed.", self.id)
+		case <-pp.closed:
+			log.Info("p2p[%s] closed.", pp.id)
 			return
 		}
 	}
 }
 
-func (self *p2p) Stop() {
-	defer self.PreStop().PostStop()
-	self.linker.stop()
-	for _, v := range self.peers {
+func (pp *p2p) Stop() {
+	defer pp.PreStop().PostStop()
+	pp.linker.stop()
+	for _, v := range pp.peers {
 		v.stop()
 	}
-	self.server.stop()
-	close(self.closed)
-	self.loopWg.Wait()
+	pp.server.stop()
+	close(pp.closed)
+	pp.loopWg.Wait()
 }
 
-func (self *p2p) addDial(id string, addr string) bool {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	if id == self.id {
+func (pp *p2p) addDial(id string, addr string) bool {
+	pp.mu.Lock()
+	defer pp.mu.Unlock()
+	if id == pp.id {
 		return false
 	}
-	_, pok := self.peers[id]
-	_, dok := self.pendingDials[id]
+	_, pok := pp.peers[id]
+	_, dok := pp.pendingDials[id]
 	if !pok && !dok {
-		self.pendingDials[id] = addr
+		pp.pendingDials[id] = addr
 		return true
 	}
 	return false

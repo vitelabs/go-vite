@@ -21,25 +21,25 @@ func newLinker(p2p *p2p, u url.URL) *linker {
 	return &linker{p2p: p2p, url: u, closed: make(chan struct{})}
 }
 
-func (self *linker) start() {
-	log.Info("connecting to boot note[%s]", self.url.String())
-	c, _, err := websocket.DefaultDialer.Dial(self.url.String(), nil)
+func (l *linker) start() {
+	log.Info("connecting to boot note[%s]", l.url.String())
+	c, _, err := websocket.DefaultDialer.Dial(l.url.String(), nil)
 	if err != nil {
 		log.Error("dial:", err)
 		return
 	}
 
-	log.Info("connected to boot node[%s]", self.url.String())
-	go self.loopRead(c)
-	go self.loopWrite(c)
+	log.Info("connected to boot node[%s]", l.url.String())
+	go l.loopRead(c)
+	go l.loopWrite(c)
 }
-func (self *linker) stop() {
-	close(self.closed)
-	self.loopWg.Wait()
+func (l *linker) stop() {
+	close(l.closed)
+	l.loopWg.Wait()
 }
-func (self *linker) loopRead(conn *websocket.Conn) {
-	self.loopWg.Add(1)
-	defer self.loopWg.Done()
+func (l *linker) loopRead(conn *websocket.Conn) {
+	l.loopWg.Add(1)
+	defer l.loopWg.Done()
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -52,25 +52,25 @@ func (self *linker) loopRead(conn *websocket.Conn) {
 		for _, r := range res {
 			id := r.Id
 			addr := r.Addr
-			yes := self.p2p.addDial(id, addr)
+			yes := l.p2p.addDial(id, addr)
 			if yes {
-				log.Info("recv: add dial success. targetId:%s, selfId:%s", id, self.p2p.id)
+				log.Info("recv: add dial success. targetId:%s, selfId:%s", id, l.p2p.id)
 			}
 		}
 	}
 }
 
-func (self *linker) loopWrite(conn *websocket.Conn) {
-	self.loopWg.Add(1)
-	defer self.loopWg.Done()
+func (l *linker) loopWrite(conn *websocket.Conn) {
+	l.loopWg.Add(1)
+	defer l.loopWg.Done()
 	defer conn.Close()
 	ticker := time.NewTicker(8 * time.Second)
 	defer ticker.Stop()
 
-	conn.WriteJSON(&bootReq{Id: self.p2p.id, Addr: self.p2p.addr})
+	conn.WriteJSON(&bootReq{Id: l.p2p.id, Addr: l.p2p.addr})
 	for {
 		select {
-		case <-self.closed:
+		case <-l.closed:
 			conn.WriteMessage(websocket.CloseMessage, []byte{})
 			return
 		case <-ticker.C:

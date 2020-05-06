@@ -62,68 +62,68 @@ type node struct {
 	wg     sync.WaitGroup
 }
 
-func (self *node) Init() {
-	self.syncer.Init(self.ledger.Chain(), self.ledger.Pool())
-	self.ledger.Init(self.syncer)
-	self.consensus.Init()
-	self.p2p.Init()
-	if self.miner != nil {
-		self.miner.Init()
+func (n *node) Init() {
+	n.syncer.Init(n.ledger.Chain(), n.ledger.Pool())
+	n.ledger.Init(n.syncer)
+	n.consensus.Init()
+	n.p2p.Init()
+	if n.miner != nil {
+		n.miner.Init()
 	}
-	self.wallet = wallet.NewWallet()
+	n.wallet = wallet.NewWallet()
 }
 
-func (self *node) Start() {
-	self.p2p.Start()
-	self.ledger.Start()
-	self.syncer.Start()
-	self.consensus.Start()
+func (n *node) Start() {
+	n.p2p.Start()
+	n.ledger.Start()
+	n.syncer.Start()
+	n.consensus.Start()
 
-	if self.miner != nil {
-		self.miner.Start()
+	if n.miner != nil {
+		n.miner.Start()
 	}
 
 	log.Info("node started...")
 }
 
-func (self *node) Stop() {
-	close(self.closed)
+func (n *node) Stop() {
+	close(n.closed)
 
-	if self.miner != nil {
-		self.miner.Stop()
+	if n.miner != nil {
+		n.miner.Stop()
 	}
-	self.consensus.Stop()
-	self.syncer.Stop()
-	self.ledger.Stop()
-	self.p2p.Stop()
-	self.wg.Wait()
+	n.consensus.Stop()
+	n.syncer.Stop()
+	n.ledger.Stop()
+	n.p2p.Stop()
+	n.wg.Wait()
 	log.Info("node stopped...")
 }
 
-func (self *node) StartMiner() {
-	if self.miner == nil {
-		self.cfg.MinerCfg.HexCoinbase = self.wallet.CoinBase()
-		self.miner = miner.NewMiner(self.ledger, self.syncer, self.bus, self.cfg.MinerCfg.CoinBase(), self.consensus)
-		self.miner.Init()
+func (n *node) StartMiner() {
+	if n.miner == nil {
+		n.cfg.MinerCfg.HexCoinbase = n.wallet.CoinBase()
+		n.miner = miner.NewMiner(n.ledger, n.syncer, n.bus, n.cfg.MinerCfg.CoinBase(), n.consensus)
+		n.miner.Init()
 	}
-	self.miner.Start()
+	n.miner.Start()
 	log.Info("miner started...")
 }
 
-func (self *node) StopMiner() {
-	if self.miner != nil {
-		self.miner.Stop()
+func (n *node) StopMiner() {
+	if n.miner != nil {
+		n.miner.Stop()
 		log.Info("miner stopped...")
 	}
 }
 
-func (self *node) Leger() ledger.Ledger {
-	return self.ledger
+func (n *node) Leger() ledger.Ledger {
+	return n.ledger
 }
 
-func (self *node) Wallet() wallet.Wallet {
-	return self.wallet
+func (n *node) Wallet() wallet.Wallet {
+	return n.wallet
 }
-func (self *node) P2P() p2p.P2P {
-	return self.p2p
+func (n *node) P2P() p2p.P2P {
+	return n.p2p
 }

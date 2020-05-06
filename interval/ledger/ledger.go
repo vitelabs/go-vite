@@ -42,8 +42,8 @@ type ledger struct {
 	rwMutex *sync.RWMutex
 }
 
-func (self *ledger) GetAccountBalance(address string) int {
-	head, _ := self.bc.HeadAccount(address)
+func (l *ledger) GetAccountBalance(address string) int {
+	head, _ := l.bc.HeadAccount(address)
 	if head != nil {
 		return head.Amount
 	} else {
@@ -51,20 +51,20 @@ func (self *ledger) GetAccountBalance(address string) int {
 	}
 }
 
-func (self *ledger) Chain() chain.BlockChain {
-	return self.bc
+func (l *ledger) Chain() chain.BlockChain {
+	return l.bc
 }
 
-func (self *ledger) Pool() pool.BlockPool {
-	return self.bpool
+func (l *ledger) Pool() pool.BlockPool {
+	return l.bpool
 }
 
-func (self *ledger) MiningSnapshotBlock(address string, timestamp int64) error {
-	//self.pendingSc.AddDirectBlock(block)
-	self.rwMutex.Lock()
-	defer self.rwMutex.Unlock()
+func (l *ledger) MiningSnapshotBlock(address string, timestamp int64) error {
+	//l.pendingSc.AddDirectBlock(block)
+	l.rwMutex.Lock()
+	defer l.rwMutex.Unlock()
 
-	hashH, accounts, err := self.bc.NextAccountSnapshot()
+	hashH, accounts, err := l.bc.NextAccountSnapshot()
 
 	if err != nil {
 		log.Error("get next accounts snapshot err. ", err)
@@ -74,32 +74,32 @@ func (self *ledger) MiningSnapshotBlock(address string, timestamp int64) error {
 	block := common.NewSnapshotBlock(hashH.Height+1, "", hashH.Hash, address, time.Unix(timestamp, 0), accounts)
 	block.SetHash(tools.CalculateSnapshotHash(block))
 
-	err = self.bpool.AddDirectSnapshotBlock(block)
+	err = l.bpool.AddDirectSnapshotBlock(block)
 	if err != nil {
 		log.Error("add direct block error. ", err)
 		return err
 	}
-	self.syncer.Sender().BroadcastSnapshotBlocks([]*common.SnapshotBlock{block})
+	l.syncer.Sender().BroadcastSnapshotBlocks([]*common.SnapshotBlock{block})
 	return nil
 }
 
-func (self *ledger) RequestAccountBlock(from string, to string, amount int) error {
+func (l *ledger) RequestAccountBlock(from string, to string, amount int) error {
 	defer monitor.LogTime("ledger", "requestAccount", time.Now())
-	headAccount, _ := self.bc.HeadAccount(from)
-	headSnaphost, _ := self.bc.HeadSnapshot()
+	headAccount, _ := l.bc.HeadAccount(from)
+	headSnaphost, _ := l.bc.HeadSnapshot()
 
 	newBlock := common.NewAccountBlockFrom(headAccount, from, time.Now(), amount, headSnaphost,
 		common.SEND, from, to, nil)
 	newBlock.SetHash(tools.CalculateAccountHash(newBlock))
-	err := self.bpool.AddDirectAccountBlock(from, newBlock)
+	err := l.bpool.AddDirectAccountBlock(from, newBlock)
 	if err == nil {
-		self.syncer.Sender().BroadcastAccountBlocks(from, []*common.AccountStateBlock{newBlock})
+		l.syncer.Sender().BroadcastAccountBlocks(from, []*common.AccountStateBlock{newBlock})
 	}
 	return err
 }
-func (self *ledger) ResponseAccountBlock(from string, to string, reqHash string) error {
+func (l *ledger) ResponseAccountBlock(from string, to string, reqHash string) error {
 	defer monitor.LogTime("ledger", "responseAccount", time.Now())
-	b := self.bc.GetAccountByHash(from, reqHash)
+	b := l.bc.GetAccountByHash(from, reqHash)
 	if b == nil {
 		return errors.New("not exist for account[" + from + "]block[" + reqHash + "]")
 	}
@@ -112,22 +112,22 @@ func (self *ledger) ResponseAccountBlock(from string, to string, reqHash string)
 	height := common.FirstHeight
 	prevHash := ""
 	prevAmount := 0
-	prev, _ := self.bc.HeadAccount(to)
+	prev, _ := l.bc.HeadAccount(to)
 	if prev != nil {
 		height = prev.Height() + 1
 		prevHash = prev.Hash()
 		prevAmount = prev.Amount
 	}
-	snapshotBlock, _ := self.bc.HeadSnapshot()
+	snapshotBlock, _ := l.bc.HeadSnapshot()
 
 	modifiedAmount := -reqBlock.ModifiedAmount
 	block := common.NewAccountBlock(height, "", prevHash, to, time.Now(), prevAmount+modifiedAmount, modifiedAmount, snapshotBlock.Height(), snapshotBlock.Hash(),
 		common.RECEIVED, from, to, &common.HashHeight{Hash: reqHash, Height: reqBlock.Height()})
 	block.SetHash(tools.CalculateAccountHash(block))
 
-	err := self.bpool.AddDirectAccountBlock(to, block)
+	err := l.bpool.AddDirectAccountBlock(to, block)
 	if err == nil {
-		self.syncer.Sender().BroadcastAccountBlocks(to, []*common.AccountStateBlock{block})
+		l.syncer.Sender().BroadcastAccountBlocks(to, []*common.AccountStateBlock{block})
 	}
 	return err
 }
@@ -140,33 +140,33 @@ func NewLedger(bc chain.BlockChain) *ledger {
 	return ledger
 }
 
-func (self *ledger) Init(syncer syncer.Syncer) {
-	self.syncer = syncer
+func (l *ledger) Init(syncer syncer.Syncer) {
+	l.syncer = syncer
 
-	self.bpool.Init(syncer.Fetcher())
-	self.reqPool = newReqPool()
-	self.bc.SetChainListener(self.reqPool)
+	l.bpool.Init(syncer.Fetcher())
+	l.reqPool = newReqPool()
+	l.bc.SetChainListener(l.reqPool)
 }
 
-func (self *ledger) ListRequest(address string) []*Req {
-	reqs := self.reqPool.getReqs(address)
+func (l *ledger) ListRequest(address string) []*Req {
+	reqs := l.reqPool.getReqs(address)
 	return reqs
 }
 
-func (self *ledger) Start() {
-	self.bpool.Start()
+func (l *ledger) Start() {
+	l.bpool.Start()
 }
-func (self *ledger) Stop() {
-	self.bpool.Stop()
+func (l *ledger) Stop() {
+	l.bpool.Stop()
 }
-func (self *ledger) ListSnapshotBlock() []*common.SnapshotBlock {
+func (l *ledger) ListSnapshotBlock() []*common.SnapshotBlock {
 	var blocks []*common.SnapshotBlock
-	head, _ := self.bc.HeadSnapshot()
+	head, _ := l.bc.HeadSnapshot()
 	if head == nil {
 		return blocks
 	}
 	for i := uint64(0); i < head.Height(); i++ {
-		blocks = append(blocks, self.bc.GetSnapshotByHeight(i))
+		blocks = append(blocks, l.bc.GetSnapshotByHeight(i))
 	}
 	if head.Height() >= 0 {
 		blocks = append(blocks, head)
@@ -174,14 +174,14 @@ func (self *ledger) ListSnapshotBlock() []*common.SnapshotBlock {
 	return blocks
 }
 
-func (self *ledger) ListAccountBlock(address string) []*common.AccountStateBlock {
+func (l *ledger) ListAccountBlock(address string) []*common.AccountStateBlock {
 	var blocks []*common.AccountStateBlock
-	head, _ := self.bc.HeadAccount(address)
+	head, _ := l.bc.HeadAccount(address)
 	if head == nil {
 		return blocks
 	}
 	for i := uint64(0); i < head.Height(); i++ {
-		blocks = append(blocks, self.bc.GetAccountByHeight(address, i))
+		blocks = append(blocks, l.bc.GetAccountByHeight(address, i))
 	}
 	if head.Height() >= 0 {
 		blocks = append(blocks, head)

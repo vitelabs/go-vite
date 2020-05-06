@@ -10,15 +10,15 @@ type Miner struct {
 	HexCoinbase string `yaml:"coinbase"`
 }
 
-func (self *Miner) CoinBase() common.Address {
-	coinbase := common.HexToAddress(self.HexCoinbase)
+func (mCfg *Miner) CoinBase() common.Address {
+	coinbase := common.HexToAddress(mCfg.HexCoinbase)
 	return coinbase
 }
-func (self *Miner) Check(cfg *Base) error {
-	if !self.Enabled {
+func (mCfg *Miner) Check(cfg *Base) error {
+	if !mCfg.Enabled {
 		return nil
 	}
-	if len(self.CoinBase().String()) == 0 {
+	if len(mCfg.CoinBase().String()) == 0 {
 		return errors.New("miner coinbase must be set when miner enabled")
 	}
 	return nil

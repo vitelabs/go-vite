@@ -29,17 +29,17 @@ type peer struct {
 	state       interface{}
 }
 
-func (self *peer) SetState(s interface{}) {
-	self.state = s
+func (p *peer) SetState(s interface{}) {
+	p.state = s
 }
-func (self *peer) GetState() interface{} {
-	if self.state == nil {
+func (p *peer) GetState() interface{} {
+	if p.state == nil {
 		return nil
 	}
-	return self.state
+	return p.state
 }
 
-func (self *peer) Write(msg *Msg) error {
+func (p *peer) Write(msg *Msg) error {
 	byt, err := json.Marshal(msg)
 	if err != nil {
 		log.Error("serialize msg fail. err:%v, msg:%v", err, msg)
@@ -47,7 +47,7 @@ func (self *peer) Write(msg *Msg) error {
 	}
 
 	select {
-	case self.writeCh <- byt:
+	case p.writeCh <- byt:
 	default:
 		log.Warn("write channel is full and message will be discarded.")
 		return errors.New("write channel is full.")
@@ -55,21 +55,21 @@ func (self *peer) Write(msg *Msg) error {
 	return nil
 }
 
-func (self *peer) Id() string {
-	return string(self.peerId)
+func (p *peer) Id() string {
+	return string(p.peerId)
 }
 
-func (self *peer) RemoteAddr() string {
-	return self.remoteAddr.String()
+func (p *peer) RemoteAddr() string {
+	return p.remoteAddr.String()
 }
 
-func (self *peer) close() {
-	self.once.Do(self.realClose)
+func (p *peer) close() {
+	p.once.Do(p.realClose)
 }
-func (self *peer) realClose() {
-	close(self.closed)
-	close(self.writeCh)
-	self.conn.Close()
+func (p *peer) realClose() {
+	close(p.closed)
+	close(p.writeCh)
+	p.conn.Close()
 }
 
 //func (self *peer) loop() {
@@ -96,9 +96,9 @@ func (self *peer) realClose() {
 //		}
 //	}
 //}
-func (self *peer) stop() {
-	self.close()
-	self.loopWg.Wait()
+func (p *peer) stop() {
+	p.close()
+	p.loopWg.Wait()
 }
 
 func newPeer(fromId string, toId string, peerSrvAddr string, conn *websocket.Conn, s interface{}) *peer {
@@ -115,23 +115,23 @@ func newPeer(fromId string, toId string, peerSrvAddr string, conn *websocket.Con
 	return peer
 }
 
-func (self *peer) info() string {
-	return "[" + self.selfId + "]-[" + self.peerId + "]"
+func (p *peer) info() string {
+	return "[" + p.selfId + "]-[" + p.peerId + "]"
 }
 
-func (self *peer) loopWrite() {
-	self.loopWg.Add(1)
-	defer self.loopWg.Done()
-	defer self.close()
+func (p *peer) loopWrite() {
+	p.loopWg.Add(1)
+	defer p.loopWg.Done()
+	defer p.close()
 
 	for {
 		select {
-		case m, ok := <-self.writeCh:
+		case m, ok := <-p.writeCh:
 			if ok {
-				self.conn.WriteMessage(websocket.BinaryMessage, m)
+				p.conn.WriteMessage(websocket.BinaryMessage, m)
 			}
-		case <-self.closed:
-			log.Warn("peer[%s] write closed.", self.peerId)
+		case <-p.closed:
+			log.Warn("peer[%s] write closed.", p.peerId)
 			return
 		}
 	}

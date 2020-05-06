@@ -22,21 +22,21 @@ type reqPool struct {
 	rw       sync.RWMutex
 }
 
-func (self *reqPool) SnapshotInsertCallback(block *common.SnapshotBlock) {
+func (rp *reqPool) SnapshotInsertCallback(block *common.SnapshotBlock) {
 
 }
 
-func (self *reqPool) SnapshotRemoveCallback(block *common.SnapshotBlock) {
+func (rp *reqPool) SnapshotRemoveCallback(block *common.SnapshotBlock) {
 
 }
 
-func (self *reqPool) AccountInsertCallback(address string, block *common.AccountStateBlock) {
+func (rp *reqPool) AccountInsertCallback(address string, block *common.AccountStateBlock) {
 	monitor.LogEvent("chain", "insert")
-	self.blockInsert(block)
+	rp.blockInsert(block)
 }
 
-func (self *reqPool) AccountRemoveCallback(address string, block *common.AccountStateBlock) {
-	self.blockRollback(block)
+func (rp *reqPool) AccountRemoveCallback(address string, block *common.AccountStateBlock) {
+	rp.blockRollback(block)
 }
 
 type reqAccountPool struct {
@@ -49,47 +49,47 @@ func newReqPool() *reqPool {
 	return pool
 }
 
-func (self *reqPool) blockInsert(block *common.AccountStateBlock) {
-	self.rw.Lock()
-	defer self.rw.Unlock()
+func (rp *reqPool) blockInsert(block *common.AccountStateBlock) {
+	rp.rw.Lock()
+	defer rp.rw.Unlock()
 	if block.BlockType == common.SEND {
 		req := &Req{ReqHash: block.Hash(), state: 2, From: block.From, Amount: block.ModifiedAmount}
-		account := self.account(block.To)
+		account := rp.account(block.To)
 		if account == nil {
 			account = &reqAccountPool{reqs: make(map[string]*Req)}
-			self.accounts[block.To] = account
+			rp.accounts[block.To] = account
 		}
 		account.reqs[req.ReqHash] = req
 	} else if block.BlockType == common.RECEIVED {
-		//delete(self.account(block.To).reqs, block.SourceHash)
-		req := self.getReq(block.To, block.Source.Hash)
+		//delete(rp.account(block.To).reqs, block.SourceHash)
+		req := rp.getReq(block.To, block.Source.Hash)
 		req.state = 1
 		req.acc = common.NewAccountHashH(block.To, block.Hash(), block.Height())
 	}
 }
 
-func (self *reqPool) blockRollback(block *common.AccountStateBlock) {
-	self.rw.Lock()
-	defer self.rw.Unlock()
+func (rp *reqPool) blockRollback(block *common.AccountStateBlock) {
+	rp.rw.Lock()
+	defer rp.rw.Unlock()
 	if block.BlockType == common.SEND {
-		//delete(self.account(block.To).reqs, block.Hash())
-		self.getReq(block.To, block.Hash()).state = 0
+		//delete(rp.account(block.To).reqs, block.Hash())
+		rp.getReq(block.To, block.Hash()).state = 0
 	} else if block.BlockType == common.RECEIVED {
 		//req := &Req{reqHash: block.SourceHash}
-		//self.account(block.To).reqs[req.reqHash] = req
-		self.getReq(block.To, block.Source.Hash).state = 2
+		//rp.account(block.To).reqs[req.reqHash] = req
+		rp.getReq(block.To, block.Source.Hash).state = 2
 	}
 }
 
-func (self *reqPool) account(address string) *reqAccountPool {
-	pool := self.accounts[address]
+func (rp *reqPool) account(address string) *reqAccountPool {
+	pool := rp.accounts[address]
 	return pool
 }
 
-func (self *reqPool) getReqs(address string) []*Req {
-	self.rw.RLock()
-	defer self.rw.RUnlock()
-	account := self.account(address)
+func (rp *reqPool) getReqs(address string) []*Req {
+	rp.rw.RLock()
+	defer rp.rw.RUnlock()
+	account := rp.account(address)
 	var result []*Req
 	if account == nil {
 		return result
@@ -101,16 +101,16 @@ func (self *reqPool) getReqs(address string) []*Req {
 	}
 	return result
 }
-func (self *reqPool) getReq(address string, sourceHash string) *Req {
-	account := self.account(address)
+func (rp *reqPool) getReq(address string, sourceHash string) *Req {
+	account := rp.account(address)
 	if account == nil {
 		return nil
 	}
 	return account.reqs[sourceHash]
 }
 
-func (self *reqPool) confirmed(address string, sourceHash string) *common.AccountHashH {
-	account := self.account(address)
+func (rp *reqPool) confirmed(address string, sourceHash string) *common.AccountHashH {
+	account := rp.account(address)
 	if account == nil {
 		return nil
 	}

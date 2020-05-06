@@ -65,24 +65,24 @@ type Committee struct {
 	signerFn     SignerFn
 }
 
-func (self *Committee) Seal() error {
+func (cm *Committee) Seal() error {
 	return nil
 }
-func (self *Committee) Authorize(signer common.Address, fn SignerFn) {
-	self.signer = signer
-	self.signerFn = fn
+func (cm *Committee) Authorize(signer common.Address, fn SignerFn) {
+	cm.signer = signer
+	cm.signerFn = fn
 }
 
-func (self *Committee) Verify(reader SnapshotReader, header *common.SnapshotBlock) (bool, error) {
-	result, err := self.verifyProducer(header)
+func (cm *Committee) Verify(reader SnapshotReader, header *common.SnapshotBlock) (bool, error) {
+	result, err := cm.verifyProducer(header)
 	if result && err == nil {
 		return true, nil
 	}
 	return false, nil
 }
 
-func (self *Committee) verifyProducer(header *common.SnapshotBlock) (bool, error) {
-	electionResult := self.teller.electionTime(time.Unix(int64(header.Timestamp().Unix()), 0))
+func (cm *Committee) verifyProducer(header *common.SnapshotBlock) (bool, error) {
+	electionResult := cm.teller.electionTime(time.Unix(int64(header.Timestamp().Unix()), 0))
 
 	for _, plan := range electionResult.plans {
 		if plan.member.String() == header.Signer() {
@@ -107,37 +107,37 @@ func NewConsensus(genesisTime time.Time, cfg *config.Consensus) Consensus {
 	return committee
 }
 
-func (self *Committee) Init() {
-	self.PreInit()
-	defer self.PostInit()
+func (cm *Committee) Init() {
+	cm.PreInit()
+	defer cm.PostInit()
 }
 
-func (self *Committee) Start() {
-	self.PreStart()
-	defer self.PostStart()
+func (cm *Committee) Start() {
+	cm.PreStart()
+	defer cm.PostStart()
 
-	go self.update()
+	go cm.update()
 }
 
-func (self *Committee) Stop() {
-	self.PreStop()
-	defer self.PostStop()
+func (cm *Committee) Stop() {
+	cm.PreStop()
+	defer cm.PostStop()
 }
 
-func (self *Committee) Subscribe(subscribeMem *SubscribeMem) {
-	self.subscribeMem = subscribeMem
+func (cm *Committee) Subscribe(subscribeMem *SubscribeMem) {
+	cm.subscribeMem = subscribeMem
 }
 
-func (self *Committee) update() {
+func (cm *Committee) update() {
 	var lastIndex int32 = -1
 	var lastRemoveTime = time.Now()
-	for !self.Stopped() {
+	for !cm.Stopped() {
 		var current *memberPlan = nil
-		electionResult := self.teller.electionTime(time.Now())
+		electionResult := cm.teller.electionTime(time.Now())
 
 		if electionResult == nil {
 			log.Error("can't get election result. time is " + time.Now().Format(time.RFC3339Nano) + "\".")
-			time.Sleep(time.Duration(self.interval) * time.Second)
+			time.Sleep(time.Duration(cm.interval) * time.Second)
 			// error handle
 			continue
 		}
@@ -146,7 +146,7 @@ func (self *Committee) update() {
 			time.Sleep(electionResult.eTime.Sub(time.Now()))
 			continue
 		}
-		mem := self.subscribeMem
+		mem := cm.subscribeMem
 		if mem == nil {
 			time.Sleep(electionResult.eTime.Sub(time.Now()))
 			continue
@@ -179,7 +179,7 @@ func (self *Committee) update() {
 		// clear ever hour
 		removeTime := time.Now().Add(-time.Hour)
 		if lastRemoveTime.Before(removeTime) {
-			self.teller.removePrevious(removeTime)
+			cm.teller.removePrevious(removeTime)
 			lastRemoveTime = removeTime
 		}
 

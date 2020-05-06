@@ -19,42 +19,42 @@ type worker struct {
 	updateCh chan int // update goroutine closed event chan
 }
 
-func (self *worker) Init() {
-	self.PreInit()
-	defer self.PostInit()
+func (w *worker) Init() {
+	w.PreInit()
+	defer w.PostInit()
 }
 
-func (self *worker) Start() {
-	self.PreStart()
-	defer self.PostStart()
-	self.updateCh = make(chan int)
-	go self.update(self.updateCh)
+func (w *worker) Start() {
+	w.PreStart()
+	defer w.PostStart()
+	w.updateCh = make(chan int)
+	go w.update(w.updateCh)
 }
 
-func (self *worker) Stop() {
-	self.PreStop()
-	defer self.PostStop()
-	close(self.updateCh) // close update goroutine
-	self.updateWg.Wait()
+func (w *worker) Stop() {
+	w.PreStop()
+	defer w.PostStop()
+	close(w.updateCh) // close update goroutine
+	w.updateWg.Wait()
 }
 
 // get workChan and insert snapshot block chain
-func (self *worker) update(ch chan int) {
-	self.updateWg.Add(1)
-	defer self.updateWg.Done()
-	for !self.Stopped() {
+func (w *worker) update(ch chan int) {
+	w.updateWg.Add(1)
+	defer w.updateWg.Done()
+	for !w.Stopped() {
 		// A real event arrived, process interesting content
 		select {
 		// Handle ChainHeadEvent
-		case t, ok := <-self.workChan:
+		case t, ok := <-w.workChan:
 			if !ok {
 				log.Warn("channel closed.")
-				if !self.Stopped() {
+				if !w.Stopped() {
 					time.Sleep(time.Second)
 				}
 			} else {
 				log.Info("start working once.")
-				self.genAndInsert(t)
+				w.genAndInsert(t)
 			}
 		case <-ch: // closed event chan
 			log.Info("worker.update closed.")
@@ -63,12 +63,12 @@ func (self *worker) update(ch chan int) {
 	}
 }
 
-func (self *worker) genAndInsert(t time.Time) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	self.chain.MiningSnapshotBlock(self.coinbase.String(), t.Unix())
+func (w *worker) genAndInsert(t time.Time) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.chain.MiningSnapshotBlock(w.coinbase.String(), t.Unix())
 }
 
-func (self *worker) setWorkCh(newWorkCh <-chan time.Time) {
-	self.workChan = newWorkCh
+func (w *worker) setWorkCh(newWorkCh <-chan time.Time) {
+	w.workChan = newWorkCh
 }

@@ -14,51 +14,51 @@ func newRing(n int) *ring {
 	return r
 }
 
-func (self *ring) add(data interface{}) *ring {
-	self.mu.Lock()
-	defer self.mu.Unlock()
+func (r *ring) add(data interface{}) *ring {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	self.datas[self.i] = data
-	self.i = self.nextI(self.i)
-	if self.cap < len(self.datas) {
-		self.cap++
+	r.datas[r.i] = data
+	r.i = r.nextI(r.i)
+	if r.cap < len(r.datas) {
+		r.cap++
 	}
-	return self
+	return r
 }
 
-func (self *ring) reset() *ring {
-	self.mu.Lock()
-	defer self.mu.Unlock()
+func (r *ring) reset() *ring {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	self.i = 0
-	self.cap = 0
-	return self
+	r.i = 0
+	r.cap = 0
+	return r
 }
 
-func (self *ring) all() []interface{} {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	c := self.cap
+func (r *ring) all() []interface{} {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	c := r.cap
 	result := make([]interface{}, c)
-	j := self.i
+	j := r.i
 
 	for n := c - 1; n >= 0; n-- {
-		j = self.lastI(j)
-		result[n] = self.datas[j]
+		j = r.lastI(j)
+		result[n] = r.datas[j]
 	}
 	return result
 }
 
-func (self *ring) lastI(i int) int {
+func (r *ring) lastI(i int) int {
 	if i == 0 {
-		l := len(self.datas)
+		l := len(r.datas)
 		return l - 1
 	} else {
 		return i - 1
 	}
 }
-func (self *ring) nextI(i int) int {
-	l := len(self.datas)
+func (r *ring) nextI(i int) int {
+	l := len(r.datas)
 	i = i + 1
 	if i >= l {
 		return 0

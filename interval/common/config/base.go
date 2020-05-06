@@ -10,8 +10,8 @@ type Base struct {
 	Log     string `yaml:"log"`
 }
 
-func (self *Base) Check() error {
-	if len(self.DataDir) == 0 {
+func (cfg *Base) Check() error {
+	if len(cfg.DataDir) == 0 {
 		return errors.New("base[DataDir] must be set")
 	}
 

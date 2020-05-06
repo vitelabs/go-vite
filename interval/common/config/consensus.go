@@ -11,13 +11,13 @@ type Consensus struct {
 	MemCnt   int `yaml:"memCnt"`
 }
 
-func (self *Consensus) Check(cfg *Base) error {
-	if self.Interval <= 0 {
-		errors.New("interval must gt 0, interval:" + strconv.Itoa(self.Interval))
+func (ch *Consensus) Check(cfg *Base) error {
+	if ch.Interval <= 0 {
+		errors.New("interval must gt 0, interval:" + strconv.Itoa(ch.Interval))
 	}
 
-	if self.MemCnt <= 0 {
-		errors.New("MemCnt must gt 0, MemCnt:" + strconv.Itoa(self.MemCnt))
+	if ch.MemCnt <= 0 {
+		errors.New("MemCnt must gt 0, MemCnt:" + strconv.Itoa(ch.MemCnt))
 	}
 	return nil
 }

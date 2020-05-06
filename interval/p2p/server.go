@@ -21,13 +21,13 @@ type server struct {
 
 var upgrader = websocket.Upgrader{} // use default options
 
-func (self *server) ws(w http.ResponseWriter, r *http.Request) {
+func (s *server) ws(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err == nil {
-		peer, err := self.hs.handshake(c)
+		peer, err := s.hs.handshake(c)
 		if err == nil {
 			log.Info("client connect success, add new peer. %v", peer.peerId)
-			self.p2p.addPeer(peer)
+			s.p2p.addPeer(peer)
 		} else {
 			log.Error("client connect success, but handshake fail. err:%v", err)
 		}
@@ -36,20 +36,20 @@ func (self *server) ws(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (self *server) start() {
-	//http.HandleFunc("/ws", self.ws)
+func (s *server) start() {
+	//http.HandleFunc("/ws", s.ws)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/ws", self.ws)
-	srv := &http.Server{Addr: self.addr, Handler: mux}
-	self.srv = srv
+	mux.HandleFunc("/ws", s.ws)
+	srv := &http.Server{Addr: s.addr, Handler: mux}
+	s.srv = srv
 	go srv.ListenAndServe()
 }
-func (self *server) loop() {
-	self.srv.ListenAndServe()
+func (s *server) loop() {
+	s.srv.ListenAndServe()
 }
 
-func (self *server) stop() {
-	self.srv.Shutdown(context.Background())
+func (s *server) stop() {
+	s.srv.Shutdown(context.Background())
 }
 
 type dial struct {

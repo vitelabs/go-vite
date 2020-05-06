@@ -9,12 +9,12 @@ type P2P struct {
 	LinkBootAddr string `yaml:"bootAddr"`
 }
 
-func (self *P2P) Check(cfg *Base) error {
-	if len(self.NodeId) == 0 {
+func (ppCfg *P2P) Check(cfg *Base) error {
+	if len(ppCfg.NodeId) == 0 {
 		return errors.New("p2p node Id must be set")
 	}
 
-	if len(self.LinkBootAddr) == 0 {
+	if len(ppCfg.LinkBootAddr) == 0 {
 		return errors.New("p2p Link Boot Addr must be set")
 	}
 	return nil
@@ -25,12 +25,12 @@ type Boot struct {
 	Enabled  bool   `yaml:"enabled"`
 }
 
-func (self *Boot) Check(cfg *Base) error {
-	if !self.Enabled {
+func (bCfg *Boot) Check(cfg *Base) error {
+	if !bCfg.Enabled {
 		return nil
 	}
 
-	if len(self.BootAddr) == 0 {
+	if len(bCfg.BootAddr) == 0 {
 		return errors.New("boot node addr must be set")
 	}
 	return nil

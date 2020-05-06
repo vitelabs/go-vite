@@ -49,37 +49,37 @@ func newSnapshotChain(store store.BlockStore) *snapshotChain {
 	return chain
 }
 
-func (self *snapshotChain) Head() *common.SnapshotBlock {
-	return self.head
+func (snapCh *snapshotChain) Head() *common.SnapshotBlock {
+	return snapCh.head
 }
 
-func (self *snapshotChain) GetBlockHeight(height uint64) *common.SnapshotBlock {
+func (snapCh *snapshotChain) GetBlockHeight(height uint64) *common.SnapshotBlock {
 	if height < 0 {
 		panic("height:" + strconv.FormatUint(height, 10))
 		log.Error("can't request height 0 block.[snapshotChain]", height)
 		return nil
 	}
-	block := self.store.GetSnapshotByHeight(height)
+	block := snapCh.store.GetSnapshotByHeight(height)
 	return block
 }
 
-func (self *snapshotChain) GetBlockByHashH(hashH common.HashHeight) *common.SnapshotBlock {
+func (snapCh *snapshotChain) GetBlockByHashH(hashH common.HashHeight) *common.SnapshotBlock {
 	if hashH.Height < 0 {
 		log.Error("can't request height 0 block.[snapshotChain]", hashH.Height)
 		return nil
 	}
-	head := self.head
+	head := snapCh.head
 	if hashH.Height == head.Height() && hashH.Hash == head.Hash() {
 		return head
 	}
-	block := self.store.GetSnapshotByHeight(hashH.Height)
+	block := snapCh.store.GetSnapshotByHeight(hashH.Height)
 	if block != nil && hashH.Hash == block.Hash() {
 		return block
 	}
 	return nil
 }
-func (self *snapshotChain) getBlockByHash(hash string) *common.SnapshotBlock {
-	block := self.store.GetSnapshotByHash(hash)
+func (snapCh *snapshotChain) getBlockByHash(hash string) *common.SnapshotBlock {
+	block := snapCh.store.GetSnapshotByHash(hash)
 	return block
 }
 
@@ -88,23 +88,23 @@ func j(v interface{}) string {
 	return string(bytes)
 }
 
-func (self *snapshotChain) insertChain(block *common.SnapshotBlock) error {
+func (snapCh *snapshotChain) insertChain(block *common.SnapshotBlock) error {
 	log.Info("insert to snapshot Chain: %s", j(block))
-	self.store.PutSnapshot(block)
-	self.head = block
-	self.store.SetSnapshotHead(&common.HashHeight{Hash: block.Hash(), Height: block.Height()})
+	snapCh.store.PutSnapshot(block)
+	snapCh.head = block
+	snapCh.store.SetSnapshotHead(&common.HashHeight{Hash: block.Hash(), Height: block.Height()})
 	return nil
 }
-func (self *snapshotChain) removeChain(block *common.SnapshotBlock) error {
+func (snapCh *snapshotChain) removeChain(block *common.SnapshotBlock) error {
 	log.Info("remove from snapshot Chain: %s", block)
 
-	head := self.store.GetSnapshotByHash(block.PreHash())
-	self.store.DeleteSnapshot(common.HashHeight{Hash: block.Hash(), Height: block.Height()})
-	self.head = head
+	head := snapCh.store.GetSnapshotByHash(block.PreHash())
+	snapCh.store.DeleteSnapshot(common.HashHeight{Hash: block.Hash(), Height: block.Height()})
+	snapCh.head = head
 	if head == nil {
-		self.store.SetSnapshotHead(nil)
+		snapCh.store.SetSnapshotHead(nil)
 	} else {
-		self.store.SetSnapshotHead(&common.HashHeight{Hash: head.Hash(), Height: head.Height()})
+		snapCh.store.SetSnapshotHead(&common.HashHeight{Hash: head.Hash(), Height: head.Height()})
 	}
 
 	return nil

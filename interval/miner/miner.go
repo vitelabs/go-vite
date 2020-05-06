@@ -30,18 +30,18 @@ type MinerLifecycle struct {
 	common.LifecycleStatus
 }
 
-func (self *MinerLifecycle) PreDestroy() bool {
-	return atomic.CompareAndSwapInt32(&self.S, 6, 7)
+func (l *MinerLifecycle) PreDestroy() bool {
+	return atomic.CompareAndSwapInt32(&l.S, 6, 7)
 }
-func (self *MinerLifecycle) PostDestroy() bool {
-	return atomic.CompareAndSwapInt32(&self.S, 7, 8)
+func (l *MinerLifecycle) PostDestroy() bool {
+	return atomic.CompareAndSwapInt32(&l.S, 7, 8)
 }
 
-func (self *MinerLifecycle) PreStart() bool {
-	return atomic.CompareAndSwapInt32(&self.S, 2, 3) || atomic.CompareAndSwapInt32(&self.S, 6, 3)
+func (l *MinerLifecycle) PreStart() bool {
+	return atomic.CompareAndSwapInt32(&l.S, 2, 3) || atomic.CompareAndSwapInt32(&l.S, 6, 3)
 }
-func (self *MinerLifecycle) PostStart() bool {
-	return atomic.CompareAndSwapInt32(&self.S, 3, 4)
+func (l *MinerLifecycle) PostStart() bool {
+	return atomic.CompareAndSwapInt32(&l.S, 3, 4)
 }
 
 type Miner interface {
@@ -73,36 +73,36 @@ func NewMiner(chain SnapshotChainRW, syncStatus face.SyncStatus, bus EventBus.Bu
 
 	return miner
 }
-func (self *miner) Init() {
-	self.PreInit()
-	defer self.PostInit()
-	self.worker.Init()
+func (m *miner) Init() {
+	m.PreInit()
+	defer m.PostInit()
+	m.worker.Init()
 	dwlDownFn := func() {
 		log.Info("sync success.")
-		self.consensus.Subscribe(self.mem)
+		m.consensus.Subscribe(m.mem)
 	}
-	self.bus.SubscribeOnce(common.DwlDone, dwlDownFn)
+	m.bus.SubscribeOnce(common.DwlDone, dwlDownFn)
 }
 
-func (self *miner) Start() {
-	self.PreStart()
-	defer self.PostStart()
+func (m *miner) Start() {
+	m.PreStart()
+	defer m.PostStart()
 
-	if self.syncStatus.Done() {
-		self.consensus.Subscribe(self.mem)
+	if m.syncStatus.Done() {
+		m.consensus.Subscribe(m.mem)
 	}
-	self.worker.Start()
+	m.worker.Start()
 }
 
-func (self *miner) Stop() {
-	self.PreStop()
-	defer self.PostStop()
+func (m *miner) Stop() {
+	m.PreStop()
+	defer m.PostStop()
 
-	self.worker.Stop()
-	self.consensus.Subscribe(nil)
+	m.worker.Stop()
+	m.consensus.Subscribe(nil)
 }
 
-func (self *miner) Destroy() {
-	self.PreDestroy()
-	defer self.PostDestroy()
+func (m *miner) Destroy() {
+	m.PreDestroy()
+	defer m.PostDestroy()
 }
