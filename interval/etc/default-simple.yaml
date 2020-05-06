@@ -1,7 +1,7 @@
 
 
 base:
-  dataDir: "/Users/jie/naive_vite/data"
+  dataDir: "/Users/jie/go_vite/data"
 chain:
   storeType: 1
 

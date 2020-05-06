@@ -24,7 +24,7 @@ func main() {
 		log.Fatal("%v", err)
 	}
 
-	configPath := flag.String("config", path.Join(config.HomeDir, "/naive_vite/etc/default.yaml"), "config path")
+	configPath := flag.String("config", path.Join(config.HomeDir, "/go_vite/etc/default.yaml"), "config path")
 	flag.Parse()
 	log.Info(*configPath)
 	cfg := new(config.Node)
@@ -43,7 +43,7 @@ func main() {
 	shell := ishell.New()
 
 	// display welcome info.
-	shell.Println("naive-vite Interactive Shell")
+	shell.Println("go-vite Interactive Shell")
 
 	{
 		autoCmd := &ishell.Cmd{

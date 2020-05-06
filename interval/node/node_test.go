@@ -37,7 +37,7 @@ func TestNode(t *testing.T) {
 		ConsensusCfg: &config.Consensus{Interval: 1, MemCnt: len(consensus.DefaultMembers)},
 		MinerCfg:     &config.Miner{Enabled: true, HexCoinbase: "vite_2ad1b8f936f015fc80a2a5857dffb84b39f7675ab69ae31fc8"},
 		ChainCfg:     &config.Chain{StoreType: common.Memory},
-		BaseCfg:      &config.Base{DataDir: "/Users/jie/naive_vite/data"},
+		BaseCfg:      &config.Base{DataDir: "/Users/jie/go_vite/data"},
 	}
 	n, e := NewNode(cfg)
 	if e != nil {
@@ -78,7 +78,7 @@ func TestNode_Start(t *testing.T) {
 		ConsensusCfg: &config.Consensus{Interval: 1, MemCnt: len(consensus.DefaultMembers)},
 		ChainCfg:     &config.Chain{StoreType: common.Memory},
 		MinerCfg:     &config.Miner{Enabled: false},
-		BaseCfg:      &config.Base{DataDir: "/Users/jie/naive_vite/data"},
+		BaseCfg:      &config.Base{DataDir: "/Users/jie/go_vite/data"},
 	}
 	n, e := NewNode(cfg)
 	if e != nil {
@@ -258,7 +258,7 @@ func startNode(bootAddr string, port int, nodeId string) Node {
 		ConsensusCfg: &config.Consensus{Interval: 1, MemCnt: len(consensus.DefaultMembers)},
 		ChainCfg:     &config.Chain{StoreType: common.Memory},
 		MinerCfg:     &config.Miner{Enabled: false},
-		BaseCfg:      &config.Base{DataDir: "/Users/jie/naive_vite/data"},
+		BaseCfg:      &config.Base{DataDir: "/Users/jie/go_vite/data"},
 	}
 	n, e := NewNode(cfg)
 	if e != nil {
@@ -271,7 +271,7 @@ func startNode(bootAddr string, port int, nodeId string) Node {
 
 func startNodeFromDefaul() Node {
 	cfg := &config.Node{}
-	cfg.Parse(path.Join(config.HomeDir, "/naive_vite/etc/default.yaml"))
+	cfg.Parse(path.Join(config.HomeDir, "/go_vite/etc/default.yaml"))
 	n, e := NewNode(cfg)
 	if e != nil {
 		panic(e)
@@ -290,7 +290,7 @@ func TestNode_Disk(t *testing.T) {
 
 func startNodeFromDefaultDisk() Node {
 	cfg := &config.Node{}
-	cfg.Parse(path.Join(config.HomeDir, "/naive_vite/etc/config_disk_1.yaml"))
+	cfg.Parse(path.Join(config.HomeDir, "/go_vite/etc/config_disk_1.yaml"))
 	n, e := NewNode(cfg)
 	if e != nil {
 		panic(e)
