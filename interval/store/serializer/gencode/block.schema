@@ -1,0 +1,37 @@
+
+struct HashHeight {
+    Hash string
+    Height uint64
+}
+
+struct DBAccountBlock  {
+	Height    uint64
+	Hash      string
+	PreHash   string
+	Signer    string
+	Timestamp int64
+	Amount         int64
+	ModifiedAmount int64
+	SnapshotHeight uint64
+	SnapshotHash   string
+	BlockType      uint8
+	From           string
+	To             string
+	Source         *HashHeight
+}
+
+struct AccountHashH  {
+	Hash string
+    Height uint64
+	Addr string
+}
+
+
+struct DBSnapshotBlock  {
+	Height    uint64
+    Hash      string
+    PreHash   string
+    Signer    string
+    Timestamp int64
+	Accounts    []*AccountHashH
+}
