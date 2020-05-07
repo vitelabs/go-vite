@@ -29,7 +29,7 @@ func NewPow(vite *vite.Vite) *Pow {
 		}
 		pubKey = p
 	} else {
-		p, err := hexutil.Decode("f4b37ea2a04d012835820fc480e0b87150f76112c87fce51412815bc90476d4e")
+		p, err := hexutil.Decode("0xf4b37ea2a04d012835820fc480e0b87150f76112c87fce51412815bc90476d4e")
 		if err != nil {
 			panic(err)
 		}
