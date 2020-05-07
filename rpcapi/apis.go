@@ -215,33 +215,35 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 	}
 }
 
-func GetApis(vite *vite.Vite, apiModule ...string) []rpc.API {
-	var apis []rpc.API
-	for _, m := range apiModule {
-		apis = append(apis, GetApi(vite, m))
+func GetApis(vite *vite.Vite, apiModules ...string) map[string]rpc.API {
+	var apis = make(map[string]rpc.API, len(apiModules))
+	for _, m := range apiModules {
+		apis[m] = GetApi(vite, m)
 	}
 	return apis
 }
-func MergeApis(apis ...[]rpc.API) []rpc.API {
+func MergeApis(first map[string]rpc.API, second map[string]rpc.API) []rpc.API {
 	resultMap := make(map[string]rpc.API)
-	for _, apiArr := range apis {
-		for _, r := range apiArr {
-			_, ok := resultMap[r.Namespace]
-			if ok {
-				continue
-			}
-			resultMap[r.Namespace] = r
+
+	for md, api := range first {
+		resultMap[md] = api
+	}
+
+	for md1, api1 := range second {
+		if _, ok := resultMap[md1]; ok {
+			continue
+		} else {
+			resultMap[md1] = api1
 		}
 	}
 
 	var result []rpc.API
-
 	for _, r := range resultMap {
 		result = append(result, r)
 	}
 	return result
 }
 
-func GetPublicApis(vite *vite.Vite) []rpc.API {
+func GetPublicApis(vite *vite.Vite) map[string]rpc.API {
 	return GetApis(vite, "ledger", "net", "contract", "util", "health")
 }
