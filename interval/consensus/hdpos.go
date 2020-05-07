@@ -3,7 +3,6 @@ package consensus
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interval/common"
 	"github.com/vitelabs/go-vite/interval/common/config"
 	"github.com/vitelabs/go-vite/interval/common/log"
@@ -56,7 +55,7 @@ type SignerFn func(a common.Address, data []byte) (signedData, pubkey []byte, er
 
 // update committee result
 type Committee struct {
-	types.LifecycleStatus
+	common.LifecycleStatus
 	interval     int
 	memberCnt    int
 	teller       *teller

@@ -20,52 +20,52 @@ type LifecycleStatus struct {
 	S int32 // 0:origin 1: initing 2:inited 3:starting 4:started 5:stopping 6:stopped
 }
 
-func (self *LifecycleStatus) PreInit() *LifecycleStatus {
-	if atomic.CompareAndSwapInt32(&self.S, Origin, PreInit) {
-		return self
+func (ls *LifecycleStatus) PreInit() *LifecycleStatus {
+	if atomic.CompareAndSwapInt32(&ls.S, Origin, PreInit) {
+		return ls
 	}
-	panic(self.panicFailMsg("PreInit"))
+	panic(ls.panicFailMsg("PreInit"))
 }
-func (self *LifecycleStatus) PostInit() *LifecycleStatus {
-	if atomic.CompareAndSwapInt32(&self.S, PreInit, PostInit) {
-		return self
+func (ls *LifecycleStatus) PostInit() *LifecycleStatus {
+	if atomic.CompareAndSwapInt32(&ls.S, PreInit, PostInit) {
+		return ls
 	}
-	panic(self.panicFailMsg("PostInit"))
+	panic(ls.panicFailMsg("PostInit"))
 }
-func (self *LifecycleStatus) PreStart() *LifecycleStatus {
-	if atomic.CompareAndSwapInt32(&self.S, PostInit, PreStart) {
-		return self
+func (ls *LifecycleStatus) PreStart() *LifecycleStatus {
+	if atomic.CompareAndSwapInt32(&ls.S, PostInit, PreStart) {
+		return ls
 	}
-	panic(self.panicFailMsg("PreStart"))
+	panic(ls.panicFailMsg("PreStart"))
 }
-func (self *LifecycleStatus) PostStart() *LifecycleStatus {
-	if atomic.CompareAndSwapInt32(&self.S, PreStart, PostStart) {
-		return self
+func (ls *LifecycleStatus) PostStart() *LifecycleStatus {
+	if atomic.CompareAndSwapInt32(&ls.S, PreStart, PostStart) {
+		return ls
 	}
-	panic(self.panicFailMsg("PostStart"))
+	panic(ls.panicFailMsg("PostStart"))
 }
-func (self *LifecycleStatus) PreStop() *LifecycleStatus {
-	if atomic.CompareAndSwapInt32(&self.S, PostStart, PreStop) {
-		return self
+func (ls *LifecycleStatus) PreStop() *LifecycleStatus {
+	if atomic.CompareAndSwapInt32(&ls.S, PostStart, PreStop) {
+		return ls
 	}
-	panic(self.panicFailMsg("PreStop"))
+	panic(ls.panicFailMsg("PreStop"))
 }
-func (self *LifecycleStatus) PostStop() *LifecycleStatus {
-	if atomic.CompareAndSwapInt32(&self.S, PreStop, PostStop) {
-		return self
+func (ls *LifecycleStatus) PostStop() *LifecycleStatus {
+	if atomic.CompareAndSwapInt32(&ls.S, PreStop, PostStop) {
+		return ls
 	}
-	panic(self.panicFailMsg("PostStop"))
+	panic(ls.panicFailMsg("PostStop"))
 }
 
-func (self *LifecycleStatus) Stopped() bool {
-	return self.S == 6
+func (ls *LifecycleStatus) Stopped() bool {
+	return ls.S == 6
 }
-func (self *LifecycleStatus) Status() int32 {
-	return self.S
+func (ls *LifecycleStatus) Status() int32 {
+	return ls.S
 }
 
-func (self *LifecycleStatus) panicFailMsg(prefix string) string {
-	return prefix + " fail. status:" + strconv.Itoa(int(self.S))
+func (ls *LifecycleStatus) panicFailMsg(prefix string) string {
+	return prefix + " fail. status:" + strconv.Itoa(int(ls.S))
 }
 
 type Lifecycle interface {

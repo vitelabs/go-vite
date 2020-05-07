@@ -148,15 +148,15 @@ func TestBcPool(t *testing.T) {
 	//
 	//pool.init(&accountCh{address: "viteshan2", bc: chain2.NewChain()}, &TestVerifier{}, NewFetcher("", testSyncer))
 	//go pool.loop()
-	//pool.AddBlock(&test.TestBlock{Thash: "A-6", Theight: 6, TpreHash: "A-5", Tsigner: signer, Ttimestamp: time.Now()})
+	//pool.AddBlock(&test.TestBlock{Thash: "A-6", Theight: 6, TprevHash: "A-5", Tsigner: signer, Ttimestamp: time.Now()})
 	//time.Sleep(time.Second)
-	//pool.AddBlock(&test.TestBlock{Thash: "C-10", Theight: 10, TpreHash: "C-9", Tsigner: signer, Ttimestamp: time.Now()})
+	//pool.AddBlock(&test.TestBlock{Thash: "C-10", Theight: 10, TprevHash: "C-9", Tsigner: signer, Ttimestamp: time.Now()})
 	//time.Sleep(time.Second)
-	//pool.AddBlock(&test.TestBlock{Thash: "A-1", Theight: 1, TpreHash: "A-0", Tsigner: signer, Ttimestamp: time.Now()})
+	//pool.AddBlock(&test.TestBlock{Thash: "A-1", Theight: 1, TprevHash: "A-0", Tsigner: signer, Ttimestamp: time.Now()})
 	//time.Sleep(time.Second)
 	//
-	//pool.AddBlock(&test.TestBlock{Thash: "A-20", Theight: 20, TpreHash: "A-19", Tsigner: signer, Ttimestamp: time.Now()})
-	//pool.AddBlock(&test.TestBlock{Thash: "B-9", Theight: 9, TpreHash: "A-8", Tsigner: signer, Ttimestamp: time.Now()})
+	//pool.AddBlock(&test.TestBlock{Thash: "A-20", Theight: 20, TprevHash: "A-19", Tsigner: signer, Ttimestamp: time.Now()})
+	//pool.AddBlock(&test.TestBlock{Thash: "B-9", Theight: 9, TprevHash: "A-8", Tsigner: signer, Ttimestamp: time.Now()})
 	//c := make(chan int)
 	//c <- 1
 }

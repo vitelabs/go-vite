@@ -38,21 +38,21 @@ type SnapshotPoint struct {
 	AccountHash    string
 }
 
-func (self *SnapshotPoint) Equals(peer *SnapshotPoint) bool {
+func (point *SnapshotPoint) Equals(peer *SnapshotPoint) bool {
 	if peer == nil {
 		return false
 	}
-	if self.SnapshotHash == peer.SnapshotHash &&
-		self.SnapshotHeight == peer.SnapshotHeight &&
-		self.AccountHeight == peer.AccountHeight &&
-		self.AccountHash == peer.AccountHash {
+	if point.SnapshotHash == peer.SnapshotHash &&
+		point.SnapshotHeight == peer.SnapshotHeight &&
+		point.AccountHeight == peer.AccountHeight &&
+		point.AccountHash == peer.AccountHash {
 		return true
 	}
 	return false
 }
 
-func (self *SnapshotPoint) String() string {
-	return "[" + strconv.FormatUint(self.SnapshotHeight, 10) + "][" + self.SnapshotHash + "][" + strconv.FormatUint(self.AccountHeight, 10) + "][" + self.AccountHash + "]"
+func (point *SnapshotPoint) String() string {
+	return "[" + strconv.FormatUint(point.SnapshotHeight, 10) + "][" + point.SnapshotHash + "][" + strconv.FormatUint(point.AccountHeight, 10) + "][" + point.AccountHash + "]"
 }
 
 //BlockType is the type of Tx described by int.
@@ -87,15 +87,15 @@ func init() {
 	}
 }
 
-func (self BlockType) String() string {
-	if s, ok := txStr[self]; ok {
+func (tp BlockType) String() string {
+	if s, ok := txStr[tp]; ok {
 		return s
 	}
 	return "Unknown"
 }
 
-func (self NetMsgType) String() string {
-	if s, ok := netMsgTypeStr[self]; ok {
+func (tp NetMsgType) String() string {
+	if s, ok := netMsgTypeStr[tp]; ok {
 		return s
 	}
 	return "Unknown"
@@ -104,7 +104,7 @@ func (self NetMsgType) String() string {
 type Tblock struct {
 	Theight    uint64
 	Thash      string
-	TpreHash   string
+	TprevHash  string
 	Tsigner    string
 	Ttimestamp time.Time
 }
@@ -118,7 +118,7 @@ func (self *Tblock) Hash() string {
 }
 
 func (self *Tblock) PreHash() string {
-	return self.TpreHash
+	return self.TprevHash
 }
 
 func (self *Tblock) Signer() string {
@@ -160,7 +160,7 @@ func NewSnapshotBlock(
 	block := &SnapshotBlock{}
 	block.Theight = height
 	block.Thash = hash
-	block.TpreHash = preHash
+	block.TprevHash = preHash
 	block.Tsigner = signer
 	block.Ttimestamp = timestamp
 	block.Accounts = accounts
@@ -173,14 +173,14 @@ func HexToAddress(hexStr string) Address {
 	return []byte(hexStr)
 }
 
-func (self Address) String() string {
-	return string((self)[:])
+func (addr Address) String() string {
+	return string((addr)[:])
 }
 
 func NewAccountBlock(
 	height uint64,
 	hash string,
-	preHash string,
+	prevHash string,
 	signer string,
 	timestamp time.Time,
 
@@ -197,7 +197,7 @@ func NewAccountBlock(
 	block := &AccountStateBlock{}
 	block.Theight = height
 	block.Thash = hash
-	block.TpreHash = preHash
+	block.TprevHash = prevHash
 	block.Tsigner = signer
 	block.Ttimestamp = timestamp
 	block.Amount = amount
@@ -227,11 +227,11 @@ func NewAccountBlockFrom(
 	block := &AccountStateBlock{}
 	if accountBlock == nil {
 		block.Theight = 1
-		block.TpreHash = ""
+		block.TprevHash = ""
 		block.Amount = modifiedAmount
 	} else {
 		block.Theight = accountBlock.Height() + 1
-		block.TpreHash = accountBlock.Hash()
+		block.TprevHash = accountBlock.Hash()
 		block.Amount = accountBlock.Amount + modifiedAmount
 	}
 	block.Tsigner = signer

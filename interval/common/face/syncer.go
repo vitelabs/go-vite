@@ -9,6 +9,6 @@ type FetchRequest struct {
 	PrevCnt uint64
 }
 
-func (self *FetchRequest) String() string {
-	return self.Chain + "," + strconv.FormatUint(self.Height, 10) + "," + self.Hash + "," + strconv.FormatUint(self.PrevCnt, 10)
+func (req *FetchRequest) String() string {
+	return req.Chain + "," + strconv.FormatUint(req.Height, 10) + "," + req.Hash + "," + strconv.FormatUint(req.PrevCnt, 10)
 }

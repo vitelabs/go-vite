@@ -10,8 +10,9 @@ import (
 
 func TestBlock(t *testing.T) {
 	viteshan := "viteshan"
-	block := NewAccountBlock(1, "Thash...", "TpreHash...", viteshan, time.Unix(1533550878, 0),
-		0, -105, 10, "snapshotHash...", SEND, viteshan, viteshan, "", -1)
+
+	block := NewAccountBlock(1, "Thash...", "TprevHash...", viteshan, time.Unix(1533550878, 0),
+		0, -105, 10, "snapshotHash...", SEND, viteshan, viteshan, &HashHeight{"", 0})
 	bytes, _ := json.Marshal(block)
 
 	log.Info(string(bytes))
@@ -21,4 +22,4 @@ func TestBlock(t *testing.T) {
 }
 
 // {"Amount":0,"ModifiedAmount":-105,"SnapshotHeight":10,"SnapshotHash":"snapshotHash...","BlockType":0,"From":"viteshan","To":"viteshan","SourceHash":""}
-// {"Theight":1,"Thash":"Thash...","TpreHash":"TpreHash...","Tsigner":"viteshan","Ttimestamp":"2018-08-06T18:21:18+08:00","Amount":0,"ModifiedAmount":-105,"SnapshotHeight":10,"SnapshotHash":"snapshotHash...","BlockType":0,"From":"viteshan","To":"viteshan","SourceHash":""}
+// {"Theight":1,"Thash":"Thash...","TprevHash":"TprevHash...","Tsigner":"viteshan","Ttimestamp":"2018-08-06T18:21:18+08:00","Amount":0,"ModifiedAmount":-105,"SnapshotHeight":10,"SnapshotHash":"snapshotHash...","BlockType":0,"From":"viteshan","To":"viteshan","SourceHash":""}
