@@ -478,6 +478,60 @@ func (f DexApi) GetCancelStakeList(address types.Address, pageIndex int, pageSiz
 	}
 }
 
+func (f DexApi) GetPlaceOrderInfo(address types.Address, tradeToken, quoteToken types.TokenTypeId, side bool) (*apidex.PlaceOrderInfo, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	} else {
+		placeOrderInfo := new(apidex.PlaceOrderInfo)
+		placeOrderInfo.Side = side
+		if marketInfo, ok := dex.GetMarketInfo(db, tradeToken, quoteToken); !ok {
+			return nil, dex.TradeMarketNotExistsErr
+		} else {
+			var vipReduceFeeRate int32 = 0
+			if _, ok := dex.GetSuperVIPStaking(db, address); ok {
+				placeOrderInfo.IsSVIP = true
+				vipReduceFeeRate = dex.BaseFeeRate
+			} else if _, ok := dex.GetVIPStaking(db, address); ok {
+				placeOrderInfo.IsVIP = true
+				vipReduceFeeRate = dex.VipReduceFeeRate
+			}
+			takerFeeRate := dex.BaseFeeRate - vipReduceFeeRate
+			takerOperatorFeeRate := marketInfo.TakerOperatorFeeRate
+			makerFeeRate := dex.BaseFeeRate - vipReduceFeeRate
+			makerOperatorFeeRate := marketInfo.MakerOperatorFeeRate
+			if _, err := dex.GetInviterByInvitee(db, address); err == nil { // invited
+				placeOrderInfo.IsInvited = true
+				takerFeeRate = takerFeeRate * 9 / 10
+				takerOperatorFeeRate = takerOperatorFeeRate * 9 / 10
+				makerFeeRate = makerFeeRate * 9 / 10
+				makerOperatorFeeRate = makerOperatorFeeRate * 9 / 10
+			}
+			takerRateSum := takerFeeRate + takerOperatorFeeRate
+			makerRateSum := makerFeeRate + makerOperatorFeeRate
+			if takerRateSum > makerRateSum {
+				placeOrderInfo.FeeRate = takerRateSum
+			} else {
+				placeOrderInfo.FeeRate = makerRateSum
+			}
+			placeOrderInfo.Available = "0"
+			if fund, ok := dex.GetFund(db, address); ok {
+				var token types.TokenTypeId
+				if side {
+					token = tradeToken
+				} else {
+					token = quoteToken
+				}
+				if acc, ok := dex.GetAccountByToken(fund, token); ok {
+					placeOrderInfo.Available = apidex.AmountBytesToString(acc.Available)
+				}
+			}
+			placeOrderInfo.MinTradeAmount = dex.GetTradeThreshold(db, marketInfo.QuoteTokenType).String()
+		}
+		return placeOrderInfo, nil
+	}
+}
+
 type DexPrivateApi struct {
 	vite  *vite.Vite
 	chain chain.Chain
