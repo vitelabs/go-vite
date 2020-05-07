@@ -1,0 +1,24 @@
+
+
+base:
+  dataDir: "/Users/jie/go_vite/data"
+chain:
+  storeType: 1
+
+consensus:
+  interval: 6
+  memCnt: 6
+
+
+miner:
+  enabled: false
+  coinbase: ""
+
+p2p:
+  nodeId: "simple"
+  port: 8010
+  netId: 1
+  bootAddr: "localhost:8000"
+boot:
+  addr: "localhost:8000"
+
