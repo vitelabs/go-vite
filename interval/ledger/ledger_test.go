@@ -249,10 +249,10 @@ func genSnapAccounts(block *common.SnapshotBlock, stateBlocks ...*common.Account
 	return snapshot
 }
 
-func genAccountBlockBy(address string, snapshotBlock *common.SnapshotBlock, prev *common.AccountStateBlock, modifiedAmount int) *common.AccountStateBlock {
+func genAccountBlockBy(address string, prev *common.AccountStateBlock, modifiedAmount int) *common.AccountStateBlock {
 	to := "viteshan"
 	block := common.NewAccountBlock(prev.Height()+1, "", prev.Hash(), address, time.Now(),
-		prev.Amount+modifiedAmount, modifiedAmount, snapshotBlock.Height(), snapshotBlock.Hash(), common.SEND, address, to, "", -1)
+		prev.Amount+modifiedAmount, modifiedAmount, common.SEND, address, to, "", -1)
 	block.SetHash(utils.CalculateAccountHash(block))
 	return block
 }

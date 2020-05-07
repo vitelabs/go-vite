@@ -12,7 +12,7 @@ func TestBlock(t *testing.T) {
 	viteshan := "viteshan"
 
 	block := NewAccountBlock(1, "Thash...", "TprevHash...", viteshan, time.Unix(1533550878, 0),
-		0, -105, 10, "snapshotHash...", SEND, viteshan, viteshan, &HashHeight{"", 0})
+		0, -105, SEND, viteshan, viteshan, &HashHeight{"", 0})
 	bytes, _ := json.Marshal(block)
 
 	log.Info(string(bytes))

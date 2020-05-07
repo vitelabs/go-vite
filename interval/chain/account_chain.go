@@ -69,7 +69,7 @@ func (acctCh *accountChain) GetBlockByHash(address string, hash string) *common.
 	return block
 }
 
-func (acctCh *accountChain) insertChain(block *common.AccountStateBlock) error {
+func (acctCh *accountChain) insertBlock(block *common.AccountStateBlock) error {
 	defer monitor.LogTime("chain", "accountInsert", time.Now())
 	log.Info("insert to account Chain: %v", block)
 	acctCh.store.PutAccount(acctCh.address, block)
@@ -82,7 +82,7 @@ func (acctCh *accountChain) insertChain(block *common.AccountStateBlock) error {
 	}
 	return nil
 }
-func (acctCh *accountChain) removeChain(block *common.AccountStateBlock) error {
+func (acctCh *accountChain) removeBlock(block *common.AccountStateBlock) error {
 	log.Info("remove from account Chain: %v", block)
 	has := acctCh.hasSnapshotPoint(block.Height(), block.Hash())
 	if has {
@@ -191,6 +191,32 @@ func (acctCh *accountChain) RollbackSnapshotPoint(start *common.SnapshotPoint, e
 	}
 	if !point.Equals(start) {
 		return errors.New("not equals for start")
+	}
+	for {
+		point := acctCh.peek()
+		if point == nil {
+			return errors.New("not exist snapshot point")
+		}
+		if point.AccountHeight <= end.AccountHeight {
+			acctCh.snapshotPoint.Pop()
+		} else {
+			break
+		}
+		if point.AccountHeight == end.AccountHeight {
+			break
+		}
+	}
+	return nil
+}
+
+//SnapshotPoint
+func (acctCh *accountChain) RollbackSnapshotTo(to *common.SnapshotBlock) ([]*common.AccountStateBlock, error) {
+	point := acctCh.peek()
+	if point == nil {
+		return nil
+	}
+	if point.SnapshotHeight < to.Height() {
+		return acctCh.unconfirmed, nil
 	}
 	for {
 		point := acctCh.peek()

@@ -118,10 +118,8 @@ func (l *ledger) ResponseAccountBlock(from string, to string, reqHash string) er
 		prevHash = prev.Hash()
 		prevAmount = prev.Amount
 	}
-	snapshotBlock, _ := l.bc.HeadSnapshot()
-
 	modifiedAmount := -reqBlock.ModifiedAmount
-	block := common.NewAccountBlock(height, "", prevHash, to, time.Now(), prevAmount+modifiedAmount, modifiedAmount, snapshotBlock.Height(), snapshotBlock.Hash(),
+	block := common.NewAccountBlock(height, "", prevHash, to, time.Now(), prevAmount+modifiedAmount, modifiedAmount,
 		common.RECEIVED, from, to, &common.HashHeight{Hash: reqHash, Height: reqBlock.Height()})
 	block.SetHash(utils.CalculateAccountHash(block))
 

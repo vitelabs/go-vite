@@ -16,7 +16,7 @@ func TestGenesis(t *testing.T) {
 	var genesisAccounts = []string{"viteshan", "jie"}
 	for _, a := range genesisAccounts {
 		genesis := common.NewAccountBlock(common.FirstHeight, "", "", a, time.Unix(0, 0),
-			200, 0, 0, "", common.GENESIS, a, a, nil)
+			200, 0, common.GENESIS, a, a, nil)
 		genesis.SetHash(utils.CalculateAccountHash(genesis))
 
 		fmt.Println(a, &common.HashHeight{Hash: genesis.Hash(), Height: genesis.Height()})

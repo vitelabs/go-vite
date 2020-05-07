@@ -135,8 +135,6 @@ type AccountStateBlock struct {
 	Tblock
 	Amount         int // the balance
 	ModifiedAmount int
-	SnapshotHeight uint64
-	SnapshotHash   string
 	BlockType      BlockType // 1: send  2:received
 	From           string
 	To             string
@@ -186,8 +184,6 @@ func NewAccountBlock(
 
 	amount int,
 	modifiedAmount int,
-	snapshotHeight uint64,
-	snapshotHash string,
 	blockType BlockType,
 	from string,
 	to string,
@@ -202,8 +198,6 @@ func NewAccountBlock(
 	block.Ttimestamp = timestamp
 	block.Amount = amount
 	block.ModifiedAmount = modifiedAmount
-	block.SnapshotHash = snapshotHash
-	block.SnapshotHeight = snapshotHeight
 	block.BlockType = blockType
 	block.From = from
 	block.To = to
@@ -237,8 +231,6 @@ func NewAccountBlockFrom(
 	block.Tsigner = signer
 	block.Ttimestamp = timestamp
 	block.ModifiedAmount = modifiedAmount
-	block.SnapshotHash = snapshotBlock.Hash()
-	block.SnapshotHeight = snapshotBlock.Height()
 	block.BlockType = blockType
 	block.From = from
 	block.To = to

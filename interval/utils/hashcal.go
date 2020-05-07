@@ -20,8 +20,6 @@ func calculateHash(s string) string {
 func CalculateAccountHash(block *common.AccountStateBlock) string {
 	str := blockStr(block) + strconv.Itoa(block.Amount) +
 		strconv.Itoa(block.ModifiedAmount) +
-		strconv.FormatUint(block.SnapshotHeight, 10) +
-		block.SnapshotHash +
 		block.BlockType.String() +
 		block.From +
 		block.To

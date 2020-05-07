@@ -23,16 +23,15 @@ type AccountReader interface {
 
 	GetAccountBySourceHash(address string, source string) *common.AccountStateBlock
 	NextAccountSnapshot() (common.HashHeight, []*common.AccountHashH, error)
-	FindAccountAboveSnapshotHeight(address string, snapshotHeight uint64) *common.AccountStateBlock
 }
 
 type SnapshotWriter interface {
 	InsertSnapshotBlock(block *common.SnapshotBlock) error
-	RemoveSnapshotHead(block *common.SnapshotBlock) error
+	//RollbackSnapshotBlockTo(block *common.SnapshotBlock) ([]*common.SnapshotBlock, map[string]*common.AccountStateBlock)
 }
 type AccountWriter interface {
 	InsertAccountBlock(address string, block *common.AccountStateBlock) error
-	RemoveAccountHead(address string, block *common.AccountStateBlock) error
+	//RemoveAccountHead(address string, block *common.AccountStateBlock) error
 	RollbackSnapshotPoint(address string, start *common.SnapshotPoint, end *common.SnapshotPoint) error
 }
 
