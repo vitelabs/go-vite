@@ -306,6 +306,16 @@ func (node *Node) startVite() error {
 }
 
 func (node *Node) startRPC() (e error) {
+	// start event system
+	if node.config.SubscribeEnabled {
+		filters.Es = filters.NewEventSystem(node.Vite())
+		filters.Es.Start()
+	}
+	defer func() {
+		if e != nil {
+			filters.Es.Stop()
+		}
+	}()
 
 	// Init rpc log
 	rpcapi.Init(node.config.DataDir, node.config.LogLevel, node.config.TestTokenHexPrivKey, node.config.TestTokenTti, uint(node.config.NetID), node.config.TxDexEnable)
@@ -321,17 +331,6 @@ func (node *Node) startRPC() (e error) {
 	defer func() {
 		if e != nil {
 			node.stopInProcess()
-		}
-	}()
-
-	// start event system
-	if node.config.SubscribeEnabled {
-		filters.Es = filters.NewEventSystem(node.Vite())
-		filters.Es.Start()
-	}
-	defer func() {
-		if e != nil {
-			filters.Es.Stop()
 		}
 	}()
 
