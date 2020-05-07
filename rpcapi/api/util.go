@@ -77,7 +77,7 @@ func (p Pow) GetPowNoncePrivate(address types.Address, height uint64, difficulty
 	defer func() {
 		log.Info("GetPowNoncePrivate ", "address", address, "height", height,
 			"difficulty", difficulty, "data", data.Hex(), "timestamp", timestamp, "sig", hexutil.Encode(sig),
-			"err", e, "duration_ms", time.Now().Sub(s).Milliseconds())
+			"err", e, "duration_ms", time.Now().Sub(s).Nanoseconds())
 	}()
 
 	flag, err := crypto.VerifySig(p.pubKey, []byte(fmt.Sprintf("%d", timestamp)), sig)
