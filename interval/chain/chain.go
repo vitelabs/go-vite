@@ -110,12 +110,13 @@ func (bc *blockchain) InsertSnapshotBlock(block *common.SnapshotBlock) error {
 	return err
 }
 
-func (bc *blockchain) RollbackSnapshotBlockTo(block *common.SnapshotBlock) ([]*common.SnapshotBlock, map[string]*common.AccountStateBlock) {
-	bc.sc.GetBlockHeight()
-	bc.ac.rangeFn(func(acctCh *accountChain) bool {
-		acctCh.RollbackSnapshotPoint()
-	})
-	bc.ac.RollbackSnapshotTo(block)
+func (bc *blockchain) RollbackSnapshotBlockTo(block *common.SnapshotBlock) ([]*common.SnapshotBlock, map[string][]*common.AccountStateBlock, error) {
+	blocks := bc.sc.GetBlocksRange(block.Height(), bc.sc.Head().Height())
+
+	acctBlocksMap, err := bc.ac.RollbackSnapshotBlocks(blocks)
+
+	return blocks, acctBlocksMap, err
+
 }
 
 func (bc *blockchain) RemoveSnapshotHead(block *common.SnapshotBlock) error {
@@ -142,11 +143,11 @@ func (bc *blockchain) GetAccountByHeight(address string, height uint64) *common.
 }
 
 func (bc *blockchain) InsertAccountBlock(address string, block *common.AccountStateBlock) error {
-	return bc.ac.one(address).insertBlock(block)
+	return bc.ac.one(address).insertHeader(block)
 }
 
 //func (bc *blockchain) RemoveAccountHead(address string, block *common.AccountStateBlock) error {
-//	return bc.one(address).removeBlock(block)
+//	return bc.one(address).removeHeader(block)
 //}
 func (bc *blockchain) RollbackSnapshotPoint(address string, start *common.SnapshotPoint, end *common.SnapshotPoint) error {
 	return bc.ac.one(address).RollbackSnapshotPoint(start, end)

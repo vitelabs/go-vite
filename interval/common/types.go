@@ -256,6 +256,11 @@ const (
 
 var FirstHeight = uint64(1)
 var EmptyHeight = uint64(0)
+var EmptyHash = ""
+var EmptyHashHeight = HashHeight{
+	Hash:   EmptyHash,
+	Height: EmptyHeight,
+}
 
 type StoreDBType uint8
 

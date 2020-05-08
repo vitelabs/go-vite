@@ -55,22 +55,30 @@ func (snapCh *snapshotChain) Head() *common.SnapshotBlock {
 
 func (snapCh *snapshotChain) GetBlockHeight(height uint64) *common.SnapshotBlock {
 	if height <= common.EmptyHeight {
-		panic("height:" + strconv.FormatUint(height, 10))
 		log.Error("can't request height 0 block.[snapshotChain]", height)
+		panic("height:" + strconv.FormatUint(height, 10))
 		return nil
 	}
 	block := snapCh.store.GetSnapshotByHeight(height)
 	return block
 }
 
-func (snapCh *snapshotChain) GetBlocksRange(start uint64, end uint64) *common.SnapshotBlock {
+func (snapCh *snapshotChain) GetBlocksRange(start uint64, end uint64) []*common.SnapshotBlock {
 	if start <= common.EmptyHeight || start > end {
-		panic("start: " + strconv.FormatUint(start, 10) + " end: " + strconv.FormatUint())
-		log.Error("can't request height 0 block.[snapshotChain]", height)
+		log.Error("can't request height 0 block.[snapshotChain]", start, end)
+		panic("start: " + strconv.FormatUint(start, 10) + " end: " + strconv.FormatUint(end, 10))
 		return nil
 	}
-	block := snapCh.store.GetSnapshotByHeight(height)
-	return block
+
+	var blocks []*common.SnapshotBlock
+	for i := start; i <= end; i++ {
+		block := snapCh.store.GetSnapshotByHeight(i)
+		if block == nil {
+			continue
+		}
+		blocks = append(blocks, block)
+	}
+	return blocks
 }
 
 func (snapCh *snapshotChain) GetBlockByHashH(hashH common.HashHeight) *common.SnapshotBlock {
