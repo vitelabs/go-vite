@@ -2,7 +2,6 @@ package chain
 
 import (
 	"errors"
-	"strconv"
 
 	"fmt"
 
@@ -18,7 +17,7 @@ import (
 
 // account block chain
 type accountChain struct {
-	address       string
+	address       common.Address
 	head          *common.AccountStateBlock
 	store         store.BlockStore
 	listener      face.ChainListener
@@ -26,7 +25,7 @@ type accountChain struct {
 	unconfirmed   []*common.AccountStateBlock
 }
 
-func newAccountChain(address string, listener face.ChainListener, store store.BlockStore) *accountChain {
+func newAccountChain(address common.Address, listener face.ChainListener, store store.BlockStore) *accountChain {
 	self := &accountChain{}
 	self.address = address
 	self.store = store
@@ -44,7 +43,7 @@ func (acctCh *accountChain) Head() *common.AccountStateBlock {
 	return acctCh.head
 }
 
-func (acctCh *accountChain) GetBlockByHeight(height uint64) *common.AccountStateBlock {
+func (acctCh *accountChain) GetBlockByHeight(height common.Height) *common.AccountStateBlock {
 	if height < common.FirstHeight {
 		log.Error("can't request height 0 block. account:%s", acctCh.address)
 		return nil
@@ -65,7 +64,7 @@ func (acctCh *accountChain) GetBlockByHashH(hashH common.HashHeight) *common.Acc
 	}
 	return nil
 }
-func (acctCh *accountChain) GetBlockByHash(address string, hash string) *common.AccountStateBlock {
+func (acctCh *accountChain) GetBlockByHash(address common.Address, hash common.Hash) *common.AccountStateBlock {
 	block := acctCh.store.GetAccountByHash(address, hash)
 	return block
 }
@@ -101,8 +100,15 @@ func (acctCh *accountChain) removeHeader(block *common.AccountStateBlock) error 
 			acctCh.store.DeleteSourceHash(block.Source.Hash)
 		}
 	}
+	unconfirmedLen := len(acctCh.unconfirmed)
+	if unconfirmedLen > 0 { // delete unconfirmed
+		if acctCh.unconfirmed[unconfirmedLen-1].Hash() != block.Hash() {
+			panic("unconfirmed check fail")
+		}
+		acctCh.unconfirmed = acctCh.unconfirmed[:unconfirmedLen-1]
+	}
 
-	prev := acctCh.store.GetAccountByHash(acctCh.address, block.PreHash())
+	prev := acctCh.store.GetAccountByHash(acctCh.address, block.PrevHash())
 	acctCh.head = prev
 	if prev == nil {
 		acctCh.store.SetAccountHead(acctCh.address, nil)
@@ -113,10 +119,25 @@ func (acctCh *accountChain) removeHeader(block *common.AccountStateBlock) error 
 	return nil
 }
 
-func (acctCh *accountChain) removeUntil(hashHeight common.HashHeight) (result []*common.AccountStateBlock, err error) {
+func (acctCh *accountChain) removeUntil(height common.Height) (result []*common.AccountStateBlock, err error) {
 	for {
 		head := acctCh.Head()
-		if head.Height() > hashHeight.Height {
+		if head.Height() > height {
+			err = acctCh.removeHeader(head)
+			if err != nil {
+				return
+			}
+			result = append(result, head)
+		} else {
+			break
+		}
+	}
+	return
+}
+func (acctCh *accountChain) removeTo(height common.Height) (result []*common.AccountStateBlock, err error) {
+	for {
+		head := acctCh.Head()
+		if head.Height() >= height {
 			err = acctCh.removeHeader(head)
 			if err != nil {
 				return
@@ -129,19 +150,7 @@ func (acctCh *accountChain) removeUntil(hashHeight common.HashHeight) (result []
 	return
 }
 
-func (acctCh *accountChain) findAccountAboveSnapshotHeight(snapshotHeight uint64) *common.AccountStateBlock {
-	if acctCh.head == nil {
-		return nil
-	}
-	for i := acctCh.head.Height(); i >= common.FirstHeight; i-- {
-		block := acctCh.store.GetAccountByHeight(acctCh.address, i)
-		if block.SnapshotHeight <= snapshotHeight {
-			return block
-		}
-	}
-	return nil
-}
-func (acctCh *accountChain) getBySourceBlock(sourceHash string) *common.AccountStateBlock {
+func (acctCh *accountChain) getByFromHash(fromHash common.Hash) *common.AccountStateBlock {
 	if acctCh.head == nil {
 		return nil
 	}
@@ -149,7 +158,7 @@ func (acctCh *accountChain) getBySourceBlock(sourceHash string) *common.AccountS
 	for i := height; i > 0; i-- {
 		// first block(i==0) is create block
 		v := acctCh.store.GetAccountByHeight(acctCh.address, i)
-		if v.BlockType == common.RECEIVED && v.Source.Hash == sourceHash {
+		if v.BlockType == common.RECEIVED && v.Source.Hash == fromHash {
 			return v
 		}
 	}
@@ -175,11 +184,11 @@ func (acctCh *accountChain) NextSnapshotPoint() (*common.AccountHashH, error) {
 	return nil, errors.New("not found")
 }
 
-func (acctCh *accountChain) SnapshotPoint(snapshotHeight uint64, snapshotHash string, h *common.AccountHashH) error {
+func (acctCh *accountChain) SnapshotPoint(snapshotHeight common.Height, snapshotHash common.Hash, h *common.AccountHashH) error {
 	// check valid
 	head := acctCh.head
 	if head == nil {
-		return errors.New("account[" + acctCh.address + "] not exist.")
+		return errors.New("account[" + acctCh.address.String() + "] not exist.")
 	}
 
 	var lastPoint *common.SnapshotPoint
@@ -200,10 +209,10 @@ func (acctCh *accountChain) SnapshotPoint(snapshotHeight uint64, snapshotHash st
 		acctCh.snapshotPoint.Push(point)
 		return nil
 	} else {
-		errMsg := "account[" + acctCh.address + "] state error. accHeight: " + strconv.FormatUint(h.Height, 10) +
-			"accHash:" + h.Hash +
-			" expAccHeight:" + strconv.FormatUint(point.Height(), 10) +
-			" expAccHash:" + point.Hash()
+		errMsg := "account[" + acctCh.address.String() + "] state error. accHeight: " + h.Height.String() +
+			"accHash:" + h.Hash.String() +
+			" expAccHeight:" + point.Height().String() +
+			" expAccHash:" + point.Hash().String()
 		return errors.New(errMsg)
 	}
 }
@@ -234,10 +243,13 @@ func (acctCh *accountChain) RollbackSnapshotPoint(start *common.SnapshotPoint, e
 	return nil
 }
 
+func (acctCh *accountChain) RollbackTo(height common.Height) ([]*common.AccountStateBlock, error) {
+	return acctCh.removeTo(height)
+}
+
 func (acctCh *accountChain) RollbackUnconfirmed() ([]*common.AccountStateBlock, error) {
 	result := acctCh.unconfirmed
 
-	acctCh.unconfirmed = []*common.AccountStateBlock{}
 	for _, b := range result {
 		acctCh.removeHeader(b)
 	}
@@ -276,7 +288,7 @@ func (acctCh *accountChain) RollbackSnapshotPointTo(to *common.SnapshotPoint) (r
 				Height: point.AccountHeight,
 			}
 		}
-		return acctCh.removeUntil(util)
+		return acctCh.removeUntil(util.Height)
 	}
 }
 
@@ -300,7 +312,7 @@ func (acctCh *accountChain) RollbackSnapshotPointTo(to *common.SnapshotPoint) (r
 //}
 
 //SnapshotPoint ddd
-func (acctCh *accountChain) hasSnapshotPoint(accountHeight uint64, accountHash string) bool {
+func (acctCh *accountChain) hasSnapshotPoint(accountHeight common.Height, accountHash common.Hash) bool {
 	point := acctCh.peek()
 	if point == nil {
 		return false

@@ -15,7 +15,7 @@ import (
 
 // Backend wraps all methods required for mining.
 type SnapshotChainRW interface {
-	MiningSnapshotBlock(address string, timestamp int64) error
+	MiningSnapshotBlock(address common.Address, timestamp int64) error
 }
 
 type DownloaderRegister func(chan<- int) // 0 represent success, not 0 represent failed.

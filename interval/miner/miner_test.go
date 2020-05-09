@@ -16,8 +16,8 @@ type SnapshotRW struct {
 	Ch chan<- int
 }
 
-func (SnapshotRW) MiningSnapshotBlock(address string, timestamp int64) error {
-	println(address + ":" + time.Unix(timestamp, 0).Format(time.StampMilli) + ":" + strconv.FormatInt(timestamp, 10))
+func (SnapshotRW) MiningSnapshotBlock(address common.Address, timestamp int64) error {
+	println(address.String() + ":" + time.Unix(timestamp, 0).Format(time.StampMilli) + ":" + strconv.FormatInt(timestamp, 10))
 	return nil
 }
 
@@ -74,9 +74,9 @@ func TestVerifier(t *testing.T) {
 
 	coinbase := common.HexToAddress("vite_2ad1b8f936f015fc80a2a5857dffb84b39f7675ab69ae31fc8")
 
-	verify, _ := committee.Verify(SnapshotRW{}, common.NewSnapshotBlock(0, "", "", coinbase.String(), time.Unix(1532504321, 0), nil))
+	verify, _ := committee.Verify(SnapshotRW{}, common.NewSnapshotBlock(0, "", "", coinbase, time.Unix(1532504321, 0), nil))
 	println(verify)
-	verify2, _ := committee.Verify(SnapshotRW{}, common.NewSnapshotBlock(0, "", "", coinbase.String(), time.Unix(1532504320, 0), nil))
+	verify2, _ := committee.Verify(SnapshotRW{}, common.NewSnapshotBlock(0, "", "", coinbase, time.Unix(1532504320, 0), nil))
 	println(verify2)
 }
 

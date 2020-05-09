@@ -38,7 +38,7 @@ func NewChain(cfg *config.Chain) BlockChain {
 }
 
 // query received block by send block
-func (bc *blockchain) GetAccountBySourceHash(address string, source string) *common.AccountStateBlock {
+func (bc *blockchain) GetAccountByFromHash(address common.Address, source common.Hash) *common.AccountStateBlock {
 	b := bc.store.GetAccountBySourceHash(source)
 	return b
 }
@@ -87,11 +87,11 @@ func (bc *blockchain) GetSnapshotByHashH(hashH common.HashHeight) *common.Snapsh
 	return bc.sc.GetBlockByHashH(hashH)
 }
 
-func (bc *blockchain) GetSnapshotByHash(hash string) *common.SnapshotBlock {
+func (bc *blockchain) GetSnapshotByHash(hash common.Hash) *common.SnapshotBlock {
 	return bc.sc.getBlockByHash(hash)
 }
 
-func (bc *blockchain) GetSnapshotByHeight(height uint64) *common.SnapshotBlock {
+func (bc *blockchain) GetSnapshotByHeight(height common.Height) *common.SnapshotBlock {
 	return bc.sc.GetBlockHeight(height)
 }
 
@@ -110,8 +110,8 @@ func (bc *blockchain) InsertSnapshotBlock(block *common.SnapshotBlock) error {
 	return err
 }
 
-func (bc *blockchain) RollbackSnapshotBlockTo(block *common.SnapshotBlock) ([]*common.SnapshotBlock, map[string][]*common.AccountStateBlock, error) {
-	blocks := bc.sc.GetBlocksRange(block.Height(), bc.sc.Head().Height())
+func (bc *blockchain) RollbackSnapshotBlockTo(height common.Height) ([]*common.SnapshotBlock, map[common.Address][]*common.AccountStateBlock, error) {
+	blocks := bc.sc.GetBlocksRange(height, bc.sc.Head().Height())
 
 	acctBlocksMap, err := bc.ac.RollbackSnapshotBlocks(blocks)
 
@@ -123,34 +123,38 @@ func (bc *blockchain) RemoveSnapshotHead(block *common.SnapshotBlock) error {
 	return bc.sc.removeBlock(block)
 }
 
-func (bc *blockchain) HeadAccount(address string) (*common.AccountStateBlock, error) {
+func (bc *blockchain) HeadAccount(address common.Address) (*common.AccountStateBlock, error) {
 	return bc.ac.one(address).Head(), nil
 }
 
-func (bc *blockchain) GetAccountByHashH(address string, hashH common.HashHeight) *common.AccountStateBlock {
+func (bc *blockchain) GetAccountByHashH(address common.Address, hashH common.HashHeight) *common.AccountStateBlock {
 	defer monitor.LogTime("chain", "accountByHashH", time.Now())
 	return bc.ac.one(address).GetBlockByHashH(hashH)
 }
 
-func (bc *blockchain) GetAccountByHash(address string, hash string) *common.AccountStateBlock {
+func (bc *blockchain) GetAccountByHash(address common.Address, hash common.Hash) *common.AccountStateBlock {
 	defer monitor.LogTime("chain", "accountByHash", time.Now())
 	return bc.ac.one(address).GetBlockByHash(address, hash)
 }
 
-func (bc *blockchain) GetAccountByHeight(address string, height uint64) *common.AccountStateBlock {
+func (bc *blockchain) GetAccountByHeight(address common.Address, height common.Height) *common.AccountStateBlock {
 	defer monitor.LogTime("chain", "accountByHeight", time.Now())
 	return bc.ac.one(address).GetBlockByHeight(height)
 }
 
-func (bc *blockchain) InsertAccountBlock(address string, block *common.AccountStateBlock) error {
+func (bc *blockchain) InsertAccountBlock(address common.Address, block *common.AccountStateBlock) error {
 	return bc.ac.one(address).insertHeader(block)
 }
 
 //func (bc *blockchain) RemoveAccountHead(address string, block *common.AccountStateBlock) error {
 //	return bc.one(address).removeHeader(block)
 //}
-func (bc *blockchain) RollbackSnapshotPoint(address string, start *common.SnapshotPoint, end *common.SnapshotPoint) error {
+func (bc *blockchain) RollbackSnapshotPoint(address common.Address, start *common.SnapshotPoint, end *common.SnapshotPoint) error {
 	return bc.ac.one(address).RollbackSnapshotPoint(start, end)
+}
+
+func (bc *blockchain) RollbackAccountBlockTo(address common.Address, height common.Height) ([]*common.AccountStateBlock, error) {
+	return bc.ac.one(address).RollbackTo(height)
 }
 
 type defaultChainListener struct {
@@ -164,9 +168,9 @@ func (*defaultChainListener) SnapshotRemoveCallback(block *common.SnapshotBlock)
 
 }
 
-func (*defaultChainListener) AccountInsertCallback(address string, block *common.AccountStateBlock) {
+func (*defaultChainListener) AccountInsertCallback(address common.Address, block *common.AccountStateBlock) {
 
 }
 
-func (*defaultChainListener) AccountRemoveCallback(address string, block *common.AccountStateBlock) {
+func (*defaultChainListener) AccountRemoveCallback(address common.Address, block *common.AccountStateBlock) {
 }

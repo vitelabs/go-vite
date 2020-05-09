@@ -50,7 +50,7 @@ func (acctV *AccountVerifier) verifySelf(block *common.AccountStateBlock, stat *
 	} else {
 		if block.BlockType == common.RECEIVED {
 			//check if it has been received
-			same := acctV.reader.GetAccountBySourceHash(block.To, block.Source.Hash)
+			same := acctV.reader.GetAccountByFromHash(block.To, block.Source.Hash)
 			if same != nil {
 				stat.errMsg = fmt.Sprintf("block[%s][%d][%s] error, send block has received.",
 					block.Signer(), block.Height(), block.Hash())

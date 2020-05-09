@@ -3,8 +3,6 @@ package store
 import (
 	"sync"
 
-	"strconv"
-
 	"github.com/vitelabs/go-vite/interval/common"
 )
 
@@ -43,7 +41,7 @@ func (store *blockMemoryStore) GetSnapshotHead() *common.HashHeight {
 	return value.(*common.HashHeight)
 }
 
-func (store *blockMemoryStore) GetAccountHead(address string) *common.HashHeight {
+func (store *blockMemoryStore) GetAccountHead(address common.Address) *common.HashHeight {
 	value, ok := store.head.Load(address)
 	if !ok {
 		return nil
@@ -59,7 +57,7 @@ func (store *blockMemoryStore) SetSnapshotHead(hashH *common.HashHeight) {
 	}
 }
 
-func (store *blockMemoryStore) SetAccountHead(address string, hashH *common.HashHeight) {
+func (store *blockMemoryStore) SetAccountHead(address common.Address, hashH *common.HashHeight) {
 	if hashH == nil {
 		store.head.Delete(address)
 	} else {
@@ -73,7 +71,7 @@ func (store *blockMemoryStore) DeleteSnapshot(hashH common.HashHeight) {
 	store.snapshotHash.Delete(hashH.Hash)
 }
 
-func (store *blockMemoryStore) DeleteAccount(address string, hashH common.HashHeight) {
+func (store *blockMemoryStore) DeleteAccount(address common.Address, hashH common.HashHeight) {
 	store.accountHash.Delete(hashH.Hash)
 	store.accountHeight.Delete(store.genKey(address, hashH.Height))
 }
@@ -83,12 +81,12 @@ func (store *blockMemoryStore) PutSnapshot(block *common.SnapshotBlock) {
 	store.snapshotHeight.Store(block.Height(), block)
 }
 
-func (store *blockMemoryStore) PutAccount(address string, block *common.AccountStateBlock) {
+func (store *blockMemoryStore) PutAccount(address common.Address, block *common.AccountStateBlock) {
 	store.accountHash.Store(block.Hash(), block)
 	store.accountHeight.Store(store.genKey(address, block.Height()), block)
 }
 
-func (store *blockMemoryStore) GetSnapshotByHash(hash string) *common.SnapshotBlock {
+func (store *blockMemoryStore) GetSnapshotByHash(hash common.Hash) *common.SnapshotBlock {
 	value, ok := store.snapshotHash.Load(hash)
 	if !ok {
 		return nil
@@ -96,7 +94,7 @@ func (store *blockMemoryStore) GetSnapshotByHash(hash string) *common.SnapshotBl
 	return value.(*common.SnapshotBlock)
 }
 
-func (store *blockMemoryStore) GetSnapshotByHeight(height uint64) *common.SnapshotBlock {
+func (store *blockMemoryStore) GetSnapshotByHeight(height common.Height) *common.SnapshotBlock {
 	value, ok := store.snapshotHeight.Load(height)
 	if !ok {
 		return nil
@@ -104,7 +102,7 @@ func (store *blockMemoryStore) GetSnapshotByHeight(height uint64) *common.Snapsh
 	return value.(*common.SnapshotBlock)
 }
 
-func (store *blockMemoryStore) GetAccountByHash(address, hash string) *common.AccountStateBlock {
+func (store *blockMemoryStore) GetAccountByHash(address common.Address, hash common.Hash) *common.AccountStateBlock {
 	value, ok := store.accountHash.Load(hash)
 	if !ok {
 		return nil
@@ -112,7 +110,7 @@ func (store *blockMemoryStore) GetAccountByHash(address, hash string) *common.Ac
 	return value.(*common.AccountStateBlock)
 }
 
-func (store *blockMemoryStore) GetAccountBySourceHash(hash string) *common.AccountStateBlock {
+func (store *blockMemoryStore) GetAccountBySourceHash(hash common.Hash) *common.AccountStateBlock {
 	h, ok := store.sourceHash.Load(hash)
 	if !ok {
 		return nil
@@ -120,14 +118,14 @@ func (store *blockMemoryStore) GetAccountBySourceHash(hash string) *common.Accou
 	hashH := h.(*common.AccountHashH)
 	return store.GetAccountByHeight(hashH.Addr, hashH.Height)
 }
-func (store *blockMemoryStore) PutSourceHash(hash string, h *common.AccountHashH) {
+func (store *blockMemoryStore) PutSourceHash(hash common.Hash, h *common.AccountHashH) {
 	store.sourceHash.Store(hash, h)
 }
-func (store *blockMemoryStore) DeleteSourceHash(hash string) {
+func (store *blockMemoryStore) DeleteSourceHash(hash common.Hash) {
 	store.sourceHash.Delete(hash)
 }
 
-func (store *blockMemoryStore) GetAccountByHeight(address string, height uint64) *common.AccountStateBlock {
+func (store *blockMemoryStore) GetAccountByHeight(address common.Address, height common.Height) *common.AccountStateBlock {
 	value, ok := store.accountHeight.Load(store.genKey(address, height))
 	if !ok {
 		return nil
@@ -136,6 +134,6 @@ func (store *blockMemoryStore) GetAccountByHeight(address string, height uint64)
 
 }
 
-func (store *blockMemoryStore) genKey(address string, height uint64) string {
-	return address + "_" + strconv.FormatUint(height, 10)
+func (store *blockMemoryStore) genKey(address common.Address, height common.Height) string {
+	return address.String() + "_" + height.String()
 }

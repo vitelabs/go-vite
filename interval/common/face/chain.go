@@ -10,36 +10,35 @@ type SnapshotReader interface {
 	GenesisSnapshot() (*common.SnapshotBlock, error)
 	HeadSnapshot() (*common.SnapshotBlock, error)
 	GetSnapshotByHashH(hashH common.HashHeight) *common.SnapshotBlock
-	GetSnapshotByHash(hash string) *common.SnapshotBlock
-	GetSnapshotByHeight(height uint64) *common.SnapshotBlock
+	GetSnapshotByHash(hash common.Hash) *common.SnapshotBlock
+	GetSnapshotByHeight(height common.Height) *common.SnapshotBlock
 	//ListSnapshotBlock(limit int) []*common.SnapshotBlock
 }
 type AccountReader interface {
-	HeadAccount(address string) (*common.AccountStateBlock, error)
-	GetAccountByHashH(address string, hashH common.HashHeight) *common.AccountStateBlock
-	GetAccountByHash(address string, hash string) *common.AccountStateBlock
-	GetAccountByHeight(address string, height uint64) *common.AccountStateBlock
+	HeadAccount(address common.Address) (*common.AccountStateBlock, error)
+	GetAccountByHashH(address common.Address, hashH common.HashHeight) *common.AccountStateBlock
+	GetAccountByHash(address common.Address, hash common.Hash) *common.AccountStateBlock
+	GetAccountByHeight(address common.Address, height common.Height) *common.AccountStateBlock
 	//ListAccountBlock(address string, limit int) []*common.AccountStateBlock
 
-	GetAccountBySourceHash(address string, source string) *common.AccountStateBlock
+	GetAccountByFromHash(address common.Address, source common.Hash) *common.AccountStateBlock
 	NextAccountSnapshot() (common.HashHeight, []*common.AccountHashH, error)
 }
 
 type SnapshotWriter interface {
 	InsertSnapshotBlock(block *common.SnapshotBlock) error
-	//RollbackSnapshotBlockTo(block *common.SnapshotBlock) ([]*common.SnapshotBlock, map[string]*common.AccountStateBlock)
+	RollbackSnapshotBlockTo(height common.Height) ([]*common.SnapshotBlock, map[common.Address][]*common.AccountStateBlock, error)
 }
 type AccountWriter interface {
-	InsertAccountBlock(address string, block *common.AccountStateBlock) error
-	//RemoveAccountHead(address string, block *common.AccountStateBlock) error
-	RollbackSnapshotPoint(address string, start *common.SnapshotPoint, end *common.SnapshotPoint) error
+	InsertAccountBlock(address common.Address, block *common.AccountStateBlock) error
+	RollbackAccountBlockTo(address common.Address, height common.Height) ([]*common.AccountStateBlock, error)
 }
 
 type ChainListener interface {
 	SnapshotInsertCallback(block *common.SnapshotBlock)
 	SnapshotRemoveCallback(block *common.SnapshotBlock)
-	AccountInsertCallback(address string, block *common.AccountStateBlock)
-	AccountRemoveCallback(address string, block *common.AccountStateBlock)
+	AccountInsertCallback(address common.Address, block *common.AccountStateBlock)
+	AccountRemoveCallback(address common.Address, block *common.AccountStateBlock)
 }
 
 type SyncStatus interface {

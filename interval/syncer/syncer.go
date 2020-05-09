@@ -35,26 +35,26 @@ type chainRw struct {
 //}
 
 type Fetcher interface {
-	FetchAccount(address string, hash common.HashHeight, prevCnt uint64)
+	FetchAccount(address common.Address, hash common.HashHeight, prevCnt uint64)
 	FetchSnapshot(hash common.HashHeight, prevCnt uint64)
 	Fetch(request face.FetchRequest)
 }
 
 type Sender interface {
 	// when new block create
-	BroadcastAccountBlocks(string, []*common.AccountStateBlock) error
+	BroadcastAccountBlocks(common.Address, []*common.AccountStateBlock) error
 	BroadcastSnapshotBlocks([]*common.SnapshotBlock) error
 
 	// when fetch block message be arrived
-	SendAccountBlocks(string, []*common.AccountStateBlock, p2p.Peer) error
+	SendAccountBlocks(common.Address, []*common.AccountStateBlock, p2p.Peer) error
 	SendSnapshotBlocks([]*common.SnapshotBlock, p2p.Peer) error
 
-	SendAccountHashes(string, []common.HashHeight, p2p.Peer) error
+	SendAccountHashes(common.Address, []common.HashHeight, p2p.Peer) error
 	SendSnapshotHashes([]common.HashHeight, p2p.Peer) error
 
-	RequestAccountHash(string, common.HashHeight, uint64) error
+	RequestAccountHash(common.Address, common.HashHeight, uint64) error
 	RequestSnapshotHash(common.HashHeight, uint64) error
-	RequestAccountBlocks(string, []common.HashHeight) error
+	RequestAccountBlocks(common.Address, []common.HashHeight) error
 	RequestSnapshotBlocks([]common.HashHeight) error
 }
 type MsgHandler interface {

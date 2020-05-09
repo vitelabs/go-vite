@@ -66,7 +66,7 @@ func (w *worker) update(ch chan int) {
 func (w *worker) genAndInsert(t time.Time) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.chain.MiningSnapshotBlock(w.coinbase.String(), t.Unix())
+	w.chain.MiningSnapshotBlock(w.coinbase, t.Unix())
 }
 
 func (w *worker) setWorkCh(newWorkCh <-chan time.Time) {

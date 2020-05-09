@@ -3,8 +3,6 @@ package chain
 import (
 	"time"
 
-	"strconv"
-
 	"encoding/json"
 
 	"github.com/vitelabs/go-vite/interval/common"
@@ -53,20 +51,20 @@ func (snapCh *snapshotChain) Head() *common.SnapshotBlock {
 	return snapCh.head
 }
 
-func (snapCh *snapshotChain) GetBlockHeight(height uint64) *common.SnapshotBlock {
+func (snapCh *snapshotChain) GetBlockHeight(height common.Height) *common.SnapshotBlock {
 	if height <= common.EmptyHeight {
 		log.Error("can't request height 0 block.[snapshotChain]", height)
-		panic("height:" + strconv.FormatUint(height, 10))
+		panic("height:" + height.String())
 		return nil
 	}
 	block := snapCh.store.GetSnapshotByHeight(height)
 	return block
 }
 
-func (snapCh *snapshotChain) GetBlocksRange(start uint64, end uint64) []*common.SnapshotBlock {
+func (snapCh *snapshotChain) GetBlocksRange(start common.Height, end common.Height) []*common.SnapshotBlock {
 	if start <= common.EmptyHeight || start > end {
 		log.Error("can't request height 0 block.[snapshotChain]", start, end)
-		panic("start: " + strconv.FormatUint(start, 10) + " end: " + strconv.FormatUint(end, 10))
+		panic("start: " + start.String() + " end: " + end.String())
 		return nil
 	}
 
@@ -96,7 +94,7 @@ func (snapCh *snapshotChain) GetBlockByHashH(hashH common.HashHeight) *common.Sn
 	}
 	return nil
 }
-func (snapCh *snapshotChain) getBlockByHash(hash string) *common.SnapshotBlock {
+func (snapCh *snapshotChain) getBlockByHash(hash common.Hash) *common.SnapshotBlock {
 	block := snapCh.store.GetSnapshotByHash(hash)
 	return block
 }
@@ -116,7 +114,7 @@ func (snapCh *snapshotChain) insertBlock(block *common.SnapshotBlock) error {
 func (snapCh *snapshotChain) removeBlock(block *common.SnapshotBlock) error {
 	log.Info("remove from snapshot Chain: %s", block)
 
-	head := snapCh.store.GetSnapshotByHash(block.PreHash())
+	head := snapCh.store.GetSnapshotByHash(block.PrevHash())
 	snapCh.store.DeleteSnapshot(common.HashHeight{Hash: block.Hash(), Height: block.Height()})
 	snapCh.head = head
 	if head == nil {

@@ -9,7 +9,7 @@ import (
 )
 
 func TestBlock(t *testing.T) {
-	viteshan := "viteshan"
+	viteshan := HexToAddress("viteshan")
 
 	block := NewAccountBlock(1, "Thash...", "TprevHash...", viteshan, time.Unix(1533550878, 0),
 		0, -105, SEND, viteshan, viteshan, &HashHeight{"", 0})

@@ -27,7 +27,7 @@ func newAccountsChain(store store.BlockStore, listener face.ChainListener) *acco
 	}
 }
 
-func (accts *accountsChain) one(addr string) *accountChain {
+func (accts *accountsChain) one(addr common.Address) *accountChain {
 	chain, ok := accts.accounts.Load(addr)
 	if !ok {
 		c := newAccountChain(addr, accts.listener, accts.store)
@@ -39,7 +39,7 @@ func (accts *accountsChain) one(addr string) *accountChain {
 	return chain.(*accountChain)
 }
 
-func (accts *accountsChain) oneFn(addr string, fn func(*accountChain)) {
+func (accts *accountsChain) oneFn(addr common.Address, fn func(*accountChain)) {
 	chain, ok := accts.accounts.Load(addr)
 	if !ok {
 		c := newAccountChain(addr, accts.listener, accts.store)
@@ -57,8 +57,8 @@ func (accts *accountsChain) rangeFn(fn func(acct *accountChain) bool) {
 	})
 }
 
-func (accts *accountsChain) RollbackSnapshotBlocks(blocks []*common.SnapshotBlock) (map[string][]*common.AccountStateBlock, error) {
-	points := make(map[string]*common.SnapshotPoint)
+func (accts *accountsChain) RollbackSnapshotBlocks(blocks []*common.SnapshotBlock) (map[common.Address][]*common.AccountStateBlock, error) {
+	points := make(map[common.Address]*common.SnapshotPoint)
 	for _, b := range blocks {
 		for _, a := range b.Accounts {
 			ac, ok := points[a.Addr]
@@ -72,7 +72,7 @@ func (accts *accountsChain) RollbackSnapshotBlocks(blocks []*common.SnapshotBloc
 		}
 	}
 	var err error
-	result := make(map[string][]*common.AccountStateBlock)
+	result := make(map[common.Address][]*common.AccountStateBlock)
 	accts.rangeFn(func(acct *accountChain) bool {
 		unconfirmed, e1 := acct.RollbackUnconfirmed()
 		if e1 != nil {

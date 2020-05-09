@@ -42,7 +42,7 @@ type ledger struct {
 	rwMutex *sync.RWMutex
 }
 
-func (l *ledger) GetAccountBalance(address string) int {
+func (l *ledger) GetAccountBalance(address common.Address) common.Balance {
 	head, _ := l.bc.HeadAccount(address)
 	if head != nil {
 		return head.Amount
@@ -59,7 +59,7 @@ func (l *ledger) Pool() pool.BlockPool {
 	return l.bpool
 }
 
-func (l *ledger) MiningSnapshotBlock(address string, timestamp int64) error {
+func (l *ledger) MiningSnapshotBlock(address common.Address, timestamp int64) error {
 	//l.pendingSc.AddDirectBlock(block)
 	l.rwMutex.Lock()
 	defer l.rwMutex.Unlock()
@@ -83,13 +83,11 @@ func (l *ledger) MiningSnapshotBlock(address string, timestamp int64) error {
 	return nil
 }
 
-func (l *ledger) RequestAccountBlock(from string, to string, amount int) error {
+func (l *ledger) RequestAccountBlock(from common.Address, to common.Address, amount common.Balance) error {
 	defer monitor.LogTime("ledger", "requestAccount", time.Now())
 	headAccount, _ := l.bc.HeadAccount(from)
-	headSnaphost, _ := l.bc.HeadSnapshot()
 
-	newBlock := common.NewAccountBlockFrom(headAccount, from, time.Now(), amount, headSnaphost,
-		common.SEND, from, to, nil)
+	newBlock := common.NewAccountBlockFrom(headAccount, from, time.Now(), amount, common.SEND, &from, &to, nil)
 	newBlock.SetHash(utils.CalculateAccountHash(newBlock))
 	err := l.bpool.AddDirectAccountBlock(from, newBlock)
 	if err == nil {
@@ -97,21 +95,21 @@ func (l *ledger) RequestAccountBlock(from string, to string, amount int) error {
 	}
 	return err
 }
-func (l *ledger) ResponseAccountBlock(from string, to string, reqHash string) error {
+func (l *ledger) ResponseAccountBlock(from common.Address, to common.Address, reqHash common.Hash) error {
 	defer monitor.LogTime("ledger", "responseAccount", time.Now())
 	b := l.bc.GetAccountByHash(from, reqHash)
 	if b == nil {
-		return errors.New("not exist for account[" + from + "]block[" + reqHash + "]")
+		return errors.New("not exist for account[" + from.String() + "]block[" + reqHash.String() + "]")
 	}
 	if b.Hash() != reqHash {
-		return errors.New("GetByHashError, ReqHash:" + reqHash + ", RealHash:" + b.Hash())
+		return errors.New("GetByHashError, ReqHash:" + reqHash.String() + ", RealHash:" + b.Hash().String())
 	}
 
 	reqBlock := b
 
 	height := common.FirstHeight
-	prevHash := ""
-	prevAmount := 0
+	prevHash := common.EmptyHash
+	prevAmount := common.EmptyBalance
 	prev, _ := l.bc.HeadAccount(to)
 	if prev != nil {
 		height = prev.Height() + 1
@@ -163,7 +161,7 @@ func (l *ledger) ListSnapshotBlock() []*common.SnapshotBlock {
 	if head == nil {
 		return blocks
 	}
-	for i := uint64(0); i < head.Height(); i++ {
+	for i := common.Height(0); i < head.Height(); i++ {
 		blocks = append(blocks, l.bc.GetSnapshotByHeight(i))
 	}
 	if head.Height() >= 0 {
@@ -172,13 +170,13 @@ func (l *ledger) ListSnapshotBlock() []*common.SnapshotBlock {
 	return blocks
 }
 
-func (l *ledger) ListAccountBlock(address string) []*common.AccountStateBlock {
+func (l *ledger) ListAccountBlock(address common.Address) []*common.AccountStateBlock {
 	var blocks []*common.AccountStateBlock
 	head, _ := l.bc.HeadAccount(address)
 	if head == nil {
 		return blocks
 	}
-	for i := uint64(0); i < head.Height(); i++ {
+	for i := common.Height(0); i < head.Height(); i++ {
 		blocks = append(blocks, l.bc.GetAccountByHeight(address, i))
 	}
 	if head.Height() >= 0 {
