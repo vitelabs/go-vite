@@ -18,6 +18,7 @@ const CleanExpireOrdersMaxCount = 200
 type ParamDexCancelOrder struct {
 	OrderId []byte
 }
+
 type ParamDexInnerCancelOrder struct {
 	SendHash types.Hash
 	Owner    types.Address

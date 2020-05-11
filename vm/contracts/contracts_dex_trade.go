@@ -240,6 +240,9 @@ func (md *MethodDexTradeInnerCancelOrderBySendHash) GetReceiveQuota(gasTable *ut
 }
 
 func (md *MethodDexTradeInnerCancelOrderBySendHash) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
+		return dex.InvalidSourceAddressErr
+	}
 	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexInnerCancelOrder), md.MethodName, block.Data)
 	return
 }
