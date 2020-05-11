@@ -115,7 +115,7 @@ func startNode(bootAddr string, port int, nodeId string) node.Node {
 		ConsensusCfg: &config.Consensus{Interval: 1, MemCnt: len(consensus.DefaultMembers)},
 	}
 	n, err := node.NewNode(cfg)
-	utils.NotNil(err)
+	utils.Nil(err)
 	n.Init()
 	n.Start()
 	return n

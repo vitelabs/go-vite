@@ -5,6 +5,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/helper"
+
+	"github.com/vitelabs/go-vite/interval/utils"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interval/common"
 	"github.com/vitelabs/go-vite/interval/common/face"
@@ -108,7 +112,7 @@ func (accCh *accountCh) insertBlocks(bs []commonBlock) error {
 
 func (accCh *accountCh) delToHeight(height uint64) ([]commonBlock, map[common.Address][]commonBlock, error) {
 	accCh.log.Info("delToHeight", "height", height, "address", accCh.address)
-	bm, e := accCh.rw.DeleteAccountBlocksToHeight(accCh.address, height)
+	bm, e := accCh.rw.RollbackAccountBlockTo(accCh.address, common.Height(height))
 	if e != nil {
 		return nil, nil, e
 	}
@@ -116,12 +120,12 @@ func (accCh *accountCh) delToHeight(height uint64) ([]commonBlock, map[common.Ad
 	// FIXME
 	results := make(map[common.Address][]commonBlock)
 	for _, b := range bm {
-		results[b.AccountAddress] = append(results[b.AccountAddress], newAccountPoolBlock(b, nil, accCh.version, types.RollbackChain))
-		accCh.log.Info("actual delToHeight", "height", b.Height, "hash", b.Hash, "address", b.AccountAddress)
+		results[b.Signer()] = append(results[b.Signer()], newAccountPoolBlock(b, accCh.version, types.RollbackChain))
+		accCh.log.Info("actual delToHeight", "height", b.Height, "hash", b.Hash, "address", b.Signer())
 	}
 
 	{ // todo delete
-		block, err := accCh.rw.GetLatestAccountBlock(accCh.address)
+		block, err := accCh.rw.HeadAccount(accCh.address)
 		if err != nil {
 			panic(err)
 		}
@@ -133,7 +137,7 @@ func (accCh *accountCh) delToHeight(height uint64) ([]commonBlock, map[common.Ad
 			if block == nil {
 				panic(fmt.Sprintf("latest block is nil"))
 			}
-			if block.Height > height {
+			if block.Height().Uint64() > height {
 				panic(fmt.Sprintf("delete fail.%d-%d", block.Height, height))
 			}
 		}
@@ -142,31 +146,20 @@ func (accCh *accountCh) delToHeight(height uint64) ([]commonBlock, map[common.Ad
 }
 
 func (accCh *accountCh) getLatestSnapshotBlock() *common.SnapshotBlock {
-	return accCh.rw.GetLatestSnapshotBlock()
+	snapshot, err := accCh.rw.HeadSnapshot()
+	utils.Nil(err)
+
+	return snapshot
 }
 
 func (accCh *accountCh) getQuotaUnused() uint64 {
-	// todo
-	unused, err := accCh.rw.GetQuotaUnused(accCh.address)
-	if err != nil {
-		accCh.log.Error("get account quota err", "err", err)
-		return 0
-	}
-	return unused
+	return helper.MaxUint64
 }
 func (accCh *accountCh) getConfirmedTimes(abHash common.Hash) (uint64, error) {
-	return accCh.rw.GetConfirmedTimes(abHash)
+	return 0, nil
 }
 func (accCh *accountCh) needSnapshot(addr common.Address) (uint8, error) {
-	meta, err := accCh.rw.GetContractMeta(addr)
-	if err != nil {
-		return 0, err
-	}
-	if meta == nil {
-		accCh.log.Warn("meta info is nil.", "addr", addr)
-		return 0, nil
-	}
-	return meta.SendConfirmedTimes, nil
+	return 0, nil
 }
 
 type snapshotCh struct {
@@ -176,11 +169,7 @@ type snapshotCh struct {
 }
 
 func (sCh *snapshotCh) getBlock(height uint64) commonBlock {
-	defer monitor.LogTime("pool", "getSnapshotBlock", time.Now())
-	block, e := sCh.bc.GetSnapshotHeaderByHeight(height)
-	if e != nil {
-		return nil
-	}
+	block := sCh.bc.GetSnapshotByHeight(common.Height(height))
 	if block == nil {
 		return nil
 	}
@@ -188,18 +177,17 @@ func (sCh *snapshotCh) getBlock(height uint64) commonBlock {
 }
 
 func (sCh *snapshotCh) getHash(height uint64) *common.Hash {
-	if height == types.EmptyHeight {
-		return &common.Hash{}
-	}
-	hash, e := sCh.bc.GetSnapshotHashByHeight(height)
-	if e != nil {
+	block := sCh.getBlock(height)
+	if block == nil {
 		return nil
 	}
-	return hash
+	hash := block.Hash()
+	return &hash
 }
 
 func (sCh *snapshotCh) head() commonBlock {
-	block := sCh.bc.GetLatestSnapshotBlock()
+	block, err := sCh.bc.HeadSnapshot()
+	utils.Nil(err)
 	if block == nil {
 		return nil
 	}
@@ -207,7 +195,8 @@ func (sCh *snapshotCh) head() commonBlock {
 }
 
 func (sCh *snapshotCh) headSnapshot() *common.SnapshotBlock {
-	block := sCh.bc.GetLatestSnapshotBlock()
+	block, err := sCh.bc.HeadSnapshot()
+	utils.Nil(err)
 	if block == nil {
 		return nil
 	}
@@ -215,40 +204,26 @@ func (sCh *snapshotCh) headSnapshot() *common.SnapshotBlock {
 }
 
 func (sCh *snapshotCh) getSnapshotBlockByHash(hash common.Hash) *common.SnapshotBlock {
-	block, e := sCh.bc.GetSnapshotBlockByHash(hash)
-	if e != nil {
-		return nil
-	}
-	if block == nil {
-		return nil
-	}
+	block := sCh.bc.GetSnapshotByHash(hash)
 	return block
 }
 
 func (sCh *snapshotCh) delToHeight(height uint64) ([]commonBlock, map[common.Address][]commonBlock, error) {
-	schunk, e := sCh.bc.DeleteSnapshotBlocksToHeight(height)
+	snaps, acctsMap, e := sCh.bc.RollbackSnapshotBlockTo(common.Height(height))
 
 	if e != nil {
 		return nil, nil, e
 	}
 
 	accountResults := make(map[common.Address][]commonBlock)
-	for _, bs := range schunk {
-		for _, b := range bs.AccountBlocks {
-			blocks, ok := accountResults[b.AccountAddress]
-			if !ok {
-				var r []commonBlock
-				blocks = r
-			}
-			accountResults[b.AccountAddress] = append(blocks, newAccountPoolBlock(b, nil, sCh.version, types.RollbackChain))
+	for addr, bs := range acctsMap {
+		for _, b := range bs {
+			accountResults[addr] = append(accountResults[addr], newAccountPoolBlock(b, sCh.version, types.RollbackChain))
 		}
 	}
 	var snapshotResults []commonBlock
-	for _, s := range schunk {
-		if s.SnapshotBlock == nil {
-			continue
-		}
-		snapshotResults = append(snapshotResults, newSnapshotPoolBlock(s.SnapshotBlock, sCh.version, types.RollbackChain))
+	for _, s := range snaps {
+		snapshotResults = append(snapshotResults, newSnapshotPoolBlock(s, sCh.version, types.RollbackChain))
 	}
 	return snapshotResults, accountResults, nil
 }
@@ -261,23 +236,9 @@ func (sCh *snapshotCh) insertSnapshotBlock(b *snapshotPoolBlock) (map[common.Add
 	if b.Source() == types.QueryChain {
 		sCh.log.Crit("QueryChain insert to chain.", "Height", b.Height(), "Hash", b.Hash())
 	}
-	monitor.LogEvent("pool", "insertChain")
-	monitor.LogEvent("pool", "snapshotInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
-	bm, err := sCh.bc.InsertSnapshotBlock(b.block)
+	err := sCh.bc.InsertSnapshotBlock(b.block)
 
 	results := make(map[common.Address][]commonBlock)
-	for _, bs := range bm {
-
-		result, ok := results[bs.AccountAddress]
-		if !ok {
-			var r []commonBlock
-			result = r
-		}
-		results[bs.AccountAddress] = append(result, newAccountPoolBlock(bs, nil, sCh.version, types.RollbackChain))
-		sCh.log.Info("account block delete by insertToSnapshot.",
-			"snapshot", fmt.Sprintf("[%d][%s]", b.Height(), b.Hash()),
-			"aBlock", fmt.Sprintf("[%s][%d][%s]", bs.AccountAddress, bs.Height, bs.Hash))
-	}
 	return results, err
 }
 
