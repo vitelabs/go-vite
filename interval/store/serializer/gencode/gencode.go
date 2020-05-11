@@ -38,8 +38,6 @@ func SerializeAccountBlock(block *common.AccountStateBlock) ([]byte, error) {
 		Timestamp:      block.Timestamp().UnixNano(),
 		Amount:         int64(block.Amount),
 		ModifiedAmount: int64(block.ModifiedAmount),
-		SnapshotHeight: block.SnapshotHeight,
-		SnapshotHash:   block.SnapshotHash,
 		BlockType:      uint8(block.BlockType),
 		From:           block.From,
 		To:             block.To,
@@ -57,7 +55,7 @@ func DeserializeAccountBlock(bs []byte) (*common.AccountStateBlock, error) {
 	}
 
 	rblock := common.NewAccountBlock(dbBlock.Height, dbBlock.Hash, dbBlock.PreHash, dbBlock.Signer, time.Unix(0, dbBlock.Timestamp),
-		int(dbBlock.Amount), int(dbBlock.ModifiedAmount), dbBlock.SnapshotHeight, dbBlock.SnapshotHash, common.BlockType(dbBlock.BlockType), dbBlock.From, dbBlock.To, deserializeHashHeight(dbBlock.Source))
+		int(dbBlock.Amount), int(dbBlock.ModifiedAmount), common.BlockType(dbBlock.BlockType), dbBlock.From, dbBlock.To, deserializeHashHeight(dbBlock.Source))
 	return rblock, nil
 }
 

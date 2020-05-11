@@ -84,7 +84,7 @@ func (cm *Committee) verifyProducer(header *common.SnapshotBlock) (bool, error) 
 	electionResult := cm.teller.electionTime(time.Unix(int64(header.Timestamp().Unix()), 0))
 
 	for _, plan := range electionResult.plans {
-		if plan.member.String() == header.Signer() {
+		if plan.member == header.Signer() {
 			if uint64(plan.sTime.Unix()) == uint64(header.Timestamp().Unix()) {
 				return true, nil
 			} else {

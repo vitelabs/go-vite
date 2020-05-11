@@ -50,7 +50,7 @@ func (acctV *AccountVerifier) verifySelf(block *common.AccountStateBlock, stat *
 	} else {
 		if block.BlockType == common.RECEIVED {
 			//check if it has been received
-			same := acctV.reader.GetAccountBySourceHash(block.To, block.Source.Hash)
+			same := acctV.reader.GetAccountByFromHash(block.To, block.Source.Hash)
 			if same != nil {
 				stat.errMsg = fmt.Sprintf("block[%s][%d][%s] error, send block has received.",
 					block.Signer(), block.Height(), block.Hash())
@@ -86,18 +86,18 @@ func (acctV *AccountVerifier) verifyFrom(block *common.AccountStateBlock, stat *
 func (acctV *AccountVerifier) verifySnapshot(block *common.AccountStateBlock, stat *AccountBlockVerifyStat) bool {
 	defer monitor.LogTime("verify", "accountSnapshot", time.Now())
 	// referred snapshot
-	snapshotHeight := block.SnapshotHeight
-	snapshotHash := block.SnapshotHash
-
-	{ // check snapshot referred
-		snapshotR := acctV.reader.GetSnapshotByHashH(common.HashHeight{Hash: snapshotHash, Height: snapshotHeight})
-		if snapshotR != nil {
-			stat.referredSnapshotResult = SUCCESS
-		} else {
-			stat.referredSnapshotResult = PENDING
-			stat.task.pendingSnapshot(snapshotHash, snapshotHeight)
-		}
-	}
+	//snapshotHeight := block.SnapshotHeight
+	//snapshotHash := block.SnapshotHash
+	//
+	//{ // check snapshot referred
+	//	snapshotR := acctV.reader.GetSnapshotByHashH(common.HashHeight{Hash: snapshotHash, Height: snapshotHeight})
+	//	if snapshotR != nil {
+	//		stat.referredSnapshotResult = SUCCESS
+	//	} else {
+	//		stat.referredSnapshotResult = PENDING
+	//		stat.task.pendingSnapshot(snapshotHash, snapshotHeight)
+	//	}
+	//}
 	return false
 }
 func (acctV *AccountVerifier) VerifyReferred(b common.Block) BlockVerifyStat {
@@ -185,11 +185,11 @@ func (acctV *AccountVerifier) checkSelfAmount(block *common.AccountStateBlock, s
 		return FAIL
 	}
 
-	if last.SnapshotHeight > block.SnapshotHeight {
-		stat.errMsg = fmt.Sprintf("block[%s][%d][%s] snapshot height[%d] error, last block snapshot height is %d.",
-			block.Signer(), block.Height(), block.Hash(), block.SnapshotHeight, last.SnapshotHeight)
-		return FAIL
-	}
+	//if last.SnapshotHeight > block.SnapshotHeight {
+	//	stat.errMsg = fmt.Sprintf("block[%s][%d][%s] snapshot height[%d] error, last block snapshot height is %d.",
+	//		block.Signer(), block.Height(), block.Hash(), block.SnapshotHeight, last.SnapshotHeight)
+	//	return FAIL
+	//}
 
 	if block.BlockType == common.SEND && block.ModifiedAmount > 0 {
 		stat.errMsg = fmt.Sprintf("send block[%s][%d][%s] modifiedAmount[%d] error.",
@@ -234,11 +234,11 @@ func (acctV *AccountVerifier) checkFromAmount(block *common.AccountStateBlock, s
 		return FAIL
 	}
 
-	if block.SnapshotHeight < source.SnapshotHeight {
-		stat.errMsg = fmt.Sprintf("block[%s][%d][%s] error, [received snapshot height]%d must be greater or equal to [send snapshot height]%d.",
-			block.Signer(), block.Height(), block.Hash(), block.SnapshotHeight, source.SnapshotHeight)
-		return FAIL
-	}
+	//if block.SnapshotHeight < source.SnapshotHeight {
+	//	stat.errMsg = fmt.Sprintf("block[%s][%d][%s] error, [received snapshot height]%d must be greater or equal to [send snapshot height]%d.",
+	//		block.Signer(), block.Height(), block.Hash(), block.SnapshotHeight, source.SnapshotHeight)
+	//	return FAIL
+	//}
 	if source.ModifiedAmount+block.ModifiedAmount == 0 {
 		return SUCCESS
 	} else {

@@ -17,31 +17,29 @@ func calculateHash(s string) string {
 	return hex.EncodeToString(hashed)
 }
 
-func CalculateAccountHash(block *common.AccountStateBlock) string {
-	str := blockStr(block) + strconv.Itoa(block.Amount) +
-		strconv.Itoa(block.ModifiedAmount) +
-		strconv.FormatUint(block.SnapshotHeight, 10) +
-		block.SnapshotHash +
+func CalculateAccountHash(block *common.AccountStateBlock) common.Hash {
+	str := blockStr(block) + block.Amount.String() +
+		block.ModifiedAmount.String() +
 		block.BlockType.String() +
-		block.From +
-		block.To
+		block.From.String() +
+		block.To.String()
 	if block.Source != nil {
-		str += block.Source.Hash + strconv.FormatUint(block.Source.Height, 10)
+		str += block.Source.Hash.String() + block.Source.Height.String()
 	}
-	return calculateHash(str)
+	return common.Hash(calculateHash(str))
 }
 
 func blockStr(block common.Block) string {
-	return strconv.FormatInt(block.Timestamp().Unix(), 10) + string(block.Signer()) + string(block.PreHash()) + strconv.FormatUint(block.Height(), 10)
+	return strconv.FormatInt(block.Timestamp().Unix(), 10) + block.Signer().String() + block.PrevHash().String() + block.Height().String()
 }
 
-func CalculateSnapshotHash(block *common.SnapshotBlock) string {
+func CalculateSnapshotHash(block *common.SnapshotBlock) common.Hash {
 	accStr := ""
 	if block.Accounts != nil {
 		for _, account := range block.Accounts {
-			accStr = accStr + strconv.FormatUint(account.Height, 10) + account.Hash + account.Addr
+			accStr = accStr + account.Height.String() + account.Hash.String() + account.Addr.String()
 		}
 	}
 	record := blockStr(block) + accStr
-	return calculateHash(record)
+	return common.Hash(calculateHash(record))
 }

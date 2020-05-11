@@ -10,15 +10,15 @@ import (
 // just only unreceived transactions
 
 type Req struct {
-	ReqHash string
+	ReqHash common.Hash
 	acc     *common.AccountHashH
 	state   int // 0:dirty  1:confirmed  2:unconfirmed
-	Amount  int
-	From    string
+	Amount  common.Balance
+	From    common.Address
 }
 
 type reqPool struct {
-	accounts map[string]*reqAccountPool
+	accounts map[common.Address]*reqAccountPool
 	rw       sync.RWMutex
 }
 
@@ -40,12 +40,12 @@ func (rp *reqPool) AccountRemoveCallback(address string, block *common.AccountSt
 }
 
 type reqAccountPool struct {
-	reqs map[string]*Req
+	reqs map[common.Hash]*Req
 }
 
 func newReqPool() *reqPool {
 	pool := &reqPool{}
-	pool.accounts = make(map[string]*reqAccountPool)
+	pool.accounts = make(map[common.Address]*reqAccountPool)
 	return pool
 }
 
@@ -56,7 +56,7 @@ func (rp *reqPool) blockInsert(block *common.AccountStateBlock) {
 		req := &Req{ReqHash: block.Hash(), state: 2, From: block.From, Amount: block.ModifiedAmount}
 		account := rp.account(block.To)
 		if account == nil {
-			account = &reqAccountPool{reqs: make(map[string]*Req)}
+			account = &reqAccountPool{reqs: make(map[common.Hash]*Req)}
 			rp.accounts[block.To] = account
 		}
 		account.reqs[req.ReqHash] = req
@@ -81,12 +81,12 @@ func (rp *reqPool) blockRollback(block *common.AccountStateBlock) {
 	}
 }
 
-func (rp *reqPool) account(address string) *reqAccountPool {
+func (rp *reqPool) account(address common.Address) *reqAccountPool {
 	pool := rp.accounts[address]
 	return pool
 }
 
-func (rp *reqPool) getReqs(address string) []*Req {
+func (rp *reqPool) getReqs(address common.Address) []*Req {
 	rp.rw.RLock()
 	defer rp.rw.RUnlock()
 	account := rp.account(address)
@@ -101,7 +101,7 @@ func (rp *reqPool) getReqs(address string) []*Req {
 	}
 	return result
 }
-func (rp *reqPool) getReq(address string, sourceHash string) *Req {
+func (rp *reqPool) getReq(address common.Address, sourceHash common.Hash) *Req {
 	account := rp.account(address)
 	if account == nil {
 		return nil
@@ -109,7 +109,7 @@ func (rp *reqPool) getReq(address string, sourceHash string) *Req {
 	return account.reqs[sourceHash]
 }
 
-func (rp *reqPool) confirmed(address string, sourceHash string) *common.AccountHashH {
+func (rp *reqPool) confirmed(address common.Address, sourceHash common.Hash) *common.AccountHashH {
 	account := rp.account(address)
 	if account == nil {
 		return nil
