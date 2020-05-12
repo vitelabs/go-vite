@@ -1,6 +1,6 @@
 package utils
 
-func NotNil(err error) {
+func Nil(err error) {
 	if err != nil {
 		panic(err)
 	}
