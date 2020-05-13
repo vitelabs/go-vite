@@ -349,7 +349,7 @@ func RenderOrder(order *Order, param *ParamPlaceOrder, db vm_db.VmDb, accountAdd
 	order.RefundQuantity = big.NewInt(0).Bytes()
 	order.Timestamp = GetTimestampInt64(db)
 	if IsStemFork(db) {
-		if agent != nil {
+		if agent != nil && !IsDexRobotFork(db) { // not fill agent anymore after dex robot fork
 			order.Agent = agent.Bytes()
 		}
 		order.SendHash = sendHash.Bytes()
@@ -450,6 +450,39 @@ func newTokenInfoFromCallback(db vm_db.VmDb, param *ParamGetTokenInfoCallback) *
 	return tokenInfo
 }
 
+func CheckCancelAgentOrder(db vm_db.VmDb, sender types.Address, param *ParamCancelOrderByHash) (owner types.Address, err error) {
+	if param.Principal != types.ZERO_ADDRESS && param.Principal != sender {
+		owner = param.Principal
+		if marketInfo, ok := GetMarketInfo(db, param.TradeToken, param.QuoteToken); !ok {
+			return owner, TradeMarketNotExistsErr
+		} else {
+			if !IsMarketGrantedToAgent(db, param.Principal, sender, marketInfo.MarketId) {
+				return owner, TradeMarketNotGrantedErr
+			}
+		}
+	} else {
+		owner = sender
+	}
+	return
+}
+
+func DoCancelOrder(sendHash types.Hash, owner types.Address) ([]*ledger.AccountBlock, error) {
+	if tradeBlockData, err := cabi.ABIDexTrade.PackMethod(abi.MethodNameDexTradeInnerCancelOrderBySendHash, sendHash, owner); err != nil {
+		panic(err)
+	} else {
+		return []*ledger.AccountBlock{
+			{
+				AccountAddress: types.AddressDexFund,
+				ToAddress:      types.AddressDexTrade,
+				BlockType:      ledger.BlockTypeSendCall,
+				TokenId:        ledger.ViteTokenId,
+				Amount:         big.NewInt(0),
+				Data:           tradeBlockData,
+			},
+		}, nil
+	}
+}
+
 func ValidPrice(price string, isFork bool) bool {
 	if len(price) == 0 {
 		return false
@@ -533,6 +566,14 @@ func IsDexMiningFork(db vm_db.VmDb) bool {
 		panic(err)
 	} else {
 		return fork.IsDexMiningFork(latestSb.Height)
+	}
+}
+
+func IsDexRobotFork(db vm_db.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return fork.IsDexRobotFork(latestSb.Height)
 	}
 }
 

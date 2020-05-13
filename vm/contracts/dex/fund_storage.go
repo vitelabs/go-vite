@@ -365,6 +365,13 @@ type ParamDelegateStakeCallbackV2 struct {
 	Success bool
 }
 
+type ParamCancelOrderByHash struct {
+	SendHash   types.Hash
+	Principal  types.Address
+	TradeToken types.TokenTypeId
+	QuoteToken types.TokenTypeId
+}
+
 type Fund struct {
 	dexproto.Fund
 }
@@ -1977,6 +1984,9 @@ func SetDexTimestamp(db vm_db.VmDb, timestamp int64, reader util.ConsensusReader
 		oldPeriod := GetPeriodIdByTimestamp(reader, oldTime)
 		newPeriod := GetPeriodIdByTimestamp(reader, timestamp)
 		if newPeriod != oldPeriod {
+			if newPeriod - oldPeriod > 1 && IsDexRobotFork(db) {
+				return OracleTimestampExceedPeriodGapErr
+			}
 			doRollPeriod(db, newPeriod)
 		}
 		setValueToDb(db, dexTimestampKey, Uint64ToBytes(uint64(timestamp)))

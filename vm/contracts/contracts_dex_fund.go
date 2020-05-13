@@ -1672,7 +1672,7 @@ func (md *MethodDexFundPlaceAgentOrder) GetSendQuota(data []byte, gasTable *util
 }
 
 func (md *MethodDexFundPlaceAgentOrder) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
-	return gasTable.DexFunPlaceAgentOrderQuota
+	return gasTable.DexFundPlaceAgentOrderQuota
 }
 
 func (md *MethodDexFundPlaceAgentOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -1715,7 +1715,7 @@ func (md *MethodDexFundLockVxForDividend) GetSendQuota(data []byte, gasTable *ut
 }
 
 func (md *MethodDexFundLockVxForDividend) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
-	return gasTable.DexFunLockVxForDividendQuota
+	return gasTable.DexFundLockVxForDividendQuota
 }
 
 func (md *MethodDexFundLockVxForDividend) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -1772,7 +1772,7 @@ func (md *MethodDexFundSwitchConfig) GetSendQuota(data []byte, gasTable *util.Qu
 }
 
 func (md *MethodDexFundSwitchConfig) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
-	return gasTable.DexFunSwitchConfigQuota
+	return gasTable.DexFundSwitchConfigQuota
 }
 
 func (md *MethodDexFundSwitchConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
@@ -1798,6 +1798,52 @@ func (md MethodDexFundSwitchConfig) DoReceive(db vm_db.VmDb, block *ledger.Accou
 		dex.SetAutoLockMinedVx(db, sendBlock.AccountAddress.Bytes(), param.Enable)
 	}
 	return nil, nil
+}
+
+type MethodDexCancelOrderBySendHash struct {
+	MethodName string
+}
+
+func (md *MethodDexCancelOrderBySendHash) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexCancelOrderBySendHash) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexCancelOrderBySendHash) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+	return util.RequestQuotaCost(data, gasTable)
+}
+
+func (md *MethodDexCancelOrderBySendHash) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+	return gasTable.DexFundCancelOrderBySendHashQuota
+}
+
+func (md *MethodDexCancelOrderBySendHash) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	param := new(dex.ParamCancelOrderByHash)
+	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
+		return err
+	}
+	if param.Principal != types.ZERO_ADDRESS && param.Principal != block.AccountAddress  {
+		if param.TradeToken == types.ZERO_TOKENID || param.QuoteToken == types.ZERO_TOKENID {
+			return dex.InvalidInputParamErr
+		}
+	}
+	return nil
+}
+
+func (md MethodDexCancelOrderBySendHash) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var (
+		param = new(dex.ParamCancelOrderByHash)
+		owner types.Address
+		err   error
+	)
+	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
+	if owner, err = dex.CheckCancelAgentOrder(db, sendBlock.AccountAddress, param); err != nil {
+		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+	}
+	return dex.DoCancelOrder(param.SendHash, owner)
 }
 
 func handleDexReceiveErr(logger log15.Logger, method string, err error, sendBlock *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {

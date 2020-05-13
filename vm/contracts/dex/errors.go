@@ -53,6 +53,7 @@ var (
 	PendingNewMarketInnerConflictErr     = errors.New("pending new market inner conflict")
 	GetTokenInfoCallbackInnerConflictErr = errors.New("get token info callback inner conflict")
 	InvalidTimestampFromTimeOracleErr    = errors.New("invalid timestamp from time oracle")
+	OracleTimestampExceedPeriodGapErr    = errors.New("oracle timestamp exceed period gap")
 	InvalidOperatorFeeRateErr            = errors.New("invalid operator fee rate")
 
 	NoDexFeesFoundForValidPeriodErr = errors.New("no fee sum found for valid period")
