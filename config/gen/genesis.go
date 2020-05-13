@@ -80,7 +80,7 @@ func makeForkPointsConfig(genesisConfig *config.Genesis) *config.ForkPoints {
 			},
 
 			DexRobotFork: &config.ForkPoint{
-				Height:  30000000,
+				Height:  31305900,
 				Version: 8,
 			},
 		}

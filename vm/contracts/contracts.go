@@ -58,7 +58,7 @@ var (
 	dexAgentContracts = newDexAgentContracts()
 	leafContracts     = newLeafContracts()
 	earthContracts    = newEarthContracts()
-	dexRobotContracts    = newDexRobotContracts()
+	dexRobotContracts = newDexRobotContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
