@@ -16,8 +16,8 @@ type verifyTask interface {
 }
 
 type sverifier interface {
-	VerifyNetSb(block *ledger.SnapshotBlock) error
-	VerifyReferred(block *ledger.SnapshotBlock) *verifier.SnapshotBlockVerifyStat
+	//VerifyNetSb(block *ledger.SnapshotBlock) error
+	VerifyReferred(block *common.SnapshotBlock) *verifier.SnapshotBlockVerifyStat
 }
 
 type snapshotVerifier struct {

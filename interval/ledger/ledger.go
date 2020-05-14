@@ -2,8 +2,9 @@ package ledger
 
 import (
 	"errors"
-	"sync"
 	"time"
+
+	"github.com/vitelabs/go-vite/interval/pool/lock"
 
 	"github.com/vitelabs/go-vite/interval/chain"
 	"github.com/vitelabs/go-vite/interval/common"
@@ -38,8 +39,8 @@ type ledger struct {
 	reqPool *reqPool
 	bpool   pool.BlockPool
 
-	syncer  syncer.Syncer
-	rwMutex *sync.RWMutex
+	syncer    syncer.Syncer
+	chainLock lock.ChainInsert
 }
 
 func (l *ledger) GetAccountBalance(address common.Address) common.Balance {
@@ -61,8 +62,8 @@ func (l *ledger) Pool() pool.BlockPool {
 
 func (l *ledger) MiningSnapshotBlock(address common.Address, timestamp int64) error {
 	//l.pendingSc.AddDirectBlock(block)
-	l.rwMutex.Lock()
-	defer l.rwMutex.Unlock()
+	l.chainLock.LockInsert()
+	defer l.chainLock.UnLockInsert()
 
 	hashH, accounts, err := l.bc.NextAccountSnapshot()
 
@@ -130,9 +131,11 @@ func (l *ledger) ResponseAccountBlock(from common.Address, to common.Address, re
 
 func NewLedger(bc chain.BlockChain) *ledger {
 	ledger := &ledger{}
-	ledger.rwMutex = new(sync.RWMutex)
 	ledger.bc = bc
-	ledger.bpool = pool.NewPool(ledger.bc, ledger.rwMutex)
+	var err error
+	ledger.bpool, err = pool.NewPool(ledger.bc)
+	utils.Nil(err)
+	ledger.chainLock = ledger.bpool
 	return ledger
 }
 

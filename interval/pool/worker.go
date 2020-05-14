@@ -14,7 +14,6 @@ type poolEventBus struct {
 	broadcasterT        *time.Ticker
 	clearT              *time.Ticker
 	accDestroyT         *time.Ticker
-	irreversibleT       *time.Ticker
 
 	accContext      *poolContext
 	snapshotContext *poolContext
@@ -81,8 +80,6 @@ func (w *worker) work() {
 			w.p.destroyAccounts()
 		case <-bus.clearT.C:
 			w.p.delUseLessChains()
-		case <-bus.irreversibleT.C:
-			w.p.updateIrreversibleBlock()
 		case <-w.closed:
 			return
 		default:

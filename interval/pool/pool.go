@@ -9,19 +9,20 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/vitelabs/go-vite/net"
+
 	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/interval/common"
+	"github.com/vitelabs/go-vite/interval/ledger"
+	"github.com/vitelabs/go-vite/interval/monitor"
 	"github.com/vitelabs/go-vite/interval/pool/batch"
 	"github.com/vitelabs/go-vite/interval/pool/lock"
 	"github.com/vitelabs/go-vite/interval/pool/tree"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interval/verifier"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -137,7 +138,6 @@ type pool struct {
 
 	sync syncer
 	bc   chainDb
-	wt   *wallet.Manager
 
 	snapshotVerifier *verifier.SnapshotVerifier
 	accountVerifier  verifier.Verifier
@@ -161,7 +161,6 @@ type pool struct {
 	stat *recoverStat
 
 	hashBlacklist Blacklist
-	cs            consensus.Consensus
 }
 
 func (pl *pool) Snapshot() map[string]interface{} {
@@ -212,12 +211,9 @@ func NewPool(bc chainDb) (BlockPool, error) {
 }
 
 func (pl *pool) Init(s syncer,
-	wt *wallet.Manager,
 	snapshotV *verifier.SnapshotVerifier,
-	accountV verifier.Verifier,
-	cs consensus.Consensus) {
+	accountV verifier.Verifier) {
 	pl.sync = s
-	pl.wt = wt
 	rw := &snapshotCh{version: pl.version, bc: pl.bc, log: pl.log}
 	fe := &snapshotSyncer{fetcher: s, log: pl.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
@@ -227,8 +223,6 @@ func (pl *pool) Init(s syncer,
 		newTools(fe, rw),
 		pl)
 
-	pl.cs = cs
-	pl.bc.SetConsensus(cs)
 	pl.pendingSc = snapshotPool
 	pl.stat = (&recoverStat{}).init(10, time.Second*10)
 	pl.worker.init()
@@ -506,7 +500,7 @@ func (pl *pool) selfPendingAc(addr common.Address) *accountPool {
 	rw := &accountCh{address: addr, rw: pl.bc, version: pl.version, log: pl.log.New("account", addr)}
 	f := &accountSyncer{address: addr, fetcher: pl.sync, log: pl.log.New()}
 	v := &accountVerifier{v: pl.accountVerifier, log: pl.log.New()}
-	p := newAccountPool("accountChainPool-"+addr.Hex(), rw, pl.version, pl.hashBlacklist, pl.log)
+	p := newAccountPool("accountChainPool-"+addr.String(), rw, pl.version, pl.hashBlacklist, pl.log)
 	p.address = addr
 	p.Init(newTools(f, rw), pl, v, f)
 
@@ -531,7 +525,6 @@ func (pl *pool) delUseLessChains() {
 		pl.RLockInsert()
 		defer pl.RUnLockInsert()
 		info := pl.pendingSc.irreversible
-		pl.delChainsForIrreversible(info)
 		pl.pendingSc.checkPool()
 		pl.pendingSc.loopDelUselessChain()
 		var pendings []*accountPool
@@ -565,14 +558,6 @@ func (pl *pool) destroyAccounts() {
 		pl.log.Warn("destroy account pool", "addr", v, "Id", string(byt))
 		pl.destroyPendingAc(v)
 	}
-}
-
-func (pl *pool) delChainsForIrreversible(info *irreversibleInfo) {
-	rollbackV := pl.rollbackVersion.Val()
-	if info == nil || info.point == nil || info.rollbackV != rollbackV {
-		return
-	}
-	// todo
 }
 
 func (pl *pool) compact() int {
