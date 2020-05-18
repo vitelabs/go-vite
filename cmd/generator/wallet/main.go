@@ -4,28 +4,25 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/vitelabs/go-vite/wallet"
+	"github.com/tyler-smith/go-bip39"
+	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 )
 
 var num = flag.Int("num", 1, "num ")
-var dir = flag.String("dataDir", "wallet", "data dir, for example: devdata")
-var passwd = flag.String("passwd", "123456", "default passwd is 123456")
 
 func main() {
 	flag.Parse()
-	manager := wallet.New(&wallet.Config{
-		DataDir: *dir,
-	})
 	for i := 0; i < *num; i++ {
-		mnemonic, em, err := manager.NewMnemonicAndEntropyStore(*passwd)
+		entropy, err := bip39.NewEntropy(256)
 		if err != nil {
 			panic(err)
 		}
-		err = em.Unlock(*passwd)
+		mnemonic, err := bip39.NewMnemonic(entropy)
 		if err != nil {
 			panic(err)
 		}
-		_, key, err := em.DeriveForIndexPath(uint32(0))
+		seed := bip39.NewSeed(mnemonic, "")
+		key, err := derivation.DeriveWithIndex(0, seed)
 		if err != nil {
 			panic(err)
 		}
@@ -37,7 +34,6 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-
 		fmt.Printf("%s,%s,%s\n", address, priKeys.Hex(), mnemonic)
 	}
 }
