@@ -5,7 +5,7 @@ echo "\\n\\n\\n=================================================================
 
 rm /root/.gvite/gvite_debug_mode || true
 
-if [ -f "/root/.gvite/node_config.json" ]; then
+if [[ -f "/root/.gvite/node_config.json" ]]; then
    echo "use custom node config." >> /root/.gvite/std.log
    ./gvite --config /root/.gvite/node_config.json >> /root/.gvite/std.log 2>&1 || true
 else
@@ -15,7 +15,7 @@ fi
 
 while :
 do
-    if [ -f "/root/.gvite/gvite_debug_mode" ]; then
+    if [[ -f "/root/.gvite/gvite_debug_mode" ]]; then
   	echo "debug mode, sleep 5min." >> /root/.gvite/std.log
     else
 	echo "gvite docker stop" >> /root/.gvite/std.log

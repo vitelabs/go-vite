@@ -1,7 +1,7 @@
 package wallet
 
 import (
-	"github.com/cosmos/go-bip39"
+	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"

@@ -5,7 +5,7 @@ RUN set -eux; \
         musl-dev
 
 ADD . /usr/local/go/src/github.com/vitelabs/go-vite
-RUN go build -o gvite  github.com/vitelabs/go-vite/cmd/gvite
+RUN go build -o gvite github.com/vitelabs/go-vite/cmd/gvite
 
 FROM alpine:3.8
 
@@ -20,7 +20,7 @@ RUN apk update \
 RUN apk add --no-cache ca-certificates
 
 COPY --from=maker /go/gvite .
-COPY ./node_config.json .
-COPY ./docker-gvite .
+COPY ./conf/node_config.json .
+COPY ./docker/docker-gvite .
 EXPOSE 8483 8484 48132 41420 8483/udp
 ENTRYPOINT ["/docker-gvite"] 

@@ -6,7 +6,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/vitelabs/go-vite/cmd/params"
+	"github.com/vitelabs/go-vite/vite/version"
+
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -33,7 +34,8 @@ The output of this command is supposed to be machine-readable.
 
 func versionAction(ctx *cli.Context) error {
 	fmt.Println(strings.Title("gvite"))
-	fmt.Println("Version:", params.Version)
+	fmt.Println("Version:", version.VITE_BUILD_VERSION)
+	fmt.Println("Git Commit:", version.VITE_COMMIT_VERSION)
 	fmt.Println("Architecture:", runtime.GOARCH)
 	//fmt.Println("Network Id:", ctx.GlobalInt())
 	fmt.Println("Go Version:", runtime.Version())

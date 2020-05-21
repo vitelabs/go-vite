@@ -10,9 +10,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/vitelabs/go-vite/vite/version"
+
 	"github.com/vitelabs/go-vite/cmd/console"
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
-	"github.com/vitelabs/go-vite/cmd/params"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/log15"
 	"gopkg.in/urfave/cli.v1"
@@ -134,7 +135,7 @@ func init() {
 	//TODO: Whether the command name is fixed ？
 	app.Name = filepath.Base(os.Args[0])
 	app.HideVersion = false
-	app.Version = params.Version
+	app.Version = version.VITE_BUILD_VERSION
 	app.Compiled = time.Now()
 	app.Authors = []cli.Author{
 		cli.Author{
