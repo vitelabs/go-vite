@@ -14,6 +14,7 @@ type ContractApi interface {
 	GetCreateContractData(param api.CreateContractDataParam) ([]byte, error)
 	GetContractStorage(addr types.Address, prefix string) (map[string]string, error)
 	GetContractInfo(addr types.Address) (*api.ContractInfo, error)
+	GetSBPVoteList() ([]*api.SBPVoteInfo, error)
 }
 
 type contractApi struct {
@@ -42,5 +43,10 @@ func (ci contractApi) GetContractStorage(addr types.Address, prefix string) (res
 func (ci contractApi) GetContractInfo(addr types.Address) (result *api.ContractInfo, err error) {
 	result = &api.ContractInfo{}
 	err = ci.cc.Call(&result, "contract_getContractInfo", addr)
+	return
+}
+
+func (ci contractApi) GetSBPVoteList() (result []*api.SBPVoteInfo, err error) {
+	err = ci.cc.Call(&result, "contract_getSBPVoteList")
 	return
 }
