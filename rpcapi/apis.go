@@ -210,6 +210,13 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewLedgerDebugApi(vite),
 			Public:    false,
 		}
+	case "dumper":
+		return rpc.API{
+			Namespace: "dumper",
+			Version:   "1.0",
+			Service:   api.NewDumper(vite),
+			Public:    false,
+		}
 	default:
 		return rpc.API{Namespace: apiModule}
 	}
