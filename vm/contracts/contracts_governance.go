@@ -1,6 +1,11 @@
 package contracts
 
 import (
+	"math/big"
+	"regexp"
+	"runtime/debug"
+	"strings"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -9,10 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"regexp"
-	"runtime/debug"
-	"strings"
 )
 
 type MethodRegister struct {
@@ -399,6 +400,7 @@ func (p *MethodWithdrawReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlo
 			} else {
 				methodName = abi.MethodNameReIssueV2
 			}
+			//fmt.Printf("height:%d, total reward:%s\n", block.Height, reward.TotalReward.String())
 			reIssueData, _ := abi.ABIAsset.PackMethod(methodName, ledger.ViteTokenId, reward.TotalReward, param.ReceiveAddress)
 			return []*ledger.AccountBlock{
 				{
@@ -497,7 +499,9 @@ func calcReward(old *types.Registration, genesisTime int64, db vm_db.VmDb, curre
 		if err != nil {
 			return 0, 0, nil, false, err
 		}
-		reward.add(calcRewardByDayDetail(detail, old.Name, stakeAmount))
+		dayDetail := calcRewardByDayDetail(detail, old.Name, stakeAmount)
+		reward.add(dayDetail)
+		//fmt.Printf("dayReward: %d,%s,%d,%s,%s\n", detail.Index, old.Name, detail.BlockTotal, detail.VoteSum, dayDetail.VoteReward)
 	}
 	return startTime, endTime, reward, drained, nil
 }

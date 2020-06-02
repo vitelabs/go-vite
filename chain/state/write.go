@@ -2,15 +2,15 @@ package chain_state
 
 import (
 	"encoding/binary"
+	"math/big"
+
 	"github.com/patrickmn/go-cache"
 	"github.com/vitelabs/go-vite/chain/utils"
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
@@ -31,9 +31,9 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	for _, kv := range unsavedStorage {
 		// set latest kv
 		if len(kv[1]) <= 0 {
-			batch.Delete(chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0]))
+			batch.Delete(chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0]).Bytes())
 		} else {
-			batch.Put(chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0]), kv[1])
+			batch.Put(chain_utils.CreateStorageValueKey(&accountBlock.AccountAddress, kv[0]).Bytes(), kv[1])
 		}
 	}
 
@@ -45,7 +45,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 	for tokenTypeId, balance := range unsavedBalanceMap {
 		// set latest balance
-		sDB.writeBalance(batch, chain_utils.CreateBalanceKey(accountBlock.AccountAddress, tokenTypeId), balance.Bytes())
+		sDB.writeBalance(batch, chain_utils.CreateBalanceKey(accountBlock.AccountAddress, tokenTypeId).Bytes(), balance.Bytes())
 		redoLog.BalanceMap[tokenTypeId] = balance
 	}
 
@@ -54,7 +54,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 	if unsavedCode != nil {
 		codeKey := chain_utils.CreateCodeKey(accountBlock.AccountAddress)
 
-		batch.Put(codeKey, unsavedCode)
+		batch.Put(codeKey.Bytes(), unsavedCode)
 
 		redoLog.Code = unsavedCode
 	}
@@ -74,8 +74,8 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 			metaBytes, _ := meta.Serialize()
 
 			// set meta
-			sDB.writeContractMeta(batch, contractKey, metaBytes)
-			batch.Put(gidContractKey, nil)
+			sDB.writeContractMeta(batch, contractKey.Bytes(), metaBytes)
+			batch.Put(gidContractKey.Bytes(), nil)
 
 			redoLog.ContractMeta[addr] = metaBytes
 		}
@@ -90,7 +90,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 		if err != nil {
 			return err
 		}
-		batch.Put(vmLogListKey, bytes)
+		batch.Put(vmLogListKey.Bytes(), bytes)
 		redoLog.VmLogList = map[types.Hash][]byte{*accountBlock.LogHash: bytes}
 	}
 
@@ -108,7 +108,7 @@ func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
 
 		for _, sendBlock := range accountBlock.SendBlockList {
 			redoLog.CallDepth[sendBlock.Hash] = callDepth
-			batch.Put(chain_utils.CreateCallDepthKey(sendBlock.Hash), callDepthBytes)
+			batch.Put(chain_utils.CreateCallDepthKey(sendBlock.Hash).Bytes(), callDepthBytes)
 		}
 
 	}
@@ -131,9 +131,9 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	for _, kv := range redoLog.Storage {
 		// set latest kv
 		if len(kv[1]) <= 0 {
-			batch.Delete(chain_utils.CreateStorageValueKey(&addr, kv[0]))
+			batch.Delete(chain_utils.CreateStorageValueKey(&addr, kv[0]).Bytes())
 		} else {
-			batch.Put(chain_utils.CreateStorageValueKey(&addr, kv[0]), kv[1])
+			batch.Put(chain_utils.CreateStorageValueKey(&addr, kv[0]).Bytes(), kv[1])
 		}
 
 	}
@@ -141,7 +141,7 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	// write unsaved balance
 	for tokenTypeId, balance := range redoLog.BalanceMap {
 		// set latest balance
-		sDB.writeBalance(batch, chain_utils.CreateBalanceKey(addr, tokenTypeId), balance.Bytes())
+		sDB.writeBalance(batch, chain_utils.CreateBalanceKey(addr, tokenTypeId).Bytes(), balance.Bytes())
 	}
 
 	// write unsaved code
@@ -149,7 +149,7 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	if len(unsavedCode) > 0 {
 		codeKey := chain_utils.CreateCodeKey(addr)
 
-		batch.Put(codeKey, unsavedCode)
+		batch.Put(codeKey.Bytes(), unsavedCode)
 	}
 
 	// write unsaved contract meta
@@ -163,7 +163,7 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 		gidContractKey = append(gidContractKey, addr.Bytes()...)
 		gidContractKey = append(gidContractKey, metaBytes[:types.GidSize]...)
 
-		sDB.writeContractMeta(batch, contractKey, metaBytes)
+		sDB.writeContractMeta(batch, contractKey.Bytes(), metaBytes)
 
 		batch.Put(gidContractKey, nil)
 		// set
@@ -172,7 +172,7 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	// write vm log
 
 	for logHash, vmLogListBytes := range redoLog.VmLogList {
-		batch.Put(chain_utils.CreateVmLogListKey(&logHash), vmLogListBytes)
+		batch.Put(chain_utils.CreateVmLogListKey(&logHash).Bytes(), vmLogListBytes)
 	}
 
 	// write call depth
@@ -180,7 +180,7 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	for sendHash, callDepth := range redoLog.CallDepth {
 
 		binary.BigEndian.PutUint16(callDepthBytes, callDepth)
-		batch.Put(chain_utils.CreateCallDepthKey(sendHash), callDepthBytes)
+		batch.Put(chain_utils.CreateCallDepthKey(sendHash).Bytes(), callDepthBytes)
 
 	}
 	sDB.store.WriteAccountBlockByHash(batch, blockHash)
@@ -212,15 +212,17 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 
 		for addr, kvMap := range redoKvMap {
 
-			copy(putKeyTemplate[1:1+types.AddressSize], addr.Bytes())
+			//copy(putKeyTemplate[1:1+types.AddressSize], addr.Bytes())
+			putKeyTemplate.AddressRefill(addr)
 
 			for keyStr, value := range kvMap {
 				// record rollback key
-				key := []byte(keyStr)
-				copy(putKeyTemplate[1+types.AddressSize:], common.RightPadBytes(key, 32))
-				putKeyTemplate[len(putKeyTemplate)-9] = byte(len(key))
+				//key := []byte(keyStr)
+				//copy(putKeyTemplate[1+types.AddressSize:], common.RightPadBytes(key, 32))
+				//putKeyTemplate[len(putKeyTemplate)-9] = byte(len(key))
+				putKeyTemplate.KeyRefill(chain_utils.StorageRealKey{}.Construct([]byte(keyStr)))
 
-				sDB.writeHistoryKey(batch, putKeyTemplate, value)
+				sDB.writeHistoryKey(batch, putKeyTemplate.Bytes(), value)
 			}
 
 		}
@@ -228,11 +230,14 @@ func (sDB *StateDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 		putBalanceTemplate := chain_utils.CreateHistoryBalanceKey(types.Address{}, types.TokenTypeId{}, height)
 
 		for addr, balanceMap := range redoBalanceMap {
-			copy(putBalanceTemplate[1:1+types.AddressSize], addr.Bytes())
-			for tokenTypeId, balance := range balanceMap {
-				copy(putBalanceTemplate[1+types.AddressSize:], tokenTypeId.Bytes())
+			//copy(putBalanceTemplate[1:1+types.AddressSize], addr.Bytes())
+			putBalanceTemplate.AddressRefill(addr)
 
-				batch.Put(putBalanceTemplate, balance.Bytes())
+			for tokenTypeId, balance := range balanceMap {
+				//copy(putBalanceTemplate[1+types.AddressSize:], tokenTypeId.Bytes())
+				putBalanceTemplate.TokenIdRefill(tokenTypeId)
+
+				batch.Put(putBalanceTemplate.Bytes(), balance.Bytes())
 			}
 		}
 	}

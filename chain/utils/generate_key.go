@@ -1,78 +1,73 @@
 package chain_utils
 
 import (
-	"encoding/binary"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
 // ====== index db ======
-func CreateAccountBlockHashKey(blockHash *types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, AccountBlockHashKeyPrefix)
-	key = append(key, blockHash.Bytes()...)
+func CreateAccountBlockHashKey(blockHash *types.Hash) AccountBlockHashKey {
+	key := AccountBlockHashKey{}
+	key[0] = AccountBlockHashKeyPrefix
+	key.HashRefill(*blockHash)
 	return key
 }
 
-func CreateAccountBlockHeightKey(addr *types.Address, height uint64) []byte {
-	key := make([]byte, 0, 1+types.AddressSize+8)
-
-	key = append(key, AccountBlockHeightKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	key = append(key, Uint64ToBytes(height)...)
+func CreateAccountBlockHeightKey(addr *types.Address, height uint64) AccountBlockHeightKey {
+	key := AccountBlockHeightKey{}
+	key[0] = AccountBlockHeightKeyPrefix
+	key.AddressRefill(*addr)
+	key.HeightRefill(height)
 	return key
 }
 
-func CreateReceiveKey(sendBlockHash *types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, ReceiveKeyPrefix)
-	key = append(key, sendBlockHash.Bytes()...)
+func CreateReceiveKey(sendBlockHash *types.Hash) ReceiveKey {
+	key := ReceiveKey{}
+	key[0] = ReceiveKeyPrefix
+	key.HashRefill(*sendBlockHash)
 	return key
 }
 
-func CreateConfirmHeightKey(addr *types.Address, height uint64) []byte {
-	key := make([]byte, 0, 1+types.AddressSize+8)
-	key = append(key, ConfirmHeightKeyPrefix)
-	key = append(key, addr.Bytes()...)
-	key = append(key, Uint64ToBytes(height)...)
+func CreateConfirmHeightKey(addr *types.Address, height uint64) ConfirmHeightKey {
+	key := ConfirmHeightKey{}
+	key[0] = ConfirmHeightKeyPrefix
+	key.AddressRefill(*addr)
+	key.HeightRefill(height)
 	return key
 }
 
-func CreateAccountAddressKey(addr *types.Address) []byte {
-	addrBytes := addr.Bytes()
-	key := make([]byte, 0, 1+types.AddressSize)
-	key = append(key, AccountAddressKeyPrefix)
-	key = append(key, addrBytes...)
+func CreateAccountAddressKey(addr *types.Address) AccountAddressKey {
+	key := AccountAddressKey{}
+	key[0] = AccountAddressKeyPrefix
+	key.AddressRefill(*addr)
 	return key
 }
 
-func CreateOnRoadKey(toAddr types.Address, blockHash types.Hash) []byte {
-	key := make([]byte, 0, 1+types.AddressSize+types.HashSize)
-	key = append(key, OnRoadKeyPrefix)
-	key = append(key, toAddr.Bytes()...)
-	key = append(key, blockHash.Bytes()...)
-
+func CreateOnRoadKey(toAddr types.Address, blockHash types.Hash) OnRoadKey {
+	key := OnRoadKey{}
+	key[0] = OnRoadKeyPrefix
+	key.AddressRefill(toAddr)
+	key.HashRefill(blockHash)
 	return key
 }
 
-func CreateAccountIdKey(accountId uint64) []byte {
-	key := make([]byte, 0, 9)
-	key = append(key, AccountIdKeyPrefix)
-	key = append(key, Uint64ToBytes(accountId)...)
-
+func CreateAccountIdKey(accountId uint64) AccountIdKey {
+	key := AccountIdKey{}
+	key[0] = AccountIdKeyPrefix
+	key.AccountIdRefill(accountId)
 	return key
 }
 
-func CreateSnapshotBlockHashKey(snapshotBlockHash *types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, SnapshotBlockHashKeyPrefix)
-	key = append(key, snapshotBlockHash.Bytes()...)
+func CreateSnapshotBlockHashKey(snapshotBlockHash *types.Hash) SnapshotBlockHashKey {
+	key := SnapshotBlockHashKey{}
+	key[0] = SnapshotBlockHashKeyPrefix
+	key.HashRefill(*snapshotBlockHash)
 	return key
 }
 
-func CreateSnapshotBlockHeightKey(snapshotBlockHeight uint64) []byte {
-	key := make([]byte, 0, 9)
-	key = append(key, SnapshotBlockHeightKeyPrefix)
-	key = append(key, Uint64ToBytes(snapshotBlockHeight)...)
+func CreateSnapshotBlockHeightKey(snapshotBlockHeight uint64) SnapshotBlockHeightKey {
+	key := SnapshotBlockHeightKey{}
+	key[0] = SnapshotBlockHeightKeyPrefix
+	key.HeightRefill(snapshotBlockHeight)
 	return key
 }
 
@@ -88,15 +83,16 @@ func CreateStorageValueKeyPrefix(address *types.Address, prefix []byte) []byte {
 	return key
 }
 
-func CreateStorageValueKey(address *types.Address, storageKey []byte) []byte {
-	keySize := 1 + types.AddressSize + types.HashSize + 1
-	key := make([]byte, keySize)
+func CreateStorageValueKey(address *types.Address, storageKey []byte) StorageKey {
+	if len(storageKey) > types.HashSize {
+		panic("error storage key len.")
+	}
+	key := StorageKey{}
 	key[0] = StorageKeyPrefix
-
-	copy(key[1:1+types.AddressSize], address.Bytes())
-	copy(key[1+types.AddressSize:1+types.AddressSize+types.HashSize], storageKey)
-	key[keySize-1] = byte(len(storageKey))
-
+	key.AddressRefill(*address)
+	key.KeyRefill(StorageRealKey{}.Construct(storageKey))
+	//key.StorageKeyRefill(storageKey)
+	//key.KeyLenRefill(len(storageKey))
 	return key
 }
 
@@ -110,17 +106,17 @@ func CreateHistoryStorageValueKeyPrefix(address *types.Address, prefix []byte) [
 	return key
 }
 
-func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, snapshotHeight uint64) []byte {
-	keySize := 1 + types.AddressSize + types.HashSize + 1 + 8
-	key := make([]byte, keySize)
+func CreateHistoryStorageValueKey(address *types.Address, storageKey []byte, snapshotHeight uint64) StorageHistoryKey {
+	if len(storageKey) > types.HashSize {
+		panic("error history storage key len.")
+	}
+	key := StorageHistoryKey{}
 	key[0] = StorageHistoryKeyPrefix
-
-	copy(key[1:1+types.AddressSize], address.Bytes())
-	copy(key[1+types.AddressSize:1+types.AddressSize+types.HashSize], storageKey)
-
-	key[keySize-9] = byte(len(storageKey))
-	binary.BigEndian.PutUint64(key[keySize-8:], snapshotHeight)
-
+	key.AddressRefill(*address)
+	key.KeyRefill(StorageRealKey{}.Construct(storageKey))
+	//key.StorageKeyRefill(storageKey)
+	//key.KeyLenRefill(len(storageKey))
+	key.HeightRefill(snapshotHeight)
 	return key
 }
 
@@ -131,58 +127,43 @@ func CreateBalanceKeyPrefix(address types.Address) []byte {
 
 	return key
 }
-func CreateBalanceKey(address types.Address, tokenTypeId types.TokenTypeId) []byte {
-	key := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize)
+
+func CreateBalanceKey(address types.Address, tokenTypeId types.TokenTypeId) BalanceKey {
+	key := BalanceKey{}
 	key[0] = BalanceKeyPrefix
-
-	copy(key[1:types.AddressSize+1], address.Bytes())
-	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
-
+	key.AddressRefill(address)
+	key.TokenIdRefill(tokenTypeId)
 	return key
 }
 
-func CreateHistoryBalanceKey(address types.Address, tokenTypeId types.TokenTypeId, snapshotHeight uint64) []byte {
-	key := make([]byte, 1+types.AddressSize+types.TokenTypeIdSize+8)
+func CreateHistoryBalanceKey(address types.Address, tokenTypeId types.TokenTypeId, snapshotHeight uint64) BalanceHistoryKey {
+	key := BalanceHistoryKey{}
 	key[0] = BalanceHistoryKeyPrefix
-
-	copy(key[1:types.AddressSize+1], address.Bytes())
-	copy(key[types.AddressSize+1:], tokenTypeId.Bytes())
-	binary.BigEndian.PutUint64(key[len(key)-8:], snapshotHeight)
-
+	key.AddressRefill(address)
+	key.TokenIdRefill(tokenTypeId)
+	key.HeightRefill(snapshotHeight)
 	return key
 }
 
-func CreateCodeKey(address types.Address) []byte {
-	keySize := 1 + types.AddressSize
-
-	key := make([]byte, keySize)
-
+func CreateCodeKey(address types.Address) CodeKey {
+	key := CodeKey{}
 	key[0] = CodeKeyPrefix
-
-	copy(key[1:], address.Bytes())
-
+	key.AddressRefill(address)
 	return key
 }
 
-func CreateContractMetaKey(address types.Address) []byte {
-	keySize := 1 + types.AddressSize
-
-	key := make([]byte, keySize)
-
+func CreateContractMetaKey(address types.Address) ContractMetaKey {
+	key := ContractMetaKey{}
 	key[0] = ContractMetaKeyPrefix
-
-	copy(key[1:], address.Bytes())
-
+	key.AddressRefill(address)
 	return key
 }
-func CreateGidContractKey(gid types.Gid, address *types.Address) []byte {
-	key := make([]byte, 0, 1+types.GidSize+types.AddressSize)
 
-	key = append(key, GidContractKeyPrefix)
-
-	key = append(key, gid.Bytes()...)
-	key = append(key, address.Bytes()...)
-
+func CreateGidContractKey(gid types.Gid, address *types.Address) GidContractKey {
+	key := GidContractKey{}
+	key[0] = GidContractKeyPrefix
+	key.GidRefill(gid)
+	key.AddressRefill(*address)
 	return key
 }
 
@@ -195,28 +176,25 @@ func CreateGidContractPrefixKey(gid *types.Gid) []byte {
 	return key
 }
 
-func CreateVmLogListKey(logHash *types.Hash) []byte {
-	key := make([]byte, 1+types.HashSize)
-
+func CreateVmLogListKey(logHash *types.Hash) VmLogListKey {
+	key := VmLogListKey{}
 	key[0] = VmLogListKeyPrefix
-
-	copy(key[1:], logHash.Bytes())
-
+	key.HashRefill(*logHash)
 	return key
 }
 
-func CreateCallDepthKey(blockHash types.Hash) []byte {
-	key := make([]byte, 0, 1+types.HashSize)
-	key = append(key, CallDepthKeyPrefix)
-	key = append(key, blockHash.Bytes()...)
+func CreateCallDepthKey(blockHash types.Hash) CallDepthKey {
+	key := CallDepthKey{}
+	key[0] = CallDepthKeyPrefix
+	key.HashRefill(blockHash)
 	return key
 }
 
 // ====== state redo ======
 
-func CreateRedoSnapshot(snapshotHeight uint64) []byte {
-	key := make([]byte, 0, 1+8)
-	key = append(key, SnapshotKeyPrefix)
-	key = append(key, Uint64ToBytes(snapshotHeight)...)
+func CreateRedoSnapshot(snapshotHeight uint64) SnapshotKey {
+	key := SnapshotKey{}
+	key[0] = SnapshotKeyPrefix
+	key.HeightRefill(snapshotHeight)
 	return key
 }

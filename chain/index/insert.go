@@ -37,7 +37,7 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 
 	// confirm block
 	for addr, hashHeight := range snapshotBlock.SnapshotContent {
-		batch.Put(chain_utils.CreateConfirmHeightKey(&addr, hashHeight.Height), heightBytes)
+		batch.Put(chain_utils.CreateConfirmHeightKey(&addr, hashHeight.Height).Bytes(), heightBytes)
 
 	}
 
@@ -76,7 +76,7 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 	iDB.insertAbHashHeight(batch, accountBlock, addrHeightValue)
 
 	// addr & accountBlockHeight -> hash
-	batch.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height), blockHash.Bytes())
+	batch.Put(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height).Bytes(), blockHash.Bytes())
 
 	if accountBlock.IsReceiveBlock() {
 		// not genesis
@@ -121,8 +121,8 @@ func (iDB *IndexDB) insertAccountBlock(batch *leveldb.Batch, accountBlock *ledge
 func (iDB *IndexDB) insertAbHashHeight(batch interfaces.Batch, block *ledger.AccountBlock, value []byte) {
 	key := chain_utils.CreateAccountBlockHashKey(&block.Hash)
 
-	iDB.cache.Set(string(key), value)
-	batch.Put(key, value)
+	iDB.cache.Set(key.String(), value)
+	batch.Put(key.Bytes(), value)
 }
 
 func (iDB *IndexDB) insertConfirmCache(blockHash types.Hash, snapshotHeight uint64) {
@@ -133,8 +133,8 @@ func (iDB *IndexDB) insertAbHeightLocation(batch interfaces.Batch, block *ledger
 	key := chain_utils.CreateAccountBlockHeightKey(&block.AccountAddress, block.Height)
 	value := append(block.Hash.Bytes(), chain_utils.SerializeLocation(location)...)
 
-	iDB.cache.Set(string(key), value)
-	batch.Put(key, value)
+	iDB.cache.Set(key.String(), value)
+	batch.Put(key.Bytes(), value)
 }
 
 func (iDB *IndexDB) insertSbHashHeight(batch interfaces.Batch, hash types.Hash, height uint64) {
@@ -142,22 +142,22 @@ func (iDB *IndexDB) insertSbHashHeight(batch interfaces.Batch, hash types.Hash, 
 
 	value := chain_utils.Uint64ToBytes(height)
 
-	iDB.cache.Set(string(key), value)
-	batch.Put(key, value)
+	iDB.cache.Set(key.String(), value)
+	batch.Put(key.Bytes(), value)
 }
 
 func (iDB *IndexDB) insertSbHeightLocation(batch interfaces.Batch, block *ledger.SnapshotBlock, location *chain_file_manager.Location) {
 	key := chain_utils.CreateSnapshotBlockHeightKey(block.Height)
 	value := append(block.Hash.Bytes(), chain_utils.SerializeLocation(location)...)
 
-	iDB.cache.Set(string(key), value)
-	batch.Put(key, value)
+	iDB.cache.Set(key.String(), value)
+	batch.Put(key.Bytes(), value)
 }
 
 func (iDB *IndexDB) insertReceiveInfo(batch interfaces.Batch, sendBlockHash types.Hash, value []byte) {
 	key := chain_utils.CreateReceiveKey(&sendBlockHash)
 	//value := receiveBlockHash.Bytes()
 
-	iDB.cache.Set(string(key), value)
-	batch.Put(key, value)
+	iDB.cache.Set(key.String(), value)
+	batch.Put(key.Bytes(), value)
 }
