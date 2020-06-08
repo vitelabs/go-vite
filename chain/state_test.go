@@ -3,12 +3,19 @@ package chain
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+	"os"
+	"path"
+	"testing"
+
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+
 	"github.com/pkg/errors"
+	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"testing"
+	"gotest.tools/assert"
 )
 
 func TestChain_State(t *testing.T) {
@@ -410,4 +417,31 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 		return err
 	}
 	return nil
+}
+
+func TestState(t *testing.T) {
+	homeDir, err := os.UserHomeDir()
+	assert.NilError(t, err)
+	db, err := leveldb.OpenFile(path.Join(homeDir, ".gvite", "tmp", "state"), nil)
+	prefix := util.BytesPrefix([]byte{})
+	iter := db.NewIterator(prefix, nil)
+
+	number := 0
+	m := make(map[byte]uint32)
+	for {
+		flag := iter.Next()
+		if !flag {
+			break
+		}
+		prefix := iter.Key()[0]
+		m[prefix] = m[prefix] + 1
+		number++
+	}
+
+	fmt.Println(number)
+	for k, v := range m {
+		fmt.Println(k, v)
+	}
+	db.CompactRange(*prefix)
+
 }
