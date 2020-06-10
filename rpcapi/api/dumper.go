@@ -30,7 +30,7 @@ func (f Dumper) String() string {
 	return "DumperApi"
 }
 
-func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64, accountBlockHash *types.Hash) (error) {
+func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) (error) {
 	var snapshotBlock *ledger.SnapshotBlock
 	var err error
 	if snapshotBlock, err = f.chain.GetSnapshotBlockByHeight(snapshotHeight); err != nil {
@@ -88,11 +88,13 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64, acco
 			}
 		}
 	}
-	var validNum = 0
+	validNum := 0
+	sum := big.NewInt(0)
 	for k, v := range res {
 		fmt.Printf("%s,%s\n", k.String(), v.String())
 		validNum++
+		sum.Add(sum, v)
 	}
-	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> valid size %d\n", validNum)
+	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> valid size %d, sum %s\n", validNum, sum.String())
 	return nil
 }
