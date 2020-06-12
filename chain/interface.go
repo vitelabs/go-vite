@@ -269,6 +269,8 @@ type Chain interface {
 
 	GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.Fund, error)
 
+	GetDexFundByAddress(snapshotHash types.Hash, address types.Address) (*dex.Fund, error)
+
 	GetDexStakeListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*dex.DelegateStakeInfo, []byte, error)
 
 	// ====== Sync ledger ======

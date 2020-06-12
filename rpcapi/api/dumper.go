@@ -113,15 +113,11 @@ func (f Dumper) DumpAccountBalance(token types.TokenTypeId, snapshotHeight uint6
 	snapshotBalance = &SnapshotBalance{}
 	snapshotBalance.WalletBalance, _ = balances[address]
 
-	var funds []*dex.Fund
-	if funds, err = f.chain.GetDexFundsByPage(snapshotBlock.Hash, address, 1); err != nil {
+	var fund *dex.Fund
+	if fund, err = f.chain.GetDexFundByAddress(snapshotBlock.Hash, address); err != nil || fund == nil {
 		return
 	}
-	if len(funds) != 1 {
-		fmt.Printf(">>>>>>>>>>>>>>>>>>>>> no dexFund found %d\n", len(funds))
-		return
-	}
-	for _, acc := range funds[0].Accounts {
+	for _, acc := range fund.Accounts {
 		if bytes.Equal(acc.Token, token.Bytes()) {
 			dexAmt := dex.AddBigInt(acc.Available, acc.Locked)
 			if token == dex.VxTokenId {

@@ -248,3 +248,23 @@ func (c *chain) GetDexStakeListByPage(snapshotHash types.Hash, lastKey []byte, c
 	}
 	return dex.GetStakeListByPage(sd, lastKey, count)
 }
+
+func (c *chain) GetDexFundByAddress(snapshotHash types.Hash, address types.Address) (*dex.Fund, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
+		c.log.Error(cErr.Error(), "method", "GetDexFundByAddress")
+		return nil, cErr
+	}
+	if v, err1 := sd.GetValue(dex.GetFundKey(address)); err1 != nil {
+		return nil, err1
+	} else {
+		if  len(v) > 0 {
+			fund := &dex.Fund{}
+			err2 := fund.DeSerialize(v)
+			return fund, err2
+		} else {
+			return nil, nil
+		}
+	}
+}
