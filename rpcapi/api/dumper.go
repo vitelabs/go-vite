@@ -66,19 +66,18 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) (err
 						} else if token == ledger.ViteTokenId && len(acc.CancellingStake) > 0 {
 							dexAmt = dex.AddBigInt(dexAmt, acc.CancellingStake)
 						}
-						if len(dexAmt) == 0 {
-							continue
+						if len(dexAmt) > 0 {
+							address, _ := types.BytesToAddress(fund.Address)
+							if accAmt, ok := res[address]; ok {
+								res[address] = new(big.Int).Add(accAmt, new(big.Int).SetBytes(dexAmt))
+							} else {
+								res[address] = new(big.Int).SetBytes(dexAmt)
+							}
 						}
-						address, _ := types.BytesToAddress(fund.Address)
-						if accAmt, ok := res[address]; ok {
-							res[address] = new(big.Int).Add(accAmt, new(big.Int).SetBytes(dexAmt))
-						} else {
-							res[address] = new(big.Int).SetBytes(dexAmt)
-						}
+						break
 					}
 				}
 			}
-
 			fundsLen := len(funds)
 			if fundsLen < pageSize {
 				break
@@ -97,4 +96,48 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) (err
 	}
 	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> valid size %d, sum %s\n", validNum, sum.String())
 	return nil
+}
+
+func (f Dumper) DumpAccountBalance(token types.TokenTypeId, snapshotHeight uint64, address types.Address) (snapshotBalance *SnapshotBalance, err error) {
+	var (
+		snapshotBlock *ledger.SnapshotBlock
+		balances      map[types.Address]*big.Int
+	)
+	if snapshotBlock, err = f.chain.GetSnapshotBlockByHeight(snapshotHeight); err != nil {
+		return
+	}
+	if balances, err = f.chain.GetConfirmedBalanceList([]types.Address{address}, token, snapshotBlock.Hash); err != nil {
+		f.log.Error("GetLatestAccountBlock GetConfirmedBalanceList failed, error is "+err.Error(), "method", "DumpBalance")
+		return
+	}
+	snapshotBalance = &SnapshotBalance{}
+	snapshotBalance.WalletBalance, _ = balances[address]
+
+	var funds []*dex.Fund
+	if funds, err = f.chain.GetDexFundsByPage(snapshotBlock.Hash, address, 1); err != nil {
+		return
+	}
+	if len(funds) != 1 {
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>> no dexFund found %d\n", len(funds))
+		return
+	}
+	for _, acc := range funds[0].Accounts {
+		if bytes.Equal(acc.Token, token.Bytes()) {
+			dexAmt := dex.AddBigInt(acc.Available, acc.Locked)
+			if token == dex.VxTokenId {
+				vxLocked := dex.AddBigInt(acc.VxLocked, acc.VxUnlocking)
+				dexAmt = dex.AddBigInt(dexAmt, vxLocked)
+			} else if token == ledger.ViteTokenId && len(acc.CancellingStake) > 0 {
+				dexAmt = dex.AddBigInt(dexAmt, acc.CancellingStake)
+			}
+			snapshotBalance.DexBalance = new(big.Int).SetBytes(dexAmt)
+			break
+		}
+	}
+	return
+}
+
+type SnapshotBalance struct {
+	WalletBalance *big.Int `json:"walletBalance"`
+	DexBalance    *big.Int `json:"dexBalance"`
 }
