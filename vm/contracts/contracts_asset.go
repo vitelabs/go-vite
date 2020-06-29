@@ -1,6 +1,9 @@
 package contracts
 
 import (
+	"math/big"
+	"regexp"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
@@ -8,8 +11,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"regexp"
 )
 
 type MethodIssue struct {
@@ -54,6 +55,7 @@ func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	return nil
 }
 
+//  verify the parameter & check fork point
 func checkToken(param abi.ParamIssue, sbHeight uint64) error {
 	if param.TotalSupply.Cmp(helper.Tt256m1) > 0 ||
 		len(param.TokenName) == 0 || len(param.TokenName) > tokenNameLengthMax ||
@@ -121,6 +123,7 @@ func (p *MethodIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendB
 		param.IsOwnerBurnOnly,
 		nextIndex)
 	util.SetValue(db, key, tokenInfo)
+	// todo whether it should be included in the protocol
 	util.SetValue(db, ownerTokenIDListKey, abi.AppendTokenID(oldIDList, tokenID))
 	nextV, _ = abi.ABIAsset.PackVariable(abi.VariableNameTokenIndex, nextIndex+1)
 	util.SetValue(db, nextIndexKey, nextV)
