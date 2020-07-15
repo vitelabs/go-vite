@@ -78,6 +78,7 @@ message MarketInfo {
     bytes Creator = 13; //creator address
     bool Stopped = 14;
     int64 Timestamp = 15;
+    bool StableMarket = 16;
 }
 
 //event

@@ -171,6 +171,7 @@ const (
 	TradeAdminConfigMineThreshold  = 8
 	TradeAdminStartNormalMine      = 16
 	TradeAdminBurnExtraVx          = 32
+	TradeAdminConfigStableMarket   = 64
 )
 
 const (
@@ -309,8 +310,8 @@ type ParamDexAdminConfig struct {
 
 type ParamTradeAdminConfig struct {
 	OperationCode               uint8
-	TradeToken                  types.TokenTypeId // 1 mineMarket
-	QuoteToken                  types.TokenTypeId // 1 mineMarket
+	TradeToken                  types.TokenTypeId // 1 mineMarket, 64 stableMarket
+	QuoteToken                  types.TokenTypeId // 1 mineMarket, 64 stableMarket
 	AllowMining                 bool              // 1 mineMarket
 	NewQuoteToken               types.TokenTypeId // 2 new quote token
 	QuoteTokenType              uint8             // 2 new quote token
@@ -318,6 +319,7 @@ type ParamTradeAdminConfig struct {
 	MinTradeThreshold           *big.Int          // 4 tradeThreshold
 	TokenTypeForMiningThreshold uint8             // 8 miningThreshold
 	MinMiningThreshold          *big.Int          // 8 miningThreshold
+	StableMarket                bool              // 64 stableMarket
 }
 
 type ParamMarketAdminConfig struct {
@@ -1984,7 +1986,7 @@ func SetDexTimestamp(db vm_db.VmDb, timestamp int64, reader util.ConsensusReader
 		oldPeriod := GetPeriodIdByTimestamp(reader, oldTime)
 		newPeriod := GetPeriodIdByTimestamp(reader, timestamp)
 		if newPeriod != oldPeriod {
-			if newPeriod - oldPeriod > 1 && IsDexRobotFork(db) {
+			if newPeriod-oldPeriod > 1 && IsDexRobotFork(db) {
 				return OracleTimestampExceedPeriodGapErr
 			}
 			doRollPeriod(db, newPeriod)

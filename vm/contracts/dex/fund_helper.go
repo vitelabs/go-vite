@@ -368,6 +368,9 @@ func isAmountTooSmall(db vm_db.VmDb, amount []byte, marketInfo *MarketInfo) bool
 }
 
 func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, db vm_db.VmDb) {
+	if IsDexStableMarketFork(db) && marketInfo.GetStableMarket() { //stable pair with zero fees
+		return
+	}
 	var vipReduceFeeRate int32 = 0
 	if _, ok := GetSuperVIPStaking(db, address); ok {
 		vipReduceFeeRate = BaseFeeRate
@@ -574,6 +577,14 @@ func IsDexRobotFork(db vm_db.VmDb) bool {
 		panic(err)
 	} else {
 		return fork.IsDexRobotFork(latestSb.Height)
+	}
+}
+
+func IsDexStableMarketFork(db vm_db.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return fork.IsDexStableMarketFork(latestSb.Height)
 	}
 }
 

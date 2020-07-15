@@ -76,6 +76,7 @@ type NewRpcMarketInfo struct {
 	Creator              string `json:"creator"`
 	Stopped              bool   `json:"stopped"`
 	Timestamp            int64  `json:"timestamp"`
+	StableMarket         bool   `json:"stableMarket"`
 }
 
 func MarketInfoToNewRpc(mkInfo *dex.MarketInfo) *NewRpcMarketInfo {
@@ -101,6 +102,7 @@ func MarketInfoToNewRpc(mkInfo *dex.MarketInfo) *NewRpcMarketInfo {
 			Creator:              creator.String(),
 			Stopped:              mkInfo.Stopped,
 			Timestamp:            mkInfo.Timestamp,
+			StableMarket:         mkInfo.StableMarket,
 		}
 	}
 	return rmk

@@ -1207,6 +1207,23 @@ func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.A
 				return
 			}
 		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigStableMarket) && dex.IsDexStableMarketFork(db) {
+			if marketInfo, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok && marketInfo.Valid {
+				if param.StableMarket != marketInfo.StableMarket {
+					marketInfo.StableMarket = param.StableMarket
+					dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
+					dex.AddMarketEvent(db, marketInfo)
+				} else {
+					if marketInfo.StableMarket {
+						return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketStableMarketErr, sendBlock)
+					} else {
+						return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketNotStableMarketErr, sendBlock)
+					}
+				}
+			} else {
+				return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketNotExistsErr, sendBlock)
+			}
+		}
 	} else {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.OnlyOwnerAllowErr, sendBlock)
 	}
