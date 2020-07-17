@@ -1207,23 +1207,6 @@ func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.A
 				return
 			}
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.TradeAdminConfigStableMarket) && dex.IsDexStableMarketFork(db) {
-			if marketInfo, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok && marketInfo.Valid {
-				if param.StableMarket != marketInfo.StableMarket {
-					marketInfo.StableMarket = param.StableMarket
-					dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
-					dex.AddMarketEvent(db, marketInfo)
-				} else {
-					if marketInfo.StableMarket {
-						return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketStableMarketErr, sendBlock)
-					} else {
-						return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketNotStableMarketErr, sendBlock)
-					}
-				}
-			} else {
-				return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketNotExistsErr, sendBlock)
-			}
-		}
 	} else {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.OnlyOwnerAllowErr, sendBlock)
 	}
@@ -1861,6 +1844,57 @@ func (md MethodDexCancelOrderBySendHash) DoReceive(db vm_db.VmDb, block *ledger.
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
 	return dex.DoCancelOrder(param.SendHash, owner)
+}
+
+type MethodDexCommonAdminConfig struct {
+	MethodName string
+}
+
+func (md *MethodDexCommonAdminConfig) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexCommonAdminConfig) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexCommonAdminConfig) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+	return util.RequestQuotaCost(data, gasTable)
+}
+
+func (md *MethodDexCommonAdminConfig) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+	return gasTable.DexFundCommonAdminConfigQuota
+}
+
+func (md *MethodDexCommonAdminConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamCommonAdminConfig), md.MethodName, block.Data)
+}
+
+func (md MethodDexCommonAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var param = new(dex.ParamCommonAdminConfig)
+	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
+	if dex.IsOwner(db, sendBlock.AccountAddress) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.CommonAdminConfigStableMarket) {
+			if marketInfo, ok := dex.GetMarketInfo(db, param.TradeToken, param.QuoteToken); ok && marketInfo.Valid {
+				if param.Enable != marketInfo.StableMarket {
+					marketInfo.StableMarket = param.Enable
+					dex.SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
+					dex.AddMarketEvent(db, marketInfo)
+				} else {
+					if marketInfo.StableMarket {
+						return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketStableMarketErr, sendBlock)
+					} else {
+						return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketNotStableMarketErr, sendBlock)
+					}
+				}
+			} else {
+				return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketNotExistsErr, sendBlock)
+			}
+		}
+	} else {
+		return handleDexReceiveErr(fundLogger, md.MethodName, dex.OnlyOwnerAllowErr, sendBlock)
+	}
+	return nil, nil
 }
 
 func handleDexReceiveErr(logger log15.Logger, method string, err error, sendBlock *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {

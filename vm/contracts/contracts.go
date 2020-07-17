@@ -55,12 +55,13 @@ type builtinContract struct {
 }
 
 var (
-	simpleContracts   = newSimpleContracts()
-	dexContracts      = newDexContracts()
-	dexAgentContracts = newDexAgentContracts()
-	leafContracts     = newLeafContracts()
-	earthContracts    = newEarthContracts()
-	dexRobotContracts = newDexRobotContracts()
+	simpleContracts          = newSimpleContracts()
+	dexContracts             = newDexContracts()
+	dexAgentContracts        = newDexAgentContracts()
+	leafContracts            = newLeafContracts()
+	earthContracts           = newEarthContracts()
+	dexRobotContracts        = newDexRobotContracts()
+	dexStableMarketContracts = newDexStableMarketContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
@@ -225,13 +226,20 @@ func newDexRobotContracts() map[types.Address]*builtinContract {
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCancelOrderBySendHash] = &MethodDexCancelOrderBySendHash{cabi.MethodNameDexFundCancelOrderBySendHash}
 	contracts[types.AddressDexTrade].m[cabi.MethodNameDexTradeInnerCancelOrderBySendHash] = &MethodDexTradeInnerCancelOrderBySendHash{cabi.MethodNameDexTradeInnerCancelOrderBySendHash}
 	return contracts
+}
 
+func newDexStableMarketContracts() map[types.Address]*builtinContract {
+	contracts := newDexRobotContracts()
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundCommonAdminConfig] = &MethodDexCommonAdminConfig{cabi.MethodNameDexFundCommonAdminConfig}
+	return contracts
 }
 
 // GetBuiltinContractMethod finds method instance of built-in contract method by address and method id
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if fork.IsDexRobotFork(sbHeight) {
+	if fork.IsDexStableMarketFork(sbHeight) {
+		contractsMap = dexStableMarketContracts
+	} else if fork.IsDexRobotFork(sbHeight) {
 		contractsMap = dexRobotContracts
 	} else if fork.IsEarthFork(sbHeight) {
 		contractsMap = earthContracts
