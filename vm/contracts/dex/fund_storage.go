@@ -1997,7 +1997,7 @@ func SetDexTimestamp(db vm_db.VmDb, timestamp int64, reader util.ConsensusReader
 		oldPeriod := GetPeriodIdByTimestamp(reader, oldTime)
 		newPeriod := GetPeriodIdByTimestamp(reader, timestamp)
 		if newPeriod != oldPeriod {
-			if newPeriod-oldPeriod > 1 && IsDexRobotFork(db) {
+			if newPeriod-oldPeriod > 1 && IsDexRobotFork(db) && oldTime > 0 {
 				return OracleTimestampExceedPeriodGapErr
 			}
 			doRollPeriod(db, newPeriod)

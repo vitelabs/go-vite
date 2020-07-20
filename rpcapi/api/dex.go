@@ -514,6 +514,10 @@ func (f DexApi) GetPlaceOrderInfo(address types.Address, tradeToken, quoteToken 
 			} else {
 				placeOrderInfo.FeeRate = makerRateSum
 			}
+			//overwrite feeRate
+			if marketInfo.GetStableMarket() {
+				placeOrderInfo.FeeRate = 0
+			}
 			placeOrderInfo.Available = "0"
 			if fund, ok := dex.GetFund(db, address); ok {
 				var token types.TokenTypeId

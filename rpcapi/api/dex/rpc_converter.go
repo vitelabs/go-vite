@@ -105,6 +105,10 @@ func MarketInfoToNewRpc(mkInfo *dex.MarketInfo) *NewRpcMarketInfo {
 			StableMarket:         mkInfo.StableMarket,
 		}
 	}
+	if mkInfo.GetStableMarket() {
+		rmk.TakerOperatorFeeRate = 0
+		rmk.MakerOperatorFeeRate = 0
+	}
 	return rmk
 }
 
