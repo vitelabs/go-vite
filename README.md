@@ -56,7 +56,7 @@ You can choose one of the following installation options:
 
 ### Faster ledger sync
 
-[download](download_ledger.md) gvite ledger file manually.
+[download](ledger_snapshot.md) gvite ledger file manually.
 
 ## Contribution
 
