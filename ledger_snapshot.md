@@ -10,6 +10,7 @@ SHA256(ledger.tar.gz)=6341764adb7e4edc0467be71042bc3f9ecdadf7bf8d019d17ddc523797
 
 ```bash
 cd ~/.gvite/maindata/
+mv ledger ledger_bk
 wget -c http://chains-jg.dccn.ankr.com/download/ledger.tar.gz
 tar -xzvf ledger.tar.gz
 ```
