@@ -312,8 +312,8 @@ type ParamDexAdminConfig struct {
 
 type ParamTradeAdminConfig struct {
 	OperationCode               uint8
-	TradeToken                  types.TokenTypeId // 1 mineMarket, 64 stableMarket
-	QuoteToken                  types.TokenTypeId // 1 mineMarket, 64 stableMarket
+	TradeToken                  types.TokenTypeId // 1 mineMarket
+	QuoteToken                  types.TokenTypeId // 1 mineMarket
 	AllowMining                 bool              // 1 mineMarket
 	NewQuoteToken               types.TokenTypeId // 2 new quote token
 	QuoteTokenType              uint8             // 2 new quote token
