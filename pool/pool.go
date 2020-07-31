@@ -162,6 +162,7 @@ type pool struct {
 
 	hashBlacklist Blacklist
 	cs            consensus.Consensus
+	printer       *snapshotPrinter
 }
 
 func (pl *pool) Snapshot() map[string]interface{} {
@@ -290,17 +291,19 @@ func (pl *pool) Start() {
 	pl.newSnapshotBlockCond.Start(time.Millisecond * 30)
 	pl.newAccBlockCond.Start(time.Millisecond * 40)
 	pl.worker.closed = pl.closed
-	pl.bc.Register(pl)
+	pl.printer = newSnapshotPrinter(pl.closed)
+	pl.bc.Register(pl.printer)
 	common.Go(func() {
 		pl.wg.Add(1)
 		defer pl.wg.Done()
 		pl.worker.work()
 	})
+	pl.printer.start()
 }
 func (pl *pool) Stop() {
 	pl.log.Info("pool stop.")
 	defer pl.log.Info("pool stopped.")
-	pl.bc.UnRegister(pl)
+	pl.bc.UnRegister(pl.printer)
 	pl.sync.UnsubscribeAccountBlock(pl.accountSubID)
 	pl.accountSubID = 0
 	pl.sync.UnsubscribeSnapshotBlock(pl.snapshotSubID)
