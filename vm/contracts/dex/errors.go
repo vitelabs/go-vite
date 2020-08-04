@@ -26,6 +26,8 @@ var (
 	TradeMarketInvalidTokenPairErr  = errors.New("invalid token pair")
 	TradeMarketAllowMineErr         = errors.New("token pair already allow mine")
 	TradeMarketNotAllowMineErr      = errors.New("token pair already not allow mine")
+	TradeMarketStableMarketErr      = errors.New("already stable currency market")
+	TradeMarketNotStableMarketErr   = errors.New("already not stable currency market")
 
 	CancelOrderOwnerInvalidErr  = errors.New("order to cancel not own to initiator")
 	CancelOrderInvalidStatusErr = errors.New("order status is invalid to cancel")

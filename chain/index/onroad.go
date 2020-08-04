@@ -2,6 +2,7 @@ package chain_index
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/chain/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
@@ -116,10 +117,10 @@ func (iDB *IndexDB) GetOnRoadHashList(addr types.Address, pageNum, pageSize int)
 }
 
 func (iDB *IndexDB) insertOnRoad(batch interfaces.Batch, toAddr types.Address, blockHash types.Hash) {
-	batch.Put(chain_utils.CreateOnRoadKey(toAddr, blockHash), []byte{})
+	batch.Put(chain_utils.CreateOnRoadKey(toAddr, blockHash).Bytes(), []byte{})
 
 }
 
 func (iDB *IndexDB) deleteOnRoad(batch interfaces.Batch, toAddr types.Address, blockHash types.Hash) {
-	batch.Delete(chain_utils.CreateOnRoadKey(toAddr, blockHash))
+	batch.Delete(chain_utils.CreateOnRoadKey(toAddr, blockHash).Bytes())
 }

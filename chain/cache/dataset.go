@@ -37,8 +37,8 @@ func (ds *dataSet) InsertAccountBlock(accountBlock *ledger.AccountBlock) {
 }
 
 func (ds *dataSet) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {
-	hashKey := string(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash))
-	heightKey := string(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height))
+	hashKey := chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash).String()
+	heightKey := chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height).String()
 
 	ds.store.Set(hashKey, snapshotBlock, time.Second*1800)
 	ds.store.Set(heightKey, hashKey, time.Second*1800)
@@ -48,15 +48,15 @@ func (ds *dataSet) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {
 
 func (ds *dataSet) DeleteAccountBlocks(accountBlocks []*ledger.AccountBlock) {
 	for _, accountBlock := range accountBlocks {
-		hashKey := string(chain_utils.CreateAccountBlockHashKey(&accountBlock.Hash))
-		heightKey := string(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height))
+		hashKey := chain_utils.CreateAccountBlockHashKey(&accountBlock.Hash).String()
+		heightKey := chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height).String()
 
 		ds.store.Delete(hashKey)
 		ds.store.Delete(heightKey)
 
 		for _, sendBlock := range accountBlock.SendBlockList {
 			// delete send block
-			ds.store.Delete(string(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash)))
+			ds.store.Delete(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash).String())
 		}
 	}
 }
@@ -68,16 +68,16 @@ func (ds *dataSet) DelayDeleteAccountBlocks(accountBlocks []*ledger.AccountBlock
 }
 
 func (ds *dataSet) DeleteSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) {
-	hashKey := string(chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash))
-	heightKey := string(chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height))
+	hashKey := chain_utils.CreateSnapshotBlockHashKey(&snapshotBlock.Hash)
+	heightKey := chain_utils.CreateSnapshotBlockHeightKey(snapshotBlock.Height)
 
-	ds.store.Delete(hashKey)
-	ds.store.Delete(heightKey)
+	ds.store.Delete(hashKey.String())
+	ds.store.Delete(heightKey.String())
 }
 
 func (ds *dataSet) GetAccountBlock(hash types.Hash) *ledger.AccountBlock {
-	hashKey := string(chain_utils.CreateAccountBlockHashKey(&hash))
-	block, ok := ds.store.Get(hashKey)
+	hashKey := chain_utils.CreateAccountBlockHashKey(&hash)
+	block, ok := ds.store.Get(hashKey.String())
 	if !ok {
 		return nil
 	}
@@ -86,7 +86,7 @@ func (ds *dataSet) GetAccountBlock(hash types.Hash) *ledger.AccountBlock {
 }
 
 func (ds *dataSet) GetAccountBlockByHeight(address types.Address, height uint64) *ledger.AccountBlock {
-	heightKey := string(chain_utils.CreateAccountBlockHeightKey(&address, height))
+	heightKey := chain_utils.CreateAccountBlockHeightKey(&address, height).String()
 	hashKey, ok := ds.store.Get(heightKey)
 	if !ok {
 		return nil
@@ -102,13 +102,13 @@ func (ds *dataSet) GetAccountBlockByHeight(address types.Address, height uint64)
 
 func (ds *dataSet) IsAccountBlockExisted(hash types.Hash) bool {
 	hashKey := chain_utils.CreateAccountBlockHashKey(&hash)
-	_, ok := ds.store.Get(string(hashKey))
+	_, ok := ds.store.Get(hashKey.String())
 	return ok
 }
 
 func (ds *dataSet) GetSnapshotBlock(hash types.Hash) *ledger.SnapshotBlock {
 	hashKey := chain_utils.CreateSnapshotBlockHashKey(&hash)
-	block, ok := ds.store.Get(string(hashKey))
+	block, ok := ds.store.Get(hashKey.String())
 	if !ok {
 		return nil
 	}
@@ -117,7 +117,7 @@ func (ds *dataSet) GetSnapshotBlock(hash types.Hash) *ledger.SnapshotBlock {
 }
 
 func (ds *dataSet) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock {
-	heightKey := string(chain_utils.CreateSnapshotBlockHeightKey(height))
+	heightKey := chain_utils.CreateSnapshotBlockHeightKey(height).String()
 	hashKey, ok := ds.store.Get(heightKey)
 	if !ok {
 		return nil
@@ -133,7 +133,7 @@ func (ds *dataSet) GetSnapshotBlockByHeight(height uint64) *ledger.SnapshotBlock
 
 func (ds *dataSet) IsSnapshotBlockExisted(hash types.Hash) bool {
 	hashKey := chain_utils.CreateSnapshotBlockHashKey(&hash)
-	_, ok := ds.store.Get(string(hashKey))
+	_, ok := ds.store.Get(hashKey.String())
 	return ok
 }
 
@@ -148,15 +148,15 @@ func (ds *dataSet) GetStatus() []interfaces.DBStatus {
 }
 
 func (ds *dataSet) insertAccountBlock(accountBlock *ledger.AccountBlock, delay time.Duration) {
-	hashKey := string(chain_utils.CreateAccountBlockHashKey(&accountBlock.Hash))
-	heightKey := string(chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height))
+	hashKey := chain_utils.CreateAccountBlockHashKey(&accountBlock.Hash).String()
+	heightKey := chain_utils.CreateAccountBlockHeightKey(&accountBlock.AccountAddress, accountBlock.Height).String()
 
 	ds.store.Set(hashKey, accountBlock, delay)
 	ds.store.Set(heightKey, hashKey, delay)
 
 	for _, sendBlock := range accountBlock.SendBlockList {
 		// set send block hash
-		ds.store.Set(string(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash)), accountBlock, delay)
+		ds.store.Set(chain_utils.CreateAccountBlockHashKey(&sendBlock.Hash).String(), accountBlock, delay)
 	}
 }
 
@@ -165,7 +165,7 @@ func (ds *dataSet) deleteStaleSnapshotBlock(height uint64) {
 		return
 	}
 	staleHeight := height - ds.snapshotKeepCount
-	heightKey := string(chain_utils.CreateSnapshotBlockHeightKey(staleHeight))
+	heightKey := chain_utils.CreateSnapshotBlockHeightKey(staleHeight).String()
 	hash, ok := ds.store.Get(heightKey)
 	if !ok {
 		return

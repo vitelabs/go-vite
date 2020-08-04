@@ -264,7 +264,7 @@ func (s *cacheReader) stop() {
 // start is use to confirm the first task.PrevHash
 func constructTasks(hhs []*HashHeightPoint) (ts syncTasks) {
 	const maxSnapshotChunksOneTask = 2000 // almost 2000 * 0.5k = 1mb
-	const maxSizeOneTask = 1 << 20        // 1mb
+	const maxSizeOneTask = 1 << 21        // 2mb
 
 	var seg = interfaces.Segment{
 		From:     hhs[0].Height + 1,

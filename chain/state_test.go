@@ -2,13 +2,21 @@ package chain
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"math/big"
+	"os"
+	"path"
+	"testing"
+
 	"github.com/pkg/errors"
+	chain_utils "github.com/vitelabs/go-vite/chain/utils"
+	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"testing"
+	"gotest.tools/assert"
 )
 
 func TestChain_State(t *testing.T) {
@@ -410,4 +418,77 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 		return err
 	}
 	return nil
+}
+
+func TestState(t *testing.T) {
+	homeDir, err := os.UserHomeDir()
+	assert.NilError(t, err)
+	db, err := leveldb.OpenFile(path.Join(homeDir, ".gvite", "tmp", "state"), nil)
+	assert.NilError(t, err)
+
+	//printAllKey(db)
+
+	//printCallDepthKey(db)
+
+	// delete callDepthKey
+	//deleteCallDepthKey(db)
+
+	db.CompactRange(*util.BytesPrefix([]byte{}))
+
+}
+func deleteCallDepthKey(db *leveldb.DB) {
+	prefix := util.BytesPrefix([]byte{chain_utils.CallDepthKeyPrefix})
+	iter := db.NewIterator(prefix, nil)
+	number := 0
+	for {
+		flag := iter.Next()
+		if !flag {
+			break
+		}
+		db.Delete(iter.Key(), nil)
+		number++
+	}
+	fmt.Println(number)
+}
+
+func printCallDepthKey(db *leveldb.DB) {
+	prefix := util.BytesPrefix([]byte{chain_utils.CallDepthKeyPrefix})
+	iter := db.NewIterator(prefix, nil)
+	number := 0
+	m := make(map[uint16]uint32)
+	for {
+		flag := iter.Next()
+		if !flag {
+			break
+		}
+		value := iter.Value()
+		depth := binary.BigEndian.Uint16(value)
+		m[depth] = m[depth] + 1
+		number++
+	}
+	fmt.Println(number)
+	for k, v := range m {
+		fmt.Println(k, v)
+	}
+}
+
+func printAllKey(db *leveldb.DB) {
+	prefix := util.BytesPrefix([]byte{})
+	iter := db.NewIterator(prefix, nil)
+	number := 0
+	m := make(map[byte]uint32)
+	for {
+		flag := iter.Next()
+		if !flag {
+			break
+		}
+		prefix := iter.Key()[0]
+		m[prefix] = m[prefix] + 1
+		number++
+	}
+
+	fmt.Println(number)
+	for k, v := range m {
+		fmt.Println(k, v)
+	}
 }

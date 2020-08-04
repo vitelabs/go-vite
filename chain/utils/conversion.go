@@ -2,6 +2,7 @@ package chain_utils
 
 import (
 	"encoding/binary"
+
 	"github.com/vitelabs/go-vite/chain/file_manager"
 )
 
@@ -20,6 +21,11 @@ func DeserializeLocation(bytes []byte) *chain_file_manager.Location {
 
 func Uint64ToBytes(height uint64) []byte {
 	bytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(bytes, height)
+	return bytes
+}
+
+func Uint64Put(bytes []byte, height uint64) []byte {
 	binary.BigEndian.PutUint64(bytes, height)
 	return bytes
 }

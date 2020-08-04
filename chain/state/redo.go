@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"io"
+	"math/big"
+
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/chain/db"
 	"github.com/vitelabs/go-vite/chain/utils"
@@ -11,8 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
-	"io"
-	"math/big"
 )
 
 type LogItem struct {
@@ -70,8 +71,7 @@ type Redo struct {
 	log log15.Logger
 }
 
-
-func NewStorageRedoWithStore(chain Chain, store * chain_db.Store) (*Redo, error) {
+func NewStorageRedoWithStore(chain Chain, store *chain_db.Store) (*Redo, error) {
 	redo := &Redo{
 		store:        store,
 		chain:        chain,
@@ -158,11 +158,11 @@ func (redo *Redo) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confi
 		panic(err)
 	}
 
-	batch.Put(chain_utils.CreateRedoSnapshot(snapshotBlock.Height), value)
+	batch.Put(chain_utils.CreateRedoSnapshot(snapshotBlock.Height).Bytes(), value)
 
 	// rollback stale data
 	if snapshotBlock.Height > redo.retainHeight {
-		batch.Delete(chain_utils.CreateRedoSnapshot(snapshotBlock.Height - redo.retainHeight))
+		batch.Delete(chain_utils.CreateRedoSnapshot(snapshotBlock.Height - redo.retainHeight).Bytes())
 		//redo.log.Info(fmt.Sprintf("delete %d", snapshotBlock.Height-redo.retainHeight), "method", "InsertSnapshotBlock")
 	}
 
@@ -183,12 +183,12 @@ func (redo *Redo) HasRedo(snapshotHeight uint64) (bool, error) {
 		return true, nil
 	}
 
-	ok, err := redo.store.Has(chain_utils.CreateRedoSnapshot(snapshotHeight))
+	ok, err := redo.store.Has(chain_utils.CreateRedoSnapshot(snapshotHeight).Bytes())
 	if err != nil {
 		return false, err
 	}
 	if !ok {
-		ok, err = redo.store.Has(chain_utils.CreateRedoSnapshot(snapshotHeight - 1))
+		ok, err = redo.store.Has(chain_utils.CreateRedoSnapshot(snapshotHeight - 1).Bytes())
 		if err != nil {
 			return false, err
 		}
@@ -204,13 +204,13 @@ func (redo *Redo) QueryLog(snapshotHeight uint64) (SnapshotLog, bool, error) {
 
 	snapshotLog := make(SnapshotLog)
 
-	value, err := redo.store.GetOriginal(chain_utils.CreateRedoSnapshot(snapshotHeight))
+	value, err := redo.store.GetOriginal(chain_utils.CreateRedoSnapshot(snapshotHeight).Bytes())
 	if err != nil {
 		if err != leveldb.ErrNotFound {
 			return nil, false, err
 		}
 
-		ok, err2 := redo.store.Has(chain_utils.CreateRedoSnapshot(snapshotHeight - 1))
+		ok, err2 := redo.store.Has(chain_utils.CreateRedoSnapshot(snapshotHeight - 1).Bytes())
 		return snapshotLog, ok, err2
 	}
 
@@ -241,7 +241,7 @@ func (redo *Redo) Rollback(chunks []*ledger.SnapshotChunk) {
 			//redo.log.Info(fmt.Sprintf("rollback %d %s", chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash), "method", "PrepareRollback")
 
 			redo.cache.Delete(chunk.SnapshotBlock.Height)
-			batch.Delete(chain_utils.CreateRedoSnapshot(chunk.SnapshotBlock.Height))
+			batch.Delete(chain_utils.CreateRedoSnapshot(chunk.SnapshotBlock.Height).Bytes())
 		}
 	}
 	redo.store.RollbackSnapshot(batch)

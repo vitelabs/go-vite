@@ -11,11 +11,11 @@ import (
 )
 
 func (iDB *IndexDB) IsSnapshotBlockExisted(hash *types.Hash) (bool, error) {
-	return iDB.store.Has(chain_utils.CreateSnapshotBlockHashKey(hash))
+	return iDB.store.Has(chain_utils.CreateSnapshotBlockHashKey(hash).Bytes())
 }
 
 func (iDB *IndexDB) GetSnapshotBlockHeight(hash *types.Hash) (uint64, error) {
-	value, err := iDB.getValue(chain_utils.CreateSnapshotBlockHashKey(hash))
+	value, err := iDB.getValue(chain_utils.CreateSnapshotBlockHashKey(hash).Bytes())
 	if err != nil {
 		return 0, err
 	}
@@ -26,7 +26,7 @@ func (iDB *IndexDB) GetSnapshotBlockHeight(hash *types.Hash) (uint64, error) {
 }
 
 func (iDB *IndexDB) GetSnapshotBlockLocationByHash(hash *types.Hash) (*chain_file_manager.Location, error) {
-	value, err := iDB.getValue(chain_utils.CreateSnapshotBlockHashKey(hash))
+	value, err := iDB.getValue(chain_utils.CreateSnapshotBlockHashKey(hash).Bytes())
 	if err != nil {
 		if err == leveldb.ErrNotFound {
 			return nil, nil
@@ -43,7 +43,7 @@ func (iDB *IndexDB) GetSnapshotBlockLocationByHash(hash *types.Hash) (*chain_fil
 func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_file_manager.Location, error) {
 	key := chain_utils.CreateSnapshotBlockHeightKey(height)
 
-	value, err := iDB.getValue(key)
+	value, err := iDB.getValue(key.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (iDB *IndexDB) GetSnapshotBlockLocation(height uint64) (*chain_file_manager
 func (iDB *IndexDB) GetSnapshotBlockByHeight(height uint64) (*types.Hash, *chain_file_manager.Location, error) {
 	key := chain_utils.CreateSnapshotBlockHeightKey(height)
 
-	value, err := iDB.getValue(key)
+	value, err := iDB.getValue(key.Bytes())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -78,7 +78,7 @@ func (iDB *IndexDB) GetLatestSnapshotBlockLocation() (*chain_file_manager.Locati
 	startKey := chain_utils.CreateSnapshotBlockHeightKey(1)
 	endKey := chain_utils.CreateSnapshotBlockHeightKey(helper.MaxUint64)
 
-	iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
+	iter := iDB.store.NewIterator(&util.Range{Start: startKey.Bytes(), Limit: endKey.Bytes()})
 	defer iter.Release()
 
 	var location *chain_file_manager.Location
@@ -97,7 +97,7 @@ func (iDB *IndexDB) GetSnapshotBlockLocationList(blockHash *types.Hash, higher b
 		return nil, [2]uint64{}, nil
 	}
 
-	value, err := iDB.getValue(chain_utils.CreateSnapshotBlockHashKey(blockHash))
+	value, err := iDB.getValue(chain_utils.CreateSnapshotBlockHashKey(blockHash).Bytes())
 	if err != nil {
 		return nil, [2]uint64{}, err
 	}
@@ -134,7 +134,7 @@ func (iDB *IndexDB) GetSnapshotBlockLocationListByHeight(height uint64, higher b
 
 func (iDB *IndexDB) GetRangeSnapshotBlockLocations(startHash *types.Hash, endHash *types.Hash) ([]*chain_file_manager.Location, [2]uint64, error) {
 
-	startValue, err := iDB.getValue(chain_utils.CreateSnapshotBlockHashKey(startHash))
+	startValue, err := iDB.getValue(chain_utils.CreateSnapshotBlockHashKey(startHash).Bytes())
 	if err != nil {
 		return nil, [2]uint64{}, err
 	}
@@ -143,7 +143,7 @@ func (iDB *IndexDB) GetRangeSnapshotBlockLocations(startHash *types.Hash, endHas
 	}
 	startHeight := chain_utils.BytesToUint64(startValue)
 
-	endValue, err := iDB.getValue(chain_utils.CreateSnapshotBlockHashKey(endHash))
+	endValue, err := iDB.getValue(chain_utils.CreateSnapshotBlockHashKey(endHash).Bytes())
 	if err != nil {
 		return nil, [2]uint64{}, err
 	}
@@ -173,7 +173,7 @@ func (iDB *IndexDB) getSnapshotBlockLocations(startHeight, endHeight uint64) ([]
 		startKey := chain_utils.CreateSnapshotBlockHeightKey(startHeight)
 		endKey := chain_utils.CreateSnapshotBlockHeightKey(endHeight + 1)
 
-		iter := iDB.store.NewIterator(&util.Range{Start: startKey, Limit: endKey})
+		iter := iDB.store.NewIterator(&util.Range{Start: startKey.Bytes(), Limit: endKey.Bytes()})
 		defer iter.Release()
 
 		iterOk := iter.Last()
@@ -206,7 +206,7 @@ func (iDB *IndexDB) getSnapshotBlockLocationsByCache(endHeight, startHeight uint
 	maxHeight := startHeight - 1
 
 	for ; h >= startHeight; h-- {
-		value, err := iDB.cache.Get(string(chain_utils.CreateSnapshotBlockHeightKey(h)))
+		value, err := iDB.cache.Get(chain_utils.CreateSnapshotBlockHeightKey(h).String())
 		if err != nil {
 			if err == bigcache.ErrEntryNotFound {
 				break

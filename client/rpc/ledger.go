@@ -70,7 +70,7 @@ func (li ledgerApi) GetVmLogListByHash(logHash types.Hash) (logs ledger.VmLogLis
 }
 
 func (li ledgerApi) GetBlocksByHeight(addr types.Address, height interface{}, count uint64) (blocks []*api.AccountBlock, err error) {
-	err = li.cc.Call(&blocks, "ledger_getBlocksByHeight", height, count)
+	err = li.cc.Call(&blocks, "ledger_getBlocksByHeight", addr, height, count)
 	return
 }
 

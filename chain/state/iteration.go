@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/chain/utils"
@@ -46,14 +47,14 @@ func (sDB *StateDB) NewRawSnapshotStorageIteratorByHeight(snapshotHeight uint64,
 type stateStorageIterator struct {
 	iter           interfaces.StorageIterator
 	snapshotHeight uint64
-	addr types.Address
+	addr           types.Address
 }
 
 func newStateStorageIterator(iter interfaces.StorageIterator, addr types.Address, snapshotHeight uint64) interfaces.StorageIterator {
 	return &stateStorageIterator{
 		iter:           iter,
 		snapshotHeight: snapshotHeight,
-		addr: addr,
+		addr:           addr,
 	}
 }
 
@@ -66,13 +67,13 @@ func (iterator *stateStorageIterator) Prev() bool {
 }
 
 func (iterator *stateStorageIterator) Seek(key []byte) bool {
-	seekKey := key
 	if iterator.snapshotHeight > 0 {
-		seekKey = chain_utils.CreateHistoryStorageValueKey(&iterator.addr, seekKey, 0)
+		seekKey := chain_utils.CreateHistoryStorageValueKey(&iterator.addr, key, 0)
+		return iterator.iter.Seek(seekKey.Bytes())
 	} else {
-		seekKey = chain_utils.CreateStorageValueKey(&iterator.addr, seekKey)
+		seekKey := chain_utils.CreateStorageValueKey(&iterator.addr, key)
+		return iterator.iter.Seek(seekKey.Bytes())
 	}
-	return iterator.iter.Seek(seekKey)
 }
 
 func (iterator *stateStorageIterator) Next() bool {

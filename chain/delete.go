@@ -3,6 +3,7 @@ package chain
 import (
 	"errors"
 	"fmt"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 )
@@ -155,6 +156,7 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 	for _, chunk := range snapshotChunks {
 		if chunk.SnapshotBlock != nil {
 			c.log.Info(fmt.Sprintf("delete snapshot block %d\n", chunk.SnapshotBlock.Height))
+			fmt.Printf("delete snapshot block %d\n", chunk.SnapshotBlock.Height)
 			//		for addr, sc := range chunk.SnapshotBlock.SnapshotContent {
 			//			c.log.Info(fmt.Sprintf("delete %d SC: %s %d %s\n", chunk.SnapshotBlock.Height, addr, sc.Height, sc.Hash))
 			//		}

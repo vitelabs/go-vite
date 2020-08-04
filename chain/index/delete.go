@@ -131,39 +131,40 @@ func (iDB *IndexDB) deleteAccountBlocks(batch *leveldb.Batch, blocks []*ledger.A
 func (iDB *IndexDB) deleteSnapshotBlockHash(batch *leveldb.Batch, snapshotBlockHash types.Hash) {
 	key := chain_utils.CreateSnapshotBlockHashKey(&snapshotBlockHash)
 
-	iDB.cache.Delete(string(key))
-	batch.Delete(key)
+	iDB.cache.Delete(key.String())
+	batch.Delete(key.Bytes())
 }
 
 func (iDB *IndexDB) deleteSnapshotBlockHeight(batch *leveldb.Batch, snapshotBlockHeight uint64) {
 	key := chain_utils.CreateSnapshotBlockHeightKey(snapshotBlockHeight)
 
-	iDB.cache.Delete(string(key))
-	batch.Delete(key)
+	iDB.cache.Delete(key.String())
+	batch.Delete(key.Bytes())
 }
 
 func (iDB *IndexDB) deleteAccountBlockHash(batch *leveldb.Batch, accountBlockHash types.Hash) {
 	key := chain_utils.CreateAccountBlockHashKey(&accountBlockHash)
 
-	iDB.cache.Delete(string(key))
-	batch.Delete(key)
+	iDB.cache.Delete(key.String())
+	batch.Delete(key.Bytes())
 }
 
 func (iDB *IndexDB) deleteAccountBlockHeight(batch *leveldb.Batch, addr types.Address, height uint64) {
 	key := chain_utils.CreateAccountBlockHeightKey(&addr, height)
-	iDB.cache.Delete(string(key))
-	batch.Delete(key)
+	iDB.cache.Delete(key.String())
+	batch.Delete(key.Bytes())
 }
 
 func (iDB *IndexDB) deleteReceiveInfo(batch *leveldb.Batch, sendBlockHash types.Hash) {
 	key := chain_utils.CreateReceiveKey(&sendBlockHash)
-	batch.Delete(key)
+	batch.Delete(key.Bytes())
 
-	iDB.cache.Delete(string(key))
+	iDB.cache.Delete(key.String())
 }
 
 func (iDB *IndexDB) deleteConfirmHeight(batch *leveldb.Batch, addr types.Address, height uint64) {
-	batch.Delete(chain_utils.CreateConfirmHeightKey(&addr, height))
+	key := chain_utils.CreateConfirmHeightKey(&addr, height)
+	batch.Delete(key.Bytes())
 }
 
 func (iDB *IndexDB) deleteConfirmCache(blockHash types.Hash) {

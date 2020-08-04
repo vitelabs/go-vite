@@ -137,3 +137,9 @@ func IsNil(i interface{}) bool {
 	}
 	return reflect.ValueOf(i).IsNil()
 }
+
+func AssertNil(i interface{}) {
+	if i != nil {
+		panic(i)
+	}
+}
