@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
+	"sort"
 )
 
 type Dumper struct {
@@ -30,13 +31,22 @@ func (f Dumper) String() string {
 	return "DumperApi"
 }
 
+type DumpedAmount struct {
+	Address      *types.Address
+	Sum          *big.Int
+	WalletAmount *big.Int
+	DexAvailable *big.Int
+	DexLocked    *big.Int
+	DexOther     *big.Int
+}
+
 func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) (error) {
 	var snapshotBlock *ledger.SnapshotBlock
 	var err error
 	if snapshotBlock, err = f.chain.GetSnapshotBlockByHeight(snapshotHeight); err != nil {
 		return err
 	}
-	res := make(map[types.Address]*big.Int, 100)
+	res := make(map[types.Address]*DumpedAmount, 100)
 	f.chain.IterateAccounts(func(addr types.Address, accountId uint64, err1 error) bool {
 		if err1 != nil {
 			f.log.Error("GetLatestAccountBlock IterateAccounts failed, error is "+err.Error(), "method", "DumpBalance")
@@ -46,7 +56,11 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) (err
 			f.log.Error("GetLatestAccountBlock GetConfirmedBalanceList failed, error is "+err2.Error(), "method", "DumpBalance")
 			return false
 		} else if balance, ok := balances[addr]; ok && balance.Sign() > 0 {
-			res[addr] = balance
+			dumpAmt := &DumpedAmount{}
+			dumpAmt.Address = &addr
+			dumpAmt.WalletAmount = balance
+			dumpAmt.Sum = balance
+			res[addr] = dumpAmt
 		}
 		return true
 	})
@@ -59,20 +73,28 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) (err
 			for _, fund := range funds {
 				for _, acc := range fund.Accounts {
 					if bytes.Equal(acc.Token, token.Bytes()) {
-						dexAmt := dex.AddBigInt(acc.Available, acc.Locked)
+						dexAvailable := new(big.Int).SetBytes(acc.Available)
+						dexLocked := new(big.Int).SetBytes(acc.Locked)
+						dexOther := big.NewInt(0)
 						if token == dex.VxTokenId {
-							vxLocked := dex.AddBigInt(acc.VxLocked, acc.VxUnlocking)
-							dexAmt = dex.AddBigInt(dexAmt, vxLocked)
+							dexOther = dexOther.Add(new(big.Int).SetBytes(acc.VxLocked), new(big.Int).SetBytes(acc.VxUnlocking))
 						} else if token == ledger.ViteTokenId && len(acc.CancellingStake) > 0 {
-							dexAmt = dex.AddBigInt(dexAmt, acc.CancellingStake)
+							dexOther = dexOther.Add(dexOther, new(big.Int).SetBytes(acc.CancellingStake))
 						}
-						if len(dexAmt) > 0 {
+						dexAmt := new(big.Int).Add(new(big.Int).Add(dexAvailable, dexLocked), dexOther)
+						if dexAmt.Sign() > 0 {
 							address, _ := types.BytesToAddress(fund.Address)
+							walletAmt := new(big.Int)
 							if accAmt, ok := res[address]; ok {
-								res[address] = new(big.Int).Add(accAmt, new(big.Int).SetBytes(dexAmt))
-							} else {
-								res[address] = new(big.Int).SetBytes(dexAmt)
+								walletAmt.Set(accAmt.WalletAmount)
 							}
+							sum := new(big.Int)
+							sum = sum.Add(sum, walletAmt)
+							sum = sum.Add(sum, dexAvailable)
+							sum = sum.Add(sum, dexLocked)
+							sum = sum.Add(sum, dexOther)
+							newAmt := &DumpedAmount{&address, sum, walletAmt, dexAvailable, dexLocked, dexOther}
+							res[address] = newAmt
 						}
 						break
 					}
@@ -87,14 +109,21 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) (err
 			}
 		}
 	}
-	validNum := 0
-	sum := big.NewInt(0)
-	for k, v := range res {
-		fmt.Printf("%s,%s\n", k.String(), v.String())
-		validNum++
-		sum.Add(sum, v)
+
+	resList := make([]*DumpedAmount, len(res))
+	i := 0
+	for _, v := range res {
+		resList[i] = v
+		i++
 	}
-	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> valid size %d, sum %s\n", validNum, sum.String())
+	sort.Sort(DumpedAmountSorter(resList))
+	fmt.Println("address, sum , wallet , dexAvailable, dexLocked, dexOther")
+	overAllSum := big.NewInt(0)
+	for _, v := range resList {
+		fmt.Printf("%s,%s,%s,%s,%s,%s\n", v.Address.String(), v.Sum.String(), v.WalletAmount.String(), v.DexAvailable.String(), v.DexLocked.String(), v.DexOther.String())
+		overAllSum.Add(overAllSum, v.Sum)
+	}
+	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> valid size %d, overAllSum %s\n", len(resList), overAllSum.String())
 	return nil
 }
 
@@ -136,4 +165,23 @@ func (f Dumper) DumpAccountBalance(token types.TokenTypeId, snapshotHeight uint6
 type SnapshotBalance struct {
 	WalletBalance *big.Int `json:"walletBalance"`
 	DexBalance    *big.Int `json:"dexBalance"`
+}
+
+type DumpedAmountSorter []*DumpedAmount
+
+func (st DumpedAmountSorter) Len() int {
+	return len(st)
+}
+
+func (st DumpedAmountSorter) Swap(i, j int) {
+	st[i], st[j] = st[j], st[i]
+}
+
+func (st DumpedAmountSorter) Less(i, j int) bool {
+	addCmp := st[i].Sum.Cmp(st[j].Sum)
+	if addCmp > 0 {
+		return true
+	} else {
+		return false
+	}
 }
