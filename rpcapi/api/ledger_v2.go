@@ -2,6 +2,8 @@ package api
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/chain/plugins"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
@@ -12,7 +14,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 // new api
@@ -629,4 +630,28 @@ func calcQuotaRequired(c chain.Chain, param CalcQuotaRequiredParam) (*CalcQuotaR
 		return nil, err
 	}
 	return &CalcQuotaRequiredResult{Uint64ToString(quotaRequired), Float64ToString(float64(quotaRequired)/float64(quota.QuotaPerUt), 4)}, nil
+}
+
+func (l *LedgerApi) GetChunksV2(startHeight interface{}, endHeight interface{}) ([]*SnapshotChunkV2, error) {
+	startHeightUint64, err := parseHeight(startHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	endHeightUint64, err := parseHeight(endHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	chunks, err := l.chain.GetSubLedger(startHeightUint64-1, endHeightUint64)
+	if err != nil {
+		return nil, err
+	}
+	if len(chunks) > 0 {
+		if chunks[0].SnapshotBlock == nil || chunks[0].SnapshotBlock.Height == startHeightUint64-1 {
+			chunks = chunks[1:]
+		}
+	}
+
+	return l.ledgerChunksToRpcChunksV2(chunks)
 }

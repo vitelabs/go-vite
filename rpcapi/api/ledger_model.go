@@ -12,9 +12,15 @@ import (
 	"github.com/vitelabs/go-vite/ledger"
 )
 
+// @Deprecated
 type SnapshotChunk struct {
 	AccountBlocks []*ledger.AccountBlock
 	SnapshotBlock *SnapshotBlock
+}
+
+type SnapshotChunkV2 struct {
+	AccountBlocks []*AccountBlock `json:"accountBlocks"`
+	SnapshotBlock *SnapshotBlock  `json:"snapshotBlock"`
 }
 
 type AccountBlock struct {

@@ -60,6 +60,26 @@ func (l *LedgerApi) ledgerChunksToRpcChunks(list []*ledger.SnapshotChunk) ([]*Sn
 	return chunks, nil
 }
 
+func (l *LedgerApi) ledgerChunksToRpcChunksV2(list []*ledger.SnapshotChunk) ([]*SnapshotChunkV2, error) {
+	chunks := make([]*SnapshotChunkV2, 0, len(list))
+	for _, item := range list {
+		sb, err := l.ledgerSnapshotBlockToRpcBlock(item.SnapshotBlock)
+		if err != nil {
+			return nil, err
+		}
+
+		blocks, err := l.ledgerBlocksToRpcBlocks(item.AccountBlocks)
+		if err != nil {
+			return nil, err
+		}
+		chunks = append(chunks, &SnapshotChunkV2{
+			AccountBlocks: blocks,
+			SnapshotBlock: sb,
+		})
+	}
+	return chunks, nil
+}
+
 func (l *LedgerApi) ledgerBlockToRpcBlock(block *ledger.AccountBlock) (*AccountBlock, error) {
 	return ledgerToRpcBlock(l.chain, block)
 }
