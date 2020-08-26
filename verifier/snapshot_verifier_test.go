@@ -4,15 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/types"
-
-	"github.com/vitelabs/go-vite/chain/unittest"
-
-	"github.com/vitelabs/go-vite/ledger"
-
-	"github.com/vitelabs/go-vite/consensus"
-
 	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/chain/test_tools"
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger"
 )
 
 var innerChainInstance chain.Chain
@@ -21,8 +18,11 @@ func getChainInstance(path string) chain.Chain {
 	if path == "" {
 		path = "Documents/vite/src/github.com/vitelabs/aaaaaaaa/devdata"
 	}
+	var err error
 	if innerChainInstance == nil {
-		innerChainInstance = chain_unittest.NewChainInstanceFromAbsPath(path, false)
+		innerChainInstance, err = test_tools.NewChainInstanceFromDir(path, false, "")
+		helper.AssertNil(err)
+
 		innerChainInstance.Start()
 	}
 
