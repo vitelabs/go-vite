@@ -179,6 +179,9 @@ const (
 	MarketOwnerConfigMakerRate = 4
 	MarketOwnerStopMarket      = 8
 )
+const (
+	CommonAdminConfigStableMarket = 1
+)
 
 const (
 	ViteTokenType = iota + 1
@@ -370,6 +373,16 @@ type ParamCancelOrderByHash struct {
 	Principal  types.Address
 	TradeToken types.TokenTypeId
 	QuoteToken types.TokenTypeId
+}
+
+type ParamCommonAdminConfig struct {
+	OperationCode uint8             // 1 stableMarket
+	TradeToken    types.TokenTypeId // 1 stableMarket
+	QuoteToken    types.TokenTypeId // 1 stableMarket
+	Enable        bool              // 1 stableMarket
+	Value         int32
+	Amount        *big.Int
+	Address       types.Address
 }
 
 type Fund struct {
@@ -1984,7 +1997,7 @@ func SetDexTimestamp(db vm_db.VmDb, timestamp int64, reader util.ConsensusReader
 		oldPeriod := GetPeriodIdByTimestamp(reader, oldTime)
 		newPeriod := GetPeriodIdByTimestamp(reader, timestamp)
 		if newPeriod != oldPeriod {
-			if newPeriod - oldPeriod > 1 && IsDexRobotFork(db) {
+			if newPeriod-oldPeriod > 1 && IsDexRobotFork(db) && oldTime > 0 {
 				return OracleTimestampExceedPeriodGapErr
 			}
 			doRollPeriod(db, newPeriod)

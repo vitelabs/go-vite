@@ -62,7 +62,8 @@ const (
 		{"type":"function","name":"CancelStakeById", "inputs":[{"name":"id","type":"bytes32"}]},
 		{"type":"function","name":"StakeForQuotaWithCallbackCallback", "inputs":[{"name":"id","type":"bytes32"},{"name":"success","type":"bool"}]},
 		{"type":"function","name":"CancelQuotaStakingWithCallbackCallback", "inputs":[{"name":"id","type":"bytes32"},{"name":"success","type":"bool"}]},
-		{"type":"function","name":"CancelOrderBySendHash", "inputs":[{"name":"sendHash","type":"bytes32"},{"name":"principal","type":"address"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"}]}
+		{"type":"function","name":"CancelOrderBySendHash", "inputs":[{"name":"sendHash","type":"bytes32"},{"name":"principal","type":"address"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"}]},
+		{"type":"function","name":"CommonAdminConfig", "inputs":[{"name":"operationCode","type":"uint8"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"}, {"name":"enable","type":"bool"}, {"name":"value","type":"int32"}, {"name":"amount","type":"uint256"}, {"name":"address","type":"address"}]}
     ]`
 
 	// deprecated version
@@ -126,6 +127,7 @@ const (
 	MethodNameDexFundCancelDelegateStakeCallbackV2 = "CancelQuotaStakingWithCallbackCallback"
 
 	MethodNameDexFundCancelOrderBySendHash = "CancelOrderBySendHash"
+	MethodNameDexFundCommonAdminConfig     = "CommonAdminConfig"
 )
 
 var (

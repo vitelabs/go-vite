@@ -189,6 +189,14 @@ func IsDexRobotFork(snapshotHeight uint64) bool {
 	return snapshotHeight >= dexRobotForkPoint.Height && IsForkActive(*dexRobotForkPoint)
 }
 
+func IsDexStableMarketFork(snapshotHeight uint64) bool {
+	dexStableMarketForkPoint, ok := forkPointMap["DexStableMarketFork"]
+	if !ok {
+		panic("check dex stable market fork failed. DexStableMarketFork is not existed.")
+	}
+	return snapshotHeight >= dexStableMarketForkPoint.Height && IsForkActive(*dexStableMarketForkPoint)
+}
+
 func GetLeafForkPoint() *ForkPointItem {
 	leafForkPoint, ok := forkPointMap["LeafFork"]
 	if !ok {

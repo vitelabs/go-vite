@@ -80,14 +80,15 @@ type ForkPoint struct {
 }
 
 type ForkPoints struct {
-	SeedFork      *ForkPoint
-	DexFork       *ForkPoint
-	DexFeeFork    *ForkPoint
-	StemFork      *ForkPoint
-	LeafFork      *ForkPoint
-	EarthFork     *ForkPoint
-	DexMiningFork *ForkPoint
-	DexRobotFork  *ForkPoint
+	SeedFork            *ForkPoint
+	DexFork             *ForkPoint
+	DexFeeFork          *ForkPoint
+	StemFork            *ForkPoint
+	LeafFork            *ForkPoint
+	EarthFork           *ForkPoint
+	DexMiningFork       *ForkPoint
+	DexRobotFork        *ForkPoint
+	DexStableMarketFork *ForkPoint
 }
 
 type GenesisVmLog struct {
