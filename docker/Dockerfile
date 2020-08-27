@@ -4,10 +4,16 @@ RUN set -eux; \
     apk add gcc \
         musl-dev \
          git
+WORKDIR /usr/local/go/src/github.com/vitelabs/go-vite
+
+COPY go.mod .
+COPY go.sum .
+
+RUN GO111MODULE=on go mod download
 
 ADD . /usr/local/go/src/github.com/vitelabs/go-vite
-WORKDIR /usr/local/go/src/github.com/vitelabs/go-vite
-RUN go mod download ; go build -mod=readonly -o gvite github.com/vitelabs/go-vite/cmd/gvite
+
+RUN go build -mod=readonly -o gvite github.com/vitelabs/go-vite/cmd/gvite
 
 FROM alpine:3.8
 
@@ -21,7 +27,7 @@ RUN apk update \
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=maker /go/gvite .
+COPY --from=maker /usr/local/go/src/github.com/vitelabs/go-vite/gvite .
 COPY ./conf/node_config.json .
 COPY ./docker/docker-gvite .
 EXPOSE 8483 8484 48132 41420 8483/udp
