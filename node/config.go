@@ -9,15 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/config/biz"
 	"github.com/vitelabs/go-vite/config/gen"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/metrics"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -193,32 +191,6 @@ func (c *Config) makeSubscribeConfig() *config.Subscribe {
 		IsSubscribe: c.SubscribeEnabled,
 	}
 }
-
-func (c *Config) makeMetricsConfig() *metrics.Config {
-	mc := &metrics.Config{
-		IsEnable:         false,
-		IsInfluxDBEnable: false,
-		InfluxDBInfo:     nil,
-	}
-	if c.MetricsEnable != nil && *c.MetricsEnable == true {
-		mc.IsEnable = true
-		if c.InfluxDBEnable != nil && *c.InfluxDBEnable == true &&
-			c.InfluxDBEndpoint != nil && len(*c.InfluxDBEndpoint) > 0 &&
-			(c.InfluxDBEndpoint != nil && c.InfluxDBDatabase != nil && c.InfluxDBPassword != nil && c.InfluxDBHostTag != nil) {
-			mc.IsInfluxDBEnable = true
-			mc.InfluxDBInfo = &metrics.InfluxDBConfig{
-				Endpoint: *c.InfluxDBEndpoint,
-				Database: *c.InfluxDBDatabase,
-				Username: *c.InfluxDBUsername,
-				Password: *c.InfluxDBPassword,
-				HostTag:  *c.InfluxDBHostTag,
-			}
-		}
-	}
-
-	return mc
-}
-
 func (c *Config) makeMinerConfig() *config.Producer {
 	return &config.Producer{
 		Producer:         c.MinerEnabled,

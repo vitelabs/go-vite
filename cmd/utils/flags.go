@@ -1,10 +1,7 @@
 package utils
 
 import (
-	"github.com/vitelabs/go-vite/metrics"
-	"github.com/vitelabs/go-vite/metrics/influxdb"
 	"gopkg.in/urfave/cli.v1"
-	"time"
 )
 
 var (
@@ -275,20 +272,4 @@ func MergeFlags(flagsSet ...[]cli.Flag) []cli.Flag {
 		mergeFlags = append(mergeFlags, flags...)
 	}
 	return mergeFlags
-}
-
-func SetupMetricsExport(ctx *cli.Context) {
-	if metrics.MetricsEnabled {
-		var (
-			endpoint  = ctx.GlobalString(InfluxDBEndpointFlag.Name)
-			database  = ctx.GlobalString(InfluxDBDatabaseFlag.Name)
-			username  = ctx.GlobalString(InfluxDBUsernameFlag.Name)
-			password  = ctx.GlobalString(InfluxDBPasswordFlag.Name)
-			hosttag   = ctx.GlobalString(InfluxDBHostTagFlag.Name)
-			namespace = "monitor"
-		)
-		go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, namespace,
-			map[string]string{"host": hosttag})
-
-	}
 }
