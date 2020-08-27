@@ -2,10 +2,12 @@ FROM golang:1.11-alpine as maker
 
 RUN set -eux; \
     apk add gcc \
-        musl-dev
+        musl-dev \
+         git
 
 ADD . /usr/local/go/src/github.com/vitelabs/go-vite
-RUN go build -o gvite github.com/vitelabs/go-vite/cmd/gvite
+WORKDIR /usr/local/go/src/github.com/vitelabs/go-vite
+RUN go mod download ; go build -mod=readonly -o gvite github.com/vitelabs/go-vite/cmd/gvite
 
 FROM alpine:3.8
 
