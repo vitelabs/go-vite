@@ -3,10 +3,10 @@ package chain
 import (
 	"bytes"
 	"fmt"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain/utils"
 	"math/rand"
 	"sync"
 	"testing"

@@ -10,12 +10,12 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 	"gotest.tools/assert"
 )
 

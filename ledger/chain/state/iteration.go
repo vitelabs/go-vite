@@ -7,12 +7,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 func (sDB *StateDB) NewStorageIterator(addr types.Address, prefix []byte) interfaces.StorageIterator {

@@ -8,9 +8,9 @@ import (
 	"github.com/allegro/bigcache"
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/ledger/chain/db"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger/chain/db"
 	"github.com/vitelabs/go-vite/log15"
 )
 

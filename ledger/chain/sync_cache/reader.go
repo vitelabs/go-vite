@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/golang/snappy"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/block"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type Reader struct {

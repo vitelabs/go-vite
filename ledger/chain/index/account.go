@@ -4,11 +4,11 @@ import (
 	"encoding/binary"
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 func (iDB *IndexDB) HasAccount(addr types.Address) (result bool, returnErr error) {

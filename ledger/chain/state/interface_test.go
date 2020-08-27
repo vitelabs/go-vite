@@ -10,13 +10,13 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	db "github.com/vitelabs/go-vite/ledger/chain/db"
 	xleveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	memdb "github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	types "github.com/vitelabs/go-vite/common/types"
-	core "github.com/vitelabs/go-vite/ledger/consensus/core"
 	interfaces "github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	db "github.com/vitelabs/go-vite/ledger/chain/db"
+	core "github.com/vitelabs/go-vite/ledger/consensus/core"
 	vm_db "github.com/vitelabs/go-vite/vm_db"
 )
 

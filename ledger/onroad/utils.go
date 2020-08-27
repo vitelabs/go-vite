@@ -2,7 +2,7 @@ package onroad
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 // JudgeGenesis is used for the method ExcludePairTrades.

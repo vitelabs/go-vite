@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/block"
 	"github.com/vitelabs/go-vite/ledger/chain/flusher"
 	"github.com/vitelabs/go-vite/ledger/chain/index"
 	"github.com/vitelabs/go-vite/ledger/chain/plugins"
 	"github.com/vitelabs/go-vite/ledger/chain/state"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 

@@ -7,8 +7,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 func TestRollbackProof_ProofEmpty(t *testing.T) {

@@ -3,8 +3,8 @@ package chain_block
 import (
 	"errors"
 	"fmt"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 func (bDB *BlockDB) GetAccountBlock(location *chain_file_manager.Location) (*ledger.AccountBlock, error) {

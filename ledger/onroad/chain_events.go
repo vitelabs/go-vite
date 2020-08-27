@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/onroad/pool"
 	"github.com/vitelabs/go-vite/vm_db"
 )

@@ -3,7 +3,7 @@ package generator
 import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 // EnvPrepareForGenerator carries the info about the latest state of the world.

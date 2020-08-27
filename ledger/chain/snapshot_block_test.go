@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain/utils"
 	"testing"
 	"time"
 )
@@ -112,7 +112,7 @@ func CheckGetSeedConfirmedSnapshotBlock(isContract bool, seedConfirmTimes uint8,
 	// insert to memory
 	contractAccount.InsertBlock(receiveBlock, accounts)
 
-	snapshotBlockLatestHeight := chainInstance.GetLatestSnapshotBlock().Height;
+	snapshotBlockLatestHeight := chainInstance.GetLatestSnapshotBlock().Height
 
 	// case 0 : not confirm
 

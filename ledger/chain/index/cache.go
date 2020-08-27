@@ -5,7 +5,7 @@ import (
 	"github.com/allegro/bigcache"
 	"github.com/hashicorp/golang-lru"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 
 	"time"
 )

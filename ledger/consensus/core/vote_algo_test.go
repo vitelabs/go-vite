@@ -13,7 +13,7 @@ import (
 	"github.com/vitelabs/go-vite/common"
 
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 func TestAlgo_FilterVotes(t *testing.T) {

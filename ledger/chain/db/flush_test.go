@@ -2,9 +2,9 @@ package chain_db
 
 import (
 	"bytes"
+	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/ledger/chain/flusher"
 	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"gotest.tools/assert"
 	"path"
 	"sync"

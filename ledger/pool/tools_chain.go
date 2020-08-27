@@ -7,9 +7,9 @@ import (
 
 	"github.com/vitelabs/go-vite/common"
 
-	ch "github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	ch "github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/vm_db"

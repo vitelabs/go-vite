@@ -10,6 +10,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/block"
 	"github.com/vitelabs/go-vite/ledger/chain/cache"
 	"github.com/vitelabs/go-vite/ledger/chain/flusher"
@@ -17,10 +21,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger/chain/index"
 	"github.com/vitelabs/go-vite/ledger/chain/state"
 	"github.com/vitelabs/go-vite/ledger/chain/sync_cache"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm_db"
 

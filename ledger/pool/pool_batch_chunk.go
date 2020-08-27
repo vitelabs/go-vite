@@ -2,10 +2,10 @@ package pool
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/net"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/pool/batch"
 	"github.com/vitelabs/go-vite/ledger/pool/tree"
+	"github.com/vitelabs/go-vite/net"
 )
 
 // ChainState represents the relationship between the two branches

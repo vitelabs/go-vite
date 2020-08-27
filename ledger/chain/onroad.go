@@ -3,9 +3,9 @@ package chain
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/ledger/chain/plugins"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain/plugins"
 	"math/big"
 )
 

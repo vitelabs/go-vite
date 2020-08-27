@@ -7,7 +7,7 @@ import (
 	"github.com/magiconair/properties/assert"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 func TestNewGroupInfo(t *testing.T) {

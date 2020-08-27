@@ -114,7 +114,6 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 			return key.SignData(data)
 		}, nil)
 
-
 	// judge generator result
 	if err != nil || genResult == nil {
 		blog.Error(fmt.Sprintf("GenerateWithOnRoad failed, err:%v", err))

@@ -2,7 +2,7 @@ package chain
 
 import (
 	"github.com/olebedev/emitter"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm_db"
 	"sync"
 )

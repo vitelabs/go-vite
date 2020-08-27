@@ -3,8 +3,8 @@ package chain_block
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 func (bDB *BlockDB) GetSnapshotBlock(location *chain_file_manager.Location) (*ledger.SnapshotBlock, error) {

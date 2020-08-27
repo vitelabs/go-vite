@@ -2,7 +2,7 @@ package chain_state
 
 import (
 	"fmt"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"

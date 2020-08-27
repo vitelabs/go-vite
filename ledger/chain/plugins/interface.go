@@ -1,11 +1,11 @@
 package chain_plugins
 
 import (
-	"github.com/vitelabs/go-vite/ledger/chain/db"
-	"github.com/vitelabs/go-vite/ledger/chain/flusher"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain/db"
+	"github.com/vitelabs/go-vite/ledger/chain/flusher"
 )
 
 type Chain interface {

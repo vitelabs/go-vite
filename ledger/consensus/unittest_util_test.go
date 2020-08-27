@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/vm/quota"
 )
 

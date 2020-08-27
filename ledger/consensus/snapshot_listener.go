@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/vm_db"
 
 	"github.com/pkg/errors"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 // (start, end]

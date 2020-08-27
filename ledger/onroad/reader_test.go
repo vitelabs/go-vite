@@ -3,8 +3,8 @@ package onroad
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/vm_db"

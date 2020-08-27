@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 func (store *Store) WriteDirectly(batch *leveldb.Batch) {

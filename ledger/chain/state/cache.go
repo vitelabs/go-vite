@@ -3,9 +3,9 @@ package chain_state
 import (
 	"github.com/patrickmn/go-cache"
 
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 const (

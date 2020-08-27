@@ -2,10 +2,10 @@ package integration
 
 import (
 	"encoding/json"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/quota"
@@ -20,7 +20,7 @@ import (
 
 	"fmt"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"net/http"
 	"time"
 )

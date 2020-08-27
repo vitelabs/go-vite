@@ -1,13 +1,13 @@
 package chain_state
 
 import (
-	"github.com/vitelabs/go-vite/ledger/chain/db"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/interfaces"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain/db"
+	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"time"
