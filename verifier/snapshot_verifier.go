@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	css "github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/crypto"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	css "github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/monitor"
 )
 

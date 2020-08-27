@@ -3,7 +3,7 @@ package dex
 import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"

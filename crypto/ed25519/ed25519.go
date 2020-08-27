@@ -153,9 +153,9 @@ func IsValidPrivateKey(priv PrivateKey) bool {
 	return false
 }
 
-func (pri PrivateKey) Clear() {
-	for i := range pri {
-		pri[i] = 0
+func (priv PrivateKey) Clear() {
+	for i := range priv {
+		priv[i] = 0
 	}
 }
 

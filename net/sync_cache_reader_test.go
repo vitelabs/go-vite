@@ -26,7 +26,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type mockBlocks []uint64

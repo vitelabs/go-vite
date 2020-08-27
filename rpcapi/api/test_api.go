@@ -12,8 +12,8 @@ import (
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/generator"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type CreateTxWithPrivKeyParmsTest struct {

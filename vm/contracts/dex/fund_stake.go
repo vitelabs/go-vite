@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"

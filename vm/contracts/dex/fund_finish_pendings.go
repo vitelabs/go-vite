@@ -30,7 +30,7 @@ func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
 		if len(vxUnlocksValue) == 0 {
 			continue
 		}
-		if len(vxUnlocksKey) != len(vxUnlocksKeyPrefix) + types.AddressSize {
+		if len(vxUnlocksKey) != len(vxUnlocksKeyPrefix)+types.AddressSize {
 			panic(fmt.Errorf("invalid vx unlocks key"))
 		}
 		address, _ := types.BytesToAddress(vxUnlocksKey[len(vxUnlocksKeyPrefix):])
@@ -82,7 +82,7 @@ func DoFinishCancelMiningStake(db vm_db.VmDb, periodId uint64) error {
 		if len(cancelStakesValue) == 0 {
 			continue
 		}
-		if len(cancelStakesKey) != len(cancelStakesKeyPrefix) + types.AddressSize {
+		if len(cancelStakesKey) != len(cancelStakesKeyPrefix)+types.AddressSize {
 			panic(fmt.Errorf("invalid cancel stakes key"))
 		}
 		address, _ := types.BytesToAddress(cancelStakesKey[len(cancelStakesKeyPrefix):])

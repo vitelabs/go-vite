@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 
 	"github.com/vitelabs/go-vite/net/netool"
 

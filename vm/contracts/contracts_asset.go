@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"

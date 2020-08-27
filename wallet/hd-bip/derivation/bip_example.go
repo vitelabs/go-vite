@@ -1,9 +1,9 @@
 package derivation
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/tyler-smith/go-bip39"
-	"encoding/hex"
 )
 
 func RandomMnemonic12(passphrase string) error {

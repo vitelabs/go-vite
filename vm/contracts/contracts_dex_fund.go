@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
@@ -1825,7 +1825,7 @@ func (md *MethodDexCancelOrderBySendHash) DoSend(db vm_db.VmDb, block *ledger.Ac
 	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	}
-	if param.Principal != types.ZERO_ADDRESS && param.Principal != block.AccountAddress  {
+	if param.Principal != types.ZERO_ADDRESS && param.Principal != block.AccountAddress {
 		if param.TradeToken == types.ZERO_TOKENID || param.QuoteToken == types.ZERO_TOKENID {
 			return dex.InvalidInputParamErr
 		}

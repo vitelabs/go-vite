@@ -14,7 +14,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 func TestPubKeyToAddress(t *testing.T) {

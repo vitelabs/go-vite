@@ -13,7 +13,7 @@ func SubBigIntAbs(a []byte, b []byte) []byte {
 	return new(big.Int).Sub(new(big.Int).SetBytes(a), new(big.Int).SetBytes(b)).Bytes()
 }
 
-func SafeSubBigInt(amt []byte, sub []byte) (res, actualSub []byte,  exceed bool) {
+func SafeSubBigInt(amt []byte, sub []byte) (res, actualSub []byte, exceed bool) {
 	if CmpForBigInt(sub, amt) > 0 {
 		res = nil
 		actualSub = amt

@@ -2,7 +2,7 @@ package dex
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"

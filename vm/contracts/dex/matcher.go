@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"

@@ -20,7 +20,7 @@ package net
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type mockReceiver struct {

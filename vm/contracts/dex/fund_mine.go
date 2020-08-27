@@ -2,7 +2,7 @@ package dex
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -139,7 +139,7 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 		dexMiningStakings      *MiningStakings
 		dividedStakedAmountSum = big.NewInt(0)
 		amtLeavedToMine        = new(big.Int).Set(amountToMine)
-		ok               bool
+		ok                     bool
 	)
 	if amountToMine == nil {
 		return nil, nil

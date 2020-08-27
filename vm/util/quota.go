@@ -3,7 +3,7 @@ package util
 import (
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 const (

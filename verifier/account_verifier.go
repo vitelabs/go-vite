@@ -11,10 +11,10 @@ import (
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/generator"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/ledger/onroad"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/vm_db"
 )

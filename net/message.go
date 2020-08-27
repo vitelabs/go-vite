@@ -25,7 +25,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vitepb"
 )
 

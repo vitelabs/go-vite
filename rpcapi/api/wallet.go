@@ -7,10 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/header"
 	"math/big"
 
-	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/common/types"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/ledger/generator"
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/pool"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
