@@ -2,12 +2,13 @@ package onroad
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger/generator"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/quota"
-	"strings"
-	"time"
 )
 
 // ContractTaskProcessor is to handle onroad and generate new contract receive block.
@@ -105,14 +106,7 @@ func (tp *ContractTaskProcessor) processOneAddress(task *contractTask) (canConti
 		blog.Error(fmt.Sprintf("NewGenerator failed, err:%v", err))
 		return true
 	}
-	genResult, err := gen.GenerateWithOnRoad(sBlock, &tp.worker.address,
-		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			_, key, _, err := tp.worker.manager.wallet.GlobalFindAddr(addr)
-			if err != nil {
-				return nil, nil, err
-			}
-			return key.SignData(data)
-		}, nil)
+	genResult, err := gen.GenerateWithOnRoad(sBlock, &tp.worker.address, tp.worker.manager.coinbase.Sign, nil)
 
 	// judge generator result
 	if err != nil || genResult == nil {

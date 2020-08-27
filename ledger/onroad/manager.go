@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vitelabs/go-vite/interfaces"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger/chain"
@@ -29,6 +31,7 @@ type Manager struct {
 	net      netReader
 	producer producer
 	wallet   *wallet.Manager
+	coinbase interfaces.Account
 
 	pool      pool
 	chain     chain.Chain
@@ -49,11 +52,11 @@ type Manager struct {
 }
 
 // NewManager creates a onroad Manager.
-func NewManager(net netReader, pool pool, producer producer, consensus generator.Consensus, wallet *wallet.Manager) *Manager {
+func NewManager(net netReader, pool pool, producer producer, consensus generator.Consensus, account interfaces.Account) *Manager {
 	m := &Manager{
 		net:             net,
 		producer:        producer,
-		wallet:          wallet,
+		coinbase:        account,
 		pool:            pool,
 		consensus:       consensus,
 		contractWorkers: make(map[types.Gid]*ContractWorker),
@@ -85,7 +88,6 @@ func (manager *Manager) Start() {
 func (manager *Manager) Stop() {
 	manager.log.Info("Close")
 	manager.Net().UnsubscribeSyncStatus(manager.netStateLid)
-	manager.wallet.RemoveUnlockChangeChannel(manager.unlockLid)
 	if manager.producer != nil {
 		manager.Producer().SetAccountEventFunc(nil)
 	}

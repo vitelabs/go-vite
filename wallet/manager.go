@@ -96,6 +96,65 @@ func (m *Manager) RefreshCache() {
 	}
 }
 
+func (m Manager) Account(address types.Address) (*Account, error) {
+	for _, em := range m.entropyStoreManager {
+		if em.IsUnlocked() {
+			key, _, err := em.FindAddr(address)
+			if err == walleterrors.ErrAddressNotFound {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			return newAccount(address, key)
+		}
+	}
+	return nil, walleterrors.ErrAddressNotFound
+}
+func (m Manager) AccountAtIndex(entryPath string, target types.Address, index uint32) (*Account, error) {
+	manager, err := m.GetEntropyStoreManager(entryPath)
+	if err != nil {
+		return nil, err
+	}
+	_, key, err := manager.DeriveForIndexPath(index)
+	if err != nil {
+		return nil, err
+	}
+	address, err := key.Address()
+	if err != nil {
+		return nil, err
+	}
+	if *address != target {
+		return nil, errors.New("address do not match.")
+	}
+
+	return newAccount(target, key)
+}
+
+func (m Manager) AccountSearch(entryPath *string, target types.Address, passphrase string) (*Account, error) {
+	if entryPath == nil {
+		_, key, _, err := m.GlobalFindAddrWithPassphrase(target, passphrase)
+		if err != nil {
+			return nil, err
+		}
+		return newAccount(target, key)
+	}
+	manager, err := m.GetEntropyStoreManager(*entryPath)
+	if err != nil {
+		return nil, err
+	}
+	err = manager.Unlock(passphrase)
+	if err != nil {
+		return nil, err
+	}
+	key, _, err := manager.FindAddr(target)
+	if err == walleterrors.ErrAddressNotFound {
+		return nil, err
+	}
+	return newAccount(target, key)
+}
+
 func (m Manager) GlobalFindAddr(targetAdr types.Address) (path string, key *derivation.Key, index uint32, err error) {
 	for path, em := range m.entropyStoreManager {
 		if em.IsUnlocked() {

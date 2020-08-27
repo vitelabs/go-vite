@@ -2,6 +2,7 @@ package entropystore
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 
 	"github.com/pkg/errors"

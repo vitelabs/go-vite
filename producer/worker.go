@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"sync"
 
+	"github.com/vitelabs/go-vite/interfaces"
+
 	"github.com/vitelabs/go-vite/common/types"
 
 	"github.com/hashicorp/golang-lru"
@@ -24,14 +26,14 @@ var wLog = log15.New("module", "miner/worker")
 type worker struct {
 	producerLifecycle
 	tools     *tools
-	coinbase  *AddressContext
+	coinbase  interfaces.Account
 	mu        sync.Mutex
 	wg        sync.WaitGroup
 	seedCache *lru.Cache
 	log       log15.Logger
 }
 
-func newWorker(chain *tools, coinbase *AddressContext) *worker {
+func newWorker(chain *tools, coinbase interfaces.Account) *worker {
 	cache, err := lru.New(1000)
 	if err != nil {
 		panic(err)
@@ -66,9 +68,8 @@ func (self *worker) Stop() error {
 
 func (self *worker) produceSnapshot(e consensus.Event) {
 	self.wg.Add(1)
-	err := self.tools.checkAddressLock(e.Address, self.coinbase)
-	if err != nil {
-		mLog.Error("coinbase must be unlock.", "addr", e.Address.String(), "err", err)
+	if e.Address != self.coinbase.Address() {
+		mLog.Error("coinbase must be equal.", "addr", e.Address.String())
 		return
 	}
 	tmpE := &e

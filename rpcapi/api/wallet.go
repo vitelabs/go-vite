@@ -4,8 +4,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/header"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/header"
 
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
@@ -312,21 +313,12 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 	if e != nil {
 		return nil, e
 	}
-	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-		if params.EntropystoreFile != nil {
-			manager, e := m.wallet.GetEntropyStoreManager(*params.EntropystoreFile)
-			if e != nil {
-				return nil, nil, e
-			}
-			return manager.SignDataWithPassphrase(addr, params.Passphrase, data)
-		}
 
-		_, key, _, e := m.wallet.GlobalFindAddrWithPassphrase(addr, params.Passphrase)
-		if e != nil {
-			return nil, nil, e
-		}
-		return key.SignData(data)
-	})
+	account, err := m.wallet.AccountSearch(params.EntropystoreFile, msg.AccountAddress, params.Passphrase)
+	if err != nil {
+		return nil, err
+	}
+	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, account.Sign)
 
 	if e != nil {
 		return nil, e

@@ -5,14 +5,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/header"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 	"math/rand"
 	"time"
 
+	"github.com/vitelabs/go-vite/header"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/wallet"
+
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/ledger/generator"
@@ -96,6 +97,10 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if param.PrivateKey == nil {
 		return nil, errors.New("privateKey is nil")
 	}
+	account, err := wallet.NewAccountFromHexKey(*param.PrivateKey)
+	if err != nil || account.Address() != *param.SelfAddr {
+		return nil, errors.New("privateKey is error")
+	}
 
 	var d *big.Int = nil
 	if param.Difficulty != nil {
@@ -140,16 +145,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if e != nil {
 		return nil, e
 	}
-	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-		var privkey ed25519.PrivateKey
-		privkey, e := ed25519.HexToPrivateKey(*param.PrivateKey)
-		if e != nil {
-			return nil, nil, e
-		}
-		signData := ed25519.Sign(privkey, data)
-		pubkey = privkey.PubByte()
-		return signData, pubkey, nil
-	})
+	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, account.Sign)
 	if e != nil {
 		return nil, e
 	}
