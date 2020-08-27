@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"log"
 	"math/big"
 	"reflect"

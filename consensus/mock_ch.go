@@ -5,14 +5,15 @@
 package consensus
 
 import (
+	big "math/big"
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	leveldb "github.com/syndtr/goleveldb/leveldb"
 	chain "github.com/vitelabs/go-vite/chain"
 	types "github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/ledger"
-	big "math/big"
-	reflect "reflect"
-	time "time"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 // MockChain is a mock of Chain interface

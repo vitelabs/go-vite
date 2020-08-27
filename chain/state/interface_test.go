@@ -5,6 +5,10 @@
 package chain_state
 
 import (
+	big "math/big"
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	db "github.com/vitelabs/go-vite/chain/db"
 	xleveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
@@ -12,11 +16,8 @@ import (
 	types "github.com/vitelabs/go-vite/common/types"
 	core "github.com/vitelabs/go-vite/consensus/core"
 	interfaces "github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/ledger"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	vm_db "github.com/vitelabs/go-vite/vm_db"
-	big "math/big"
-	reflect "reflect"
-	time "time"
 )
 
 // MockEventListener is a mock of EventListener interface

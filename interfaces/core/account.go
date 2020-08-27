@@ -1,4 +1,4 @@
-package ledger
+package core
 
 import (
 	"github.com/golang/protobuf/proto"

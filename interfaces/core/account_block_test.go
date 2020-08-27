@@ -1,13 +1,14 @@
-package ledger
+package core
 
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"math/big"
-	"testing"
 )
 
 type SSS struct {

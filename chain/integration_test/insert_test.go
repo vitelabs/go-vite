@@ -20,7 +20,7 @@ import (
 
 	"fmt"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"net/http"
 	"time"
 )

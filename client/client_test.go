@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/entropystore"

@@ -27,7 +27,7 @@ import (
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 const getHashHeightListTimeout = 10 * time.Second

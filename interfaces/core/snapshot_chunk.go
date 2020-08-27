@@ -1,4 +1,4 @@
-package ledger
+package core
 
 type SnapshotChunk struct {
 	SnapshotBlock *SnapshotBlock  `json:"snapshotBlock"`

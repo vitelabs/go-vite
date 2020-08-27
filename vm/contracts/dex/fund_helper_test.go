@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"github.com/stretchr/testify/assert"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 	"strconv"

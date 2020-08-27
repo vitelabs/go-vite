@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type stateCh interface {
@@ -13,8 +13,8 @@ type stateCh interface {
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                              // Get register for consensus group
 	GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)                                                      // Get the candidate's vote
 	GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (map[types.Address]*big.Int, error) // Get balance for addressList
-	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
-	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*core.SnapshotBlock, error)
+	GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
 }
 
 func CalVotes(info types.ConsensusGroupInfo, hash types.Hash, rw stateCh) ([]*Vote, error) {

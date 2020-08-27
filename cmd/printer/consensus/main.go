@@ -8,7 +8,7 @@ import (
 
 	"github.com/vitelabs/go-vite/pool/lock"
 
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"

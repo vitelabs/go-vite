@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 var NotFoundBlock = errors.New("block not found")

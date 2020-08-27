@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang/snappy"
 	"github.com/vitelabs/go-vite/chain/block"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type Reader struct {

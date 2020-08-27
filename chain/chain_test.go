@@ -17,7 +17,7 @@ import (
 	"github.com/vitelabs/go-vite/chain/test_tools"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"math/rand"
 	"os/exec"

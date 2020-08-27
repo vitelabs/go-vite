@@ -1,12 +1,13 @@
-package ledger
+package core
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"gotest.tools/assert"
-	"testing"
 )
 
 func TestVmLogList_Hash(t *testing.T) {

@@ -1,20 +1,22 @@
-package ledger
+package core
 
 import (
 	"encoding/base64"
 	"encoding/json"
 
 	"fmt"
+
 	"github.com/vitelabs/go-vite/common/fork"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 func createSnapshotContent(count int) SnapshotContent {

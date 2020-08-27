@@ -6,7 +6,7 @@ import (
 	"github.com/vitelabs/go-vite/consensus/cdb"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 // APISnapshot is the interface that can query snapshot consensus info.

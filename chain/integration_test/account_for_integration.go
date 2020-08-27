@@ -9,7 +9,7 @@ import (
 
 	"encoding/binary"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"math/rand"

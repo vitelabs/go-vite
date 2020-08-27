@@ -1,7 +1,7 @@
 package chain_cache
 
 import (
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type Chain interface {

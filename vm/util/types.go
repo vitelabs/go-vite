@@ -1,7 +1,7 @@
 package util
 
 import (
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 // GlobalStatus contains confirm snapshot block and seed of contract response block

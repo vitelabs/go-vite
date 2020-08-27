@@ -1,4 +1,4 @@
-package ledger
+package core
 
 import (
 	"github.com/golang/protobuf/proto"
@@ -56,8 +56,6 @@ func (vll VmLogList) Proto() *vitepb.VmLogList {
 	return pb
 }
 
-
-
 func (vll VmLogList) Serialize() ([]byte, error) {
 	return proto.Marshal(vll.Proto())
 }
@@ -70,7 +68,7 @@ func (vll *VmLogList) Deserialize(buf []byte) error {
 	return vll.DeProto(pb)
 }
 
-func (vll *VmLogList )DeProto(pb *vitepb.VmLogList) error{
+func (vll *VmLogList) DeProto(pb *vitepb.VmLogList) error {
 	var tmp VmLogList
 	for _, vmLogPb := range pb.List {
 

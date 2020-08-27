@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 
 	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/consensus/core"

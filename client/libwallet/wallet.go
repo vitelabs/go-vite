@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 
 	"github.com/go-errors/errors"
 	"github.com/vitelabs/go-vite/common/types"

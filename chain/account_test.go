@@ -4,7 +4,7 @@ import (
 	rand2 "crypto/rand"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"sort"

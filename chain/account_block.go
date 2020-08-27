@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/vitelabs/go-vite/chain/file_manager"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 func (c *chain) IsGenesisAccountBlock(hash types.Hash) bool {

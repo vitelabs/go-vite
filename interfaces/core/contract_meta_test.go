@@ -1,10 +1,11 @@
-package ledger
+package core
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"testing"
 )
 
 func TestContractMeta_Serialize(t *testing.T) {

@@ -1,7 +1,7 @@
 package chain_genesis
 
 import (
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm_db"
 	"time"
 )

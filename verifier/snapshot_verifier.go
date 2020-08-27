@@ -10,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	css "github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/monitor"
 )
 

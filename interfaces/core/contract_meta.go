@@ -1,4 +1,4 @@
-package ledger
+package core
 
 import "github.com/vitelabs/go-vite/common/types"
 
