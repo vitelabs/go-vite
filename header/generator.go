@@ -3,6 +3,8 @@ package header
 import (
 	"math/big"
 
+	"github.com/vitelabs/go-vite/interfaces"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm_db"
@@ -31,13 +33,9 @@ type IncomingMessage struct {
 	Difficulty *big.Int
 }
 
-// SignFunc is the function type defining the callback when a block requires a
-// method to sign the transaction in generator.
-type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
-
 type Generator interface {
 	GenerateWithBlock(block *core.AccountBlock, fromBlock *core.AccountBlock) (*GenResult, error)
-	GenerateWithMessage(message *IncomingMessage, producer *types.Address, signFunc SignFunc) (*GenResult, error)
-	GenerateWithOnRoad(sendBlock *core.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error)
+	GenerateWithMessage(message *IncomingMessage, producer *types.Address, signFunc interfaces.SignFunc) (*GenResult, error)
+	GenerateWithOnRoad(sendBlock *core.AccountBlock, producer *types.Address, signFunc interfaces.SignFunc, difficulty *big.Int) (*GenResult, error)
 	GetVMDB() vm_db.VmDb
 }

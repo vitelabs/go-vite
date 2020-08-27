@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/vitelabs/go-vite/interfaces"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/header"
@@ -72,7 +74,7 @@ func (gen *generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *l
 
 // GenerateWithMessage implements the method to generate a transaction with VM execution results
 // from a IncomingMessage which contains the necessary transaction info.
-func (gen *generator) GenerateWithMessage(message *header.IncomingMessage, producer *types.Address, signFunc header.SignFunc) (*header.GenResult, error) {
+func (gen *generator) GenerateWithMessage(message *header.IncomingMessage, producer *types.Address, signFunc interfaces.SignFunc) (*header.GenResult, error) {
 	block, err := IncomingMessageToBlock(gen.vmDb, message)
 	if err != nil {
 		return nil, err
@@ -93,7 +95,7 @@ func (gen *generator) GenerateWithMessage(message *header.IncomingMessage, produ
 
 // GenerateWithOnRoad implements the method to generate a transaction with VM execution results
 // from a sendBlock(onroad block).
-func (gen *generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc header.SignFunc, difficulty *big.Int) (*header.GenResult, error) {
+func (gen *generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc interfaces.SignFunc, difficulty *big.Int) (*header.GenResult, error) {
 	block, err := gen.packReceiveBlockWithSend(sendBlock, difficulty)
 	if err != nil {
 		return nil, err
@@ -105,7 +107,7 @@ func (gen *generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, produce
 	return genResult, nil
 }
 
-func (gen *generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock, producer *types.Address, signFunc header.SignFunc) (result *header.GenResult, resultErr error) {
+func (gen *generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock, producer *types.Address, signFunc interfaces.SignFunc) (result *header.GenResult, resultErr error) {
 	defer func() {
 		if err := recover(); err != nil {
 			// debug.PrintStack()
