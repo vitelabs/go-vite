@@ -1,9 +1,10 @@
 package interfaces
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus/core"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger/consensus/core"
 )
 
 type VoteDetails struct {

@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/generator"
+	"github.com/vitelabs/go-vite/ledger/generator"
 	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/vite"

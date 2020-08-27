@@ -7,7 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/vm/quota"
 
-	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )

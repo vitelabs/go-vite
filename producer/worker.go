@@ -13,7 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 )

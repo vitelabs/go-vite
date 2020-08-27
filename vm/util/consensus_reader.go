@@ -1,7 +1,7 @@
 package util
 
 import (
-	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"time"
 )
 

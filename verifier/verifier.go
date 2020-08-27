@@ -2,13 +2,13 @@ package verifier
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/crypto"
 	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/onroad"
+	"github.com/vitelabs/go-vite/ledger/onroad"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 

@@ -8,14 +8,14 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/pool"
+	"github.com/vitelabs/go-vite/ledger/pool"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/wallet"
 )

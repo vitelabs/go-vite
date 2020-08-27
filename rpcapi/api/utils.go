@@ -5,7 +5,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron"
-	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger"github.com/vitelabs/go-vite/interfaces/core"

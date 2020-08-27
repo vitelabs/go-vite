@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"

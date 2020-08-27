@@ -7,7 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/net/vnode"
 
-	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger/consensus"
 
 	"github.com/go-errors/errors"
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/chain/plugins"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/ledger/chain/plugins"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger"github.com/vitelabs/go-vite/interfaces/core"

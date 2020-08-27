@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/chain/test_tools"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger/consensus"
 	ledger"github.com/vitelabs/go-vite/interfaces/core"
 )
 
