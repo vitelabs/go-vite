@@ -10,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/vitelabs/go-vite/common/vitepb"
 )
 
 var accountBlockLog = log15.New("module", "ledger/account_block")

@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/vitelabs/go-vite/common/vitepb"
 )
 
 var dbItemPrefix = []byte("c:")

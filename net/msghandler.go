@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/vitelabs/go-vite/common/vitepb"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"

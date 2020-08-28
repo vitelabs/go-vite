@@ -5,7 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/vitelabs/go-vite/common/vitepb"
 )
 
 type VmLog struct {

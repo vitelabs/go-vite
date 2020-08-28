@@ -7,7 +7,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/vitelabs/go-vite/common/vitepb"
 )
 
 type Content struct {

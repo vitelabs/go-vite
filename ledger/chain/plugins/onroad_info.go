@@ -12,7 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/chain/db"
 	"github.com/vitelabs/go-vite/ledger/chain/flusher"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/vitelabs/go-vite/common/vitepb"
 	"math/big"
 	"strconv"
 	"sync"

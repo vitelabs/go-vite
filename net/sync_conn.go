@@ -37,7 +37,7 @@ import (
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/net/vnode"
-	"github.com/vitelabs/go-vite/vitepb"
+	"github.com/vitelabs/go-vite/common/vitepb"
 )
 
 var errWriteTooShort = errors.New("write too short")
