@@ -16,7 +16,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer"
-	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/wallet"
 )

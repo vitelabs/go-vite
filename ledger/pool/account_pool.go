@@ -16,7 +16,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/pool/tree"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 )
 
 type accountPool struct {

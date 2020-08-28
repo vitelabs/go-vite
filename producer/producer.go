@@ -16,7 +16,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 )
 
 // Package producer implements vite block creation

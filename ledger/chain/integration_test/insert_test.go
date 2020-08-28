@@ -19,7 +19,7 @@ import (
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
-	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/quota"
 )

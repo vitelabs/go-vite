@@ -15,7 +15,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/pool"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 )
 
 type tools struct {

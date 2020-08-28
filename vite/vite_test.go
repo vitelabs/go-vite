@@ -16,7 +16,7 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/ledger/pool"
-	"github.com/vitelabs/go-vite/verifier"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 	"github.com/vitelabs/go-vite/vm/abi"
 )
 
