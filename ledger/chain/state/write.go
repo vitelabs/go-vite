@@ -5,15 +5,15 @@ import (
 	"math/big"
 
 	"github.com/patrickmn/go-cache"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/utils"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
-func (sDB *StateDB) Write(block *vm_db.VmAccountBlock) error {
+func (sDB *StateDB) Write(block *interfaces.VmAccountBlock) error {
 	batch := sDB.store.NewBatch()
 
 	vmDb := block.VmDb

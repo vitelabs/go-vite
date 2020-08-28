@@ -3,17 +3,18 @@ package dex
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+	"strconv"
+	"strings"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"strconv"
-	"strings"
 )
 
 func CheckMarketParam(marketParam *ParamOpenNewMarket) (err error) {
@@ -23,7 +24,7 @@ func CheckMarketParam(marketParam *ParamOpenNewMarket) (err error) {
 	return nil
 }
 
-func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo *TokenInfo, creator *types.Address) error {
+func RenderMarketInfo(db interfaces.VmDb, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, tradeTokenInfo *TokenInfo, creator *types.Address) error {
 	quoteTokenInfo, ok := GetTokenInfo(db, quoteToken)
 	if !ok || quoteTokenInfo.QuoteTokenType <= 0 {
 		return TradeMarketInvalidQuoteTokenErr
@@ -59,14 +60,14 @@ func RenderMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeToken, quoteTo
 	return nil
 }
 
-func renderMarketInfoWithTradeTokenInfo(db vm_db.VmDb, marketInfo *MarketInfo, tradeTokenInfo *TokenInfo) {
+func renderMarketInfoWithTradeTokenInfo(db interfaces.VmDb, marketInfo *MarketInfo, tradeTokenInfo *TokenInfo) {
 	marketInfo.MarketSymbol = fmt.Sprintf("%s_%s", getDexTokenSymbol(tradeTokenInfo), marketInfo.MarketSymbol)
 	marketInfo.TradeTokenDecimals = tradeTokenInfo.Decimals
 	marketInfo.Valid = true
 	marketInfo.Owner = tradeTokenInfo.Owner
 }
 
-func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (blocks []*ledger.AccountBlock, err error) {
+func OnNewMarketValid(db interfaces.VmDb, reader util.ConsensusReader, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId, address *types.Address) (blocks []*ledger.AccountBlock, err error) {
 	if _, err = ReduceAccount(db, *address, ledger.ViteTokenId.Bytes(), NewMarketFeeAmount); err != nil {
 		DeleteMarketInfo(db, tradeToken, quoteToken)
 		AddErrEvent(db, err)
@@ -122,7 +123,7 @@ func OnNewMarketValid(db vm_db.VmDb, reader util.ConsensusReader, marketInfo *Ma
 	}
 }
 
-func OnNewMarketPending(db vm_db.VmDb, param *ParamOpenNewMarket, marketInfo *MarketInfo) (data []byte, err error) {
+func OnNewMarketPending(db interfaces.VmDb, param *ParamOpenNewMarket, marketInfo *MarketInfo) (data []byte, err error) {
 	SaveMarketInfo(db, marketInfo, param.TradeToken, param.QuoteToken)
 	if err = AddToPendingNewMarkets(db, param.TradeToken, param.QuoteToken); err != nil {
 		return
@@ -134,7 +135,7 @@ func OnNewMarketPending(db vm_db.VmDb, param *ParamOpenNewMarket, marketInfo *Ma
 	}
 }
 
-func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
+func OnNewMarketGetTokenInfoSuccess(db interfaces.VmDb, reader util.ConsensusReader, tradeTokenId types.TokenTypeId, tokenInfoRes *ParamGetTokenInfoCallback) (appendBlocks []*ledger.AccountBlock, err error) {
 	tradeTokenInfo := newTokenInfoFromCallback(db, tokenInfoRes)
 	SaveTokenInfo(db, tradeTokenId, tradeTokenInfo)
 	AddTokenEvent(db, tradeTokenInfo)
@@ -176,7 +177,7 @@ func OnNewMarketGetTokenInfoSuccess(db vm_db.VmDb, reader util.ConsensusReader, 
 	}
 }
 
-func OnNewMarketGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (err error) {
+func OnNewMarketGetTokenInfoFailed(db interfaces.VmDb, tradeTokenId types.TokenTypeId) (err error) {
 	var quoteTokens [][]byte
 	if quoteTokens, err = FilterPendingNewMarkets(db, tradeTokenId); err != nil {
 		return
@@ -194,7 +195,7 @@ func OnNewMarketGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId
 	}
 }
 
-func OnSetQuoteTokenPending(db vm_db.VmDb, token types.TokenTypeId, quoteTokenType uint8) []byte {
+func OnSetQuoteTokenPending(db interfaces.VmDb, token types.TokenTypeId, quoteTokenType uint8) []byte {
 	AddToPendingSetQuotes(db, token, quoteTokenType)
 	if data, err := abi.ABIAsset.PackMethod(abi.MethodNameGetTokenInfo, token, uint8(GetTokenForSetQuote)); err != nil {
 		panic(err)
@@ -203,7 +204,7 @@ func OnSetQuoteTokenPending(db vm_db.VmDb, token types.TokenTypeId, quoteTokenTy
 	}
 }
 
-func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamGetTokenInfoCallback) error {
+func OnSetQuoteGetTokenInfoSuccess(db interfaces.VmDb, tokenInfoRes *ParamGetTokenInfoCallback) error {
 	if action, err := FilterPendingSetQuotes(db, tokenInfoRes.TokenId); err != nil {
 		return err
 	} else {
@@ -215,12 +216,12 @@ func OnSetQuoteGetTokenInfoSuccess(db vm_db.VmDb, tokenInfoRes *ParamGetTokenInf
 	}
 }
 
-func OnSetQuoteGetTokenInfoFailed(db vm_db.VmDb, tokenId types.TokenTypeId) (err error) {
+func OnSetQuoteGetTokenInfoFailed(db interfaces.VmDb, tokenId types.TokenTypeId) (err error) {
 	_, err = FilterPendingSetQuotes(db, tokenId)
 	return
 }
 
-func OnTransferTokenOwnerPending(db vm_db.VmDb, token types.TokenTypeId, origin, new types.Address) []byte {
+func OnTransferTokenOwnerPending(db interfaces.VmDb, token types.TokenTypeId, origin, new types.Address) []byte {
 	AddToPendingTransferTokenOwners(db, token, origin, new)
 	if data, err := abi.ABIAsset.PackMethod(abi.MethodNameGetTokenInfo, token, uint8(GetTokenForTransferOwner)); err != nil {
 		panic(err)
@@ -229,7 +230,7 @@ func OnTransferTokenOwnerPending(db vm_db.VmDb, token types.TokenTypeId, origin,
 	}
 }
 
-func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, param *ParamGetTokenInfoCallback) error {
+func OnTransferOwnerGetTokenInfoSuccess(db interfaces.VmDb, param *ParamGetTokenInfoCallback) error {
 	if action, err := FilterPendingTransferTokenOwners(db, param.TokenId); err != nil {
 		return err
 	} else {
@@ -246,7 +247,7 @@ func OnTransferOwnerGetTokenInfoSuccess(db vm_db.VmDb, param *ParamGetTokenInfoC
 	}
 }
 
-func OnTransferOwnerGetTokenInfoFailed(db vm_db.VmDb, tradeTokenId types.TokenTypeId) (err error) {
+func OnTransferOwnerGetTokenInfoFailed(db interfaces.VmDb, tradeTokenId types.TokenTypeId) (err error) {
 	_, err = FilterPendingTransferTokenOwners(db, tradeTokenId)
 	return
 }
@@ -267,7 +268,7 @@ func PreCheckOrderParam(orderParam *ParamPlaceOrder, isStemFork bool) error {
 	return nil
 }
 
-func DoPlaceOrder(db vm_db.VmDb, param *ParamPlaceOrder, accountAddress, agent *types.Address, sendHash types.Hash) ([]*ledger.AccountBlock, error) {
+func DoPlaceOrder(db interfaces.VmDb, param *ParamPlaceOrder, accountAddress, agent *types.Address, sendHash types.Hash) ([]*ledger.AccountBlock, error) {
 	var (
 		dexFund        *Fund
 		tradeBlockData []byte
@@ -309,7 +310,7 @@ func DoPlaceOrder(db vm_db.VmDb, param *ParamPlaceOrder, accountAddress, agent *
 	}, nil
 }
 
-func RenderOrder(order *Order, param *ParamPlaceOrder, db vm_db.VmDb, accountAddress, agent *types.Address, sendHash types.Hash) (*MarketInfo, error) {
+func RenderOrder(order *Order, param *ParamPlaceOrder, db interfaces.VmDb, accountAddress, agent *types.Address, sendHash types.Hash) (*MarketInfo, error) {
 	var (
 		marketInfo *MarketInfo
 		ok         bool
@@ -357,7 +358,7 @@ func RenderOrder(order *Order, param *ParamPlaceOrder, db vm_db.VmDb, accountAdd
 	return marketInfo, nil
 }
 
-func isAmountTooSmall(db vm_db.VmDb, amount []byte, marketInfo *MarketInfo) bool {
+func isAmountTooSmall(db interfaces.VmDb, amount []byte, marketInfo *MarketInfo) bool {
 	typeInfo, _ := QuoteTokenTypeInfos[marketInfo.QuoteTokenType]
 	tradeThreshold := GetTradeThreshold(db, marketInfo.QuoteTokenType)
 	if typeInfo.Decimals == marketInfo.QuoteTokenDecimals {
@@ -367,7 +368,7 @@ func isAmountTooSmall(db vm_db.VmDb, amount []byte, marketInfo *MarketInfo) bool
 	}
 }
 
-func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, db vm_db.VmDb) {
+func RenderFeeRate(address types.Address, order *Order, marketInfo *MarketInfo, db interfaces.VmDb) {
 	if IsDexStableMarketFork(db) && marketInfo.GetStableMarket() { //stable pair with zero fees
 		return
 	}
@@ -438,7 +439,7 @@ func CheckAndLockFundForNewOrder(dexFund *Fund, order *Order, marketInfo *Market
 	return
 }
 
-func newTokenInfoFromCallback(db vm_db.VmDb, param *ParamGetTokenInfoCallback) *TokenInfo {
+func newTokenInfoFromCallback(db interfaces.VmDb, param *ParamGetTokenInfoCallback) *TokenInfo {
 	tokenInfo := &TokenInfo{}
 	tokenInfo.TokenId = param.TokenId.Bytes()
 	tokenInfo.Decimals = int32(param.Decimals)
@@ -453,7 +454,7 @@ func newTokenInfoFromCallback(db vm_db.VmDb, param *ParamGetTokenInfoCallback) *
 	return tokenInfo
 }
 
-func CheckCancelAgentOrder(db vm_db.VmDb, sender types.Address, param *ParamCancelOrderByHash) (owner types.Address, err error) {
+func CheckCancelAgentOrder(db interfaces.VmDb, sender types.Address, param *ParamCancelOrderByHash) (owner types.Address, err error) {
 	if param.Principal != types.ZERO_ADDRESS && param.Principal != sender {
 		owner = param.Principal
 		if marketInfo, ok := GetMarketInfo(db, param.TradeToken, param.QuoteToken); !ok {
@@ -532,7 +533,7 @@ func MaxTotalFeeRate(order Order) int32 {
 	}
 }
 
-func IsDexFeeFork(db vm_db.VmDb) bool {
+func IsDexFeeFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
@@ -540,7 +541,7 @@ func IsDexFeeFork(db vm_db.VmDb) bool {
 	}
 }
 
-func IsStemFork(db vm_db.VmDb) bool {
+func IsStemFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
@@ -548,7 +549,7 @@ func IsStemFork(db vm_db.VmDb) bool {
 	}
 }
 
-func IsLeafFork(db vm_db.VmDb) bool {
+func IsLeafFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
@@ -556,7 +557,7 @@ func IsLeafFork(db vm_db.VmDb) bool {
 	}
 }
 
-func IsEarthFork(db vm_db.VmDb) bool {
+func IsEarthFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
@@ -564,7 +565,7 @@ func IsEarthFork(db vm_db.VmDb) bool {
 	}
 }
 
-func IsDexMiningFork(db vm_db.VmDb) bool {
+func IsDexMiningFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
@@ -572,7 +573,7 @@ func IsDexMiningFork(db vm_db.VmDb) bool {
 	}
 }
 
-func IsDexRobotFork(db vm_db.VmDb) bool {
+func IsDexRobotFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
@@ -580,7 +581,7 @@ func IsDexRobotFork(db vm_db.VmDb) bool {
 	}
 }
 
-func IsDexStableMarketFork(db vm_db.VmDb) bool {
+func IsDexStableMarketFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {

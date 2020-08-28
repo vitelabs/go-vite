@@ -6,13 +6,12 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	ch "github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type chainDb interface {
@@ -21,7 +20,7 @@ type chainDb interface {
 	 */
 	Register(listener ch.EventListener)
 	UnRegister(listener ch.EventListener)
-	InsertAccountBlock(vmAccountBlocks *vm_db.VmAccountBlock) error
+	InsertAccountBlock(vmAccountBlocks *interfaces.VmAccountBlock) error
 	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
 	GetAccountBlockByHeight(addr types.Address, height uint64) (*ledger.AccountBlock, error)
 	GetAccountBlockHashByHeight(addr types.Address, height uint64) (*types.Hash, error)
@@ -77,7 +76,7 @@ func (accCh *accountCh) insertBlock(b commonBlock) error {
 		reqInfo = block.block.FromBlockHash.String()
 	}
 	accCh.log.Info("insert account block", "addr", block.block.AccountAddress, "height", block.block.Height, "hash", block.block.Hash, "sendList", sendInfo, "requestHash", reqInfo)
-	accountBlock := &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock}
+	accountBlock := &interfaces.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock}
 	return accCh.rw.InsertAccountBlock(accountBlock)
 }
 
@@ -124,12 +123,12 @@ func (accCh *accountCh) getHash(height uint64) *types.Hash {
 }
 
 func (accCh *accountCh) insertBlocks(bs []commonBlock) error {
-	var blocks []*vm_db.VmAccountBlock
+	var blocks []*interfaces.VmAccountBlock
 	for _, b := range bs {
 		block := b.(*accountPoolBlock)
 		accCh.log.Info(fmt.Sprintf("account block insert. [%s][%d][%s].\n", block.block.AccountAddress, block.Height(), block.Hash()))
 		monitor.LogEvent("pool", "insertChain")
-		blocks = append(blocks, &vm_db.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock})
+		blocks = append(blocks, &interfaces.VmAccountBlock{AccountBlock: block.block, VmDb: block.vmBlock})
 		monitor.LogEvent("pool", "accountInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))
 	}
 

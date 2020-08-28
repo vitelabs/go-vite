@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type snapshotPrinter struct {
@@ -67,12 +67,12 @@ func (printer *snapshotPrinter) print(chunks []*ledger.SnapshotChunk) {
 	fmt.Printf("[Snapshot Stats] Height:%d, Hash:%s, Timestamp:%s, Producer:%s, Time:%s\n", block.Height, block.Hash, block.Timestamp, block.Producer(), time.Now())
 }
 
-func (printer *snapshotPrinter) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+func (printer *snapshotPrinter) PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error {
 	// ignore
 	return nil
 }
 
-func (printer *snapshotPrinter) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+func (printer *snapshotPrinter) InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error {
 	// ignore
 	return nil
 }

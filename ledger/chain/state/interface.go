@@ -1,6 +1,9 @@
 package chain_state
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	"github.com/vitelabs/go-vite/common/types"
@@ -8,14 +11,11 @@ import (
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/db"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"time"
 )
 
 type EventListener interface {
-	PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error
-	InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error
+	PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+	InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
 
 	PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error
 	InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error
@@ -132,7 +132,7 @@ type StateDBInterface interface {
 	getValueInCache(key []byte, cachePrefix string) ([]byte, error)
 	parseStorageKey(key []byte) []byte
 	copyValue(value []byte) []byte
-	Write(block *vm_db.VmAccountBlock) error
+	Write(block *interfaces.VmAccountBlock) error
 	WriteByRedo(blockHash types.Hash, addr types.Address, redoLog LogItem)
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock) error
 	writeContractMeta(batch interfaces.Batch, key, value []byte)

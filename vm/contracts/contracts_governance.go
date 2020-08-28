@@ -9,11 +9,11 @@ import (
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type MethodRegister struct {
@@ -33,7 +33,7 @@ func (p *MethodRegister) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodRegister) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodRegister) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	param := new(abi.ParamRegister)
 	if err := abi.ABIGovernance.UnpackMethod(param, p.MethodName, block.Data); err != nil {
 		return util.ErrInvalidMethodParam
@@ -64,7 +64,7 @@ func checkRegisterAndVoteParam(gid types.Gid, name string) bool {
 	return true
 }
 
-func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodRegister) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	// Check param by group info
 	param := new(abi.ParamRegister)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
@@ -160,7 +160,7 @@ func (p *MethodRegister) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, se
 	return nil, nil
 }
 
-func saveWithdrawRewardAddress(db vm_db.VmDb, oldAddr *types.Address, newAddr, owner types.Address, sbpName string) {
+func saveWithdrawRewardAddress(db interfaces.VmDb, oldAddr *types.Address, newAddr, owner types.Address, sbpName string) {
 	if oldAddr == nil {
 		if newAddr == owner {
 			return
@@ -183,7 +183,7 @@ func saveWithdrawRewardAddress(db vm_db.VmDb, oldAddr *types.Address, newAddr, o
 	addWithdrawRewardAddress(db, newAddr, sbpName)
 }
 
-func addWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string) {
+func addWithdrawRewardAddress(db interfaces.VmDb, addr types.Address, sbpName string) {
 	value := util.GetValue(db, addr.Bytes())
 	if len(value) == 0 {
 		value = []byte(sbpName)
@@ -192,7 +192,7 @@ func addWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string)
 	}
 	util.SetValue(db, addr.Bytes(), value)
 }
-func deleteWithdrawRewardAddress(db vm_db.VmDb, addr types.Address, sbpName string) {
+func deleteWithdrawRewardAddress(db interfaces.VmDb, addr types.Address, sbpName string) {
 	value := util.GetValue(db, addr.Bytes())
 	valueStr := string(value)
 	// equal, prefix, suffix, middle
@@ -224,7 +224,7 @@ func (p *MethodRevoke) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodRevoke) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodRevoke) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() != 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -245,7 +245,7 @@ func (p *MethodRevoke) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	}
 	return nil
 }
-func (p *MethodRevoke) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodRevoke) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelRegister)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	if p.MethodName == abi.MethodNameRevokeV3 {
@@ -324,7 +324,7 @@ func (p *MethodWithdrawReward) GetReceiveQuota(gasTable *util.QuotaTable) uint64
 	return 0
 }
 
-func (p *MethodWithdrawReward) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodWithdrawReward) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() != 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -345,7 +345,7 @@ func (p *MethodWithdrawReward) DoSend(db vm_db.VmDb, block *ledger.AccountBlock)
 	}
 	return nil
 }
-func (p *MethodWithdrawReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodWithdrawReward) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamReward)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	if p.MethodName == abi.MethodNameWithdrawRewardV3 {
@@ -417,7 +417,7 @@ func (p *MethodWithdrawReward) DoReceive(db vm_db.VmDb, block *ledger.AccountBlo
 	return nil, nil
 }
 
-func checkRewardDrained(reader util.ConsensusReader, db vm_db.VmDb, old *types.Registration, current *ledger.SnapshotBlock) (bool, error) {
+func checkRewardDrained(reader util.ConsensusReader, db interfaces.VmDb, old *types.Registration, current *ledger.SnapshotBlock) (bool, error) {
 	_, _, reward, drained, err := CalcReward(reader, db, old, current)
 	if err != nil {
 		return false, err
@@ -453,7 +453,7 @@ func (r *Reward) add(a *Reward) {
 }
 
 // CalcReward calculates available reward of a sbp
-func CalcReward(reader util.ConsensusReader, db vm_db.VmDb, old *types.Registration, current *ledger.SnapshotBlock) (startTime int64, endTime int64, reward *Reward, drained bool, err error) {
+func CalcReward(reader util.ConsensusReader, db interfaces.VmDb, old *types.Registration, current *ledger.SnapshotBlock) (startTime int64, endTime int64, reward *Reward, drained bool, err error) {
 	defer func() {
 		if err := recover(); err != nil {
 			debug.PrintStack()
@@ -464,7 +464,7 @@ func CalcReward(reader util.ConsensusReader, db vm_db.VmDb, old *types.Registrat
 	return calcReward(old, genesisTime, db, current, reader)
 }
 
-func calcReward(old *types.Registration, genesisTime int64, db vm_db.VmDb, current *ledger.SnapshotBlock, reader util.ConsensusReader) (int64, int64, *Reward, bool, error) {
+func calcReward(old *types.Registration, genesisTime int64, db interfaces.VmDb, current *ledger.SnapshotBlock, reader util.ConsensusReader) (int64, int64, *Reward, bool, error) {
 	var startIndex, endIndex uint64
 	var startTime, endTime int64
 	drained := false
@@ -510,7 +510,7 @@ func getRewardTimeLimit(current *ledger.SnapshotBlock) int64 {
 	return current.Timestamp.Unix() - rewardTimeLimit
 }
 
-func getSnapshotGroupStakeAmount(db vm_db.VmDb, reader util.ConsensusReader, genesisTime int64, index uint64, forkIndex uint64) (*big.Int, uint64, error) {
+func getSnapshotGroupStakeAmount(db interfaces.VmDb, reader util.ConsensusReader, genesisTime int64, index uint64, forkIndex uint64) (*big.Int, uint64, error) {
 	sb, err := db.LatestSnapshotBlock()
 	if err != nil {
 		return nil, forkIndex, err
@@ -532,7 +532,7 @@ func getSnapshotGroupStakeAmount(db vm_db.VmDb, reader util.ConsensusReader, gen
 }
 
 // CalcRewardByCycle calculates reward of all sbps in one cycle
-func CalcRewardByCycle(db vm_db.VmDb, reader util.ConsensusReader, timestamp int64) (m map[string]*Reward, index uint64, err error) {
+func CalcRewardByCycle(db interfaces.VmDb, reader util.ConsensusReader, timestamp int64) (m map[string]*Reward, index uint64, err error) {
 	defer func() {
 		if panicErr := recover(); panicErr != nil {
 			debug.PrintStack()
@@ -565,7 +565,7 @@ func CalcRewardByCycle(db vm_db.VmDb, reader util.ConsensusReader, timestamp int
 }
 
 // CalcRewardByIndex calculates reward of all sbps in one cycle
-func CalcRewardByIndex(db vm_db.VmDb, reader util.ConsensusReader, index uint64) (m map[string]*Reward, err error) {
+func CalcRewardByIndex(db interfaces.VmDb, reader util.ConsensusReader, index uint64) (m map[string]*Reward, err error) {
 	defer func() {
 		if panicErr := recover(); panicErr != nil {
 			debug.PrintStack()
@@ -662,7 +662,7 @@ func (p *MethodUpdateBlockProducingAddress) GetReceiveQuota(gasTable *util.Quota
 	return 0
 }
 
-func (p *MethodUpdateBlockProducingAddress) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodUpdateBlockProducingAddress) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() != 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -683,7 +683,7 @@ func (p *MethodUpdateBlockProducingAddress) DoSend(db vm_db.VmDb, block *ledger.
 	}
 	return nil
 }
-func (p *MethodUpdateBlockProducingAddress) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodUpdateBlockProducingAddress) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamRegister)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	if p.MethodName == abi.MethodNameUpdateBlockProducintAddressV3 {
@@ -758,7 +758,7 @@ func (p *MethodUpdateRewardWithdrawAddress) GetReceiveQuota(gasTable *util.Quota
 	return 0
 }
 
-func (p *MethodUpdateRewardWithdrawAddress) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodUpdateRewardWithdrawAddress) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() != 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -773,7 +773,7 @@ func (p *MethodUpdateRewardWithdrawAddress) DoSend(db vm_db.VmDb, block *ledger.
 	block.Data, _ = abi.ABIGovernance.PackMethod(p.MethodName, param.SbpName, param.RewardWithdrawAddress)
 	return nil
 }
-func (p *MethodUpdateRewardWithdrawAddress) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodUpdateRewardWithdrawAddress) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamRegister)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	param.Gid = types.SNAPSHOT_GID
@@ -818,7 +818,7 @@ func (p *MethodVote) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodVote) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	latestSb, err := db.LatestSnapshotBlock()
 	util.DealWithErr(err)
 	if block.Amount.Sign() != 0 || (types.IsContractAddr(block.AccountAddress) && !fork.IsStemFork(latestSb.Height)) {
@@ -842,7 +842,7 @@ func (p *MethodVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	return nil
 }
 
-func (p *MethodVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodVote) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamVote)
 	abi.ABIGovernance.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	if p.MethodName == abi.MethodNameVoteV3 {
@@ -882,7 +882,7 @@ func (p *MethodCancelVote) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodCancelVote) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	latestSb, err := db.LatestSnapshotBlock()
 	util.DealWithErr(err)
 	if block.Amount.Sign() != 0 ||
@@ -902,7 +902,7 @@ func (p *MethodCancelVote) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) err
 	return nil
 }
 
-func (p *MethodCancelVote) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodCancelVote) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	gid := new(types.Gid)
 	abi.ABIGovernance.UnpackMethod(gid, p.MethodName, sendBlock.Data)
 	if p.MethodName == abi.MethodNameCancelVoteV3 {

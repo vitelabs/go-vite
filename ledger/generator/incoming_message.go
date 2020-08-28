@@ -2,18 +2,18 @@ package generator
 
 import (
 	"errors"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/header"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/pow"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 // IncomingMessageToBlock returns a complete block by a IncomingMessage.
-func IncomingMessageToBlock(vmDb vm_db.VmDb, im *header.IncomingMessage) (*ledger.AccountBlock, error) {
+func IncomingMessageToBlock(vmDb interfaces.VmDb, im *interfaces.IncomingMessage) (*ledger.AccountBlock, error) {
 	block := &ledger.AccountBlock{
 		BlockType:      im.BlockType,
 		AccountAddress: im.AccountAddress,
@@ -122,20 +122,4 @@ func IncomingMessageToBlock(vmDb vm_db.VmDb, im *header.IncomingMessage) (*ledge
 		block.Difficulty = im.Difficulty
 	}
 	return block, nil
-}
-
-// IncomingMessage carries the necessary transaction info.
-type IncomingMessage struct {
-	BlockType byte
-
-	AccountAddress types.Address
-	ToAddress      *types.Address
-	FromBlockHash  *types.Hash
-
-	TokenId *types.TokenTypeId
-	Amount  *big.Int
-	Fee     *big.Int
-	Data    []byte
-
-	Difficulty *big.Int
 }

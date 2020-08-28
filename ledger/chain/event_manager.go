@@ -1,10 +1,12 @@
 package chain
 
 import (
-	"github.com/olebedev/emitter"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/vm_db"
 	"sync"
+
+	"github.com/olebedev/emitter"
+
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type Listener interface{}
@@ -39,7 +41,7 @@ func newEventManager(chain *chain) *eventManager {
 	}
 }
 
-func (em *eventManager) TriggerInsertAbs(eventType byte, vmAccountBlocks []*vm_db.VmAccountBlock) error {
+func (em *eventManager) TriggerInsertAbs(eventType byte, vmAccountBlocks []*interfaces.VmAccountBlock) error {
 	em.mu.Lock()
 	defer em.mu.Unlock()
 

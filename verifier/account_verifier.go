@@ -3,20 +3,21 @@ package verifier
 import (
 	"bytes"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/fork"
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 
 	"github.com/pkg/errors"
+
+	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/generator"
 	"github.com/vitelabs/go-vite/ledger/onroad"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 // AccountVerifier implements all method to verify the transaction.
@@ -372,7 +373,7 @@ func (v *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock) err
 	return nil
 }
 
-func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHashHeight *ledger.HashHeight) (*vm_db.VmAccountBlock, *VerifierError) {
+func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHashHeight *ledger.HashHeight) (*interfaces.VmAccountBlock, *VerifierError) {
 	var fromBlock *ledger.AccountBlock
 	if block.IsReceiveBlock() {
 		var err error

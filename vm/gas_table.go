@@ -2,13 +2,14 @@ package vm
 
 import (
 	"bytes"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 // memoryGasCosts calculates the quadratic gas for memory expansion. It does so
@@ -487,7 +488,7 @@ func gasRevert(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 }
 
 // GasRequiredForBlock calculates gas required for a user account block.
-func GasRequiredForBlock(db vm_db.VmDb, block *ledger.AccountBlock, gasTable *util.QuotaTable, sbHeight uint64) (uint64, error) {
+func GasRequiredForBlock(db interfaces.VmDb, block *ledger.AccountBlock, gasTable *util.QuotaTable, sbHeight uint64) (uint64, error) {
 	if block.BlockType == ledger.BlockTypeReceive {
 		return gasReceive(block, nil, gasTable)
 	}
@@ -558,7 +559,7 @@ func gasSendCall(block *ledger.AccountBlock, gasTable *util.QuotaTable) (uint64,
 // 1. toAddr is user, quota multiplier is 1;
 // 2. toAddr is contract, contract is created in latest snapshot block, return quota multiplier
 // 3. toAddr is contract, contract is not created in latest snapshot block, return error
-func getQuotaMultiplierForS(db vm_db.VmDb, toAddr types.Address) (uint8, error) {
+func getQuotaMultiplierForS(db interfaces.VmDb, toAddr types.Address) (uint8, error) {
 	if !types.IsContractAddr(toAddr) {
 		return util.CommonQuotaMultiplier, nil
 	}
@@ -573,7 +574,7 @@ func getQuotaMultiplierForS(db vm_db.VmDb, toAddr types.Address) (uint8, error) 
 // 3. toAddr is contract, send block is confirmed, contract is not created in confirm status, return error
 // 4. toAddr is contract, send block is not confirmed, contract is created in latest block, return quota multiplier
 // 5. toAddr is contract, send block is not confirmed, contract is not created in latest block, wait for a reliable status
-func getQuotaMultiplierForRS(db vm_db.VmDb, toAddr types.Address, sendBlock *ledger.AccountBlock, status util.GlobalStatus) (uint8, error) {
+func getQuotaMultiplierForRS(db interfaces.VmDb, toAddr types.Address, sendBlock *ledger.AccountBlock, status util.GlobalStatus) (uint8, error) {
 	if !types.IsContractAddr(toAddr) {
 		return util.CommonQuotaMultiplier, nil
 	}
@@ -595,7 +596,7 @@ func getQuotaMultiplierForRS(db vm_db.VmDb, toAddr types.Address, sendBlock *led
 	return 0, util.ErrNoReliableStatus
 }
 
-func getQuotaMultiplierBySnapshotBlock(db vm_db.VmDb, toAddr types.Address, snapshotBlock *ledger.SnapshotBlock) (uint8, error) {
+func getQuotaMultiplierBySnapshotBlock(db interfaces.VmDb, toAddr types.Address, snapshotBlock *ledger.SnapshotBlock) (uint8, error) {
 	meta, err := db.GetContractMetaInSnapshot(toAddr, snapshotBlock)
 	util.DealWithErr(err)
 	if meta == nil {

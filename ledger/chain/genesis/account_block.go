@@ -2,19 +2,20 @@ package chain_genesis
 
 import (
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"sort"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 )
 
-func NewGenesisAccountBlocks(cfg *config.Genesis) []*vm_db.VmAccountBlock {
-	list := make([]*vm_db.VmAccountBlock, 0)
+func NewGenesisAccountBlocks(cfg *config.Genesis) []*interfaces.VmAccountBlock {
+	list := make([]*interfaces.VmAccountBlock, 0)
 	addrSet := make(map[types.Address]interface{})
 	list, addrSet = newGenesisGovernanceContractBlocks(cfg, list, addrSet)
 	list, addrSet = newGenesisAssetContractBlocks(cfg, list, addrSet)
@@ -23,7 +24,7 @@ func NewGenesisAccountBlocks(cfg *config.Genesis) []*vm_db.VmAccountBlock {
 	return list
 }
 
-func updateAccountBalanceMap(cfg *config.Genesis, addr types.Address, vmdb vm_db.VmDb) {
+func updateAccountBalanceMap(cfg *config.Genesis, addr types.Address, vmdb interfaces.VmDb) {
 	if len(cfg.AccountBalanceMap) == 0 {
 		return
 	}
@@ -34,7 +35,7 @@ func updateAccountBalanceMap(cfg *config.Genesis, addr types.Address, vmdb vm_db
 	}
 }
 
-func newGenesisGovernanceContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*vm_db.VmAccountBlock, map[types.Address]interface{}) {
+func newGenesisGovernanceContractBlocks(cfg *config.Genesis, list []*interfaces.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*interfaces.VmAccountBlock, map[types.Address]interface{}) {
 	if cfg.GovernanceInfo != nil {
 		contractAddr := types.AddressGovernance
 		block := ledger.AccountBlock{
@@ -131,7 +132,7 @@ func newGenesisGovernanceContractBlocks(cfg *config.Genesis, list []*vm_db.VmAcc
 		updateAccountBalanceMap(cfg, contractAddr, vmdb)
 
 		block.Hash = block.ComputeHash()
-		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
+		list = append(list, &interfaces.VmAccountBlock{&block, vmdb})
 		addrSet[contractAddr] = struct{}{}
 	}
 	return list, addrSet
@@ -149,7 +150,7 @@ func (a byTokenId) Less(i, j int) bool {
 	return a[i].tokenId.Hex() > a[j].tokenId.Hex()
 }
 
-func newGenesisAssetContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*vm_db.VmAccountBlock, map[types.Address]interface{}) {
+func newGenesisAssetContractBlocks(cfg *config.Genesis, list []*interfaces.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*interfaces.VmAccountBlock, map[types.Address]interface{}) {
 	if cfg.AssetInfo != nil {
 		nextIndexMap := make(map[string]uint16)
 		contractAddr := types.AddressAsset
@@ -202,13 +203,13 @@ func newGenesisAssetContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountB
 		block.LogHash = vmdb.GetLogListHash()
 		updateAccountBalanceMap(cfg, contractAddr, vmdb)
 		block.Hash = block.ComputeHash()
-		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
+		list = append(list, &interfaces.VmAccountBlock{&block, vmdb})
 		addrSet[contractAddr] = struct{}{}
 	}
 	return list, addrSet
 }
 
-func newGenesisQuotaContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*vm_db.VmAccountBlock, map[types.Address]interface{}) {
+func newGenesisQuotaContractBlocks(cfg *config.Genesis, list []*interfaces.VmAccountBlock, addrSet map[types.Address]interface{}) ([]*interfaces.VmAccountBlock, map[types.Address]interface{}) {
 	if cfg.QuotaInfo != nil {
 		contractAddr := types.AddressQuota
 		block := ledger.AccountBlock{
@@ -244,13 +245,13 @@ func newGenesisQuotaContractBlocks(cfg *config.Genesis, list []*vm_db.VmAccountB
 		}
 		updateAccountBalanceMap(cfg, contractAddr, vmdb)
 		block.Hash = block.ComputeHash()
-		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
+		list = append(list, &interfaces.VmAccountBlock{&block, vmdb})
 		addrSet[contractAddr] = struct{}{}
 	}
 	return list, addrSet
 }
 
-func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountBlock, addrSet map[types.Address]interface{}) []*vm_db.VmAccountBlock {
+func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*interfaces.VmAccountBlock, addrSet map[types.Address]interface{}) []*interfaces.VmAccountBlock {
 	for addrStr, balanceMap := range cfg.AccountBalanceMap {
 		addr, err := types.HexToAddress(addrStr)
 		dealWithError(err)
@@ -271,7 +272,7 @@ func newGenesisNormalAccountBlocks(cfg *config.Genesis, list []*vm_db.VmAccountB
 			vmdb.SetBalance(&tokenId, balance)
 		}
 		block.Hash = block.ComputeHash()
-		list = append(list, &vm_db.VmAccountBlock{&block, vmdb})
+		list = append(list, &interfaces.VmAccountBlock{&block, vmdb})
 	}
 
 	return list

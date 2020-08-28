@@ -1,16 +1,12 @@
 package vm_db
 
 import (
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"math/big"
+	"github.com/vitelabs/go-vite/interfaces/core"
 )
-
-type VmAccountBlock struct {
-	AccountBlock *ledger.AccountBlock
-	VmDb         VmDb
-}
 
 type Chain interface {
 	IsContractAccount(address types.Address) (bool, error)
@@ -23,27 +19,27 @@ type Chain interface {
 
 	GetContractCode(contractAddr types.Address) ([]byte, error)
 
-	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
+	GetContractMeta(contractAddress types.Address) (meta *core.ContractMeta, err error)
 
-	GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*ledger.SnapshotBlock, error)
+	GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*core.SnapshotBlock, error)
 
 	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
 
-	GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (meta *ledger.ContractMeta, err error)
+	GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (meta *core.ContractMeta, err error)
 
-	GetSnapshotHeaderByHash(hash types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotHeaderByHash(hash types.Hash) (*core.SnapshotBlock, error)
 
-	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
 
-	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
+	GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
 
-	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
+	GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
 
-	GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error)
+	GetVmLogList(logHash *types.Hash) (core.VmLogList, error)
 
-	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
+	GetUnconfirmedBlocks(addr types.Address) []*core.AccountBlock
 
-	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
+	GetGenesisSnapshotBlock() *core.SnapshotBlock
 
 	GetStakeBeneficialAmount(addr types.Address) (*big.Int, error)
 
@@ -53,97 +49,9 @@ type Chain interface {
 
 	GetCallDepth(sendBlockHash types.Hash) (uint16, error)
 
-	GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error)
+	GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
 
-	GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error)
+	GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
 
-	GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error)
-}
-
-type VmDb interface {
-	// ====== Context ======
-	CanWrite() bool
-
-	Address() *types.Address
-
-	LatestSnapshotBlock() (*ledger.SnapshotBlock, error)
-
-	PrevAccountBlock() (*ledger.AccountBlock, error)
-
-	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
-
-	IsContractAccount() (bool, error)
-
-	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
-
-	GetQuotaUsedList(addr types.Address) []types.QuotaInfo
-
-	GetGlobalQuota() types.QuotaInfo
-
-	// ====== State ======
-	GetReceiptHash() *types.Hash
-
-	Reset()
-
-	// Release memory used in runtime.
-	Finish()
-
-	// ====== Storage ======
-	GetValue(key []byte) ([]byte, error)
-
-	GetOriginalValue(key []byte) ([]byte, error)
-
-	SetValue(key []byte, value []byte) error
-
-	NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
-
-	GetUnsavedStorage() [][2][]byte
-
-	// ====== Balance ======
-	GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error)
-	SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int)
-
-	GetUnsavedBalanceMap() map[types.TokenTypeId]*big.Int
-
-	// ====== VMLog ======
-	AddLog(log *ledger.VmLog)
-
-	GetLogList() ledger.VmLogList
-	GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList, error)
-	GetLogListHash() *types.Hash
-
-	// ====== AccountBlock ======
-	GetUnconfirmedBlocks(address types.Address) []*ledger.AccountBlock
-
-	// ====== SnapshotBlock ======
-	GetGenesisSnapshotBlock() *ledger.SnapshotBlock
-
-	GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.SnapshotBlock, error)
-
-	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
-
-	GetSnapshotBlockByHeight(height uint64) (*ledger.SnapshotBlock, error)
-
-	// ====== Meta & Code ======
-	SetContractMeta(toAddr types.Address, meta *ledger.ContractMeta)
-
-	GetContractMeta() (*ledger.ContractMeta, error)
-
-	GetContractMetaInSnapshot(contractAddress types.Address, snapshotBlock *ledger.SnapshotBlock) (meta *ledger.ContractMeta, err error)
-
-	SetContractCode(code []byte)
-
-	GetContractCode() ([]byte, error)
-
-	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) // TODO
-
-	GetUnsavedContractMeta() map[types.Address]*ledger.ContractMeta
-
-	GetUnsavedContractCode() []byte
-
-	// ====== built-in contract ======
-	GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error)
-
-	// ====== debug ======
-	DebugGetStorage() (map[string][]byte, error)
+	GetSeed(limitSb *core.SnapshotBlock, fromHash types.Hash) (uint64, error)
 }

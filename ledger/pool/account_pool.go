@@ -7,15 +7,16 @@ import (
 
 	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/pool/batch"
 	"github.com/vitelabs/go-vite/ledger/pool/tree"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type accountPool struct {
@@ -33,7 +34,7 @@ type accountPool struct {
 }
 
 func newAccountPoolBlock(block *ledger.AccountBlock,
-	vmBlock vm_db.VmDb,
+	vmBlock interfaces.VmDb,
 	version *common.Version,
 	source types.BlockSource) *accountPoolBlock {
 	return &accountPoolBlock{
@@ -50,7 +51,7 @@ func newAccountPoolBlock(block *ledger.AccountBlock,
 type accountPoolBlock struct {
 	forkBlock
 	block    *ledger.AccountBlock
-	vmBlock  vm_db.VmDb
+	vmBlock  interfaces.VmDb
 	recover  *recoverStat
 	failStat *recoverStat
 	delStat  *recoverStat

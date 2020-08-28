@@ -10,6 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+
 	xleveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	memdb "github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	types "github.com/vitelabs/go-vite/common/types"
@@ -44,7 +45,7 @@ func (m *MockEventListener) EXPECT() *MockEventListenerMockRecorder {
 }
 
 // PrepareInsertAccountBlocks mocks base method
-func (m *MockEventListener) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+func (m *MockEventListener) PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareInsertAccountBlocks", blocks)
 	ret0, _ := ret[0].(error)
@@ -58,7 +59,7 @@ func (mr *MockEventListenerMockRecorder) PrepareInsertAccountBlocks(blocks inter
 }
 
 // InsertAccountBlocks mocks base method
-func (m *MockEventListener) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+func (m *MockEventListener) InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InsertAccountBlocks", blocks)
 	ret0, _ := ret[0].(error)
@@ -1397,7 +1398,7 @@ func (mr *MockStateDBInterfaceMockRecorder) copyValue(value interface{}) *gomock
 }
 
 // Write mocks base method
-func (m *MockStateDBInterface) Write(block *vm_db.VmAccountBlock) error {
+func (m *MockStateDBInterface) Write(block *interfaces.VmAccountBlock) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Write", block)
 	ret0, _ := ret[0].(error)

@@ -2,22 +2,20 @@ package chain
 
 import (
 	"fmt"
-
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
-	"github.com/vitelabs/go-vite/vm_db"
-
 	"log"
 	"math/rand"
 	"net/http"
-
-	"github.com/vitelabs/go-vite/vm/quota"
 	_ "net/http/pprof"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	"github.com/vitelabs/go-vite/vm/quota"
 )
 
 func TestInsertAccountBlocks(t *testing.T) {
@@ -355,8 +353,7 @@ func DeleteInvalidBlocks(accounts map[types.Address]*Account, invalidBlocks []*l
 	}
 }
 
-func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_db.VmAccountBlock, error) {
-
+func createVmBlock(account *Account, accounts map[types.Address]*Account) (*interfaces.VmAccountBlock, error) {
 	// query latest height
 	latestHeight := account.GetLatestHeight()
 
@@ -371,7 +368,7 @@ func createVmBlock(account *Account, accounts map[types.Address]*Account) (*vm_d
 		Quota: rand.Uint64() % 100,
 	}
 
-	var vmBlock *vm_db.VmAccountBlock
+	var vmBlock *interfaces.VmAccountBlock
 	var createBlockErr error
 
 	isCreateSendBlock := true

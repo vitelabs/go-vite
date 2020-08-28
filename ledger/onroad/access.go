@@ -2,9 +2,9 @@ package onroad
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/onroad/pool"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 // GetOnRoadTotalNumByAddr method returns the total num of the contract' OnRoad blocks.
@@ -50,6 +50,6 @@ func (manager *Manager) deleteDirect(sendBlock *ledger.AccountBlock) {
 	manager.chain.DeleteOnRoad(sendBlock.ToAddress, sendBlock.Hash)
 }
 
-func (manager *Manager) insertBlockToPool(block *vm_db.VmAccountBlock) error {
+func (manager *Manager) insertBlockToPool(block *interfaces.VmAccountBlock) error {
 	return manager.pool.AddDirectAccountBlock(block.AccountBlock.AccountAddress, block)
 }

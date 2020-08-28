@@ -1,15 +1,13 @@
 package chain
 
 import (
-	"github.com/olebedev/emitter"
-	"github.com/vitelabs/go-vite/common/fork"
-
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
-
 	"math/big"
 	"time"
 
+	"github.com/olebedev/emitter"
 	"github.com/syndtr/goleveldb/leveldb"
+
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
@@ -19,12 +17,12 @@ import (
 	"github.com/vitelabs/go-vite/ledger/chain/plugins"
 	"github.com/vitelabs/go-vite/ledger/chain/state"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"github.com/vitelabs/go-vite/vm_db"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 )
 
 type EventListener interface {
-	PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error
-	InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error
+	PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+	InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
 
 	PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
 	InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
@@ -67,7 +65,7 @@ type Chain interface {
 	 */
 
 	// vmAccountBlocks must have the same address
-	InsertAccountBlock(vmAccountBlocks *vm_db.VmAccountBlock) error
+	InsertAccountBlock(vmAccountBlocks *interfaces.VmAccountBlock) error
 
 	InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) ([]*ledger.AccountBlock, error)
 

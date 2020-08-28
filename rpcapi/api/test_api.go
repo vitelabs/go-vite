@@ -7,16 +7,14 @@ import (
 	"math/big"
 	"math/rand"
 
-	"github.com/vitelabs/go-vite/wallet"
-
-	"github.com/vitelabs/go-vite/header"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
-
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/generator"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/wallet"
 )
 
 type CreateTxWithPrivKeyParmsTest struct {
@@ -91,7 +89,7 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		return dex.InvalidOrderPriceErr
 	}
 
-	msg := &header.IncomingMessage{
+	msg := &interfaces.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: params.SelfAddr,
 		ToAddress:      &params.ToAddr,
@@ -146,7 +144,7 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 		return errors.New("AccountTypeContract can't receiveTx without consensus's control")
 	}
 
-	msg := &header.IncomingMessage{
+	msg := &interfaces.IncomingMessage{
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: params.SelfAddr,
 		FromBlockHash:  &params.FromHash,

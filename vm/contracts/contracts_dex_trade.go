@@ -2,17 +2,19 @@ package contracts
 
 import (
 	"bytes"
+	"math/big"
+	"sort"
+
 	"github.com/golang/protobuf/proto"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"sort"
 )
 
 var tradeLogger = log15.New("module", "dex_trade")
@@ -37,7 +39,7 @@ func (md *MethodDexTradePlaceOrder) GetReceiveQuota(gasTable *util.QuotaTable) u
 	return 0
 }
 
-func (md *MethodDexTradePlaceOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexTradePlaceOrder) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) (err error) {
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return dex.InvalidSourceAddressErr
 	}
@@ -45,7 +47,7 @@ func (md *MethodDexTradePlaceOrder) DoSend(db vm_db.VmDb, block *ledger.AccountB
 	return
 }
 
-func (md *MethodDexTradePlaceOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md *MethodDexTradePlaceOrder) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err     error
 		blocks  []*ledger.AccountBlock
@@ -89,12 +91,12 @@ func (md *MethodDexTradeCancelOrder) GetReceiveQuota(gasTable *util.QuotaTable) 
 	return 0
 }
 
-func (md *MethodDexTradeCancelOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexTradeCancelOrder) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) (err error) {
 	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamDexCancelOrder), md.MethodName, block.Data)
 	return
 }
 
-func (md MethodDexTradeCancelOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexTradeCancelOrder) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamDexCancelOrder)
 	cabi.ABIDexTrade.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	return handleCancelOrderById(db, param.OrderId, sendBlock.AccountAddress, md.MethodName, block, sendBlock)
@@ -120,7 +122,7 @@ func (md *MethodDexTradeSyncNewMarket) GetReceiveQuota(gasTable *util.QuotaTable
 	return 0
 }
 
-func (md *MethodDexTradeSyncNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexTradeSyncNewMarket) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) (err error) {
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return dex.InvalidSourceAddressErr
 	}
@@ -128,7 +130,7 @@ func (md *MethodDexTradeSyncNewMarket) DoSend(db vm_db.VmDb, block *ledger.Accou
 	return
 }
 
-func (md MethodDexTradeSyncNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexTradeSyncNewMarket) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamSerializedData)
 	cabi.ABIDexTrade.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	marketInfo := &dex.MarketInfo{}
@@ -160,12 +162,12 @@ func (md *MethodDexTradeClearExpiredOrders) GetReceiveQuota(gasTable *util.Quota
 	return 0
 }
 
-func (md *MethodDexTradeClearExpiredOrders) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexTradeClearExpiredOrders) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) (err error) {
 	err = cabi.ABIDexTrade.UnpackMethod(new(dex.ParamSerializedData), md.MethodName, block.Data)
 	return
 }
 
-func (md MethodDexTradeClearExpiredOrders) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexTradeClearExpiredOrders) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamSerializedData)
 	cabi.ABIDexTrade.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if len(param.Data) == 0 || len(param.Data)%dex.OrderIdBytesLength != 0 || len(param.Data)/dex.OrderIdBytesLength > dex.CleanExpireOrdersMaxCount {
@@ -204,12 +206,12 @@ func (md *MethodDexTradeCancelOrderByTransactionHash) GetReceiveQuota(gasTable *
 	return 0
 }
 
-func (md *MethodDexTradeCancelOrderByTransactionHash) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexTradeCancelOrderByTransactionHash) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) (err error) {
 	err = cabi.ABIDexTrade.UnpackMethod(new(types.Hash), md.MethodName, block.Data)
 	return
 }
 
-func (md MethodDexTradeCancelOrderByTransactionHash) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexTradeCancelOrderByTransactionHash) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	sendHash := new(types.Hash)
 	cabi.ABIDexTrade.UnpackMethod(sendHash, md.MethodName, sendBlock.Data)
 	if orderId, ok := dex.GetOrderIdByHash(db, sendHash.Bytes()); !ok {
@@ -239,7 +241,7 @@ func (md *MethodDexTradeInnerCancelOrderBySendHash) GetReceiveQuota(gasTable *ut
 	return 0
 }
 
-func (md *MethodDexTradeInnerCancelOrderBySendHash) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexTradeInnerCancelOrderBySendHash) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) (err error) {
 	if !bytes.Equal(block.AccountAddress.Bytes(), types.AddressDexFund.Bytes()) {
 		return dex.InvalidSourceAddressErr
 	}
@@ -247,7 +249,7 @@ func (md *MethodDexTradeInnerCancelOrderBySendHash) DoSend(db vm_db.VmDb, block 
 	return
 }
 
-func (md MethodDexTradeInnerCancelOrderBySendHash) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexTradeInnerCancelOrderBySendHash) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamDexInnerCancelOrder)
 	cabi.ABIDexTrade.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if orderId, ok := dex.GetOrderIdByHash(db, param.SendHash.Bytes()); !ok {
@@ -257,7 +259,7 @@ func (md MethodDexTradeInnerCancelOrderBySendHash) DoReceive(db vm_db.VmDb, bloc
 	}
 }
 
-func OnPlaceOrderFailed(db vm_db.VmDb, order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
+func OnPlaceOrderFailed(db interfaces.VmDb, order *dex.Order, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
 	accountSettle := &dexproto.AccountSettle{}
 	switch order.Side {
 	case false: // buy
@@ -300,7 +302,7 @@ func OnPlaceOrderFailed(db vm_db.VmDb, order *dex.Order, marketInfo *dex.MarketI
 	}, nil
 }
 
-func handleCancelOrderById(db vm_db.VmDb, orderId []byte, operator types.Address, method string, block, sendBlock *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
+func handleCancelOrderById(db interfaces.VmDb, orderId []byte, operator types.Address, method string, block, sendBlock *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
 	var (
 		order        *dex.Order
 		marketId     int32
@@ -331,7 +333,7 @@ func handleCancelOrderById(db vm_db.VmDb, orderId []byte, operator types.Address
 	}
 }
 
-func handleSettleActions(db vm_db.VmDb, block *ledger.AccountBlock, fundSettles map[types.Address]map[bool]*dexproto.AccountSettle, feeSettles map[types.Address]*dexproto.FeeSettle, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
+func handleSettleActions(db interfaces.VmDb, block *ledger.AccountBlock, fundSettles map[types.Address]map[bool]*dexproto.AccountSettle, feeSettles map[types.Address]*dexproto.FeeSettle, marketInfo *dex.MarketInfo) ([]*ledger.AccountBlock, error) {
 	//fmt.Printf("fundSettles.size %d\n", len(fundSettles))
 	if len(fundSettles) == 0 && len(feeSettles) == 0 {
 		return nil, nil

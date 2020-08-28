@@ -3,7 +3,11 @@ package api
 import (
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"strconv"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/log15"
@@ -11,9 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"strconv"
 )
 
 type DexApi struct {
@@ -892,7 +893,7 @@ func StakeListToDexRpc(stakeInfos []*dex.DelegateStakeInfo, totalAmount *big.Int
 
 func VIPStakingToRpc(chain chain.Chain, address types.Address, info *dex.VIPStaking, bid uint8, amount *big.Int) (vipStakingRpc *apidex.VIPStakingRpc, err error) {
 	var (
-		db            vm_db.VmDb
+		db            interfaces.VmDb
 		snapshotBlock *ledger.SnapshotBlock
 		id            []byte
 	)
@@ -911,7 +912,7 @@ func VIPStakingToRpc(chain chain.Chain, address types.Address, info *dex.VIPStak
 	return
 }
 
-func getStakeExpirationInfo(db vm_db.VmDb, id []byte, address types.Address, bid uint8, snapshotBlock *ledger.SnapshotBlock) (idStr string, expirationHeight string, expirationTime int64, err error) {
+func getStakeExpirationInfo(db interfaces.VmDb, id []byte, address types.Address, bid uint8, snapshotBlock *ledger.SnapshotBlock) (idStr string, expirationHeight string, expirationTime int64, err error) {
 	var quotaInfo *types.StakeInfo
 	if len(id) > 0 {
 		idHash, _ := types.BytesToHash(id)

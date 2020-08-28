@@ -3,17 +3,17 @@ package dex
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
-func HandleStakeAction(db vm_db.VmDb, stakeType, actionType uint8, address, principal types.Address, amount *big.Int, stakeHeight uint64, block *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
+func HandleStakeAction(db interfaces.VmDb, stakeType, actionType uint8, address, principal types.Address, amount *big.Int, stakeHeight uint64, block *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
 	if actionType == Stake { // handle v1 + v2 stake
 		if methodData, err := stakeRequest(db, address, principal, stakeType, amount, stakeHeight); err != nil {
 			return []*ledger.AccountBlock{}, err
@@ -39,7 +39,7 @@ func HandleStakeAction(db vm_db.VmDb, stakeType, actionType uint8, address, prin
 	}
 }
 
-func DoCancelStakeV1(db vm_db.VmDb, address types.Address, stakeType uint8, amount *big.Int) ([]*ledger.AccountBlock, error) {
+func DoCancelStakeV1(db interfaces.VmDb, address types.Address, stakeType uint8, amount *big.Int) ([]*ledger.AccountBlock, error) {
 	var (
 		vipStaking *VIPStaking
 		ok         bool
@@ -79,7 +79,7 @@ func DoCancelStakeV1(db vm_db.VmDb, address types.Address, stakeType uint8, amou
 	}
 }
 
-func DoCancelStakeV2(db vm_db.VmDb, address types.Address, id types.Hash) ([]*ledger.AccountBlock, error) {
+func DoCancelStakeV2(db interfaces.VmDb, address types.Address, id types.Hash) ([]*ledger.AccountBlock, error) {
 	if info, ok := GetDelegateStakeInfo(db, id.Bytes()); !ok || info.Status != StakeConfirmed {
 		return nil, StakingInfoByIdNotExistsErr
 	} else if !bytes.Equal(info.Address, address.Bytes()) {
@@ -96,7 +96,7 @@ func DoRawCancelStakeV2(id types.Hash) ([]*ledger.AccountBlock, error) {
 	}
 }
 
-func stakeRequest(db vm_db.VmDb, address, principal types.Address, stakeType uint8, amount *big.Int, stakeHeight uint64) ([]byte, error) {
+func stakeRequest(db interfaces.VmDb, address, principal types.Address, stakeType uint8, amount *big.Int, stakeHeight uint64) ([]byte, error) {
 	switch stakeType {
 	case StakeForVIP:
 		if _, ok := GetVIPStaking(db, address); ok {
@@ -159,27 +159,27 @@ func IsVipStakingWithId(staking *VIPStaking) bool {
 	}
 }
 
-func OnMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+func OnMiningStakeSuccess(db interfaces.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
 	return doChangeMiningStakedAmount(db, reader, address, amount, new(big.Int).Add(updatedAmount, GetMiningStakedV2Amount(db, address)))
 }
 
-func OnMiningStakeSuccessV2(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmountV2 *big.Int) error {
+func OnMiningStakeSuccessV2(db interfaces.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmountV2 *big.Int) error {
 	return doChangeMiningStakedAmount(db, reader, address, amount, new(big.Int).Add(GetMiningStakedAmount(db, address), updatedAmountV2))
 }
 
-func OnCancelMiningStakeSuccess(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
+func OnCancelMiningStakeSuccess(db interfaces.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmount *big.Int) error {
 	if IsEarthFork(db) {
 		AddCancelStake(db, reader, address, amount)
 	}
 	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), new(big.Int).Add(updatedAmount, GetMiningStakedV2Amount(db, address)))
 }
 
-func OnCancelMiningStakeSuccessV2(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmountV2 *big.Int) error {
+func OnCancelMiningStakeSuccessV2(db interfaces.VmDb, reader util.ConsensusReader, address types.Address, amount, updatedAmountV2 *big.Int) error {
 	AddCancelStake(db, reader, address, amount)
 	return doChangeMiningStakedAmount(db, reader, address, new(big.Int).Neg(amount), new(big.Int).Add(GetMiningStakedAmount(db, address), updatedAmountV2))
 }
 
-func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int) error {
+func doChangeMiningStakedAmount(db interfaces.VmDb, reader util.ConsensusReader, address types.Address, amtChange, updatedAmount *big.Int) error {
 	var (
 		miningStakings    *MiningStakings
 		sumChange         *big.Int
@@ -267,7 +267,7 @@ func doChangeMiningStakedAmount(db vm_db.VmDb, reader util.ConsensusReader, addr
 	return nil
 }
 
-func GetStakeInfoList(db vm_db.VmDb, stakeAddr types.Address, filter func(*DelegateStakeAddressIndex) bool) ([]*DelegateStakeInfo, *big.Int, error) {
+func GetStakeInfoList(db interfaces.VmDb, stakeAddr types.Address, filter func(*DelegateStakeAddressIndex) bool) ([]*DelegateStakeInfo, *big.Int, error) {
 	if *db.Address() != types.AddressDexFund {
 		return nil, nil, InvalidInputParamErr
 	}

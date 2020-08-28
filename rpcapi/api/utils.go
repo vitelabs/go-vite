@@ -2,20 +2,23 @@ package api
 
 import (
 	"context"
-	"github.com/hashicorp/golang-lru"
-	"github.com/pkg/errors"
-	"github.com/robfig/cron"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/golang-lru"
+	"github.com/pkg/errors"
+	"github.com/robfig/cron"
+
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 var (
@@ -163,7 +166,7 @@ func getPrevBlockHash(c chain.Chain, addr types.Address) (*types.Hash, error) {
 	return &types.Hash{}, nil
 }
 
-func getVmDb(c chain.Chain, addr types.Address) (vm_db.VmDb, error) {
+func getVmDb(c chain.Chain, addr types.Address) (interfaces.VmDb, error) {
 	prevHash, err := getPrevBlockHash(c, addr)
 	if err != nil {
 		return nil, err

@@ -9,17 +9,17 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/vitelabs/go-vite/header"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/wallet"
+	"go.uber.org/atomic"
 
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/ledger/generator"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/vite"
-	"go.uber.org/atomic"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/wallet"
 )
 
 type Tx struct {
@@ -126,7 +126,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 		blockType = ledger.BlockTypeSendCall
 	}
 
-	msg := &header.IncomingMessage{
+	msg := &interfaces.IncomingMessage{
 		BlockType:      blockType,
 		AccountAddress: *param.SelfAddr,
 		ToAddress:      param.ToAddr,

@@ -98,7 +98,7 @@ package pool
 ////	panic("implement me")
 ////}
 ////
-////func (*mockSnapshotS) InsertAccountBlocks(vmAccountBlocks []*vm_db.VmAccountBlock) error {
+////func (*mockSnapshotS) InsertAccountBlocks(vmAccountBlocks []*interfaces.VmAccountBlock) error {
 ////	panic("implement me")
 ////}
 ////

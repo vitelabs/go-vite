@@ -1,12 +1,13 @@
 package chain_genesis
 
 import (
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/vm_db"
 	"time"
+
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
-func newGenesisSnapshotContent(accountBlocks []*vm_db.VmAccountBlock) ledger.SnapshotContent {
+func newGenesisSnapshotContent(accountBlocks []*interfaces.VmAccountBlock) ledger.SnapshotContent {
 	sc := make(ledger.SnapshotContent, len(accountBlocks))
 	for _, vmBlock := range accountBlocks {
 		accountBlock := vmBlock.AccountBlock
@@ -21,7 +22,7 @@ func newGenesisSnapshotContent(accountBlocks []*vm_db.VmAccountBlock) ledger.Sna
 	return sc
 }
 
-func NewGenesisSnapshotBlock(accountBlocks []*vm_db.VmAccountBlock) *ledger.SnapshotBlock {
+func NewGenesisSnapshotBlock(accountBlocks []*interfaces.VmAccountBlock) *ledger.SnapshotBlock {
 	// 2019/05/21 12:00:00 UTC/GMT +8
 	genesisTimestamp := time.Unix(1558411200, 0)
 

@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 )
 
 const PriceBytesLength = 10
 
 //MarketId[0..2]Side[3]Price[4..13]timestamp[14..18]serialNo[19..21] = 22
-func ComposeOrderId(db vm_db.VmDb, marketId int32, side bool, price string) (idBytes []byte) {
+func ComposeOrderId(db interfaces.VmDb, marketId int32, side bool, price string) (idBytes []byte) {
 	idBytes = make([]byte, OrderIdBytesLength)
 	copy(idBytes[:3], Uint32ToBytes(uint32(marketId))[1:])
 	if side {
@@ -164,7 +165,7 @@ func randomBytesFromBytes(data, recursiveData []byte, begin, end int) ([]byte, b
 	return recursiveData, true
 }
 
-func getValueFromDb(db vm_db.VmDb, key []byte) []byte {
+func getValueFromDb(db interfaces.VmDb, key []byte) []byte {
 	if data, err := db.GetValue(key); err != nil {
 		panic(err)
 	} else {
@@ -172,7 +173,7 @@ func getValueFromDb(db vm_db.VmDb, key []byte) []byte {
 	}
 }
 
-func setValueToDb(db vm_db.VmDb, key, value []byte) {
+func setValueToDb(db interfaces.VmDb, key, value []byte) {
 	if err := db.SetValue(key, value); err != nil {
 		panic(err)
 	}

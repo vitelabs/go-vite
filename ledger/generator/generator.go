@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/vitelabs/go-vite/interfaces"
-
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/header"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/log15"
@@ -35,17 +33,17 @@ type chain interface {
 type generator struct {
 	chain chain
 
-	vmDb vm_db.VmDb
+	vmDb interfaces.VmDb
 	vm   *vm.VM
 
 	log log15.Logger
 }
 
-// NewGenerator needs to new a vm_db.VmDb with state of the world and SBP information for Vm,
+// NewGenerator needs to new a interfaces.VmDb with state of the world and SBP information for Vm,
 //
 // the third "addr" needs to be filled with the address of the account chain to be blocked,
 // and the last needs to be filled with the previous/latest block's hash on the account chain.
-func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (header.Generator, error) {
+func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (interfaces.Generator, error) {
 	gen := &generator{
 		log: log15.New("module", "Generator"),
 	}
@@ -64,7 +62,7 @@ func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, la
 
 // GenerateWithBlock implements the method to generate a transaction with VM execution results
 // from a block which contains the complete transaction info.
-func (gen *generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock) (*header.GenResult, error) {
+func (gen *generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock) (*interfaces.GenResult, error) {
 	genResult, err := gen.generateBlock(block, fromBlock, nil, nil)
 	if err != nil {
 		return nil, err
@@ -74,7 +72,7 @@ func (gen *generator) GenerateWithBlock(block *ledger.AccountBlock, fromBlock *l
 
 // GenerateWithMessage implements the method to generate a transaction with VM execution results
 // from a IncomingMessage which contains the necessary transaction info.
-func (gen *generator) GenerateWithMessage(message *header.IncomingMessage, producer *types.Address, signFunc interfaces.SignFunc) (*header.GenResult, error) {
+func (gen *generator) GenerateWithMessage(message *interfaces.IncomingMessage, producer *types.Address, signFunc interfaces.SignFunc) (*interfaces.GenResult, error) {
 	block, err := IncomingMessageToBlock(gen.vmDb, message)
 	if err != nil {
 		return nil, err
@@ -95,7 +93,7 @@ func (gen *generator) GenerateWithMessage(message *header.IncomingMessage, produ
 
 // GenerateWithOnRoad implements the method to generate a transaction with VM execution results
 // from a sendBlock(onroad block).
-func (gen *generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc interfaces.SignFunc, difficulty *big.Int) (*header.GenResult, error) {
+func (gen *generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, producer *types.Address, signFunc interfaces.SignFunc, difficulty *big.Int) (*interfaces.GenResult, error) {
 	block, err := gen.packReceiveBlockWithSend(sendBlock, difficulty)
 	if err != nil {
 		return nil, err
@@ -107,7 +105,7 @@ func (gen *generator) GenerateWithOnRoad(sendBlock *ledger.AccountBlock, produce
 	return genResult, nil
 }
 
-func (gen *generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock, producer *types.Address, signFunc interfaces.SignFunc) (result *header.GenResult, resultErr error) {
+func (gen *generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledger.AccountBlock, producer *types.Address, signFunc interfaces.SignFunc) (result *interfaces.GenResult, resultErr error) {
 	defer func() {
 		if err := recover(); err != nil {
 			// debug.PrintStack()
@@ -116,7 +114,7 @@ func (gen *generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 				errDetail += fmt.Sprintf("fromBlock(addr:%v hash:%v)", fromBlock.AccountAddress, fromBlock.Hash)
 			}
 			gen.log.Error(fmt.Sprintf("generator_vm panic error %v", err), "detail", errDetail)
-			result = &header.GenResult{}
+			result = &interfaces.GenResult{}
 			resultErr = types.ErrVmRunPanic
 		}
 	}()
@@ -184,7 +182,7 @@ func (gen *generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 		}
 	}
 
-	return &header.GenResult{
+	return &interfaces.GenResult{
 		VMBlock: vmBlock,
 		IsRetry: isRetry,
 		Err:     err,
@@ -239,7 +237,7 @@ func (gen *generator) packReceiveBlockWithSend(sendBlock *ledger.AccountBlock, d
 	return recvBlock, nil
 }
 
-// GetVMDB returns the vm_db.VmDb the current Generator used.
-func (gen *generator) GetVMDB() vm_db.VmDb {
+// GetVMDB returns the interfaces.VmDb the current Generator used.
+func (gen *generator) GetVMDB() interfaces.VmDb {
 	return gen.vmDb
 }

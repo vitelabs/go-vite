@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/vitelabs/go-vite/vm_db"
-
 	"github.com/pkg/errors"
+
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
@@ -33,12 +33,12 @@ func (cs *consensus) OnChainGC(start *ledger.SnapshotBlock, end *ledger.Snapshot
 	return nil
 }
 
-func (cs *consensus) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+func (cs *consensus) PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error {
 	// ignore
 	return nil
 }
 
-func (cs *consensus) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+func (cs *consensus) InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error {
 	// ignore
 	return nil
 }

@@ -2,20 +2,21 @@ package chain
 
 import (
 	rand2 "crypto/rand"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/vm_db"
+	"fmt"
 	"math/big"
 	"sort"
 	"sync"
-
-	"fmt"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 func TestChain_Account(t *testing.T) {
@@ -175,7 +176,7 @@ func MakeAccounts(chainInstance Chain, num int) map[types.Address]*Account {
 }
 
 // No state_bak hash
-func (acc *Account) CreateSendBlock(toAccount *Account, options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
+func (acc *Account) CreateSendBlock(toAccount *Account, options *CreateTxOptions) (*interfaces.VmAccountBlock, error) {
 	// get latest hash
 	prevHash := acc.latestHash()
 
@@ -243,7 +244,7 @@ func (acc *Account) CreateSendBlock(toAccount *Account, options *CreateTxOptions
 		block.Signature = ed25519.Sign(acc.PrivateKey, block.Hash.Bytes())
 	}
 
-	vmBlock := &vm_db.VmAccountBlock{
+	vmBlock := &interfaces.VmAccountBlock{
 		AccountBlock: block,
 		VmDb:         vmDb,
 	}
@@ -252,7 +253,7 @@ func (acc *Account) CreateSendBlock(toAccount *Account, options *CreateTxOptions
 }
 
 // No state_bak hash
-func (acc *Account) CreateReceiveBlock(options *CreateTxOptions) (*vm_db.VmAccountBlock, error) {
+func (acc *Account) CreateReceiveBlock(options *CreateTxOptions) (*interfaces.VmAccountBlock, error) {
 
 	if options == nil {
 		options = &CreateTxOptions{
@@ -335,7 +336,7 @@ func (acc *Account) CreateReceiveBlock(options *CreateTxOptions) (*vm_db.VmAccou
 		block.Signature = ed25519.Sign(acc.PrivateKey, block.Hash.Bytes())
 	}
 
-	vmBlock := &vm_db.VmAccountBlock{
+	vmBlock := &interfaces.VmAccountBlock{
 		AccountBlock: block,
 		VmDb:         vmDb,
 	}
@@ -343,7 +344,7 @@ func (acc *Account) CreateReceiveBlock(options *CreateTxOptions) (*vm_db.VmAccou
 	return vmBlock, nil
 }
 
-func (acc *Account) InsertBlock(vmBlock *vm_db.VmAccountBlock, accounts map[types.Address]*Account) {
+func (acc *Account) InsertBlock(vmBlock *interfaces.VmAccountBlock, accounts map[types.Address]*Account) {
 	block := vmBlock.AccountBlock
 	vmDb := vmBlock.VmDb
 

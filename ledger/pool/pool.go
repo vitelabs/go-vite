@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/ledger/pool/batch"
@@ -21,16 +23,15 @@ import (
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 // Writer is a writer of BlockPool
 type Writer interface {
 	// for normal account
-	AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_db.VmAccountBlock) error
+	AddDirectAccountBlock(address types.Address, vmAccountBlock *interfaces.VmAccountBlock) error
 
 	// for contract account
-	//AddDirectAccountBlocks(address types.Address, received *vm_db.VmAccountBlock, sendBlocks []*vm_db.VmAccountBlock) error
+	//AddDirectAccountBlocks(address types.Address, received *interfaces.VmAccountBlock, sendBlocks []*interfaces.VmAccountBlock) error
 }
 
 // SnapshotProducerWriter is a writer for snapshot producer
@@ -369,7 +370,7 @@ func (pl *pool) AddAccountBlock(address types.Address, block *ledger.AccountBloc
 	pl.worker.bus.newABlockEvent()
 }
 
-func (pl *pool) AddDirectAccountBlock(address types.Address, block *vm_db.VmAccountBlock) error {
+func (pl *pool) AddDirectAccountBlock(address types.Address, block *interfaces.VmAccountBlock) error {
 	pl.log.Info(fmt.Sprintf("receive account block from direct. addr:%s, height:%d, hash:%s.", address, block.AccountBlock.Height, block.AccountBlock.Hash))
 	defer monitor.LogTime("pool", "addDirectAccount", time.Now())
 	pl.RLockInsert()

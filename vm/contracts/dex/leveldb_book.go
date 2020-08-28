@@ -2,17 +2,16 @@ package dex
 
 import (
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type levelDbBook struct {
-	db       vm_db.VmDb
+	db       interfaces.VmDb
 	marketId int32
 	side     bool
 	iterator interfaces.StorageIterator
 }
 
-func getMakerBook(db vm_db.VmDb, marketId int32, side bool) (book *levelDbBook, err error) {
+func getMakerBook(db interfaces.VmDb, marketId int32, side bool) (book *levelDbBook, err error) {
 	book = &levelDbBook{db: db, marketId: marketId, side: side}
 	if book.iterator, err = db.NewStorageIterator(getBookPrefix(book)); err != nil {
 		panic(err)

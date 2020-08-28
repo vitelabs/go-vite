@@ -2,18 +2,17 @@ package integration
 
 import (
 	rand2 "crypto/rand"
-
-	"github.com/vitelabs/go-vite/ledger/chain"
-
-	"github.com/vitelabs/go-vite/common/types"
-
 	"encoding/binary"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"math/rand"
 	"sync"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type Account struct {
@@ -66,7 +65,7 @@ func MakeAccounts(chainInstance chain.Chain, num int) map[types.Address]*Account
 	return accountMap
 }
 
-func (acc *Account) CreateSendBlock(toAccount *Account) (*vm_db.VmAccountBlock, error) {
+func (acc *Account) CreateSendBlock(toAccount *Account) (*interfaces.VmAccountBlock, error) {
 	// get latest hash
 	prevHash := acc.latestHash()
 
@@ -110,7 +109,7 @@ func (acc *Account) CreateSendBlock(toAccount *Account) (*vm_db.VmAccountBlock, 
 
 	//block.Signature = ed25519.Sign(acc.PrivateKey, block.Hash.Bytes())
 
-	vmBlock := &vm_db.VmAccountBlock{
+	vmBlock := &interfaces.VmAccountBlock{
 		AccountBlock: block,
 		VmDb:         vmDb,
 	}
@@ -119,7 +118,7 @@ func (acc *Account) CreateSendBlock(toAccount *Account) (*vm_db.VmAccountBlock, 
 }
 
 // No state_bak hash
-func (acc *Account) CreateReceiveBlock() (*vm_db.VmAccountBlock, error) {
+func (acc *Account) CreateReceiveBlock() (*interfaces.VmAccountBlock, error) {
 	latestHeight := acc.GetLatestHeight()
 
 	// pop onRoad block
@@ -177,7 +176,7 @@ func (acc *Account) CreateReceiveBlock() (*vm_db.VmAccountBlock, error) {
 	block.Signature = []byte("This is chain mock signature")
 
 	//block.Signature = ed25519.Sign(acc.PrivateKey, block.Hash.Bytes())
-	vmBlock := &vm_db.VmAccountBlock{
+	vmBlock := &interfaces.VmAccountBlock{
 		AccountBlock: block,
 		VmDb:         vmDb,
 	}
@@ -185,7 +184,7 @@ func (acc *Account) CreateReceiveBlock() (*vm_db.VmAccountBlock, error) {
 	return vmBlock, nil
 }
 
-func (acc *Account) InsertBlock(vmBlock *vm_db.VmAccountBlock, accounts map[types.Address]*Account) {
+func (acc *Account) InsertBlock(vmBlock *interfaces.VmAccountBlock, accounts map[types.Address]*Account) {
 	block := vmBlock.AccountBlock
 
 	// set latest block

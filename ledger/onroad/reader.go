@@ -2,13 +2,13 @@ package onroad
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type pool interface {
-	AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_db.VmAccountBlock) error
+	AddDirectAccountBlock(address types.Address, vmAccountBlock *interfaces.VmAccountBlock) error
 }
 
 type producer interface {

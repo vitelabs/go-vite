@@ -2,8 +2,8 @@ package chain_genesis
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 const (
@@ -13,7 +13,7 @@ const (
 	LedgerInvalid = byte(3)
 )
 
-func InitLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock, vmBlocks []*vm_db.VmAccountBlock) error {
+func InitLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock, vmBlocks []*interfaces.VmAccountBlock) error {
 	// insert genesis account blocks
 	for _, ab := range vmBlocks {
 		err := chain.InsertAccountBlock(ab)
@@ -29,7 +29,7 @@ func InitLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock, vmBlock
 	return chain.WriteGenesisCheckSum(sumHash)
 }
 
-func CheckLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock, genesisAccountBlocks []*vm_db.VmAccountBlock) (byte, error) {
+func CheckLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock, genesisAccountBlocks []*interfaces.VmAccountBlock) (byte, error) {
 	firstSb, err := chain.QuerySnapshotBlockByHeight(1)
 	if err != nil {
 		return LedgerUnknown, err
@@ -60,7 +60,7 @@ func CheckLedger(chain Chain, genesisSnapshotBlock *ledger.SnapshotBlock, genesi
 	return LedgerValid, nil
 }
 
-func VmBlocksToHashMap(accountBlocks []*vm_db.VmAccountBlock) map[types.Hash]struct{} {
+func VmBlocksToHashMap(accountBlocks []*interfaces.VmAccountBlock) map[types.Hash]struct{} {
 	hashMap := make(map[types.Hash]struct{}, len(accountBlocks))
 
 	for _, accountBlock := range accountBlocks {

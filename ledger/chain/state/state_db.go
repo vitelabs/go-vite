@@ -2,17 +2,16 @@ package chain_state
 
 import (
 	"encoding/binary"
+	"math/big"
+	"path"
 	"sync/atomic"
 
 	"github.com/patrickmn/go-cache"
-	"github.com/vitelabs/go-vite/config"
-
-	"math/big"
-	"path"
 
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/db"

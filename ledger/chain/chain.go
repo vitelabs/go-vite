@@ -2,14 +2,19 @@ package chain
 
 import (
 	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/olebedev/emitter"
-	"github.com/vitelabs/go-vite/common/fork"
-
-	"github.com/vitelabs/go-vite/ledger/chain/plugins"
-
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
+
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/interfaces"
@@ -19,19 +24,10 @@ import (
 	"github.com/vitelabs/go-vite/ledger/chain/flusher"
 	"github.com/vitelabs/go-vite/ledger/chain/genesis"
 	"github.com/vitelabs/go-vite/ledger/chain/index"
+	"github.com/vitelabs/go-vite/ledger/chain/plugins"
 	"github.com/vitelabs/go-vite/ledger/chain/state"
 	"github.com/vitelabs/go-vite/ledger/chain/sync_cache"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm_db"
-
-	"os"
-	"path"
-	"path/filepath"
-	"sync"
-	"sync/atomic"
-	"time"
-
-	"github.com/vitelabs/go-vite/common"
 )
 
 const (
@@ -44,7 +40,7 @@ type chain struct {
 	chainCfg   *config.Chain
 
 	genesisSnapshotBlock    *ledger.SnapshotBlock
-	genesisAccountBlocks    []*vm_db.VmAccountBlock
+	genesisAccountBlocks    []*interfaces.VmAccountBlock
 	genesisAccountBlockHash map[types.Hash]struct{}
 
 	dataDir   string

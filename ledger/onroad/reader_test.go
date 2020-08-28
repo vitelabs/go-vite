@@ -7,7 +7,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type mockVite struct {
@@ -44,7 +43,7 @@ func (v *mockVite) Pool() pool {
 
 type mockPool struct{}
 
-func (mp *mockPool) AddDirectAccountBlock(address types.Address, vmAccountBlock *vm_db.VmAccountBlock) error {
+func (mp *mockPool) AddDirectAccountBlock(address types.Address, vmAccountBlock *interfaces.VmAccountBlock) error {
 	return nil
 }
 

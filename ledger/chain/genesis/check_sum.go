@@ -2,14 +2,15 @@ package chain_genesis
 
 import (
 	"bytes"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"sort"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/interfaces"
 )
 
-func CheckSum(accountBlocks []*vm_db.VmAccountBlock) types.Hash {
+func CheckSum(accountBlocks []*interfaces.VmAccountBlock) types.Hash {
 	var sumHash types.Hash
 
 	content := make([]byte, 0)
@@ -55,7 +56,7 @@ func CheckSum(accountBlocks []*vm_db.VmAccountBlock) types.Hash {
 	return sumHash
 }
 
-type SortVmBlocks []*vm_db.VmAccountBlock
+type SortVmBlocks []*interfaces.VmAccountBlock
 
 func (a SortVmBlocks) Len() int      { return len(a) }
 func (a SortVmBlocks) Swap(i, j int) { a[i], a[j] = a[j], a[i] }

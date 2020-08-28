@@ -3,14 +3,15 @@ package chain_plugins
 import (
 	"errors"
 	"fmt"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/db"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm_db"
 	"os"
 	"path"
 	"sync"
 	"sync/atomic"
+
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain/db"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 const roundSize = uint64(10)
@@ -190,7 +191,7 @@ func (p *Plugins) RemovePlugin(name string) {
 	delete(p.plugins, name)
 }
 
-func (p *Plugins) PrepareInsertAccountBlocks(vmBlocks []*vm_db.VmAccountBlock) error {
+func (p *Plugins) PrepareInsertAccountBlocks(vmBlocks []*interfaces.VmAccountBlock) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
@@ -291,7 +292,7 @@ func (p *Plugins) DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
 	return nil
 }
 
-func (p *Plugins) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+func (p *Plugins) InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error {
 	return nil
 }
 func (p *Plugins) InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {

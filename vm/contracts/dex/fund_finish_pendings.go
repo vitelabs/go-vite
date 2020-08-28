@@ -2,13 +2,14 @@ package dex
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 )
 
 //periodId is finish period
-func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
+func DoFinishVxUnlock(db interfaces.VmDb, periodId uint64) error {
 	if !IsEarthFork(db) {
 		return nil
 	}
@@ -60,7 +61,7 @@ func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
 }
 
 //periodId is finish period
-func DoFinishCancelMiningStake(db vm_db.VmDb, periodId uint64) error {
+func DoFinishCancelMiningStake(db interfaces.VmDb, periodId uint64) error {
 	if !IsEarthFork(db) {
 		return nil
 	}
