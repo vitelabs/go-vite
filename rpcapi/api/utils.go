@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"math/big"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -42,16 +41,7 @@ func InitConfig(id uint, dexAvailable *bool) {
 }
 
 func InitLog(dir, lvl string) {
-	dataDir = dir
-	logLevel, err := log15.LvlFromString(lvl)
-	if err != nil {
-		logLevel = log15.LvlInfo
-	}
-	path := filepath.Join(dir, "rpclog", time.Now().Format("2006-01-02T15-04"))
-	filename := filepath.Join(path, "rpc.log")
-	log.SetHandler(
-		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat())),
-	)
+	log.SetHandler(common.LogHandler(dir, "rpclog", "rpc.log", lvl))
 }
 
 func InitGetTestTokenLimitPolicy() {

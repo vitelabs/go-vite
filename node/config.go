@@ -9,11 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/common/config"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/log15"
 )
 
 type Config struct {
@@ -278,21 +276,8 @@ func (c *Config) RunLogDir() string {
 	return filepath.Join(c.DataDir, "runlog", time.Now().Format("2006-01-02T15-04"))
 }
 
-func (c *Config) RunLogHandler() log15.Handler {
-	filename := "vite.log"
-	logger := common.MakeDefaultLogger(filepath.Join(c.RunLogDir(), filename))
-	return log15.StreamHandler(logger, log15.LogfmtFormat())
-}
-
-func (c *Config) RunErrorLogHandler() log15.Handler {
-	filename := "vite.error.log"
-	logger := common.MakeDefaultLogger(filepath.Join(c.RunLogDir(), "error", filename))
-	return log15.StreamHandler(logger, log15.LogfmtFormat())
-}
-
 // resolve the dataDir so future changes to the current working directory don't affect the node
 func (c *Config) DataDirPathAbs() error {
-
 	if c.DataDir != "" {
 		absDataDir, err := filepath.Abs(c.DataDir)
 		if err != nil {

@@ -4,19 +4,17 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/olebedev/emitter"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/block"
@@ -509,19 +507,8 @@ func (c *chain) Flusher() *chain_flusher.Flusher {
 }
 
 func (c *chain) ResetLog(dir string, lvl string) {
-	logLevel, err := log15.LvlFromString(lvl)
-	if err != nil {
-		logLevel = log15.LvlInfo
-	}
-	path := filepath.Join(dir, "chain_logs", time.Now().Format("2006-01-02T15-04"))
-	filename := filepath.Join(path, "chain.log")
-
-	h := log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat()))
-
-	c.log.SetHandler(
-		h,
-	)
-
+	h := common.LogHandler(dir, "chain_logs", "chain.log", lvl)
+	c.log.SetHandler(h)
 	c.blockDB.SetLog(h)
 }
 

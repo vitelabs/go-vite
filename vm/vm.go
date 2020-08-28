@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
-	"path/filepath"
 	"runtime/debug"
 	"strconv"
 	"sync"
@@ -119,19 +118,8 @@ func InitVMConfig(isTest bool, isTestParam bool, isQuotaTestParam bool, isDebug 
 }
 
 func initLog(dir, lvl string) {
-	logLevel, err := log15.LvlFromString(lvl)
-	if err != nil {
-		logLevel = log15.LvlInfo
-	}
-	path := filepath.Join(dir, "vmlog", time.Now().Format("2006-01-02T15-04"))
-	filename := filepath.Join(path, "vm.log")
-	nodeConfig.log.SetHandler(
-		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat())),
-	)
-	interpreterFileName := filepath.Join(path, "interpreter.log")
-	nodeConfig.interpreterLog.SetHandler(
-		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(interpreterFileName), log15.LogfmtFormat())),
-	)
+	nodeConfig.log.SetHandler(common.LogHandler(dir, "vmlog", "vm.log", lvl))
+	nodeConfig.interpreterLog.SetHandler(common.LogHandler(dir, "vmlog", "interpreter.log", lvl))
 }
 
 type vmContext struct {

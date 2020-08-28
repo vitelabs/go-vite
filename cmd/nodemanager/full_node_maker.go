@@ -264,30 +264,8 @@ func IsExist(f string) bool {
 }
 
 func makeRunLogFile(cfg *node.Config) {
+	defaultHandler := common.LogHandler(cfg.RunLogDir(), "", "vite.log", cfg.LogLevel)
+	errorHandler := common.LogHandler(cfg.RunLogDir(), "error", "vite.error.log", log15.LvlError.String())
 
-	logHandle := []log15.Handler{}
-
-	logLevel, err := log15.LvlFromString(cfg.LogLevel)
-	if err != nil {
-		logLevel = log15.LvlInfo
-	}
-
-	logHandle = append(logHandle, errorExcludeLvlFilterHandler(logLevel, cfg.RunLogHandler()))
-	logHandle = append(logHandle, log15.LvlFilterHandler(log15.LvlError, cfg.RunErrorLogHandler()))
-
-	log15.Root().SetHandler(log15.MultiHandler(
-		logHandle...,
-	))
-}
-
-func errorExcludeLvlFilterHandler(maxLvl log15.Lvl, h log15.Handler) log15.Handler {
-	return log15.FilterHandler(func(r *log15.Record) (ss bool) {
-
-		////Error、Crit 级别的过滤掉
-		//if r.Lvl <= log15.LvlError {
-		//	return false
-		//}
-
-		return r.Lvl <= maxLvl
-	}, h)
+	log15.Root().SetHandler(log15.MultiHandler(defaultHandler, errorHandler))
 }
