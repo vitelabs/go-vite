@@ -5,8 +5,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
-
-	"github.com/vitelabs/go-vite/config/biz"
 )
 
 type Config struct {
@@ -15,7 +13,7 @@ type Config struct {
 	*Vm         `json:"Vm"`
 	*Subscribe  `json:"Subscribe"`
 	*Net        `json:"Net"`
-	*biz.Reward `json:"Reward"`
+	*NodeReward `json:"Reward"`
 	*Genesis    `json:"Genesis"`
 
 	// global keys

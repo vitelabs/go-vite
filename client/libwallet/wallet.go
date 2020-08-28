@@ -11,13 +11,14 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	ledger"github.com/vitelabs/go-vite/interfaces/core"
-
 	"github.com/go-errors/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	ed255192 "github.com/vitelabs/go-vite/crypto/ed25519"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
@@ -64,7 +65,7 @@ var verbose = false
 func InitWallet(dataDir *C.char, maxSearchIndex int, useLightScrypt bool) *C.char {
 	dataDirStr := GoString(dataDir)
 
-	tmp := wallet.New(&wallet.Config{
+	tmp := wallet.New(&config.Wallet{
 		DataDir:        dataDirStr,
 		MaxSearchIndex: uint32(maxSearchIndex),
 	})

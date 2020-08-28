@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"testing"
 
+	"gotest.tools/assert"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
-	"gotest.tools/assert"
 )
 
 func TestVmLogList_Hash(t *testing.T) {
 	var vmLogList VmLogList
 
-	fork.SetForkPoints(&config.ForkPoints{
-		SeedFork: &config.ForkPoint{
+	fork.SetForkPoints(&fork.ForkPoints{
+		SeedFork: &fork.ForkPoint{
 			Height:  90,
 			Version: 1,
 		},
@@ -54,8 +54,8 @@ func TestVmLogList_Hash(t *testing.T) {
 	if *vmLogHash100 == *vmLogHash1 {
 		t.Fatal(fmt.Sprintf("vmloghash1 should not be equal with vmloghash100 , %+v, %+v", vmLogHash100, vmLogHash1))
 	}
-	fork.SetForkPoints(&config.ForkPoints{
-		SeedFork: &config.ForkPoint{
+	fork.SetForkPoints(&fork.ForkPoints{
+		SeedFork: &fork.ForkPoint{
 			Height:  101,
 			Version: 1,
 		},

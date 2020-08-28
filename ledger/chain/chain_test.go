@@ -1,28 +1,29 @@
 package chain
 
 import (
+	"encoding/gob"
 	"encoding/json"
-	"github.com/vitelabs/go-vite/common/fork"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/exec"
 	"path"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
-	"encoding/gob"
-	"fmt"
 	"github.com/docker/docker/pkg/reexec"
+
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
 	"github.com/vitelabs/go-vite/vm/quota"
-	"math/rand"
-	"os/exec"
-	"sync"
-	"syscall"
 )
 
 var GenesisJson = `{
@@ -200,8 +201,8 @@ func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Addr
 	// set fork point
 
 	if len(fork.GetActiveForkPointList()) <= 0 {
-		fork.SetForkPoints(&config.ForkPoints{
-			SeedFork: &config.ForkPoint{
+		fork.SetForkPoints(&fork.ForkPoints{
+			SeedFork: &fork.ForkPoint{
 				Version: 1,
 				Height:  10000000,
 			},
@@ -556,8 +557,8 @@ func TestChainForkRollBack(t *testing.T) {
 
 	// height
 	height := uint64(30)
-	fork.SetForkPoints(&config.ForkPoints{
-		SeedFork: &config.ForkPoint{
+	fork.SetForkPoints(&fork.ForkPoints{
+		SeedFork: &fork.ForkPoint{
 			Height:  height,
 			Version: 1,
 		},

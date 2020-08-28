@@ -12,9 +12,6 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/config/biz"
-	"github.com/vitelabs/go-vite/config/gen"
-	"github.com/vitelabs/go-vite/config/wallet"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -120,21 +117,21 @@ type Config struct {
 	InfluxDBHostTag  *string `json:"InfluxDBHostTag"`
 }
 
-func (c *Config) makeWalletConfig() *wallet.Config {
-	return &wallet.Config{DataDir: c.KeyStoreDir}
+func (c *Config) makeWalletConfig() *config.Wallet {
+	return &config.Wallet{DataDir: c.KeyStoreDir}
 }
 
 func (c *Config) makeViteConfig() *config.Config {
 	return &config.Config{
-		Chain:     c.makeChainConfig(),
-		Producer:  c.makeMinerConfig(),
-		DataDir:   c.DataDir,
-		Net:       c.makeNetConfig(),
-		Vm:        c.makeVmConfig(),
-		Subscribe: c.makeSubscribeConfig(),
-		Reward:    c.makeRewardConfig(),
-		Genesis:   config_gen.MakeGenesisConfig(c.GenesisFile),
-		LogLevel:  c.LogLevel,
+		Chain:      c.makeChainConfig(),
+		Producer:   c.makeMinerConfig(),
+		DataDir:    c.DataDir,
+		Net:        c.makeNetConfig(),
+		Vm:         c.makeVmConfig(),
+		Subscribe:  c.makeSubscribeConfig(),
+		NodeReward: c.makeRewardConfig(),
+		Genesis:    config.MakeGenesisConfig(c.GenesisFile),
+		LogLevel:   c.LogLevel,
 	}
 }
 
@@ -170,8 +167,8 @@ func (c *Config) makeNetConfig() *config.Net {
 	}
 }
 
-func (c *Config) makeRewardConfig() *biz.Reward {
-	return &biz.Reward{
+func (c *Config) makeRewardConfig() *config.NodeReward {
+	return &config.NodeReward{
 		RewardAddr: c.RewardAddr,
 		Name:       c.Identity,
 	}

@@ -31,8 +31,8 @@ func NewChainInstance(dirName string, clear bool) (chain.Chain, error) {
 		os.RemoveAll(dataDir)
 	}
 	if len(fork.GetActiveForkPointList()) <= 0 {
-		fork.SetForkPoints(&config.ForkPoints{
-			SeedFork: &config.ForkPoint{
+		fork.SetForkPoints(&fork.ForkPoints{
+			SeedFork: &fork.ForkPoint{
 				Version: 1,
 				Height:  10000000,
 			},

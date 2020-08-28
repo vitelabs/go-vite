@@ -2,13 +2,18 @@ package config
 
 import (
 	"encoding/json"
-	"github.com/vitelabs/go-vite/common/types"
+	"fmt"
 	"math/big"
+	"os"
+
+	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type Genesis struct {
 	GenesisAccountAddress *types.Address
-	ForkPoints            *ForkPoints
+	ForkPoints            *fork.ForkPoints
 	ConsensusGroupInfo    *GovernanceContractInfo // Deprecated
 	GovernanceInfo        *GovernanceContractInfo
 	MintageInfo           *AssetContractInfo // Deprecated
@@ -72,23 +77,6 @@ func IsCompleteGenesisConfig(genesisConfig *Genesis) bool {
 		return false
 	}
 	return true
-}
-
-type ForkPoint struct {
-	Height  uint64
-	Version uint32
-}
-
-type ForkPoints struct {
-	SeedFork            *ForkPoint
-	DexFork             *ForkPoint
-	DexFeeFork          *ForkPoint
-	StemFork            *ForkPoint
-	LeafFork            *ForkPoint
-	EarthFork           *ForkPoint
-	DexMiningFork       *ForkPoint
-	DexRobotFork        *ForkPoint
-	DexStableMarketFork *ForkPoint
 }
 
 type GenesisVmLog struct {
@@ -175,4 +163,100 @@ type StakeInfo struct {
 	ExpirationHeight uint64
 	BeneficialAddr   *types.Address // Deprecated
 	Beneficiary      *types.Address
+}
+
+func MakeGenesisConfig(genesisFile string) *Genesis {
+	var genesisConfig *Genesis
+
+	log := log15.New("module", "gvite/config")
+	if len(genesisFile) > 0 {
+		file, err := os.Open(genesisFile)
+		if err != nil {
+			log.Crit(fmt.Sprintf("Failed to read genesis file: %v", err), "method", "readGenesis")
+		}
+		defer file.Close()
+
+		genesisConfig = new(Genesis)
+		if err := json.NewDecoder(file).Decode(genesisConfig); err != nil {
+			log.Crit(fmt.Sprintf("invalid genesis file: %v", err), "method", "readGenesis")
+		}
+		if !IsCompleteGenesisConfig(genesisConfig) {
+			log.Crit(fmt.Sprintf("invalid genesis file, genesis account info is not complete"), "method", "readGenesis")
+		}
+	} else {
+		genesisConfig = makeGenesisAccountConfig()
+	}
+
+	// set fork points
+	genesisConfig.ForkPoints = makeForkPointsConfig(genesisConfig)
+	return genesisConfig
+}
+
+func makeForkPointsConfig(genesisConfig *Genesis) *fork.ForkPoints {
+	// checkForkPoints(genesisConfig.ForkPoints)
+	if genesisConfig != nil && genesisConfig.ForkPoints != nil {
+		if err := fork.CheckForkPoints(*genesisConfig.ForkPoints); err != nil {
+			panic(err)
+		}
+		return genesisConfig.ForkPoints
+	} else {
+		return &fork.ForkPoints{
+			SeedFork: &fork.ForkPoint{
+				Height:  3488471,
+				Version: 1,
+			},
+
+			DexFork: &fork.ForkPoint{
+				Height:  5442723,
+				Version: 2,
+			},
+
+			DexFeeFork: &fork.ForkPoint{
+				Height:  8013367,
+				Version: 3,
+			},
+
+			StemFork: &fork.ForkPoint{
+				Height:  8403110,
+				Version: 4,
+			},
+			LeafFork: &fork.ForkPoint{
+				Height:  9413600,
+				Version: 5,
+			},
+
+			EarthFork: &fork.ForkPoint{
+				Height:  16634530,
+				Version: 6,
+			},
+
+			DexMiningFork: &fork.ForkPoint{
+				Height:  17142720,
+				Version: 7,
+			},
+
+			DexRobotFork: &fork.ForkPoint{
+				Height:  31305900,
+				Version: 8,
+			},
+
+			DexStableMarketFork: &fork.ForkPoint{
+				Height:  39694000,
+				Version: 9,
+			},
+		}
+	}
+}
+
+func makeGenesisAccountConfig() *Genesis {
+	g := new(Genesis)
+	err := json.Unmarshal([]byte(GenesisJson()), g)
+	if err != nil {
+		panic(err)
+	}
+	return g
+}
+
+func GenesisJson() string {
+	return genesisJson
 }

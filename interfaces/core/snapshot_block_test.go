@@ -3,18 +3,13 @@ package core
 import (
 	"encoding/base64"
 	"encoding/json"
-
 	"fmt"
-
-	"github.com/vitelabs/go-vite/common/fork"
-
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
-
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
@@ -220,8 +215,8 @@ func TestForkComputeHash(t *testing.T) {
 
 	snapshotBlock := createSnapshotBlock(1, 10000000000000)
 	hashold := snapshotBlock.Hash
-	fork.SetForkPoints(&config.ForkPoints{
-		SeedFork: &config.ForkPoint{
+	fork.SetForkPoints(&fork.ForkPoints{
+		SeedFork: &fork.ForkPoint{
 			Height:  90,
 			Version: 1,
 		},

@@ -4,10 +4,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config/gen"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/ledger/pool/lock"
@@ -43,15 +45,8 @@ func testDataDir() string {
 
 func prepareChain() chain.Chain {
 	clearChain(nil)
-	cfg := config_gen.MakeGenesisConfig("")
 
-	c := chain.NewChain(testDataDir(), nil, cfg)
-
-	err := c.Init()
-	if err != nil {
-		panic(err)
-	}
-	err = c.Start()
+	c, err := test_tools.NewChainInstanceFromDir(testDataDir(), false, "")
 	if err != nil {
 		panic(err)
 	}

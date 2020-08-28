@@ -2,16 +2,33 @@ package fork
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/config"
 	"reflect"
 	"sort"
+
+	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 )
 
-var forkPoints config.ForkPoints
+type ForkPoint struct {
+	Height  uint64
+	Version uint32
+}
+
+type ForkPoints struct {
+	SeedFork            *ForkPoint
+	DexFork             *ForkPoint
+	DexFeeFork          *ForkPoint
+	StemFork            *ForkPoint
+	LeafFork            *ForkPoint
+	EarthFork           *ForkPoint
+	DexMiningFork       *ForkPoint
+	DexRobotFork        *ForkPoint
+	DexStableMarketFork *ForkPoint
+}
+
+var forkPoints ForkPoints
 
 type ForkPointItem struct {
-	config.ForkPoint
+	ForkPoint
 	ForkName string
 }
 
@@ -34,7 +51,7 @@ func IsInitActiveChecker() bool {
 	return activeChecker != nil
 }
 
-func SetForkPoints(points *config.ForkPoints) {
+func SetForkPoints(points *ForkPoints) {
 	if points != nil {
 		forkPoints = *points
 
@@ -43,7 +60,7 @@ func SetForkPoints(points *config.ForkPoints) {
 		forkPointMap = make(ForkPointMap)
 
 		for k := 0; k < t.NumField(); k++ {
-			forkPoint := v.Field(k).Interface().(*config.ForkPoint)
+			forkPoint := v.Field(k).Interface().(*ForkPoint)
 
 			forkName := t.Field(k).Name
 			forkPointItem := &ForkPointItem{
@@ -65,12 +82,12 @@ func SetActiveChecker(ac ActiveChecker) {
 	activeChecker = ac
 }
 
-func CheckForkPoints(points config.ForkPoints) error {
+func CheckForkPoints(points ForkPoints) error {
 	t := reflect.TypeOf(points)
 	v := reflect.ValueOf(points)
 
 	for k := 0; k < t.NumField(); k++ {
-		forkPoint := v.Field(k).Interface().(*config.ForkPoint)
+		forkPoint := v.Field(k).Interface().(*ForkPoint)
 
 		if forkPoint == nil {
 			return errors.New(fmt.Sprintf("The fork point %s can't be nil. the `ForkPoints` config in genesis.json is not correct, "+
@@ -238,7 +255,7 @@ func GetForkPoint(snapshotHeight uint64) *ForkPointItem {
 	return nil
 }
 
-func GetForkPoints() config.ForkPoints {
+func GetForkPoints() ForkPoints {
 	return forkPoints
 }
 
