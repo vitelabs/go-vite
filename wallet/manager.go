@@ -172,6 +172,7 @@ func (m Manager) GlobalFindAddr(targetAdr types.Address) (path string, key *deri
 	return "", nil, 0, walleterrors.ErrAddressNotFound
 }
 
+// Deprecated
 func (m Manager) GlobalFindAddrWithPassphrase(targetAdr types.Address, pass string) (path string, key *derivation.Key, index uint32, err error) {
 	for path, em := range m.entropyStoreManager {
 		key, index, err = em.FindAddrWithPassphrase(pass, targetAdr)

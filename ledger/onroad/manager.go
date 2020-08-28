@@ -135,7 +135,7 @@ func (manager *Manager) producerStartEventFunc(accevent producerevent.AccountEve
 		return
 	}
 
-	if !manager.wallet.GlobalCheckAddrUnlock(event.Address) {
+	if manager.coinbase == nil || manager.coinbase.Address() != event.Address {
 		manager.log.Error("receive chain right event but address locked", "event", event)
 		return
 	}

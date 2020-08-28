@@ -97,23 +97,17 @@ func (v *VmDebugApi) NewAccount() (*VmAccountInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, key, _, err := v.wallet.wallet.GlobalFindAddr(response.PrimaryAddr)
+	account, err := v.wallet.wallet.AccountAtIndex(response.Filename, response.PrimaryAddr, 0)
 	if err != nil {
 		return nil, err
 	}
-	privateKey, err := key.PrivateKey()
-	if err != nil {
-		return nil, err
-	}
-	acc := VmAccountInfo{
-		Addr:       response.PrimaryAddr,
-		PrivateKey: hex.EncodeToString(privateKey),
-	}
+
 	// transfer from genesis account to user account
+	address := account.Address()
 	tid, _ := types.HexToTokenTypeId(testapi_tti)
 	sendBlock, err := v.tx.SendTxWithPrivateKey(SendTxWithPrivateKeyParam{
 		SelfAddr:    v.vite.Config().GenesisAccountAddress,
-		ToAddr:      &acc.Addr,
+		ToAddr:      &address,
 		TokenTypeId: tid,
 		PrivateKey:  &testapi_hexPrivKey,
 		Amount:      &initAmount,
@@ -122,18 +116,25 @@ func (v *VmDebugApi) NewAccount() (*VmAccountInfo, error) {
 		return nil, err
 	}
 
+	priv, err := account.PrivateKey()
+	if err != nil {
+		return nil, err
+	}
 	if vm.IsTest() {
 		err = v.testapi.ReceiveOnroadTx(CreateReceiveTxParms{
-			SelfAddr:   acc.Addr,
+			SelfAddr:   address,
 			FromHash:   sendBlock.Hash,
-			PrivKeyStr: acc.PrivateKey,
+			PrivKeyStr: hex.EncodeToString(priv),
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
-	v.accountMap[acc.Addr] = acc.PrivateKey
-	return &acc, nil
+	v.accountMap[address] = hex.EncodeToString(priv)
+	return &VmAccountInfo{
+		Addr:       address,
+		PrivateKey: hex.EncodeToString(priv),
+	}, nil
 }
 
 type CreateContractParam struct {

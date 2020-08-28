@@ -232,6 +232,7 @@ func (m WalletApi) GlobalFindAddr(addr types.Address) (findResult *FindAddrResul
 	}, nil
 }
 
+// Deprecated
 func (m WalletApi) GlobalFindAddrWithPassphrase(addr types.Address, passphrase string) (findResult *FindAddrResult, e error) {
 	path, _, index, e := m.wallet.GlobalFindAddrWithPassphrase(addr, passphrase)
 	if e != nil {
@@ -248,17 +249,16 @@ func (m WalletApi) AddEntropyStore(filename string) error {
 }
 
 func (m WalletApi) SignData(addr types.Address, hexMsg string) (*HexSignedTuple, error) {
-
-	msgbytes, err := hex.DecodeString(hexMsg)
+	hash, err := types.HexToHash(hexMsg)
 	if err != nil {
 		return nil, err
 	}
-	_, key, _, e := m.wallet.GlobalFindAddr(addr)
+	account, e := m.wallet.Account(addr)
 	if e != nil {
 		return nil, e
 	}
 
-	signedData, pubkey, err := key.SignData(msgbytes)
+	signedData, pubkey, err := account.Sign(hash)
 	if err != nil {
 		return nil, err
 	}
@@ -335,16 +335,15 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 }
 
 func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, passphrase string) (*HexSignedTuple, error) {
-
-	msgbytes, err := hex.DecodeString(hexMsg)
+	hash, err := types.HexToHash(hexMsg)
 	if err != nil {
 		return nil, err
 	}
-	_, key, _, e := m.wallet.GlobalFindAddrWithPassphrase(addr, passphrase)
-	if e != nil {
-		return nil, e
+	account, err := m.wallet.AccountSearch(nil, addr, passphrase)
+	if err != nil {
+		return nil, err
 	}
-	signedData, pubkey, err := key.SignData(msgbytes)
+	signedData, pubkey, err := account.Sign(hash)
 	if err != nil {
 		return nil, err
 	}
