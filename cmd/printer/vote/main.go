@@ -14,7 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/vm/quota"
 )

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/vm/quota"
 )

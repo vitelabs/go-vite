@@ -14,7 +14,7 @@ import (
 	"github.com/go-errors/errors"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	ed255192 "github.com/vitelabs/go-vite/crypto/ed25519"

@@ -11,7 +11,7 @@ import (
 	"github.com/tyler-smith/go-bip39"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"

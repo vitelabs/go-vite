@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
-	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/pow"
