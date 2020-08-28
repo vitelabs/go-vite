@@ -99,7 +99,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	}
 
 	if account != nil {
-		vite.producer = producer.NewProducer(chain, net, account, cs, verifier.GetSnapshotVerifier(), walletManager, pl)
+		vite.producer = producer.NewProducer(chain, net, account, cs, verifier.GetSnapshotVerifier(), pl)
 	}
 	// set onroad
 	vite.onRoad = onroad.NewManager(net, pl, vite.producer, vite.consensus, account)
@@ -134,7 +134,7 @@ func (v *Vite) Start() (err error) {
 		return err
 	}
 	// hack
-	v.pool.Init(v.net, v.walletManager, v.verifier.GetSnapshotVerifier(), v.verifier, v.consensus)
+	v.pool.Init(v.net, v.verifier.GetSnapshotVerifier(), v.verifier, v.consensus)
 
 	v.consensus.Start()
 

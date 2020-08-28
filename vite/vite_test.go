@@ -18,7 +18,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger/pool"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm/abi"
-	"github.com/vitelabs/go-vite/wallet"
 )
 
 var genesisAccountPrivKeyStr string
@@ -35,13 +34,11 @@ func PrepareVite() (chain.Chain, *verifier.AccountVerifier, pool.BlockPool) {
 	c.Init()
 	c.Start()
 
-	w := wallet.New(nil)
-
 	v := verifier.NewAccountVerifier(c, nil)
 
 	p, _ := pool.NewPool(c)
 
-	p.Init(&pool.MockSyncer{}, w, verifier.NewSnapshotVerifier(c, nil), v)
+	p.Init(&pool.MockSyncer{}, verifier.NewSnapshotVerifier(c, nil), v)
 	p.Start()
 
 	return c, v, p

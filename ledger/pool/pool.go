@@ -22,7 +22,6 @@ import (
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm_db"
-	"github.com/vitelabs/go-vite/wallet"
 )
 
 // Writer is a writer of BlockPool
@@ -69,7 +68,6 @@ type BlockPool interface {
 	Start()
 	Stop()
 	Init(s syncer,
-		wt *wallet.Manager,
 		snapshotV *verifier.SnapshotVerifier,
 		accountV verifier.Verifier,
 		cs consensus.Consensus)
@@ -137,7 +135,6 @@ type pool struct {
 
 	sync syncer
 	bc   chainDb
-	wt   *wallet.Manager
 
 	snapshotVerifier *verifier.SnapshotVerifier
 	accountVerifier  verifier.Verifier
@@ -213,12 +210,10 @@ func NewPool(bc chainDb) (BlockPool, error) {
 }
 
 func (pl *pool) Init(s syncer,
-	wt *wallet.Manager,
 	snapshotV *verifier.SnapshotVerifier,
 	accountV verifier.Verifier,
 	cs consensus.Consensus) {
 	pl.sync = s
-	pl.wt = wt
 	rw := &snapshotCh{version: pl.version, bc: pl.bc, log: pl.log}
 	fe := &snapshotSyncer{fetcher: s, log: pl.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}

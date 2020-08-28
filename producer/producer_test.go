@@ -17,7 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/wallet"
 )
 
 type testConsensus struct {
@@ -106,12 +105,11 @@ func TestSnapshot(t *testing.T) {
 	}
 
 	sv := verifier.NewSnapshotVerifier(c, cs)
-	w := wallet.New(nil)
 	av := verifier.NewAccountVerifier(c, cs)
 	p1, _ := pool.NewPool(c)
-	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
+	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, p1)
 
-	p1.Init(&pool.MockSyncer{}, w, sv, av)
+	p1.Init(&pool.MockSyncer{}, sv, av)
 	p.Init()
 
 	cs.Subscribe(types.SNAPSHOT_GID, "snapshot_mock", &coinbase.Address, func(e consensus.Event) {
@@ -145,10 +143,9 @@ func TestProducer_Init(t *testing.T) {
 	}
 	cs := &consensus.MockConsensus{}
 	sv := verifier.NewSnapshotVerifier(c, cs)
-	w := wallet.New(nil)
 	av := verifier.NewAccountVerifier(c, cs)
 	p1, _ := pool.NewPool(c)
-	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, w, p1)
+	p := NewProducer(c, &testSubscriber{}, coinbase, cs, sv, p1)
 
 	c.Init()
 	c.Start()

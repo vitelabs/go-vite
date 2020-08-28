@@ -17,7 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer/producerevent"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/wallet"
 )
 
 // Package producer implements vite block creation
@@ -90,9 +89,8 @@ func NewProducer(rw chain.Chain,
 	coinbase interfaces.Account,
 	cs consensus.Subscriber,
 	verifier *verifier.SnapshotVerifier,
-	wt *wallet.Manager,
 	p pool.SnapshotProducerWriter) *producer {
-	chain := newChainRw(rw, verifier, wt, p)
+	chain := newChainRw(rw, verifier, p)
 	miner := &producer{tools: chain, coinbase: coinbase}
 
 	miner.cs = cs

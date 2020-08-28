@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
 	"github.com/vitelabs/go-vite/common/types"
+	config_wallet "github.com/vitelabs/go-vite/config/wallet"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
@@ -17,7 +18,7 @@ import (
 )
 
 type Manager struct {
-	config              *Config
+	config              *config_wallet.Config
 	unlockChangedIndex  int
 	entropyStoreManager map[string]*entropystore.Manager // key is the entropyStore`s abs path
 	unlockChangedLis    map[int]func(event entropystore.UnlockEvent)
@@ -26,7 +27,7 @@ type Manager struct {
 	log log15.Logger
 }
 
-func New(config *Config) *Manager {
+func New(config *config_wallet.Config) *Manager {
 	if config == nil {
 		return nil
 	}

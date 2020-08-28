@@ -16,12 +16,10 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/wallet"
 )
 
 type tools struct {
 	log       log15.Logger
-	wt        *wallet.Manager
 	pool      pool.SnapshotProducerWriter
 	chain     chain.Chain
 	sVerifier *verifier.SnapshotVerifier
@@ -77,9 +75,9 @@ func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	return self.pool.AddDirectSnapshotBlock(block)
 }
 
-func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, wt *wallet.Manager, p pool.SnapshotProducerWriter) *tools {
+func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, p pool.SnapshotProducerWriter) *tools {
 	log := log15.New("module", "tools")
-	return &tools{chain: ch, log: log, sVerifier: sVerifier, wt: wt, pool: p}
+	return &tools{chain: ch, log: log, sVerifier: sVerifier, pool: p}
 }
 
 func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.SnapshotContent, error) {

@@ -14,9 +14,9 @@ import (
 	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/config/biz"
 	"github.com/vitelabs/go-vite/config/gen"
+	"github.com/vitelabs/go-vite/config/wallet"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/wallet"
 )
 
 type Config struct {

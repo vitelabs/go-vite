@@ -12,6 +12,7 @@ import (
 
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
 	"github.com/vitelabs/go-vite/config"
+	config_wallet "github.com/vitelabs/go-vite/config/wallet"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/pow"
@@ -33,7 +34,7 @@ type Node struct {
 	config *Config
 
 	//wallet
-	walletConfig  *wallet.Config
+	walletConfig  *config_wallet.Config
 	walletManager *wallet.Manager
 
 	//vite
