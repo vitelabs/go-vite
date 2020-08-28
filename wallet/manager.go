@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
+
 	"github.com/vitelabs/go-vite/common/types"
 	config_wallet "github.com/vitelabs/go-vite/config/wallet"
 	"github.com/vitelabs/go-vite/log15"

@@ -9,23 +9,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/crypto"
-
 	"github.com/stretchr/testify/assert"
+
 	"github.com/vitelabs/go-vite/common"
+	config_wallet "github.com/vitelabs/go-vite/config/wallet"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
 func deskTopDir() string {
 	home := common.HomeDir()
 	if home != "" {
+
 		return filepath.Join(home, "Desktop", "wallet")
 	}
 	return ""
 }
 
 func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
-	manager := wallet.New(&wallet.Config{
+	manager := wallet.New(&config_wallet.Config{
 		DataDir: deskTopDir(),
 	})
 	mnemonic, em, err := manager.NewMnemonicAndEntropyStore("123456")
@@ -41,7 +43,10 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 	//	t.Fatal()
 	//}
 	//em2.Unlock("123456")
-	em.Unlock("123456")
+	err = em.Unlock("123456")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for i := 0; i < 1; i++ {
 		_, key2, e := em.DeriveForIndexPath(uint32(i))
@@ -60,17 +65,20 @@ func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
 
 	}
 
-	//fmt.Println(em.GetPrimaryAddr())
-	//fmt.Println(em.GetEntropyStoreFile())
+	// fmt.Println(em.GetPrimaryAddr())
+	// fmt.Println(em.GetEntropyStoreFile())
 }
 
 func TestManager_RecoverEntropyStoreFromMnemonic(t *testing.T) {
 	mnemonic := ""
-	manager := wallet.New(&wallet.Config{
+	manager := wallet.New(&config_wallet.Config{
 		DataDir: deskTopDir(),
 	})
 	em, _ := manager.RecoverEntropyStoreFromMnemonic(mnemonic, "123456")
-	em.Unlock("123456")
+	err := em.Unlock("123456")
+	if err != nil {
+		t.Fatal(err)
+	}
 	addr := em.GetPrimaryAddr()
 
 	t.Log(addr)
@@ -78,6 +86,9 @@ func TestManager_RecoverEntropyStoreFromMnemonic(t *testing.T) {
 	_, key, err := em.DeriveForIndexPath(0)
 	assert.NoError(t, err)
 	privateKey, err := key.PrivateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Log(hex.EncodeToString(privateKey))
 	publicKey, err := key.PublicKey()
 	assert.NoError(t, err)
@@ -91,13 +102,11 @@ func TestManager_RecoverEntropyStoreFromMnemonic(t *testing.T) {
 	pubKeyddd, _ := hex.DecodeString(hex.EncodeToString(publicKey))
 	sig, err := crypto.VerifySig(pubKeyddd, []byte(fmt.Sprintf("%d", now)), data)
 	t.Log(sig, err)
-
 }
 
 func TestManager_NewMnemonicAndSeedStore2(t *testing.T) {
-
 	for i := 1; i <= 25; i++ {
-		manager := wallet.New(&wallet.Config{
+		manager := wallet.New(&config_wallet.Config{
 			DataDir: fmt.Sprintf("/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_%d/devdata/wallet", i),
 		})
 		mnemonic, em, err := manager.NewMnemonicAndEntropyStore("123456")
@@ -109,7 +118,8 @@ func TestManager_NewMnemonicAndSeedStore2(t *testing.T) {
 }
 
 func TestManager_NewMnemonicAndSeedStore21(t *testing.T) {
-	mneList := []string{"alter meat balance father season shop text figure pitch another fade figure faith chat smooth pottery dilemma pause differ equal shuffle series valve render",
+	mneList := []string{
+		"alter meat balance father season shop text figure pitch another fade figure faith chat smooth pottery dilemma pause differ equal shuffle series valve render",
 		"that split virus bulk piece recall kick cave balance trigger burst license chat fame frog void theme soft unit subject crime tragic hip sand",
 		"next aerobic ticket dragon real impulse unaware nut useful laundry forget prize ranch myth portion mail spare coast lonely lunar deer topic pill suspect",
 		"twice catch reunion smooth impose predict device valid tobacco romance bind demand boy nest height toy pair salt journey bachelor choice siege setup hire",
@@ -133,18 +143,25 @@ func TestManager_NewMnemonicAndSeedStore21(t *testing.T) {
 		"drive lobster pride frequent orbit citizen table thank build super seek shaft immense high hidden another sauce clever ensure miss spider sunset rotate key",
 		"vibrant monitor example unhappy celery solve inject wire thank spatial suffer kick ship excite flower border erode clog chuckle seven despair chat desert daring",
 		"oblige maid inch hamster joy talent poverty announce old return grass smile ginger hill delay evidence buyer curtain mutual any struggle squirrel skill whip",
-		"remove protect wet couch moral slight slot virtual north where print chimney rack fresh barely angle hurdle scrub diet elder raise easily eager crisp"}
+		"remove protect wet couch moral slight slot virtual north where print chimney rack fresh barely angle hurdle scrub diet elder raise easily eager crisp",
+	}
 
-	manager := wallet.New(&wallet.Config{
+	manager := wallet.New(&config_wallet.Config{
 		DataDir: fmt.Sprintf("wallet-dir"),
 	})
-	manager.Start()
+	err := manager.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i := 0; i < len(mneList); i++ {
 		em, err := manager.RecoverEntropyStoreFromMnemonic(mneList[i], "123456")
 		if err != nil {
 			panic(err)
 		}
-		em.Unlock("123456")
+		err = em.Unlock("123456")
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		prim := em.GetPrimaryAddr()
 		fmt.Printf(`"s%d":{
@@ -175,7 +192,7 @@ func TestManager_NewMnemonicAndSeedStore21(t *testing.T) {
 }
 
 func TestManager_NewMnemonicAndSeedStore3(t *testing.T) {
-	manager := wallet.New(&wallet.Config{
+	manager := wallet.New(&config_wallet.Config{
 		DataDir: fmt.Sprintf("/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/tmpWallet"),
 	})
 	for i := 1; i <= 5; i++ {
@@ -188,17 +205,23 @@ func TestManager_NewMnemonicAndSeedStore3(t *testing.T) {
 }
 
 func TestManager_NewMnemonicAndSeedStore4(t *testing.T) {
-	manager := wallet.New(&wallet.Config{
+	manager := wallet.New(&config_wallet.Config{
 		DataDir: fmt.Sprintf("/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/tmpWallet"),
 	})
-	manager.Start()
+	err := manager.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
 	files := manager.ListAllEntropyFiles()
 	for _, v := range files {
 		storeManager, err := manager.GetEntropyStoreManager(v)
 		if err != nil {
 			panic(err)
 		}
-		storeManager.Unlock("123456")
+		err = storeManager.Unlock("123456")
+		if err != nil {
+			t.Fatal(err)
+		}
 		_, key, err := storeManager.DeriveForIndexPath(0)
 		if err != nil {
 			panic(err)
@@ -216,15 +239,22 @@ func TestManager_NewMnemonicAndSeedStore4(t *testing.T) {
 }
 
 func TestManager_GetEntropyStoreManager(t *testing.T) {
-	manager := wallet.New(&wallet.Config{
+	manager := wallet.New(&config_wallet.Config{
 		DataDir: "/Users/zhutiantao/Library/GVite/testdata/wallet/",
 	})
-	manager.Start()
+	err := manager.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
 	storeManager, err := manager.GetEntropyStoreManager("vite_b1c00ae7dfd5b935550a6e2507da38886abad2351ae78d4d9a")
 	if err != nil {
 		t.Fatal(err)
 	}
-	storeManager.Unlock("123456")
+	err = storeManager.Unlock("123456")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	for i := 0; i < 25; i++ {
 		_, key, _ := storeManager.DeriveForIndexPath(uint32(i))
 		address, _ := key.Address()
@@ -256,5 +286,4 @@ func TestRead(t *testing.T) {
 	}
 
 	t.Log(path)
-
 }
