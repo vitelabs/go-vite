@@ -1,4 +1,4 @@
-package walleterrors
+package errors
 
 import "errors"
 

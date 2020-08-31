@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/tyler-smith/go-bip39"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/wallet/entropystore"
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
-	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"path/filepath"
 	"testing"
+
+	"github.com/tyler-smith/go-bip39"
+
+	"github.com/vitelabs/go-vite/common"
+	walleterrors "github.com/vitelabs/go-vite/common/errors"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
+	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 )
 
 func TestCryptoStore_StoreEntropy(t *testing.T) {

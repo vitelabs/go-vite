@@ -3,15 +3,17 @@ package entropystore_test
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/tyler-smith/go-bip39"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/wallet/entropystore"
-	"github.com/vitelabs/go-vite/wallet/walleterrors"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/tyler-smith/go-bip39"
+
+	"github.com/vitelabs/go-vite/common"
+	walleterrors "github.com/vitelabs/go-vite/common/errors"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
 
 type testBipTuple struct {
