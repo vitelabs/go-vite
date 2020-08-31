@@ -3,8 +3,6 @@ package chain
 import (
 	"sync"
 
-	"github.com/olebedev/emitter"
-
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
@@ -56,14 +54,10 @@ func (em *eventManager) TriggerInsertAbs(eventType byte, vmAccountBlocks []*inte
 				return err
 			}
 		}
-		em.chain.emitter.Emit("prepareInsertAccountBlocks", vmAccountBlocks)
-
 	case insertAbsEvent:
 		for _, listener := range em.listenerList {
 			listener.InsertAccountBlocks(vmAccountBlocks)
 		}
-		em.chain.emitter.Emit("insertAccountBlocks", vmAccountBlocks)
-
 	}
 	return nil
 }
@@ -83,14 +77,10 @@ func (em *eventManager) TriggerDeleteAbs(eventType byte, accountBlocks []*ledger
 				return err
 			}
 		}
-		em.chain.emitter.Emit("prepareDeleteAccountBlocks", accountBlocks)
-
 	case DeleteAbsEvent:
 		for _, listener := range em.listenerList {
 			listener.DeleteAccountBlocks(accountBlocks)
 		}
-		em.chain.emitter.Emit("deleteAccountBlocks", accountBlocks)
-
 	}
 	return nil
 }
@@ -123,16 +113,13 @@ func (em *eventManager) TriggerInsertSbs(eventType byte, chunks []*ledger.Snapsh
 			}
 		}
 
-		snapshotBlocks, accountBlocksList := splitChunks(chunks)
-		em.chain.emitter.Emit("prepareInsertSnapshotBlocks", snapshotBlocks, accountBlocksList)
-
+		splitChunks(chunks)
 	case InsertSbsEvent:
 		for _, listener := range em.listenerList {
 			listener.InsertSnapshotBlocks(chunks)
 		}
 
-		snapshotBlocks, accountBlocksList := splitChunks(chunks)
-		em.chain.emitter.Emit("insertSnapshotBlocks", snapshotBlocks, accountBlocksList)
+		splitChunks(chunks)
 	}
 	return nil
 }
@@ -152,15 +139,13 @@ func (em *eventManager) TriggerDeleteSbs(eventType byte, chunks []*ledger.Snapsh
 			}
 		}
 
-		snapshotBlocks, accountBlocksList := splitChunks(chunks)
-		em.chain.emitter.Emit("prepareDeleteSnapshotBlocks", snapshotBlocks, accountBlocksList)
+		splitChunks(chunks)
 	case deleteSbsEvent:
 		for _, listener := range em.listenerList {
 			listener.DeleteSnapshotBlocks(chunks)
 		}
 
-		snapshotBlocks, accountBlocksList := splitChunks(chunks)
-		em.chain.emitter.Emit("deleteSnapshotBlocks", snapshotBlocks, accountBlocksList)
+		splitChunks(chunks)
 	}
 	return nil
 }
@@ -171,6 +156,7 @@ func (em *eventManager) Register(listener EventListener) {
 
 	em.listenerList = append(em.listenerList, listener)
 }
+
 func (em *eventManager) UnRegister(listener EventListener) {
 	em.mu.Lock()
 	defer em.mu.Unlock()
@@ -181,10 +167,6 @@ func (em *eventManager) UnRegister(listener EventListener) {
 			break
 		}
 	}
-}
-
-func (c *chain) Emitter() *emitter.Emitter {
-	return c.emitter
 }
 
 func (c *chain) Register(listener EventListener) {

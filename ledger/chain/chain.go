@@ -7,7 +7,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/olebedev/emitter"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 
@@ -48,9 +47,6 @@ type chain struct {
 	log log15.Logger
 
 	em *eventManager
-
-	emitter *emitter.Emitter
-
 	// memory cache for query
 	cache *chain_cache.Cache
 
@@ -96,7 +92,6 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 
 		log: log15.New("module", "chain"),
 
-		emitter:  emitter.New(10),
 		chainCfg: chainCfg,
 	}
 
@@ -114,7 +109,6 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 	}
 
 	c.em = newEventManager(c)
-	c.emitter.Use("*", emitter.Sync)
 
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)

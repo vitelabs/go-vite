@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/olebedev/emitter"
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/vitelabs/go-vite/common/fork"
@@ -57,8 +56,6 @@ type Chain interface {
 	 */
 	Register(listener EventListener)
 	UnRegister(listener EventListener)
-
-	Emitter() *emitter.Emitter
 
 	/*
 	 *	C(Create)

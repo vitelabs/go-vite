@@ -18,9 +18,9 @@ import (
 
 	"github.com/docker/docker/pkg/reexec"
 
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/config"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
 	"github.com/vitelabs/go-vite/vm/quota"
