@@ -11,7 +11,6 @@ require (
 	github.com/deckarep/golang-set v1.7.1
 	github.com/docker/docker v1.13.1
 	github.com/fatih/color v1.9.0
-	github.com/go-errors/errors v1.1.1
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-stack/stack v1.8.0
 	github.com/gobuffalo/syncx v0.1.0

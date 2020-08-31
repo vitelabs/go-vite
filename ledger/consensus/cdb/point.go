@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"math/big"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/common/vitepb"
 )

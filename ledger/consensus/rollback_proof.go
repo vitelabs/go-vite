@@ -3,7 +3,8 @@ package consensus
 import (
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )

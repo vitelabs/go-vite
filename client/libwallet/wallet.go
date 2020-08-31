@@ -2,19 +2,21 @@ package main
 
 /*
 #include <stdlib.h>
+*/ /*
+#include <stdlib.h>
 */
-import "C"
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"unsafe"
 
-	"github.com/go-errors/errors"
+	"C"
 
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/common/config"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	ed255192 "github.com/vitelabs/go-vite/crypto/ed25519"
@@ -62,6 +64,7 @@ var instance *wallet.Manager
 var verbose = false
 
 //export InitWallet
+//export InitWallet
 func InitWallet(dataDir *C.char, maxSearchIndex int, useLightScrypt bool) *C.char {
 	dataDirStr := GoString(dataDir)
 
@@ -81,6 +84,7 @@ func InitWallet(dataDir *C.char, maxSearchIndex int, useLightScrypt bool) *C.cha
 }
 
 //export ListAllEntropyFiles
+//export ListAllEntropyFiles
 func ListAllEntropyFiles() *C.char {
 	tmp := instance
 	if tmp == nil {
@@ -90,6 +94,7 @@ func ListAllEntropyFiles() *C.char {
 	return CString(successResultWithData(files))
 }
 
+//export Unlock
 //export Unlock
 func Unlock(entropyStore, passphrase *C.char) *C.char {
 	entropyStoreStr := GoString(entropyStore)
@@ -108,6 +113,7 @@ func Unlock(entropyStore, passphrase *C.char) *C.char {
 }
 
 //export IsUnlocked
+//export IsUnlocked
 func IsUnlocked(entropyStore *C.char) *C.char {
 	entropyStoreStr := GoString(entropyStore)
 
@@ -120,6 +126,7 @@ func IsUnlocked(entropyStore *C.char) *C.char {
 	return CString(successResultWithData(isUnlocked))
 }
 
+//export Lock
 //export Lock
 func Lock(entropyStore *C.char) *C.char {
 	entropyStoreStr := GoString(entropyStore)
@@ -137,6 +144,7 @@ func Lock(entropyStore *C.char) *C.char {
 }
 
 //export AddEntropyStore
+//export AddEntropyStore
 func AddEntropyStore(entropyStore *C.char) *C.char {
 	entropyStoreStr := GoString(entropyStore)
 
@@ -153,6 +161,7 @@ func AddEntropyStore(entropyStore *C.char) *C.char {
 }
 
 //export RemoveEntropyStore
+//export RemoveEntropyStore
 func RemoveEntropyStore(entropyStore *C.char) *C.char {
 	entropyStoreStr := GoString(entropyStore)
 
@@ -165,9 +174,12 @@ func RemoveEntropyStore(entropyStore *C.char) *C.char {
 }
 
 //export RecoverEntropyStoreFromMnemonic
+//export RecoverEntropyStoreFromMnemonic
 func RecoverEntropyStoreFromMnemonic(mnemonic, newPassphrase, language, extensionWord *C.char) *C.char {
 	mnemonicStr := GoString(mnemonic)
 	newPassphraseStr := GoString(newPassphrase)
+	//languageStr := GoString(language)
+	//extensionWordStr := GoString(extensionWord)
 	//languageStr := GoString(language)
 	//extensionWordStr := GoString(extensionWord)
 
@@ -176,6 +188,10 @@ func RecoverEntropyStoreFromMnemonic(mnemonic, newPassphrase, language, extensio
 		return CString(failResult(errors.New("wallet should be init")))
 	}
 
+	//tmpExtensionWordStr := &extensionWordStr
+	//if len(extensionWordStr) == 0 {
+	//	tmpExtensionWordStr = nil
+	//}
 	//tmpExtensionWordStr := &extensionWordStr
 	//if len(extensionWordStr) == 0 {
 	//	tmpExtensionWordStr = nil
@@ -195,6 +211,7 @@ type EntropyResult struct {
 }
 
 //export NewMnemonicAndEntropyStore
+//export NewMnemonicAndEntropyStore
 func NewMnemonicAndEntropyStore(passphrase, language, extensionWord *C.char, mnemonicSize int) *C.char {
 	tmp := instance
 	if tmp == nil {
@@ -209,7 +226,15 @@ func NewMnemonicAndEntropyStore(passphrase, language, extensionWord *C.char, mne
 	//if extensionWordStr == "" {
 	//	tmpExtensionWordStr = nil
 	//}
+	//languageStr := GoString(language)
+	//extensionWordStr := GoString(extensionWord)
+	//
+	//tmpExtensionWordStr := &extensionWordStr
+	//if extensionWordStr == "" {
+	//	tmpExtensionWordStr = nil
+	//}
 
+	//mnemonic, em, err := tmp.NewMnemonicAndEntropyStore(languageStr, passphraseStr, tmpExtensionWordStr, &mnemonicSize)
 	//mnemonic, em, err := tmp.NewMnemonicAndEntropyStore(languageStr, passphraseStr, tmpExtensionWordStr, &mnemonicSize)
 	mnemonic, em, err := tmp.NewMnemonicAndEntropyStore(passphraseStr)
 
@@ -229,6 +254,7 @@ type DerivationResult struct {
 }
 
 //export DeriveByFullPath
+//export DeriveByFullPath
 func DeriveByFullPath(entropyStore, fullpath, extensionWord *C.char) *C.char {
 	tmp := instance
 	if tmp == nil {
@@ -243,12 +269,19 @@ func DeriveByFullPath(entropyStore, fullpath, extensionWord *C.char) *C.char {
 	//if extensionWordStr == "" {
 	//	tmpExtensionWordStr = nil
 	//}
+	//extensionWordStr := GoString(extensionWord)
+	//
+	//tmpExtensionWordStr := &extensionWordStr
+	//if extensionWordStr == "" {
+	//	tmpExtensionWordStr = nil
+	//}
 
 	manager, err := tmp.GetEntropyStoreManager(entropyStoreStr)
 	if err != nil {
 		return CString(failResult(err))
 	}
 
+	//fpath, key, err := manager.DeriveForFullPath(fullPathStr, tmpExtensionWordStr)
 	//fpath, key, err := manager.DeriveForFullPath(fullPathStr, tmpExtensionWordStr)
 	fpath, key, err := manager.DeriveForFullPath(fullPathStr)
 	if err != nil {
@@ -271,6 +304,7 @@ func DeriveByFullPath(entropyStore, fullpath, extensionWord *C.char) *C.char {
 }
 
 //export DeriveByIndex
+//export DeriveByIndex
 func DeriveByIndex(entropyStore *C.char, index int, extensionWord *C.char) *C.char {
 	tmp := instance
 	if tmp == nil {
@@ -285,12 +319,20 @@ func DeriveByIndex(entropyStore *C.char, index int, extensionWord *C.char) *C.ch
 	//if extensionWordStr == "" {
 	//	tmpExtensionWordStr = nil
 	//}
+	//
+	//extensionWordStr := GoString(extensionWord)
+	//
+	//tmpExtensionWordStr := &extensionWordStr
+	//if extensionWordStr == "" {
+	//	tmpExtensionWordStr = nil
+	//}
 
 	manager, err := tmp.GetEntropyStoreManager(entropyStoreStr)
 	if err != nil {
 		return CString(failResult(err))
 	}
 
+	//fpath, key, err := manager.DeriveForIndexPath(uint32(index), tmpExtensionWordStr)
 	//fpath, key, err := manager.DeriveForIndexPath(uint32(index), tmpExtensionWordStr)
 	fpath, key, err := manager.DeriveForIndexPath(uint32(index))
 	if err != nil {
@@ -313,6 +355,7 @@ func DeriveByIndex(entropyStore *C.char, index int, extensionWord *C.char) *C.ch
 }
 
 //export ExtractMnemonic
+//export ExtractMnemonic
 func ExtractMnemonic(entropyStore, passphrase *C.char) *C.char {
 	tmp := instance
 	if tmp == nil {
@@ -329,6 +372,7 @@ func ExtractMnemonic(entropyStore, passphrase *C.char) *C.char {
 }
 
 //export GetDataDir
+//export GetDataDir
 func GetDataDir() *C.char {
 	tmp := instance
 	if tmp == nil {
@@ -337,6 +381,7 @@ func GetDataDir() *C.char {
 	return CString(successResultWithData(tmp.GetDataDir()))
 }
 
+//export EntropyStoreToAddress
 //export EntropyStoreToAddress
 func EntropyStoreToAddress(entropyStore *C.char) *C.char {
 	tmp := instance
@@ -358,6 +403,7 @@ func EntropyStoreToAddress(entropyStore *C.char) *C.char {
 }
 
 //export Hash256
+//export Hash256
 func Hash256(data *C.char) *C.char {
 	dataBase64 := GoString(data)
 	byt, err := base64.StdEncoding.DecodeString(dataBase64)
@@ -367,6 +413,7 @@ func Hash256(data *C.char) *C.char {
 	return CString(successResultWithData(base64.StdEncoding.EncodeToString(crypto.Hash256(byt))))
 }
 
+//export Hash
 //export Hash
 func Hash(size int, data *C.char) *C.char {
 	dataBase64 := GoString(data)
@@ -383,6 +430,7 @@ type SignDataResult struct {
 	Signature string `json:"signature"`
 }
 
+//export SignData
 //export SignData
 func SignData(privHex *C.char, messageBase64 *C.char) *C.char {
 	priKey, err := ed255192.HexToPrivateKey(GoString(privHex))
@@ -407,6 +455,7 @@ func SignData(privHex *C.char, messageBase64 *C.char) *C.char {
 }
 
 //export VerifySignature
+//export VerifySignature
 func VerifySignature(pub, message, signData *C.char) *C.char {
 	pubByt, err := base64.StdEncoding.DecodeString(GoString(pub))
 	if err != nil {
@@ -429,6 +478,7 @@ func VerifySignature(pub, message, signData *C.char) *C.char {
 }
 
 //export PubkeyToAddress
+//export PubkeyToAddress
 func PubkeyToAddress(pubBase64 *C.char) *C.char {
 	pubByt, err := base64.StdEncoding.DecodeString(GoString(pubBase64))
 	if err != nil {
@@ -439,7 +489,13 @@ func PubkeyToAddress(pubBase64 *C.char) *C.char {
 }
 
 //export TransformMnemonic
+//export TransformMnemonic
 func TransformMnemonic(mnemonic, language, extensionWord *C.char) *C.char {
+	//extensionWordStr := GoString(extensionWord)
+	//extensionWordP := &extensionWordStr
+	//if extensionWordStr == "" {
+	//	extensionWordP = nil
+	//}
 	//extensionWordStr := GoString(extensionWord)
 	//extensionWordP := &extensionWordStr
 	//if extensionWordStr == "" {
@@ -455,10 +511,17 @@ func TransformMnemonic(mnemonic, language, extensionWord *C.char) *C.char {
 	//	return CString(failResult(e))
 	//}
 	//return CString(successResultWithData(entropyprofile.PrimaryAddress.Hex()))
+	//entropyprofile, e := entropystore.MnemonicToEntropy(GoString(mnemonic), GoString(language), extensionWordP != nil, extensionWordP)
+	//if e != nil {
+	//	return CString(failResult(e))
+	//}
+	//return CString(successResultWithData(entropyprofile.PrimaryAddress.Hex()))
 }
 
 //export RandomMnemonic
+//export RandomMnemonic
 func RandomMnemonic(language *C.char, mnemonicSize int) *C.char {
+	//mnemonic, err := entropystore.NewMnemonic(GoString(language), &mnemonicSize)
 	//mnemonic, err := entropystore.NewMnemonic(GoString(language), &mnemonicSize)
 	mnemonic, err := entropystore.NewMnemonic()
 	if err != nil {
@@ -467,6 +530,7 @@ func RandomMnemonic(language *C.char, mnemonicSize int) *C.char {
 	return CString(successResultWithData(mnemonic))
 }
 
+//export ComputeHashForAccountBlock
 //export ComputeHashForAccountBlock
 func ComputeHashForAccountBlock(block *C.char) *C.char {
 	blockStr := GoString(block)
@@ -485,6 +549,7 @@ func ComputeHashForAccountBlock(block *C.char) *C.char {
 }
 
 //export Hello
+//export Hello
 func Hello(name *C.char) *C.char {
 	return CString("Hello " + GoString(name) + " !")
 }
@@ -492,6 +557,7 @@ func Verbose(flag bool) {
 	verbose = flag
 }
 
+//export FreeCchar
 //export FreeCchar
 func FreeCchar(c *C.char) {
 	C.free(unsafe.Pointer(c))

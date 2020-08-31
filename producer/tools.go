@@ -3,19 +3,18 @@ package producer
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/common/fork"
-
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/ledger/pool"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/ledger/verifier"
 )
 
 type tools struct {

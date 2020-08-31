@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-errors/errors"
 	"github.com/hashicorp/golang-lru"
+	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus/cdb"

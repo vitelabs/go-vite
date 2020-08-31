@@ -42,14 +42,22 @@ func TestSBPUpgrade(t *testing.T) {
 		versionMap[sbpMap[producer]] = version
 	}
 
+	_version := uint32(9)
 	for k, version := range versionMap {
-		if version < 8 {
+		if version < _version {
 			fmt.Println(k, version)
 		}
 	}
 
 	for k, version := range versionMap {
-		if version >= 8 {
+		if version >= _version {
+			fmt.Print(k, ",")
+		}
+	}
+	fmt.Println()
+
+	for k, version := range versionMap {
+		if version < _version {
 			fmt.Print(k, ",")
 		}
 	}

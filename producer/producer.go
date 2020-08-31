@@ -1,22 +1,21 @@
 package producer
 
 import (
+	"errors"
 	"fmt"
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/interfaces"
-
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/ledger/pool"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net"
 	"github.com/vitelabs/go-vite/producer/producerevent"
-	"github.com/vitelabs/go-vite/ledger/verifier"
 )
 
 // Package producer implements vite block creation
@@ -102,7 +101,7 @@ func NewProducer(rw chain.Chain,
 }
 func (self *producer) Init() error {
 	if !self.PreInit() {
-		return errors.New("pre init fail.")
+		return errors.New("pre init fail")
 	}
 	defer self.PostInit()
 
@@ -115,7 +114,7 @@ func (self *producer) Init() error {
 
 func (self *producer) Start() error {
 	if !self.PreStart() {
-		return errors.New("pre start fail.")
+		return errors.New("pre start fail")
 	}
 	defer self.PostStart()
 
@@ -124,7 +123,7 @@ func (self *producer) Start() error {
 		return err
 	}
 	if self.coinbase == nil {
-		return errors.New("coinbase must not be nil.")
+		return errors.New("coinbase must not be nil")
 	}
 
 	snapshotId := self.coinbase.Address().Hex() + "_snapshot"
@@ -155,7 +154,7 @@ func (self *producer) Start() error {
 
 func (self *producer) Stop() error {
 	if !self.PreStop() {
-		return errors.New("pre stop fail.")
+		return errors.New("pre stop fail")
 	}
 	defer self.PostStop()
 

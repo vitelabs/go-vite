@@ -2,20 +2,22 @@ package chain_plugins
 
 import (
 	"fmt"
-	"github.com/go-errors/errors"
+	"math/big"
+	"strconv"
+	"sync"
+
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/vitepb"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/db"
 	"github.com/vitelabs/go-vite/ledger/chain/flusher"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/common/vitepb"
-	"math/big"
-	"strconv"
-	"sync"
 )
 
 var (

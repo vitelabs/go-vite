@@ -1,7 +1,8 @@
 package batch
 
 import (
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 )
 

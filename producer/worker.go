@@ -1,20 +1,17 @@
 package producer
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"sync"
-
-	"github.com/vitelabs/go-vite/interfaces"
-
-	"github.com/vitelabs/go-vite/common/types"
+	"time"
 
 	"github.com/hashicorp/golang-lru"
 
-	"time"
-
-	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
@@ -41,102 +38,102 @@ func newWorker(chain *tools, coinbase interfaces.Account) *worker {
 	return &worker{tools: chain, coinbase: coinbase, seedCache: cache, log: log15.New("module", "producer/worker")}
 }
 
-func (self *worker) Init() error {
-	if !self.PreInit() {
-		return errors.New("pre init worker fail.")
+func (w *worker) Init() error {
+	if !w.PreInit() {
+		return errors.New("pre init worker fail")
 	}
-	defer self.PostInit()
+	defer w.PostInit()
 	return nil
 }
 
-func (self *worker) Start() error {
-	if !self.PreStart() {
-		return errors.New("pre start fail.")
+func (w *worker) Start() error {
+	if !w.PreStart() {
+		return errors.New("pre start fail")
 	}
-	defer self.PostStart()
+	defer w.PostStart()
 	return nil
 }
 
-func (self *worker) Stop() error {
-	if !self.PreStop() {
+func (w *worker) Stop() error {
+	if !w.PreStop() {
 		return errors.New("pre stop fail")
 	}
-	defer self.PostStop()
-	self.wg.Wait()
+	defer w.PostStop()
+	w.wg.Wait()
 	return nil
 }
 
-func (self *worker) produceSnapshot(e consensus.Event) {
-	self.wg.Add(1)
-	if e.Address != self.coinbase.Address() {
+func (w *worker) produceSnapshot(e consensus.Event) {
+	w.wg.Add(1)
+	if e.Address != w.coinbase.Address() {
 		mLog.Error("coinbase must be equal.", "addr", e.Address.String())
 		return
 	}
 	tmpE := &e
 	common.Go(func() {
-		self.genAndInsert(tmpE)
+		w.genAndInsert(tmpE)
 	})
 }
 
-func (self *worker) genAndInsert(e *consensus.Event) {
+func (w *worker) genAndInsert(e *consensus.Event) {
 	wLog.Info("genAndInsert start.", "event", e)
 	defer wLog.Info("genAndInsert end.", "event", e)
 	defer monitor.LogTime("producer", "snapshotGenInsert", time.Now())
-	defer self.wg.Done()
-	self.mu.Lock()
-	defer self.mu.Unlock()
+	defer w.wg.Done()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	// lock pool
-	self.tools.pool.LockInsert()
+	w.tools.pool.LockInsert()
 	// unlock pool
-	defer self.tools.pool.UnLockInsert()
+	defer w.tools.pool.UnLockInsert()
 
-	seed := self.randomSeed()
+	seed := w.randomSeed()
 
 	// generate snapshot block
-	b, err := self.tools.generateSnapshot(e, self.coinbase, seed, self.getSeedByHash)
+	b, err := w.tools.generateSnapshot(e, w.coinbase, seed, w.getSeedByHash)
 	if err != nil {
 		wLog.Error("produce snapshot block fail[generate].", "err", err)
 		return
 	}
 
 	// insert snapshot block
-	err = self.tools.insertSnapshot(b)
+	err = w.tools.insertSnapshot(b)
 	if err != nil {
 		wLog.Error("produce snapshot block fail[insert].", "err", err)
 		return
 	}
 
 	// todo
-	self.storeSeedHash(seed, b.SeedHash)
+	w.storeSeedHash(seed, b.SeedHash)
 }
 
-func (self *worker) randomSeed() uint64 {
+func (w *worker) randomSeed() uint64 {
 	r := rand.New(rand.NewSource(int64(time.Now().Nanosecond())))
 	return r.Uint64()
 }
 
-func (self *worker) getSeedByHash(hash *types.Hash) uint64 {
+func (w *worker) getSeedByHash(hash *types.Hash) uint64 {
 	if hash == nil {
 		// default-> zero
 		return 0
 	}
 	fmt.Printf("query seed, hash:%s\n", hash)
-	value, ok := self.seedCache.Get(*hash)
+	value, ok := w.seedCache.Get(*hash)
 	if ok {
-		self.log.Info(fmt.Sprintf("query seed, hash:%s, seed:%d\n", hash, value.(uint64)))
+		w.log.Info(fmt.Sprintf("query seed, hash:%s, seed:%d\n", hash, value.(uint64)))
 		return value.(uint64)
 	} else {
 		// default-> zero
 		return 0
 	}
 }
-func (self *worker) storeSeedHash(seed uint64, hash *types.Hash) {
+func (w *worker) storeSeedHash(seed uint64, hash *types.Hash) {
 	if seed == 0 {
 		return
 	}
 	if hash == nil {
 		return
 	}
-	self.log.Info(fmt.Sprintf("store seed, hash:%s, seed:%d\n", hash, seed))
-	self.seedCache.Add(*hash, seed)
+	w.log.Info(fmt.Sprintf("store seed, hash:%s, seed:%d\n", hash, seed))
+	w.seedCache.Add(*hash, seed)
 }

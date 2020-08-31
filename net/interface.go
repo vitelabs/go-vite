@@ -1,19 +1,15 @@
 package net
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-
-	"github.com/vitelabs/go-vite/net/vnode"
-
-	"github.com/vitelabs/go-vite/ledger/consensus"
-
-	"github.com/go-errors/errors"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/consensus"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 type snapshotBlockReader interface {

@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/common/helper"
 	vcrypto "github.com/vitelabs/go-vite/crypto"

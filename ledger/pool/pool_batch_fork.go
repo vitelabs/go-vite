@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
+
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/pool/batch"
 )

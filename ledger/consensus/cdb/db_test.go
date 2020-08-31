@@ -6,9 +6,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-errors/errors"
 	"github.com/magiconair/properties/assert"
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 )

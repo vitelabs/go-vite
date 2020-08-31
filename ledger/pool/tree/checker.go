@@ -3,9 +3,9 @@ package tree
 import (
 	"fmt"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/pkg/errors"
 
-	"github.com/go-errors/errors"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func CheckTree(t Tree) error {
