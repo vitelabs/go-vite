@@ -1,12 +1,11 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"testing"
-
-	"bytes"
 	"fmt"
+	"testing"
 
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 )

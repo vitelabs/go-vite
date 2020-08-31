@@ -3,16 +3,17 @@ package dex
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
-func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.FundSettle, marketInfo *MarketInfo, fundLogger log15.Logger) error {
+func DoSettleFund(db interfaces.VmDb, reader util.ConsensusReader, action *dexproto.FundSettle, marketInfo *MarketInfo, fundLogger log15.Logger) error {
 	address := types.Address{}
 	address.SetBytes([]byte(action.Address))
 	dexFund, _ := GetFund(db, address)
@@ -73,12 +74,12 @@ func DoSettleFund(db vm_db.VmDb, reader util.ConsensusReader, action *dexproto.F
 	return nil
 }
 
-func SettleFees(db vm_db.VmDb, reader util.ConsensusReader, allowMining bool, feeToken []byte, feeTokenDecimals, quoteTokenType int32, feeActions []*dexproto.FeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) {
+func SettleFees(db interfaces.VmDb, reader util.ConsensusReader, allowMining bool, feeToken []byte, feeTokenDecimals, quoteTokenType int32, feeActions []*dexproto.FeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) {
 	tokenId, _ := types.BytesToTokenTypeId(feeToken)
 	SettleFeesWithTokenId(db, reader, allowMining, tokenId, feeTokenDecimals, quoteTokenType, feeActions, feeForDividend, inviteRelations)
 }
 
-func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMining bool, tokenId types.TokenTypeId, feeTokenDecimals, quoteTokenType int32, feeActions []*dexproto.FeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) {
+func SettleFeesWithTokenId(db interfaces.VmDb, reader util.ConsensusReader, allowMining bool, tokenId types.TokenTypeId, feeTokenDecimals, quoteTokenType int32, feeActions []*dexproto.FeeSettle, feeForDividend *big.Int, inviteRelations map[types.Address]*types.Address) {
 	if len(feeActions) == 0 && feeForDividend == nil {
 		return
 	}
@@ -150,7 +151,7 @@ func SettleFeesWithTokenId(db vm_db.VmDb, reader util.ConsensusReader, allowMini
 }
 
 //baseAmount + operatorAmount for vx mine,
-func settleUserFees(db vm_db.VmDb, periodId uint64, tokenDecimals, quoteTokenType int32, mineThreshold *big.Int, feeAction *dexproto.FeeSettle, inviteRelations map[types.Address]*types.Address) (map[types.Address]*types.Address, bool, []byte, []byte) {
+func settleUserFees(db interfaces.VmDb, periodId uint64, tokenDecimals, quoteTokenType int32, mineThreshold *big.Int, feeAction *dexproto.FeeSettle, inviteRelations map[types.Address]*types.Address) (map[types.Address]*types.Address, bool, []byte, []byte) {
 	if inviteRelations == nil {
 		inviteRelations = make(map[types.Address]*types.Address)
 	}
@@ -169,7 +170,7 @@ func settleUserFees(db vm_db.VmDb, periodId uint64, tokenDecimals, quoteTokenTyp
 	return inviteRelations, needAddSum, addBaseSum, addInviteeSum
 }
 
-func innerSettleUserFee(db vm_db.VmDb, periodId uint64, mineThreshold *big.Int, address []byte, tokenDecimals, quoteTokenType int32, baseTokenFee, inviteBonusTokenFee []byte) (needAddSum bool, addBaseSumNormalAmt, addInviteeSumNormalAmt []byte) {
+func innerSettleUserFee(db interfaces.VmDb, periodId uint64, mineThreshold *big.Int, address []byte, tokenDecimals, quoteTokenType int32, baseTokenFee, inviteBonusTokenFee []byte) (needAddSum bool, addBaseSumNormalAmt, addInviteeSumNormalAmt []byte) {
 	userFees, _ := GetUserFees(db, address)
 	feeLen := len(userFees.Fees)
 	addBaseSumNormalAmt = NormalizeToQuoteTokenTypeAmount(baseTokenFee, tokenDecimals, quoteTokenType)
@@ -219,7 +220,7 @@ func innerSettleUserFee(db vm_db.VmDb, periodId uint64, mineThreshold *big.Int, 
 	return
 }
 
-func SettleOperatorFees(db vm_db.VmDb, reader util.ConsensusReader, feeActions []*dexproto.FeeSettle, marketInfo *MarketInfo) {
+func SettleOperatorFees(db interfaces.VmDb, reader util.ConsensusReader, feeActions []*dexproto.FeeSettle, marketInfo *MarketInfo) {
 	var (
 		incAmt               []byte
 		operatorFeesByPeriod *OperatorFeesByPeriod
@@ -263,7 +264,7 @@ func SettleOperatorFees(db vm_db.VmDb, reader util.ConsensusReader, feeActions [
 	SaveCurrentOperatorFees(db, reader, marketInfo.Owner, operatorFeesByPeriod)
 }
 
-func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
+func OnDepositVx(db interfaces.VmDb, reader util.ConsensusReader, address types.Address, depositAmount *big.Int, updatedVxAccount *dexproto.Account) error {
 	if IsEarthFork(db) {
 		return nil
 	} else {
@@ -271,7 +272,7 @@ func OnDepositVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Addre
 	}
 }
 
-func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
+func OnWithdrawVx(db interfaces.VmDb, reader util.ConsensusReader, address types.Address, withdrawAmount *big.Int, updatedVxAccount *dexproto.Account) error {
 	if IsEarthFork(db) {
 		return nil
 	} else {
@@ -279,7 +280,7 @@ func OnWithdrawVx(db vm_db.VmDb, reader util.ConsensusReader, address types.Addr
 	}
 }
 
-func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.AccountSettle, updatedVxAccount *dexproto.Account) error {
+func OnSettleVx(db interfaces.VmDb, reader util.ConsensusReader, address []byte, fundSettle *dexproto.AccountSettle, updatedVxAccount *dexproto.Account) error {
 	if IsEarthFork(db) {
 		return nil
 	} else {
@@ -288,7 +289,7 @@ func OnSettleVx(db vm_db.VmDb, reader util.ConsensusReader, address []byte, fund
 	}
 }
 
-func OnVxMined(db vm_db.VmDb, reader util.ConsensusReader, address types.Address, amount *big.Int) error {
+func OnVxMined(db interfaces.VmDb, reader util.ConsensusReader, address types.Address, amount *big.Int) error {
 	if IsEarthFork(db) {
 		if IsAutoLockMinedVx(db, address.Bytes()) {
 			updatedVxAccount := LockMinedVx(db, address, amount)
@@ -304,7 +305,7 @@ func OnVxMined(db vm_db.VmDb, reader util.ConsensusReader, address types.Address
 }
 
 // only settle validAmount and amount changed from previous period
-func DoSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
+func DoSettleVxFunds(db interfaces.VmDb, reader util.ConsensusReader, addressBytes []byte, amtChange *big.Int, updatedVxAccount *dexproto.Account) error {
 	var (
 		vxFunds               *VxFunds
 		userNewAmt, sumChange *big.Int
@@ -394,7 +395,7 @@ func DoSettleVxFunds(db vm_db.VmDb, reader util.ConsensusReader, addressBytes []
 	return nil
 }
 
-func getUserNewVxAmtWithForkCheck(db vm_db.VmDb, updatedVxAcc *dexproto.Account) *big.Int {
+func getUserNewVxAmtWithForkCheck(db interfaces.VmDb, updatedVxAcc *dexproto.Account) *big.Int {
 	if IsEarthFork(db) {
 		return new(big.Int).SetBytes(updatedVxAcc.VxLocked)
 	} else {
@@ -413,7 +414,7 @@ func splitDividendPool(dividend *dexproto.FeeForDividend) (toDividendAmt, rolled
 	return
 }
 
-func getInviteBonusInfo(db vm_db.VmDb, addr []byte, inviteRelations *map[types.Address]*types.Address, fee []byte) (bool, *types.Address, []byte, []byte) {
+func getInviteBonusInfo(db interfaces.VmDb, addr []byte, inviteRelations *map[types.Address]*types.Address, fee []byte) (bool, *types.Address, []byte, []byte) {
 	if address, err := types.BytesToAddress(addr); err != nil {
 		panic(InternalErr)
 	} else {

@@ -4,13 +4,12 @@ import (
 	"math/big"
 
 	"github.com/vitelabs/go-vite/common/fork"
-
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/abi"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type nodeConfigParams struct {
@@ -38,11 +37,11 @@ type vmEnvironment interface {
 type BuiltinContractMethod interface {
 	GetFee(block *ledger.AccountBlock) (*big.Int, error)
 	// calc and use quota, check tx data
-	DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error
+	DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error
 	// quota for doSend block
 	GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
 	// check status, update state
-	DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error)
+	DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error)
 	// receive block quota
 	GetReceiveQuota(gasTable *util.QuotaTable) uint64
 	// refund data at receive error

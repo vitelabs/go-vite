@@ -2,10 +2,10 @@ package vm
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 var (
@@ -18,7 +18,7 @@ type contract struct {
 	code            []byte
 	codeAddr        types.Address
 	block           *ledger.AccountBlock
-	db              vm_db.VmDb
+	db              interfaces.VmDb
 	sendBlock       *ledger.AccountBlock
 	quotaLeft       uint64
 	intPool         *util.IntPool
@@ -26,7 +26,7 @@ type contract struct {
 	storageModified map[string]interface{}
 }
 
-func newContract(block *ledger.AccountBlock, db vm_db.VmDb, sendBlock *ledger.AccountBlock, data []byte, quotaLeft uint64) *contract {
+func newContract(block *ledger.AccountBlock, db interfaces.VmDb, sendBlock *ledger.AccountBlock, data []byte, quotaLeft uint64) *contract {
 	return &contract{
 		block:           block,
 		db:              db,

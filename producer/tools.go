@@ -1,30 +1,30 @@
 package producer
 
 import (
-	"github.com/vitelabs/go-vite/common/fork"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain"
+
+	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/ledger/consensus"
+	"github.com/vitelabs/go-vite/ledger/pool"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/pool"
-	"github.com/vitelabs/go-vite/verifier"
-	"github.com/vitelabs/go-vite/wallet"
 )
 
 type tools struct {
 	log       log15.Logger
-	wt        *wallet.Manager
 	pool      pool.SnapshotProducerWriter
 	chain     chain.Chain
 	sVerifier *verifier.SnapshotVerifier
 }
 
-func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext, seed uint64, fn func(*types.Hash) uint64) (*ledger.SnapshotBlock, error) {
+func (self *tools) generateSnapshot(e *consensus.Event, coinbase interfaces.Account, seed uint64, fn func(*types.Hash) uint64) (*ledger.SnapshotBlock, error) {
 	head := self.chain.GetLatestSnapshotBlock()
 	accounts, err := self.generateAccounts(head)
 	if err != nil {
@@ -57,15 +57,8 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase *AddressContext
 	}
 
 	block.Hash = block.ComputeHash()
-	manager, err := self.wt.GetEntropyStoreManager(coinbase.EntryPath)
-	if err != nil {
-		return nil, err
-	}
-	_, key, err := manager.DeriveForIndexPath(coinbase.Index)
-	if err != nil {
-		return nil, err
-	}
-	signedData, pubkey, err := key.SignData(block.Hash.Bytes())
+
+	signedData, pubkey, err := coinbase.Sign(block.Hash)
 
 	if err != nil {
 		return nil, err
@@ -81,17 +74,9 @@ func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	return self.pool.AddDirectSnapshotBlock(block)
 }
 
-func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, wt *wallet.Manager, p pool.SnapshotProducerWriter) *tools {
+func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, p pool.SnapshotProducerWriter) *tools {
 	log := log15.New("module", "tools")
-	return &tools{chain: ch, log: log, sVerifier: sVerifier, wt: wt, pool: p}
-}
-
-func (self *tools) checkAddressLock(address types.Address, coinbase *AddressContext) error {
-	if address != coinbase.Address {
-		return errors.Errorf("addres not equals.%s-%s", address, coinbase.Address)
-	}
-
-	return self.wt.MatchAddress(coinbase.EntryPath, coinbase.Address, coinbase.Index)
+	return &tools{chain: ch, log: log, sVerifier: sVerifier, pool: p}
 }
 
 func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.SnapshotContent, error) {

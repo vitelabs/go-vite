@@ -22,13 +22,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/database"
-
-	"github.com/vitelabs/go-vite/net/discovery"
-
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/consensus"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/ledger/consensus"
+	"github.com/vitelabs/go-vite/net/database"
+	"github.com/vitelabs/go-vite/net/discovery"
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 

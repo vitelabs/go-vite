@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/vitelabs/go-vite/common/hexutil"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/pow/remote"

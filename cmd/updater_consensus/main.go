@@ -6,7 +6,8 @@ import (
 	"fmt"
 
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/consensus/cdb"
+
+	"github.com/vitelabs/go-vite/ledger/consensus/cdb"
 )
 
 var index = flag.Uint64("index", 0, "index")

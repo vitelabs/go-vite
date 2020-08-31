@@ -20,40 +20,36 @@ import (
 	"bytes"
 	"testing"
 
-	checker "gopkg.in/check.v1"
+	"gotest.tools/assert"
 )
 
-type BytesSuite struct{}
-
-var _ = checker.Suite(&BytesSuite{})
-
-func (s *BytesSuite) TestCopyBytes(c *checker.C) {
+func TestCopyBytes(t *testing.T) {
 	data1 := []byte{1, 2, 3, 4}
 	exp1 := []byte{1, 2, 3, 4}
 	res1 := CopyBytes(data1)
-	c.Assert(res1, checker.DeepEquals, exp1)
+	assert.DeepEqual(t, res1, exp1)
 }
 
-func (s *BytesSuite) TestLeftPadBytes(c *checker.C) {
+func TestLeftPadBytes(t *testing.T) {
 	val1 := []byte{1, 2, 3, 4}
 	exp1 := []byte{0, 0, 0, 0, 1, 2, 3, 4}
 
 	res1 := LeftPadBytes(val1, 8)
 	res2 := LeftPadBytes(val1, 2)
 
-	c.Assert(res1, checker.DeepEquals, exp1)
-	c.Assert(res2, checker.DeepEquals, val1)
+	assert.DeepEqual(t, res1, exp1)
+	assert.DeepEqual(t, res2, val1)
 }
 
-func (s *BytesSuite) TestRightPadBytes(c *checker.C) {
+func TestRightPadBytes(t *testing.T) {
 	val := []byte{1, 2, 3, 4}
 	exp := []byte{1, 2, 3, 4, 0, 0, 0, 0}
 
 	resstd := RightPadBytes(val, 8)
 	resshrt := RightPadBytes(val, 2)
 
-	c.Assert(resstd, checker.DeepEquals, exp)
-	c.Assert(resshrt, checker.DeepEquals, val)
+	assert.DeepEqual(t, resstd, exp)
+	assert.DeepEqual(t, resshrt, val)
 }
 
 func TestFromHex(t *testing.T) {

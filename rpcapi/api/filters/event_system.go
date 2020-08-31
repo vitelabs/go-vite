@@ -1,14 +1,15 @@
 package filters
 
 import (
+	"sync"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vite"
-	"sync"
-	"time"
 )
 
 type FilterType byte
@@ -161,7 +162,7 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 		heightMsgs[e.Addr] = append(heightMsgs[e.Addr], &AccountBlockWithHeight{Height: e.Height, HeightStr: api.Uint64ToString(e.Height), Hash: e.Hash, Removed: removed})
 
 		if removed {
-			if ledger.IsSendBlock(e.BlockType) {
+			if core.IsSendBlock(e.BlockType) {
 				deletedSendBlockHash[e.Hash] = e.ToAddr
 			} else {
 				if len(e.SendBlockList) > 0 {
@@ -171,7 +172,7 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 				}
 			}
 		} else {
-			if ledger.IsSendBlock(e.BlockType) {
+			if core.IsSendBlock(e.BlockType) {
 				onroadMsgs = appendOnroadMsg(onroadMsgs, e.ToAddr, e.Hash, false, removed)
 			} else {
 				onroadMsgs = appendOnroadMsg(onroadMsgs, e.Addr, e.FromBlockHash, true, removed)
@@ -185,7 +186,7 @@ func (es *EventSystem) handleAcEvent(filters map[FilterType]map[rpc.ID]*subscrip
 	}
 	if removed {
 		for _, e := range acEvent {
-			if ledger.IsReceiveBlock(e.BlockType) {
+			if core.IsReceiveBlock(e.BlockType) {
 				if _, ok := deletedSendBlockHash[e.FromBlockHash]; !ok {
 					onroadMsgs = appendOnroadMsg(onroadMsgs, e.Addr, e.FromBlockHash, false, false)
 				} else {

@@ -5,13 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/net/vnode"
-
-	"github.com/vitelabs/go-vite/interfaces"
-
 	"github.com/vitelabs/go-vite/common/types"
-
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 func TestSplitChunks(t *testing.T) {

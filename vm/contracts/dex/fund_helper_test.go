@@ -3,12 +3,14 @@ package dex
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/stretchr/testify/assert"
-	"github.com/vitelabs/go-vite/ledger"
-	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"math/big"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 )
 
 func TestDivideByProportion(t *testing.T) {

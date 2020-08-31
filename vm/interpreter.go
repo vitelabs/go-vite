@@ -2,10 +2,11 @@ package vm
 
 import (
 	"encoding/hex"
+	"sync/atomic"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/vm/util"
-	"sync/atomic"
 )
 
 type interpreter struct {

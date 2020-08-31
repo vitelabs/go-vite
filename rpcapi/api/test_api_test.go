@@ -3,13 +3,15 @@ package api
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/golang-lru"
-	"github.com/robfig/cron"
-	"github.com/vitelabs/go-vite/common/math"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/golang-lru"
+	"github.com/robfig/cron"
+
+	"github.com/vitelabs/go-vite/common/math"
 )
 
 func TestTestApi_GetTestToken(t *testing.T) {

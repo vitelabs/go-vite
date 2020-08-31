@@ -5,16 +5,17 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 type VMRunTestCase struct {
@@ -118,7 +119,7 @@ func TestVM_RunV2(t *testing.T) {
 			}
 
 			var db *mockDB
-			var vmBlock *vm_db.VmAccountBlock
+			var vmBlock *interfaces.VmAccountBlock
 			var isRetry bool
 			var err error
 

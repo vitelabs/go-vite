@@ -1,11 +1,12 @@
 package abi
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 // Type enumerator

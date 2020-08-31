@@ -14,6 +14,7 @@ import (
 	"github.com/mattn/go-colorable"
 	"github.com/peterh/liner"
 	"github.com/robertkrimen/otto"
+
 	"github.com/vitelabs/go-vite/cmd/internal/jsre"
 	"github.com/vitelabs/go-vite/rpc"
 )

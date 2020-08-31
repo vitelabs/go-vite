@@ -2,20 +2,22 @@ package api
 
 import (
 	"context"
-	"github.com/hashicorp/golang-lru"
-	"github.com/pkg/errors"
-	"github.com/robfig/cron"
-	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/golang-lru"
+	"github.com/pkg/errors"
+	"github.com/robfig/cron"
+
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/vm_db"
 )
 
 var (
@@ -39,16 +41,7 @@ func InitConfig(id uint, dexAvailable *bool) {
 }
 
 func InitLog(dir, lvl string) {
-	dataDir = dir
-	logLevel, err := log15.LvlFromString(lvl)
-	if err != nil {
-		logLevel = log15.LvlInfo
-	}
-	path := filepath.Join(dir, "rpclog", time.Now().Format("2006-01-02T15-04"))
-	filename := filepath.Join(path, "rpc.log")
-	log.SetHandler(
-		log15.LvlFilterHandler(logLevel, log15.StreamHandler(common.MakeDefaultLogger(filename), log15.LogfmtFormat())),
-	)
+	log.SetHandler(common.LogHandler(dir, "rpclog", "rpc.log", lvl))
 }
 
 func InitGetTestTokenLimitPolicy() {
@@ -163,7 +156,7 @@ func getPrevBlockHash(c chain.Chain, addr types.Address) (*types.Hash, error) {
 	return &types.Hash{}, nil
 }
 
-func getVmDb(c chain.Chain, addr types.Address) (vm_db.VmDb, error) {
+func getVmDb(c chain.Chain, addr types.Address) (interfaces.VmDb, error) {
 	prevHash, err := getPrevBlockHash(c, addr)
 	if err != nil {
 		return nil, err

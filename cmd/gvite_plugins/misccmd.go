@@ -6,10 +6,10 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/vitelabs/go-vite/vite/version"
+	"gopkg.in/urfave/cli.v1"
 
 	"github.com/vitelabs/go-vite/cmd/utils"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/vitelabs/go-vite/vite/version"
 )
 
 var (

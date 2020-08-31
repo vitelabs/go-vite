@@ -2,8 +2,9 @@ package api
 
 import (
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/chain"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/log15"
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
 	"github.com/vitelabs/go-vite/vite"

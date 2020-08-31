@@ -7,8 +7,9 @@ import (
 	"path"
 	"testing"
 
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/wallet"
 	"github.com/vitelabs/go-vite/wallet/entropystore"
@@ -25,7 +26,7 @@ func init() {
 var Wallet2 *entropystore.Manager
 
 func PreTest() error {
-	w := wallet.New(&wallet.Config{
+	w := wallet.New(&config.Wallet{
 		DataDir:        WalletDir,
 		MaxSearchIndex: 100000,
 	})

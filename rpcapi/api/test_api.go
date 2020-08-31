@@ -4,16 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/header"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"math/big"
 	"math/rand"
 
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/generator"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/generator"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/wallet"
 )
 
 type CreateTxWithPrivKeyParmsTest struct {
@@ -88,7 +89,7 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 		return dex.InvalidOrderPriceErr
 	}
 
-	msg := &header.IncomingMessage{
+	msg := &interfaces.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: params.SelfAddr,
 		ToAddress:      &params.ToAddr,
@@ -107,16 +108,14 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 	if e != nil {
 		return e
 	}
-	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-		var privkey ed25519.PrivateKey
-		privkey, e := ed25519.HexToPrivateKey(params.PrivateKey)
-		if e != nil {
-			return nil, nil, e
-		}
-		signData := ed25519.Sign(privkey, data)
-		pubkey = privkey.PubByte()
-		return signData, pubkey, nil
-	})
+	account, err := wallet.NewAccountFromHexKey(params.PrivateKey)
+	if err != nil {
+		return err
+	}
+	if account.Address() != msg.AccountAddress {
+		return errors.New("error private key")
+	}
+	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, account.Sign)
 	if e != nil {
 		return e
 	}
@@ -145,17 +144,19 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 		return errors.New("AccountTypeContract can't receiveTx without consensus's control")
 	}
 
-	msg := &header.IncomingMessage{
+	msg := &interfaces.IncomingMessage{
 		BlockType:      ledger.BlockTypeReceive,
 		AccountAddress: params.SelfAddr,
 		FromBlockHash:  &params.FromHash,
 		Difficulty:     params.Difficulty,
 	}
-	privKey, err := ed25519.HexToPrivateKey(params.PrivKeyStr)
+	account, err := wallet.NewAccountFromHexKey(params.PrivKeyStr)
 	if err != nil {
 		return err
 	}
-	pubKey := privKey.PubByte()
+	if account.Address() != msg.AccountAddress {
+		return errors.New("error private key")
+	}
 
 	if msg.FromBlockHash == nil {
 		return errors.New("params fromblockhash can't be nil")
@@ -179,10 +180,8 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 	if e != nil {
 		return e
 	}
-	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress,
-		func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-			return ed25519.Sign(privKey, data), pubKey, nil
-		})
+	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, account.Sign)
+
 	if e != nil {
 		return e
 	}

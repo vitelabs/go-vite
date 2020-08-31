@@ -3,16 +3,18 @@ package contracts
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+
 	"github.com/golang/protobuf/proto"
+
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 var fundLogger = log15.New("module", "dex_fund")
@@ -37,14 +39,14 @@ func (md *MethodDexFundDeposit) GetReceiveQuota(gasTable *util.QuotaTable) uint6
 	return gasTable.DexFundDepositQuota
 }
 
-func (md *MethodDexFundDeposit) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundDeposit) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() <= 0 {
 		return dex.InvalidInputParamErr
 	}
 	return nil
 }
 
-func (md *MethodDexFundDeposit) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md *MethodDexFundDeposit) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	account := dex.DepositAccount(db, sendBlock.AccountAddress, sendBlock.TokenId, sendBlock.Amount)
 	// must do after account updated by deposit
 	if sendBlock.TokenId == dex.VxTokenId {
@@ -75,7 +77,7 @@ func (md *MethodDexFundWithdraw) GetReceiveQuota(gasTable *util.QuotaTable) uint
 	return gasTable.DexFundWithdrawQuota
 }
 
-func (md *MethodDexFundWithdraw) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundWithdraw) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var err error
 	param := new(dex.ParamWithdraw)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
@@ -87,7 +89,7 @@ func (md *MethodDexFundWithdraw) DoSend(db vm_db.VmDb, block *ledger.AccountBloc
 	return nil
 }
 
-func (md *MethodDexFundWithdraw) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md *MethodDexFundWithdraw) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamWithdraw)
 	var (
 		acc *dexproto.Account
@@ -137,7 +139,7 @@ func (md *MethodDexFundOpenNewMarket) GetReceiveQuota(gasTable *util.QuotaTable)
 	return gasTable.DexFundOpenNewMarketQuota
 }
 
-func (md *MethodDexFundOpenNewMarket) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundOpenNewMarket) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var err error
 	param := new(dex.ParamOpenNewMarket)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
@@ -149,7 +151,7 @@ func (md *MethodDexFundOpenNewMarket) DoSend(db vm_db.VmDb, block *ledger.Accoun
 	return nil
 }
 
-func (md MethodDexFundOpenNewMarket) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundOpenNewMarket) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var err error
 	param := new(dex.ParamOpenNewMarket)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
@@ -207,7 +209,7 @@ func (md *MethodDexFundPlaceOrder) GetReceiveQuota(gasTable *util.QuotaTable) ui
 	return gasTable.DexFundPlaceOrderQuota
 }
 
-func (md *MethodDexFundPlaceOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) (err error) {
+func (md *MethodDexFundPlaceOrder) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) (err error) {
 	param := new(dex.ParamPlaceOrder)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
@@ -215,7 +217,7 @@ func (md *MethodDexFundPlaceOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBl
 	return dex.PreCheckOrderParam(param, dex.IsStemFork(db))
 }
 
-func (md *MethodDexFundPlaceOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md *MethodDexFundPlaceOrder) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamPlaceOrder)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if blocks, err := dex.DoPlaceOrder(db, param, &sendBlock.AccountAddress, nil, sendBlock.Hash); err != nil {
@@ -245,7 +247,7 @@ func (md *MethodDexFundSettleOrders) GetReceiveQuota(gasTable *util.QuotaTable) 
 	return gasTable.DexFundSettleOrdersQuota
 }
 
-func (md *MethodDexFundSettleOrders) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundSettleOrders) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var err error
 	if block.AccountAddress != types.AddressDexTrade {
 		return dex.InvalidSourceAddressErr
@@ -264,7 +266,7 @@ func (md *MethodDexFundSettleOrders) DoSend(db vm_db.VmDb, block *ledger.Account
 	return nil
 }
 
-func (md MethodDexFundSettleOrders) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundSettleOrders) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(dex.ParamSerializedData)
 	var err error
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
@@ -310,11 +312,11 @@ func (md *MethodDexFundTriggerPeriodJob) GetReceiveQuota(gasTable *util.QuotaTab
 	return gasTable.DexFundTriggerPeriodJobQuota
 }
 
-func (md *MethodDexFundTriggerPeriodJob) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundTriggerPeriodJob) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamTriggerPeriodJob), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundTriggerPeriodJob) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundTriggerPeriodJob) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err error
 	)
@@ -410,7 +412,7 @@ func (md *MethodDexFundStakeForMining) GetReceiveQuota(gasTable *util.QuotaTable
 	return gasTable.DexFundStakeForMiningQuota
 }
 
-func (md *MethodDexFundStakeForMining) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundStakeForMining) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var (
 		err   error
 		param = new(dex.ParamStakeForMining)
@@ -428,7 +430,7 @@ func (md *MethodDexFundStakeForMining) DoSend(db vm_db.VmDb, block *ledger.Accou
 	return nil
 }
 
-func (md MethodDexFundStakeForMining) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) (appendBlocks []*ledger.AccountBlock, err error) {
+func (md MethodDexFundStakeForMining) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) (appendBlocks []*ledger.AccountBlock, err error) {
 	var param = new(dex.ParamStakeForMining)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	stakeHeight := nodeConfig.params.StakeHeight
@@ -462,7 +464,7 @@ func (md *MethodDexFundStakeForVIP) GetReceiveQuota(gasTable *util.QuotaTable) u
 	return gasTable.DexFundStakeForVipQuota
 }
 
-func (md *MethodDexFundStakeForVIP) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundStakeForVIP) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var (
 		err   error
 		param = new(dex.ParamStakeForVIP)
@@ -476,7 +478,7 @@ func (md *MethodDexFundStakeForVIP) DoSend(db vm_db.VmDb, block *ledger.AccountB
 	return nil
 }
 
-func (md MethodDexFundStakeForVIP) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundStakeForVIP) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var param = new(dex.ParamStakeForVIP)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForVIP, param.ActionType, sendBlock.AccountAddress, types.ZERO_ADDRESS, dex.StakeForVIPAmount, nodeConfig.params.DexVipStakeHeight, block); err != nil {
@@ -506,7 +508,7 @@ func (md *MethodDexFundStakeForSVIP) GetReceiveQuota(gasTable *util.QuotaTable) 
 	return gasTable.DexFundStakeForSuperVIPQuota
 }
 
-func (md *MethodDexFundStakeForSVIP) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundStakeForSVIP) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var (
 		err   error
 		param = new(dex.ParamStakeForVIP)
@@ -520,7 +522,7 @@ func (md *MethodDexFundStakeForSVIP) DoSend(db vm_db.VmDb, block *ledger.Account
 	return nil
 }
 
-func (md MethodDexFundStakeForSVIP) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundStakeForSVIP) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var param = new(dex.ParamStakeForVIP)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForSuperVIP, param.ActionType, sendBlock.AccountAddress, types.ZERO_ADDRESS, dex.StakeForSuperVIPAmount, nodeConfig.params.DexSuperVipStakeHeight, block); err != nil {
@@ -550,7 +552,7 @@ func (md *MethodDexFundStakeForPrincipalSVIP) GetReceiveQuota(gasTable *util.Quo
 	return gasTable.DexFundStakeForPrincipalSuperVIPQuota
 }
 
-func (md *MethodDexFundStakeForPrincipalSVIP) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundStakeForPrincipalSVIP) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var (
 		err       error
 		principal = new(types.Address)
@@ -564,7 +566,7 @@ func (md *MethodDexFundStakeForPrincipalSVIP) DoSend(db vm_db.VmDb, block *ledge
 	return nil
 }
 
-func (md MethodDexFundStakeForPrincipalSVIP) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundStakeForPrincipalSVIP) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var principal = new(types.Address)
 	cabi.ABIDexFund.UnpackMethod(principal, md.MethodName, sendBlock.Data)
 	if appendBlocks, err := dex.HandleStakeAction(db, dex.StakeForPrincipalSuperVIP, dex.Stake, sendBlock.AccountAddress, *principal, dex.StakeForSuperVIPAmount, nodeConfig.params.DexSuperVipStakeHeight, block); err != nil {
@@ -594,7 +596,7 @@ func (md *MethodDexFundCancelStakeById) GetReceiveQuota(gasTable *util.QuotaTabl
 	return gasTable.DexFundCancelStakeByIdQuota
 }
 
-func (md *MethodDexFundCancelStakeById) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundCancelStakeById) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var (
 		err error
 		id  = new(types.Hash)
@@ -605,7 +607,7 @@ func (md *MethodDexFundCancelStakeById) DoSend(db vm_db.VmDb, block *ledger.Acco
 	return nil
 }
 
-func (md MethodDexFundCancelStakeById) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundCancelStakeById) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var id = new(types.Hash)
 	cabi.ABIDexFund.UnpackMethod(id, md.MethodName, sendBlock.Data)
 	if appendBlocks, err := dex.DoCancelStakeV2(db, sendBlock.AccountAddress, *id); err != nil {
@@ -635,14 +637,14 @@ func (md *MethodDexFundDelegateStakeCallback) GetReceiveQuota(gasTable *util.Quo
 	return gasTable.DexFundDelegateStakeCallbackQuota
 }
 
-func (md *MethodDexFundDelegateStakeCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundDelegateStakeCallback) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.AccountAddress != types.AddressQuota {
 		return dex.InvalidSourceAddressErr
 	}
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateStakeCallback), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundDelegateStakeCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundDelegateStakeCallback) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var callbackParam = new(dex.ParamDelegateStakeCallback)
 	cabi.ABIDexFund.UnpackMethod(callbackParam, md.MethodName, sendBlock.Data)
 	if callbackParam.Success {
@@ -717,14 +719,14 @@ func (md *MethodDexFundCancelDelegateStakeCallback) GetReceiveQuota(gasTable *ut
 	return gasTable.DexFundCancelDelegateStakeCallbackQuota
 }
 
-func (md *MethodDexFundCancelDelegateStakeCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundCancelDelegateStakeCallback) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.AccountAddress != types.AddressQuota {
 		return dex.InvalidSourceAddressErr
 	}
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateStakeCallback), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundCancelDelegateStakeCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundCancelDelegateStakeCallback) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var param = new(dex.ParamDelegateStakeCallback)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if param.Success {
@@ -803,14 +805,14 @@ func (md *MethodDexFundDelegateStakeCallbackV2) GetReceiveQuota(gasTable *util.Q
 	return gasTable.DexFundDelegateStakeCallbackV2Quota
 }
 
-func (md *MethodDexFundDelegateStakeCallbackV2) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundDelegateStakeCallbackV2) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.AccountAddress != types.AddressQuota {
 		return dex.InvalidSourceAddressErr
 	}
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateStakeCallbackV2), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) (blocks []*ledger.AccountBlock, err error) {
+func (md MethodDexFundDelegateStakeCallbackV2) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) (blocks []*ledger.AccountBlock, err error) {
 	var param = new(dex.ParamDelegateStakeCallbackV2)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	var (
@@ -904,14 +906,14 @@ func (md *MethodDexFundCancelDelegateStakeCallbackV2) GetReceiveQuota(gasTable *
 	return gasTable.DexFundDelegateCancelStakeCallbackV2Quota
 }
 
-func (md *MethodDexFundCancelDelegateStakeCallbackV2) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundCancelDelegateStakeCallbackV2) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.AccountAddress != types.AddressQuota {
 		return dex.InvalidSourceAddressErr
 	}
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDelegateStakeCallbackV2), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundCancelDelegateStakeCallbackV2) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundCancelDelegateStakeCallbackV2) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var param = new(dex.ParamDelegateStakeCallbackV2)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	var (
@@ -1012,14 +1014,14 @@ func (md *MethodDexFundGetTokenInfoCallback) GetReceiveQuota(gasTable *util.Quot
 	return gasTable.DexFundGetTokenInfoCallbackQuota
 }
 
-func (md *MethodDexFundGetTokenInfoCallback) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundGetTokenInfoCallback) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.AccountAddress != types.AddressAsset {
 		return dex.InvalidSourceAddressErr
 	}
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamGetTokenInfoCallback), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundGetTokenInfoCallback) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundGetTokenInfoCallback) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var callbackParam = new(dex.ParamGetTokenInfoCallback)
 	cabi.ABIDexFund.UnpackMethod(callbackParam, md.MethodName, sendBlock.Data)
 	switch callbackParam.Bid {
@@ -1079,11 +1081,11 @@ func (md *MethodDexFundDexAdminConfig) GetReceiveQuota(gasTable *util.QuotaTable
 	return gasTable.DexFundAdminConfigQuota
 }
 
-func (md *MethodDexFundDexAdminConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundDexAdminConfig) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamDexAdminConfig), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundDexAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundDexAdminConfig) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var err error
 	var param = new(dex.ParamDexAdminConfig)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
@@ -1134,11 +1136,11 @@ func (md *MethodDexFundTradeAdminConfig) GetReceiveQuota(gasTable *util.QuotaTab
 	return gasTable.DexFundTradeAdminConfigQuota
 }
 
-func (md *MethodDexFundTradeAdminConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundTradeAdminConfig) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamTradeAdminConfig), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundTradeAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) (blocks []*ledger.AccountBlock, err error) {
+func (md MethodDexFundTradeAdminConfig) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) (blocks []*ledger.AccountBlock, err error) {
 	var param = new(dex.ParamTradeAdminConfig)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
@@ -1233,11 +1235,11 @@ func (md *MethodDexFundMarketAdminConfig) GetReceiveQuota(gasTable *util.QuotaTa
 	return gasTable.DexFundMarketAdminConfigQuota
 }
 
-func (md *MethodDexFundMarketAdminConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundMarketAdminConfig) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamMarketAdminConfig), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundMarketAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundMarketAdminConfig) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err        error
 		marketInfo *dex.MarketInfo
@@ -1300,11 +1302,11 @@ func (md *MethodDexFundTransferTokenOwnership) GetReceiveQuota(gasTable *util.Qu
 	return gasTable.DexFundTransferTokenOwnershipQuota
 }
 
-func (md *MethodDexFundTransferTokenOwnership) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundTransferTokenOwnership) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamTransferTokenOwnership), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundTransferTokenOwnership) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundTransferTokenOwnership) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err   error
 		param = new(dex.ParamTransferTokenOwnership)
@@ -1356,11 +1358,11 @@ func (md *MethodDexFundNotifyTime) GetReceiveQuota(gasTable *util.QuotaTable) ui
 	return gasTable.DexFundNotifyTimeQuota
 }
 
-func (md *MethodDexFundNotifyTime) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundNotifyTime) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamNotifyTime), md.MethodName, block.Data)
 }
 
-func (md MethodDexFundNotifyTime) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundNotifyTime) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err             error
 		notifyTimeParam = new(dex.ParamNotifyTime)
@@ -1397,11 +1399,11 @@ func (md *MethodDexFundCreateNewInviter) GetReceiveQuota(gasTable *util.QuotaTab
 	return gasTable.DexFundCreateNewInviterQuota
 }
 
-func (md *MethodDexFundCreateNewInviter) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundCreateNewInviter) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	return nil
 }
 
-func (md MethodDexFundCreateNewInviter) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundCreateNewInviter) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	if code := dex.GetCodeByInviter(db, sendBlock.AccountAddress); code > 0 {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.AlreadyIsInviterErr, sendBlock)
 	}
@@ -1438,7 +1440,7 @@ func (md *MethodDexFundBindInviteCode) GetReceiveQuota(gasTable *util.QuotaTable
 	return gasTable.DexFundBindInviteCodeQuota
 }
 
-func (md *MethodDexFundBindInviteCode) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundBindInviteCode) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var code uint32
 	if err := cabi.ABIDexFund.UnpackMethod(&code, md.MethodName, block.Data); err != nil {
 		return err
@@ -1446,7 +1448,7 @@ func (md *MethodDexFundBindInviteCode) DoSend(db vm_db.VmDb, block *ledger.Accou
 	return nil
 }
 
-func (md MethodDexFundBindInviteCode) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundBindInviteCode) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		inviter *types.Address
 		code    uint32
@@ -1490,14 +1492,14 @@ func (md *MethodDexFundEndorseVx) GetReceiveQuota(gasTable *util.QuotaTable) uin
 	return gasTable.DexFundEndorseVxQuota
 }
 
-func (md *MethodDexFundEndorseVx) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundEndorseVx) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() <= 0 || block.TokenId != dex.VxTokenId {
 		return dex.InvalidInputParamErr
 	}
 	return nil
 }
 
-func (md MethodDexFundEndorseVx) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundEndorseVx) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	poolAmount := dex.GetVxMinePool(db)
 	poolAmount.Add(poolAmount, sendBlock.Amount)
 	dex.SaveVxMinePool(db, poolAmount)
@@ -1524,7 +1526,7 @@ func (md *MethodDexFundSettleMakerMinedVx) GetReceiveQuota(gasTable *util.QuotaT
 	return gasTable.DexFundSettleMakerMinedVxQuota
 }
 
-func (md *MethodDexFundSettleMakerMinedVx) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundSettleMakerMinedVx) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var err error
 	param := new(dex.ParamSerializedData)
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
@@ -1537,7 +1539,7 @@ func (md *MethodDexFundSettleMakerMinedVx) DoSend(db vm_db.VmDb, block *ledger.A
 	return nil
 }
 
-func (md MethodDexFundSettleMakerMinedVx) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundSettleMakerMinedVx) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		err     error
 		poolAmt *big.Int
@@ -1616,7 +1618,7 @@ func (md *MethodDexFundConfigMarketAgents) GetReceiveQuota(gasTable *util.QuotaT
 	return gasTable.DexFundConfigMarketAgentsQuota
 }
 
-func (md *MethodDexFundConfigMarketAgents) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundConfigMarketAgents) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	var param = new(dex.ParamConfigMarketAgents)
 	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
@@ -1626,7 +1628,7 @@ func (md *MethodDexFundConfigMarketAgents) DoSend(db vm_db.VmDb, block *ledger.A
 	return nil
 }
 
-func (md MethodDexFundConfigMarketAgents) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundConfigMarketAgents) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		param = new(dex.ParamConfigMarketAgents)
 		err   error
@@ -1675,7 +1677,7 @@ func (md *MethodDexFundPlaceAgentOrder) GetReceiveQuota(gasTable *util.QuotaTabl
 	return gasTable.DexFundPlaceAgentOrderQuota
 }
 
-func (md *MethodDexFundPlaceAgentOrder) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundPlaceAgentOrder) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	param := new(dex.ParamPlaceAgentOrder)
 	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
@@ -1683,7 +1685,7 @@ func (md *MethodDexFundPlaceAgentOrder) DoSend(db vm_db.VmDb, block *ledger.Acco
 	return dex.PreCheckOrderParam(&param.ParamPlaceOrder, true)
 }
 
-func (md MethodDexFundPlaceAgentOrder) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundPlaceAgentOrder) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		param = new(dex.ParamPlaceAgentOrder)
 		err   error
@@ -1718,7 +1720,7 @@ func (md *MethodDexFundLockVxForDividend) GetReceiveQuota(gasTable *util.QuotaTa
 	return gasTable.DexFundLockVxForDividendQuota
 }
 
-func (md *MethodDexFundLockVxForDividend) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundLockVxForDividend) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	param := new(dex.ParamLockVxForDividend)
 	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
@@ -1728,7 +1730,7 @@ func (md *MethodDexFundLockVxForDividend) DoSend(db vm_db.VmDb, block *ledger.Ac
 	return nil
 }
 
-func (md MethodDexFundLockVxForDividend) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundLockVxForDividend) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		param            = new(dex.ParamLockVxForDividend)
 		updatedVxAccount *dexproto.Account
@@ -1775,7 +1777,7 @@ func (md *MethodDexFundSwitchConfig) GetReceiveQuota(gasTable *util.QuotaTable) 
 	return gasTable.DexFundSwitchConfigQuota
 }
 
-func (md *MethodDexFundSwitchConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexFundSwitchConfig) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	param := new(dex.ParamSwitchConfig)
 	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
@@ -1785,7 +1787,7 @@ func (md *MethodDexFundSwitchConfig) DoSend(db vm_db.VmDb, block *ledger.Account
 	return nil
 }
 
-func (md MethodDexFundSwitchConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexFundSwitchConfig) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		param = new(dex.ParamSwitchConfig)
 		err   error
@@ -1820,12 +1822,12 @@ func (md *MethodDexCancelOrderBySendHash) GetReceiveQuota(gasTable *util.QuotaTa
 	return gasTable.DexFundCancelOrderBySendHashQuota
 }
 
-func (md *MethodDexCancelOrderBySendHash) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexCancelOrderBySendHash) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	param := new(dex.ParamCancelOrderByHash)
 	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	}
-	if param.Principal != types.ZERO_ADDRESS && param.Principal != block.AccountAddress  {
+	if param.Principal != types.ZERO_ADDRESS && param.Principal != block.AccountAddress {
 		if param.TradeToken == types.ZERO_TOKENID || param.QuoteToken == types.ZERO_TOKENID {
 			return dex.InvalidInputParamErr
 		}
@@ -1833,7 +1835,7 @@ func (md *MethodDexCancelOrderBySendHash) DoSend(db vm_db.VmDb, block *ledger.Ac
 	return nil
 }
 
-func (md MethodDexCancelOrderBySendHash) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexCancelOrderBySendHash) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var (
 		param = new(dex.ParamCancelOrderByHash)
 		owner types.Address
@@ -1866,11 +1868,11 @@ func (md *MethodDexCommonAdminConfig) GetReceiveQuota(gasTable *util.QuotaTable)
 	return gasTable.DexFundCommonAdminConfigQuota
 }
 
-func (md *MethodDexCommonAdminConfig) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (md *MethodDexCommonAdminConfig) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	return cabi.ABIDexFund.UnpackMethod(new(dex.ParamCommonAdminConfig), md.MethodName, block.Data)
 }
 
-func (md MethodDexCommonAdminConfig) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (md MethodDexCommonAdminConfig) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	var param = new(dex.ParamCommonAdminConfig)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if dex.IsOwner(db, sendBlock.AccountAddress) {

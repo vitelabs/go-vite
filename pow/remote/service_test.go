@@ -4,12 +4,13 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/pow"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/pow"
 )
 
 func init() {

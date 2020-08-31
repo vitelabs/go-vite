@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/metrics"
 )
 
 func init() {
@@ -183,5 +182,4 @@ func loop() {
 }
 
 func LogTimerConsuming(tagsName []string, tm time.Time) {
-	metrics.TimeConsuming(tagsName, tm)
 }

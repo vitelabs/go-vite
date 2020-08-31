@@ -7,10 +7,10 @@ import (
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type MethodIssue struct {
@@ -32,7 +32,7 @@ func (p *MethodIssue) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint
 func (p *MethodIssue) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
-func (p *MethodIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodIssue) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	param := new(abi.ParamIssue)
 	err := abi.ABIAsset.UnpackMethod(param, p.MethodName, block.Data)
 	if err != nil {
@@ -87,7 +87,7 @@ func checkToken(param abi.ParamIssue, sbHeight uint64) error {
 	}
 	return nil
 }
-func (p *MethodIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodIssue) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamIssue)
 	abi.ABIAsset.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	tokenID := newTokenID(sendBlock.AccountAddress, block.Height, sendBlock.Hash)
@@ -165,7 +165,7 @@ func (p *MethodReIssue) GetSendQuota(data []byte, gasTable *util.QuotaTable) (ui
 func (p *MethodReIssue) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
-func (p *MethodReIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodReIssue) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	param := new(abi.ParamReIssue)
 	err := abi.ABIAsset.UnpackMethod(param, p.MethodName, block.Data)
 	if err != nil {
@@ -177,7 +177,7 @@ func (p *MethodReIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error 
 	block.Data, _ = abi.ABIAsset.PackMethod(p.MethodName, param.TokenId, param.Amount, param.ReceiveAddress)
 	return nil
 }
-func (p *MethodReIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodReIssue) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamReIssue)
 	abi.ABIAsset.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	oldTokenInfo, err := abi.GetTokenByID(db, param.TokenId)
@@ -228,14 +228,14 @@ func (p *MethodBurn) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint6
 func (p *MethodBurn) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
-func (p *MethodBurn) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodBurn) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() <= 0 {
 		return util.ErrInvalidMethodParam
 	}
 	block.Data, _ = abi.ABIAsset.PackMethod(p.MethodName)
 	return nil
 }
-func (p *MethodBurn) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodBurn) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	oldTokenInfo, err := abi.GetTokenByID(db, sendBlock.TokenId)
 	util.DealWithErr(err)
 	if oldTokenInfo == nil || (!util.CheckFork(db, fork.IsEarthFork) && !oldTokenInfo.IsReIssuable) ||
@@ -276,7 +276,7 @@ func (p *MethodTransferOwnership) GetSendQuota(data []byte, gasTable *util.Quota
 func (p *MethodTransferOwnership) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
-func (p *MethodTransferOwnership) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodTransferOwnership) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -291,7 +291,7 @@ func (p *MethodTransferOwnership) DoSend(db vm_db.VmDb, block *ledger.AccountBlo
 	block.Data, _ = abi.ABIAsset.PackMethod(p.MethodName, param.TokenId, param.NewOwner)
 	return nil
 }
-func (p *MethodTransferOwnership) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodTransferOwnership) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamTransferOwnership)
 	abi.ABIAsset.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	oldTokenInfo, err := abi.GetTokenByID(db, param.TokenId)
@@ -339,7 +339,7 @@ func (p *MethodDisableReIssue) GetSendQuota(data []byte, gasTable *util.QuotaTab
 func (p *MethodDisableReIssue) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
-func (p *MethodDisableReIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodDisableReIssue) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	tokenID := new(types.TokenTypeId)
 	err := abi.ABIAsset.UnpackMethod(tokenID, p.MethodName, block.Data)
 	if err != nil {
@@ -351,7 +351,7 @@ func (p *MethodDisableReIssue) DoSend(db vm_db.VmDb, block *ledger.AccountBlock)
 	block.Data, _ = abi.ABIAsset.PackMethod(p.MethodName, &tokenID)
 	return nil
 }
-func (p *MethodDisableReIssue) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodDisableReIssue) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	tokenID := new(types.TokenTypeId)
 	abi.ABIAsset.UnpackMethod(tokenID, p.MethodName, sendBlock.Data)
 	oldTokenInfo, err := abi.GetTokenByID(db, *tokenID)
@@ -400,7 +400,7 @@ func (p *MethodGetTokenInfo) GetSendQuota(data []byte, gasTable *util.QuotaTable
 func (p *MethodGetTokenInfo) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
-func (p *MethodGetTokenInfo) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodGetTokenInfo) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	param := new(abi.ParamGetTokenInfo)
 	err := abi.ABIAsset.UnpackMethod(param, p.MethodName, block.Data)
 	if err != nil {
@@ -417,7 +417,7 @@ func (p *MethodGetTokenInfo) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) e
 	return nil
 }
 
-func (p *MethodGetTokenInfo) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodGetTokenInfo) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamGetTokenInfo)
 	abi.ABIAsset.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	tokenInfo, err := abi.GetTokenByID(db, param.TokenId)

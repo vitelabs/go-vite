@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vitelabs/go-vite/vm/abi"
 	"gotest.tools/assert"
 
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/vm/abi"
 )
 
 func TestAbiCli_CallOffChain(t *testing.T) {

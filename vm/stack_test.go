@@ -2,9 +2,10 @@ package vm
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"testing"
+
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 func TestStack(t *testing.T) {

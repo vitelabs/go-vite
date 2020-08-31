@@ -10,7 +10,6 @@ import (
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
 	"github.com/vitelabs/go-vite/vite"
 )
 
@@ -212,7 +211,7 @@ func (api DebugApi) peersDetails() map[string]interface{} {
 	return nil
 }
 
-func (api DebugApi) GetForkInfo() config.ForkPoints {
+func (api DebugApi) GetForkInfo() fork.ForkPoints {
 	return fork.GetForkPoints()
 }
 func (api DebugApi) GetRecentActiveFork() *fork.ForkPointItem {

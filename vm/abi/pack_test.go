@@ -2,13 +2,14 @@ package abi
 
 import (
 	"bytes"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
 	"math"
 	"math/big"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func TestPack(t *testing.T) {

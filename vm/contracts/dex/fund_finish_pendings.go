@@ -2,13 +2,14 @@ package dex
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 )
 
 //periodId is finish period
-func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
+func DoFinishVxUnlock(db interfaces.VmDb, periodId uint64) error {
 	if !IsEarthFork(db) {
 		return nil
 	}
@@ -30,7 +31,7 @@ func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
 		if len(vxUnlocksValue) == 0 {
 			continue
 		}
-		if len(vxUnlocksKey) != len(vxUnlocksKeyPrefix) + types.AddressSize {
+		if len(vxUnlocksKey) != len(vxUnlocksKeyPrefix)+types.AddressSize {
 			panic(fmt.Errorf("invalid vx unlocks key"))
 		}
 		address, _ := types.BytesToAddress(vxUnlocksKey[len(vxUnlocksKeyPrefix):])
@@ -60,7 +61,7 @@ func DoFinishVxUnlock(db vm_db.VmDb, periodId uint64) error {
 }
 
 //periodId is finish period
-func DoFinishCancelMiningStake(db vm_db.VmDb, periodId uint64) error {
+func DoFinishCancelMiningStake(db interfaces.VmDb, periodId uint64) error {
 	if !IsEarthFork(db) {
 		return nil
 	}
@@ -82,7 +83,7 @@ func DoFinishCancelMiningStake(db vm_db.VmDb, periodId uint64) error {
 		if len(cancelStakesValue) == 0 {
 			continue
 		}
-		if len(cancelStakesKey) != len(cancelStakesKeyPrefix) + types.AddressSize {
+		if len(cancelStakesKey) != len(cancelStakesKeyPrefix)+types.AddressSize {
 			panic(fmt.Errorf("invalid cancel stakes key"))
 		}
 		address, _ := types.BytesToAddress(cancelStakesKey[len(cancelStakesKeyPrefix):])

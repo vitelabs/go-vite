@@ -1,18 +1,17 @@
 package pow
 
 import (
+	"encoding/binary"
+	"errors"
 	"hash"
 	"math/big"
 	"time"
 
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/vitelabs/go-vite/common/helper"
-
-	"encoding/binary"
-	"errors"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
-	"golang.org/x/crypto/blake2b"
 )
 
 const (

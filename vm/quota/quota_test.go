@@ -4,26 +4,26 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/fork"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strconv"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/common/types"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 func initForkPointsForQuotaTest() {
-	fork.SetForkPoints(&config.ForkPoints{
-		SeedFork:      &config.ForkPoint{Height: 100, Version: 1},
-		DexFork:       &config.ForkPoint{Height: 200, Version: 2},
-		DexFeeFork:    &config.ForkPoint{Height: 250, Version: 3},
-		StemFork:      &config.ForkPoint{Height: 300, Version: 4},
-		LeafFork:      &config.ForkPoint{Height: 400, Version: 5},
-		EarthFork:     &config.ForkPoint{Height: 500, Version: 6},
-		DexMiningFork: &config.ForkPoint{Height: 600, Version: 7}})
+	fork.SetForkPoints(&fork.ForkPoints{
+		SeedFork:      &fork.ForkPoint{Height: 100, Version: 1},
+		DexFork:       &fork.ForkPoint{Height: 200, Version: 2},
+		DexFeeFork:    &fork.ForkPoint{Height: 250, Version: 3},
+		StemFork:      &fork.ForkPoint{Height: 300, Version: 4},
+		LeafFork:      &fork.ForkPoint{Height: 400, Version: 5},
+		EarthFork:     &fork.ForkPoint{Height: 500, Version: 6},
+		DexMiningFork: &fork.ForkPoint{Height: 600, Version: 7}})
 	fork.SetActiveChecker(mockActiveChecker{})
 }
 

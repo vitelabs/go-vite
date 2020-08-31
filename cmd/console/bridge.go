@@ -2,11 +2,13 @@ package console
 
 import (
 	"encoding/json"
-	"github.com/robertkrimen/otto"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/rpc"
 	"io"
 	"strings"
+
+	"github.com/robertkrimen/otto"
+
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/rpc"
 )
 
 var (

@@ -1,14 +1,15 @@
 package api
 
 import (
-	"github.com/vitelabs/go-vite/chain"
+	"sort"
+
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_db"
-	"sort"
 )
 
 type AssetApi struct {
@@ -140,7 +141,7 @@ func (m *AssetApi) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo
 	return checkGenesisToken(db, owner, m.vite.Config().AssetInfo.TokenInfoMap, tokenList)
 }
 
-func checkGenesisToken(db vm_db.VmDb, owner types.Address, genesisTokenInfoMap map[string]*config.TokenInfo, tokenList []*RpcTokenInfo) ([]*RpcTokenInfo, error) {
+func checkGenesisToken(db interfaces.VmDb, owner types.Address, genesisTokenInfoMap map[string]*config.TokenInfo, tokenList []*RpcTokenInfo) ([]*RpcTokenInfo, error) {
 	for tidStr, _ := range genesisTokenInfoMap {
 		tid, _ := types.HexToTokenTypeId(tidStr)
 		info, err := abi.GetTokenByID(db, tid)

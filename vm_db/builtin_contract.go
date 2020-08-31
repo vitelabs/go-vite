@@ -2,8 +2,9 @@ package vm_db
 
 import (
 	"errors"
-	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func (vdb *vmDb) GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error) {

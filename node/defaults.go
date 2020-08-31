@@ -7,7 +7,7 @@ import (
 	"runtime"
 
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/config"
+	"github.com/vitelabs/go-vite/common/config"
 )
 
 var DefaultNodeConfig = Config{

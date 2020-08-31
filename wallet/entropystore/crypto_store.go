@@ -5,16 +5,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/tyler-smith/go-bip39"
-	"github.com/vitelabs/go-vite/common/types"
-	vcrypto "github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
-	"github.com/vitelabs/go-vite/wallet/walleterrors"
-	"golang.org/x/crypto/scrypt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/tyler-smith/go-bip39"
+	"golang.org/x/crypto/scrypt"
+
+	walleterrors "github.com/vitelabs/go-vite/common/errors"
+	"github.com/vitelabs/go-vite/common/types"
+	vcrypto "github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 )
 
 const (

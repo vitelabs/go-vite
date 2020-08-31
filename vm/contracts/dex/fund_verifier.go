@@ -1,11 +1,12 @@
 package dex
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 type FundVerifyRes struct {
@@ -24,7 +25,7 @@ type FundVerifyItem struct {
 	BalanceMatched bool              `json:"balanceMatched"`
 }
 
-func VerifyDexFundBalance(db vm_db.VmDb, reader *util.VMConsensusReader) *FundVerifyRes {
+func VerifyDexFundBalance(db interfaces.VmDb, reader *util.VMConsensusReader) *FundVerifyRes {
 	userAmountMap := make(map[types.TokenTypeId]*big.Int)
 	feeAmountMap := make(map[types.TokenTypeId]*big.Int)
 	vxAmount := big.NewInt(0)
@@ -74,7 +75,7 @@ func VerifyDexFundBalance(db vm_db.VmDb, reader *util.VMConsensusReader) *FundVe
 	}
 }
 
-func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) (int, error) {
+func accumulateUserAccount(db interfaces.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) (int, error) {
 	var (
 		userAccountValue []byte
 		userFund         *Fund
@@ -117,7 +118,7 @@ func accumulateUserAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*b
 	return count, nil
 }
 
-func accumulateFeeDividendPool(db vm_db.VmDb, reader *util.VMConsensusReader, accumulateRes map[types.TokenTypeId]*big.Int) error {
+func accumulateFeeDividendPool(db interfaces.VmDb, reader *util.VMConsensusReader, accumulateRes map[types.TokenTypeId]*big.Int) error {
 	var (
 		dexFeesBytes, dexFeesKey []byte
 		dexFeesByPeriod          *DexFeesByPeriod
@@ -160,7 +161,7 @@ func accumulateFeeDividendPool(db vm_db.VmDb, reader *util.VMConsensusReader, ac
 	return nil
 }
 
-func accumulateOperatorFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
+func accumulateOperatorFeeAccount(db interfaces.VmDb, accumulateRes map[types.TokenTypeId]*big.Int) error {
 	var (
 		operatorFeesBytes    []byte
 		operatorFeesByPeriod *OperatorFeesByPeriod
@@ -194,7 +195,7 @@ func accumulateOperatorFeeAccount(db vm_db.VmDb, accumulateRes map[types.TokenTy
 	return nil
 }
 
-func accumulateVx(db vm_db.VmDb, vxAmount *big.Int) error {
+func accumulateVx(db interfaces.VmDb, vxAmount *big.Int) error {
 	var (
 		amtBytes []byte
 		ok       bool

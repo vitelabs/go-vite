@@ -1,14 +1,15 @@
 package vm_db
 
 import (
+	"math/big"
+	"math/rand"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"math/rand"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type Unsaved struct {

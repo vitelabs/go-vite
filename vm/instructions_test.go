@@ -2,11 +2,12 @@ package vm
 
 import (
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 type twoOperandTest struct {
@@ -20,20 +21,20 @@ func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contrac
 		globalStatus: NewTestGlobalStatus(100, nil),
 	}
 	//vm.Debug = true
-	sendCallBlock := &ledger.AccountBlock{
-		BlockType:  ledger.BlockTypeSendCall,
+	sendCallBlock := &core.AccountBlock{
+		BlockType:  core.BlockTypeSendCall,
 		Data:       []byte{},
 		Amount:     big.NewInt(10),
 		Fee:        big.NewInt(0),
-		TokenId:    ledger.ViteTokenId,
+		TokenId:    core.ViteTokenId,
 		Difficulty: big.NewInt(67108863),
 	}
 	sendCallBlock.Data, _ = hex.DecodeString("cbf0e4fa000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000174876e80000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000002e90edd0000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001052654973737561626c6520546f6b656e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000027274000000000000000000000000000000000000000000000000000000000000")
 	sendCallBlock.AccountAddress, _ = types.HexToAddress("vite_e41be57d38c796984952fad618a9bc91637329b5255cb18906")
 	sendCallBlock.ToAddress, _ = types.HexToAddress("vite_098dfae02679a4ca05a4c8bf5dd00a8757f0c622bfccce7d68")
 
-	receiveCallBlock := &ledger.AccountBlock{
-		BlockType:  ledger.BlockTypeReceive,
+	receiveCallBlock := &core.AccountBlock{
+		BlockType:  core.BlockTypeReceive,
 		Difficulty: big.NewInt(67108863),
 	}
 	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase(), block: receiveCallBlock, sendBlock: sendCallBlock}

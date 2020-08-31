@@ -26,9 +26,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-
 	"github.com/vitelabs/go-vite/interfaces"
-
 	"github.com/vitelabs/go-vite/log15"
 )
 

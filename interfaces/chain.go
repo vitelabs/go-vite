@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type StorageIterator interface {
@@ -54,7 +54,7 @@ type Segment struct {
 	From, To uint64
 	Hash     types.Hash
 	PrevHash types.Hash
-	Points   []*ledger.HashHeight
+	Points   []*core.HashHeight
 }
 
 func (seg Segment) String() string {
@@ -77,7 +77,7 @@ func (list SegmentList) Less(i, j int) bool {
 
 type ChunkReader interface {
 	// Read a block, return io.EOF if reach end, the block maybe a accountBlock or a snapshotBlock
-	Read() (accountBlock *ledger.AccountBlock, snapshotBlock *ledger.SnapshotBlock, err error)
+	Read() (accountBlock *core.AccountBlock, snapshotBlock *core.SnapshotBlock, err error)
 	// Close the stream
 	Close() error
 	Size() int64

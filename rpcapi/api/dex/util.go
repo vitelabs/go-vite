@@ -1,12 +1,13 @@
 package dex
 
 import (
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 func GetConsensusReader(vite *vite.Vite) *util.VMConsensusReader {
@@ -22,7 +23,7 @@ func TokenBytesToString(token []byte) string {
 	return tk.String()
 }
 
-func InnerGetOrderById(db vm_db.VmDb, orderId []byte) (*RpcOrder, error) {
+func InnerGetOrderById(db interfaces.VmDb, orderId []byte) (*RpcOrder, error) {
 	matcher := dex.NewRawMatcher(db)
 	if order, err := matcher.GetOrderById(orderId); err != nil {
 		return nil, err

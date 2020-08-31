@@ -2,9 +2,9 @@ package filters
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vite"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type AccountChainEvent struct {
@@ -64,11 +64,11 @@ func (c *ChainSubscribe) Stop() {
 	c.vite.Chain().UnRegister(c)
 }
 
-func (c *ChainSubscribe) PrepareInsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+func (c *ChainSubscribe) PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error {
 	return nil
 }
 
-func (c *ChainSubscribe) InsertAccountBlocks(blocks []*vm_db.VmAccountBlock) error {
+func (c *ChainSubscribe) InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error {
 	acEvents := make([]*AccountChainEvent, len(blocks))
 	for i, b := range blocks {
 		acEvents[i] = NewAccountChainEvent(b.AccountBlock, b.VmDb.GetLogList())
