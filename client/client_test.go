@@ -7,8 +7,8 @@ import (
 	"path"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/common/config"
+	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/wallet"

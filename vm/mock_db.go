@@ -3,14 +3,15 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
+	"math/big"
+	"sort"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"math/big"
-	"sort"
-	"time"
 )
 
 type mockDB struct {

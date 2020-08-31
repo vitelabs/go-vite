@@ -2,9 +2,10 @@ package chain_db
 
 import (
 	"container/list"
+	"sync"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	"sync"
 )
 
 type UnconfirmedBatchs struct {

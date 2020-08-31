@@ -6,14 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/ledger/pool/lock"
 	"github.com/vitelabs/go-vite/log15"
@@ -63,7 +62,7 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 	voteTime := cs.GenProofTime(0)
 	mock_chain.EXPECT().GetSnapshotHeaderBeforeTime(gomock.Eq(&voteTime)).Return(b1, nil)
 	registers := []*types.Registration{{
-		Name: "s1",
+		Name:                  "s1",
 		BlockProducingAddress: common.MockAddress(0),
 		StakeAddress:          common.MockAddress(0),
 		Amount:                nil,
@@ -72,7 +71,7 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 		RevokeTime:            0,
 		HisAddrList:           nil,
 	}, {
-		Name: "s2",
+		Name:                  "s2",
 		BlockProducingAddress: common.MockAddress(1),
 		StakeAddress:          common.MockAddress(1),
 		Amount:                nil,
@@ -81,7 +80,7 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 		RevokeTime:            0,
 		HisAddrList:           nil,
 	}, {
-		Name: "s3",
+		Name:                  "s3",
 		BlockProducingAddress: common.MockAddress(2),
 		StakeAddress:          common.MockAddress(2),
 		Amount:                nil,

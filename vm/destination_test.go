@@ -3,9 +3,10 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func TestCodeAnalysis(t *testing.T) {

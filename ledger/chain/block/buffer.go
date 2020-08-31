@@ -2,6 +2,7 @@ package chain_block
 
 import (
 	"encoding/binary"
+
 	"github.com/golang/snappy"
 )
 

@@ -1,10 +1,11 @@
 package chain_db
 
 import (
+	"sync"
+
 	"github.com/vitelabs/go-vite/common/db"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
-	"sync"
 )
 
 var batchPool = sync.Pool{

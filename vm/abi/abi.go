@@ -3,8 +3,9 @@ package abi
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/vitelabs/go-vite/common/types"
 	"io"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 // The ABIContract holds information about a contract's context and available

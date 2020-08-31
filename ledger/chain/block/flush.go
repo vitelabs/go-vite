@@ -3,9 +3,10 @@ package chain_block
 import (
 	"bytes"
 	"fmt"
+	"sync"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger/chain/utils"
-	"sync"
 )
 
 var bufPool = sync.Pool{

@@ -2,7 +2,9 @@ package dex
 
 import (
 	"bytes"
+
 	"github.com/golang/protobuf/proto"
+
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 )
 

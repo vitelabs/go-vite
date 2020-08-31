@@ -1,8 +1,9 @@
 package vm_db
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func (vdb *vmDb) GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error) {

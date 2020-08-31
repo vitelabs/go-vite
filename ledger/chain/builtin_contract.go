@@ -2,7 +2,11 @@ package chain
 
 import (
 	"fmt"
+	"math/big"
+	"sort"
+
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
@@ -11,8 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
-	"sort"
 )
 
 // sb height

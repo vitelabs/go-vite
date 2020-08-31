@@ -2,12 +2,13 @@ package chain
 
 import (
 	"fmt"
+	"math"
+	"sort"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"math"
-	"sort"
 )
 
 func (c *chain) IsForkActive(point fork.ForkPointItem) bool {

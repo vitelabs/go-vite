@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/common/config"
+	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"

@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger/chain/file_manager"

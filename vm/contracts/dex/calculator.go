@@ -1,8 +1,9 @@
 package dex
 
 import (
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/helper"
 )
 
 func AddBigInt(a []byte, b []byte) []byte {

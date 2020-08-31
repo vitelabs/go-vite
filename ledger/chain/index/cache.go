@@ -2,12 +2,13 @@ package chain_index
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/allegro/bigcache"
 	"github.com/hashicorp/golang-lru"
+
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-
-	"time"
 )
 
 func (iDB *IndexDB) newCache() error {

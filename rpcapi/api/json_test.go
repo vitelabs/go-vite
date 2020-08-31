@@ -3,9 +3,10 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type DummyBlock struct {

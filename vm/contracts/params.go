@@ -1,8 +1,9 @@
 package contracts
 
 import (
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 const (

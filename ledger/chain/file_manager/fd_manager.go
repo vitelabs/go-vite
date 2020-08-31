@@ -3,13 +3,15 @@ package chain_file_manager
 import (
 	"container/list"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/common/fileutils"
 	"os"
 	"path"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
+
+	"github.com/vitelabs/go-vite/common/fileutils"
 )
 
 type fileCacheItem struct {

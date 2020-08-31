@@ -2,9 +2,10 @@ package api
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/vm/abi"
 	"strings"
 	"testing"
+
+	"github.com/vitelabs/go-vite/vm/abi"
 )
 
 func TestConvert(t *testing.T) {

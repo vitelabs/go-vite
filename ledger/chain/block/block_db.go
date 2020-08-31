@@ -3,17 +3,19 @@ package chain_block
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
+	"path"
+	"sync"
+
 	"github.com/golang/snappy"
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
 	"github.com/vitelabs/go-vite/log15"
-	"io"
-	"path"
-	"sync"
 )
 
 type BlockDB struct {

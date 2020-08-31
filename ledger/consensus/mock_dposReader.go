@@ -9,6 +9,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+
 	types "github.com/vitelabs/go-vite/common/types"
 	core "github.com/vitelabs/go-vite/ledger/consensus/core"
 )

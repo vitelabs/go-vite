@@ -2,10 +2,11 @@ package dex
 
 import (
 	"encoding/hex"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"math/big"
 )
 
 type DividendPoolInfo struct {

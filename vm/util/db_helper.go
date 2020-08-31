@@ -1,9 +1,10 @@
 package util
 
 import (
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"math/big"
 )
 
 type dbInterface interface {

@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-
 	"github.com/vitelabs/go-vite/common"
-
 	"github.com/vitelabs/go-vite/common/types"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 func TestCreateAccountIdKey(t *testing.T) {

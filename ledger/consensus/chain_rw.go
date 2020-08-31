@@ -7,18 +7,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/ledger/consensus/cdb"
-
-	"github.com/vitelabs/go-vite/ledger/pool/lock"
-
-	"github.com/vitelabs/go-vite/ledger/chain"
-
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
+
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/ledger/consensus/cdb"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
+	"github.com/vitelabs/go-vite/ledger/pool/lock"
 	"github.com/vitelabs/go-vite/log15"
 )
 

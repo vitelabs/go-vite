@@ -2,13 +2,14 @@ package util
 
 import (
 	"encoding/hex"
+	"math/big"
+	"sort"
+	"unicode"
+
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"math/big"
-	"sort"
-	"unicode"
 )
 
 var (

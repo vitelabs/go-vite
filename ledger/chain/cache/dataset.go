@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/patrickmn/go-cache"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"

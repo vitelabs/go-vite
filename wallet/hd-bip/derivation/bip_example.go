@@ -3,6 +3,7 @@ package derivation
 import (
 	"encoding/hex"
 	"fmt"
+
 	"github.com/tyler-smith/go-bip39"
 )
 

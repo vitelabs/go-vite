@@ -2,11 +2,13 @@ package chain
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/plugins"
-	"math/big"
 )
 
 func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {

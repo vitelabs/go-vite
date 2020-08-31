@@ -6,10 +6,11 @@ import (
 	"math/big"
 	"testing"
 
+	"gotest.tools/assert"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"gotest.tools/assert"
 )
 
 func TestClient_NewOrderInputs(t *testing.T) {

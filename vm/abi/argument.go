@@ -2,9 +2,10 @@ package abi
 
 import (
 	"encoding/json"
-	"github.com/vitelabs/go-vite/common/helper"
 	"reflect"
 	"strings"
+
+	"github.com/vitelabs/go-vite/common/helper"
 )
 
 // Argument holds the name of the argument and the corresponding type.

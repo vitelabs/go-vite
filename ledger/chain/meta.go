@@ -2,6 +2,7 @@ package chain
 
 import (
 	"github.com/syndtr/goleveldb/leveldb"
+
 	"github.com/vitelabs/go-vite/common/types"
 )
 

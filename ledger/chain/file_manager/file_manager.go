@@ -3,11 +3,13 @@ package chain_file_manager
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/log15"
 	"io"
 	"sync"
+
+	"github.com/pkg/errors"
+
+	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type FileManager struct {

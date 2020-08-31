@@ -3,11 +3,10 @@ package pool
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-
-	"github.com/vitelabs/go-vite/log15"
-
 	"github.com/hashicorp/golang-lru"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 // Blacklist define a data set interface with a timeout

@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/pow"
 )

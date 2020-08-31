@@ -2,11 +2,12 @@ package vm
 
 import (
 	"encoding/hex"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"math/big"
 )
 
 var (

@@ -2,6 +2,8 @@ package api
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
@@ -9,7 +11,6 @@ import (
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"math/big"
 )
 
 type DexFundApi struct {

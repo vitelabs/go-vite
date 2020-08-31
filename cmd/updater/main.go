@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/syndtr/goleveldb/leveldb"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger/consensus/cdb"
 )

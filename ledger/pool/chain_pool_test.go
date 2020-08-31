@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"github.com/vitelabs/go-vite/ledger/pool/tree"
 	"github.com/vitelabs/go-vite/log15"
 )

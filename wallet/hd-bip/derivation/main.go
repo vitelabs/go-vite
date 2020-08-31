@@ -1,17 +1,17 @@
 package derivation
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
-	"bytes"
-	"encoding/hex"
-	"fmt"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 )

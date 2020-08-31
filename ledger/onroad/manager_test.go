@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/ledger/chain"
 )
 

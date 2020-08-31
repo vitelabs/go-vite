@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"

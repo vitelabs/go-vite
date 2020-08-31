@@ -3,6 +3,7 @@ package chain_block
 import (
 	"errors"
 	"fmt"
+
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
 )

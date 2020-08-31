@@ -2,6 +2,9 @@ package chain_state
 
 import (
 	"fmt"
+	"math/big"
+	"sync"
+
 	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
@@ -12,8 +15,6 @@ import (
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"math/big"
-	"sync"
 )
 
 type MemPool struct {

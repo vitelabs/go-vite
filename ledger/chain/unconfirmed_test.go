@@ -2,8 +2,9 @@ package chain
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func TestUnconfirmed(t *testing.T) {

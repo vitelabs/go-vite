@@ -3,11 +3,12 @@ package chain
 import (
 	"errors"
 	"fmt"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/util"
-	"math/big"
 )
 
 func (c *chain) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error) {

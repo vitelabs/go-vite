@@ -4,6 +4,12 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"regexp"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -11,11 +17,6 @@ import (
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"math/big"
-	"regexp"
-	"strconv"
-	"testing"
-	"time"
 )
 
 func TestContractsRefund(t *testing.T) {

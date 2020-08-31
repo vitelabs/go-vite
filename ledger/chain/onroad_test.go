@@ -2,8 +2,9 @@ package chain
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func TestChain_OnRoad(t *testing.T) {

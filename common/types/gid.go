@@ -3,8 +3,9 @@ package types
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/crypto"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/crypto"
 )
 
 const (

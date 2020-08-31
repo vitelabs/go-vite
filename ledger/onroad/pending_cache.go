@@ -2,9 +2,10 @@ package onroad
 
 import (
 	"container/list"
+	"sync"
+
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"sync"
 )
 
 const defaultPullCount uint8 = 5

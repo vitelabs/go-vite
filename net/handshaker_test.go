@@ -27,9 +27,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/crypto"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/net/netool"
 	"github.com/vitelabs/go-vite/net/vnode"

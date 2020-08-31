@@ -2,10 +2,11 @@ package vm
 
 import (
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"strconv"
+
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 type memory struct {

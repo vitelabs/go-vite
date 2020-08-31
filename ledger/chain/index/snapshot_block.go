@@ -2,6 +2,7 @@ package chain_index
 
 import (
 	"github.com/allegro/bigcache"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"

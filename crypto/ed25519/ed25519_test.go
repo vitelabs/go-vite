@@ -9,8 +9,9 @@ import (
 	"crypto"
 	"crypto/rand"
 	"encoding/hex"
-	"github.com/aead/ecdh"
 	"testing"
+
+	"github.com/aead/ecdh"
 
 	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
 )

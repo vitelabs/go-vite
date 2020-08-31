@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"

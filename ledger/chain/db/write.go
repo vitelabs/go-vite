@@ -2,6 +2,7 @@ package chain_db
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"

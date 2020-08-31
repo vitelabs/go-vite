@@ -3,10 +3,11 @@ package onroad
 import (
 	"container/heap"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 var addrStr = [5]string{

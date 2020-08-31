@@ -2,17 +2,19 @@ package chain_flusher
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
-	"gotest.tools/assert"
 	"os"
 	"path"
 	"sync"
 	"testing"
+
+	"github.com/pkg/errors"
+	"github.com/syndtr/goleveldb/leveldb"
+	"gotest.tools/assert"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
+	"github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 func TestFlusher(t *testing.T) {

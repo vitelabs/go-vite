@@ -1,8 +1,9 @@
 package util
 
 import (
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"time"
+
+	"github.com/vitelabs/go-vite/ledger/consensus/core"
 )
 
 // ConsensusReader defines interfaces of consensus reader in vm module used by sbp reward calculation

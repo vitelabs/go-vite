@@ -3,14 +3,13 @@ package pool
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/ledger/pool/tree"
-
-	"sync"
-
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/ledger/pool/tree"
 	"github.com/vitelabs/go-vite/log15"
 )
 

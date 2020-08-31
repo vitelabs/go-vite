@@ -2,9 +2,11 @@ package nodemanager
 
 import (
 	"fmt"
+
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
-	"gopkg.in/urfave/cli.v1"
 )
 
 type CheckChainNodeManager struct {

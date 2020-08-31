@@ -30,6 +30,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
+
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 

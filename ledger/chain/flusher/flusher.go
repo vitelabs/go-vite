@@ -4,15 +4,16 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/fileutils"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/log15"
 	"os"
 	"path"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/fileutils"
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 const (

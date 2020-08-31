@@ -2,9 +2,10 @@ package onroad
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/log15"
 	"math/rand"
 	"time"
+
+	"github.com/vitelabs/go-vite/log15"
 )
 
 type testProcessor struct {

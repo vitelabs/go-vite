@@ -6,10 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/interfaces"
-
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/ledger/generator"
 	"github.com/vitelabs/go-vite/ledger/onroad/pool"

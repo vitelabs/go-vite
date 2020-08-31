@@ -1,12 +1,13 @@
 package contracts
 
 import (
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/ledger/consensus/core"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 var (

@@ -1,8 +1,9 @@
 package chain_state
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"sync"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 type RedoCache struct {

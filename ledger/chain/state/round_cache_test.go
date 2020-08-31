@@ -4,7 +4,15 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/golang/mock/gomock"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+
 	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
@@ -15,12 +23,6 @@ import (
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"gotest.tools/assert"
-	is "gotest.tools/assert/cmp"
-	"math/big"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 type MockSnapshot struct {

@@ -1,10 +1,12 @@
 package nodemanager
 
 import (
+	"math/big"
+
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/node"
-	"gopkg.in/urfave/cli.v1"
-	"math/big"
 )
 
 type ExportNodeManager struct {

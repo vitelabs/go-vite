@@ -1,8 +1,9 @@
 package onroad
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 func Test_onroad(t *testing.T) {

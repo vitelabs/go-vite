@@ -3,10 +3,9 @@ package consensus
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/ledger/consensus/cdb"
-
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/consensus/cdb"
 )
 
 // APISnapshot is the interface that can query snapshot consensus info.

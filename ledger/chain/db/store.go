@@ -1,9 +1,11 @@
 package chain_db
 
 import (
-	"errors"
-
 	"encoding/json"
+	"errors"
+	"os"
+	"sync"
+
 	"github.com/vitelabs/go-vite/common/db"
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
@@ -11,8 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/interfaces"
-	"os"
-	"sync"
 )
 
 type Store struct {

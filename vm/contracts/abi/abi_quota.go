@@ -1,12 +1,13 @@
 package abi
 
 import (
+	"math/big"
+	"strings"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"math/big"
-	"strings"
 )
 
 const (

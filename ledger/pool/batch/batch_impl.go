@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
 )
 

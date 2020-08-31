@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"

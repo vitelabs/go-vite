@@ -5,17 +5,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/ledger/pool/batch"
-
-	"github.com/vitelabs/go-vite/ledger/pool/tree"
-
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/pool/batch"
+	"github.com/vitelabs/go-vite/ledger/pool/tree"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/ledger/verifier"
 )
 
 type snapshotPool struct {

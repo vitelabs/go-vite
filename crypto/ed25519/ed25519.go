@@ -17,7 +17,6 @@ package ed25519
 import (
 	"bytes"
 	"crypto"
-
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -25,8 +24,9 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
 )
 
 const (

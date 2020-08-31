@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"log"
 	"math/big"
 	"reflect"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 const jsondata = `

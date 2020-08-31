@@ -3,6 +3,13 @@ package chain_db
 import (
 	"encoding/binary"
 	"fmt"
+	"math/rand"
+	"os"
+	"path"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/storage"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
@@ -11,12 +18,6 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
 	"github.com/vitelabs/go-vite/ledger/chain/utils"
-	"math/rand"
-	"os"
-	"path"
-	"sync"
-	"testing"
-	"time"
 )
 
 func TestStore(t *testing.T) {

@@ -4,17 +4,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/big"
-	//_ "net/http/pprof"
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/crypto"
-
-	"github.com/vitelabs/go-vite/pow"
-
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/pow"
 )
 
 func TestPubKeyToAddress(t *testing.T) {

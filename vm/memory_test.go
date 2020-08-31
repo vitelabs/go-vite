@@ -3,9 +3,10 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/helper"
 )
 
 func TestMemory(t *testing.T) {

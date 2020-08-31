@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"

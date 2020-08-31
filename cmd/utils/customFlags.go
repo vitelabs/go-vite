@@ -3,10 +3,11 @@ package utils
 import (
 	"flag"
 	"fmt"
-	"github.com/vitelabs/go-vite/common"
 	"os"
 	"path"
 	"strings"
+
+	"github.com/vitelabs/go-vite/common"
 )
 
 type DirectoryString struct {

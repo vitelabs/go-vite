@@ -25,14 +25,14 @@ import (
 	_net "net"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/netool"
-
 	"github.com/golang/protobuf/proto"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/vitepb"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/net/netool"
 	"github.com/vitelabs/go-vite/net/vnode"
-	"github.com/vitelabs/go-vite/common/vitepb"
 )
 
 const handshakeTimeout = 10 * time.Second

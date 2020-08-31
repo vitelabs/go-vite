@@ -2,9 +2,10 @@ package chain_file_manager
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"os"
+
+	"github.com/pkg/errors"
 )
 
 type fileDescription struct {
