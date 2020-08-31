@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/magiconair/properties/assert"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/vitelabs/go-vite/common/helper"

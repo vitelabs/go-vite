@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBigInt(t *testing.T) {
