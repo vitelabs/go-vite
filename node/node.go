@@ -21,7 +21,6 @@ import (
 	"github.com/vitelabs/go-vite/rpcapi/api/filters"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/wallet/entropystore"
 )
 
 var (
@@ -227,20 +226,12 @@ func (node *Node) startWallet() (err error) {
 			return err
 		}
 
-		var entropyStoreManager *entropystore.Manager
-		entropyStoreManager, err = node.walletManager.GetEntropyStoreManager(node.config.EntropyStorePath)
-
-		if err != nil {
-			log.Error(fmt.Sprintf("node.walletManager.GetEntropyStoreManager error: %v", err))
-			return err
-		}
-
 		//unlock
-		if err = entropyStoreManager.Unlock(node.config.EntropyStorePassword); err != nil {
-			log.Error(fmt.Sprintf("entropyStoreManager.Unlock error: %v", err))
+		err := node.walletManager.Unlock(node.config.EntropyStorePath, node.config.EntropyStorePassword)
+		if err != nil {
+			log.Error(fmt.Sprintf("entropyStoreManager.Unlock error: %v, %s", err, node.config.EntropyStorePath))
 			return err
 		}
-
 	}
 
 	return nil
