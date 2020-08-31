@@ -4,11 +4,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/allegro/bigcache"
-	"github.com/gobuffalo/syncx"
 	"github.com/patrickmn/go-cache"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/comparer"
@@ -40,7 +40,7 @@ func BenchmarkGoCache(b *testing.B) {
 //BenchmarkSyncMapCache/get-8         	 6393415	       191 ns/op
 //BenchmarkSyncMapCache/delete-8      	 6371491	       197 ns/op
 func BenchmarkSyncMapCache(b *testing.B) {
-	c := &syncx.ByteMap{}
+	c := &sync.Map{}
 
 	//cache := memdb.New(comparer.DefaultComparer, 0)
 	benchmarkCache(b, newSyncMapCache(c))
@@ -54,16 +54,16 @@ type BenchCache interface {
 }
 
 type syncMapCache struct {
-	cache *syncx.ByteMap
+	cache *sync.Map
 }
 
-func newSyncMapCache(db *syncx.ByteMap) BenchCache {
+func newSyncMapCache(db *sync.Map) BenchCache {
 	return &syncMapCache{
 		cache: db,
 	}
 }
 func (c *syncMapCache) Put(key, value []byte) error {
-	c.cache.Store(string(key), value)
+	c.cache.Store(key, value)
 	return nil
 }
 
@@ -72,7 +72,7 @@ func (c *syncMapCache) Get(key []byte) ([]byte, error) {
 	if !ok {
 		return nil, nil
 	}
-	return value, nil
+	return value.([]byte), nil
 }
 func (c *syncMapCache) Delete(key []byte) error {
 	c.cache.Delete(string(key))
@@ -81,7 +81,7 @@ func (c *syncMapCache) Delete(key []byte) error {
 
 func (c *syncMapCache) Size() int {
 	i := 0
-	c.cache.Range(func(key string, value []byte) bool {
+	c.cache.Range(func(key interface{}, value interface{}) bool {
 		i++
 		return true
 	})
