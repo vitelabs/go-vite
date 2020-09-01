@@ -1,15 +1,11 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
 
-	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/generator"
@@ -35,43 +31,6 @@ func NewTestApi(walletApi *WalletApi) *TestApi {
 	return &TestApi{
 		walletApi: walletApi,
 	}
-}
-
-func (t TestApi) Bazinga(ctx context.Context) error {
-	return CheckGetTestTokenIpFrequency(testapi_testtokenlru, ctx)
-}
-
-func (t TestApi) GetTestToken(ctx context.Context, ToAddr types.Address) (string, error) {
-	if e := CheckGetTestTokenIpFrequency(testapi_testtokenlru, ctx); e != nil {
-		return "", e
-	}
-
-	privKey, err := ed25519.HexToPrivateKey(testapi_hexPrivKey)
-	if err != nil {
-		return "", err
-	}
-	SelfAddr := types.PrikeyToAddress(privKey)
-	a := rand.Int() % 1000
-	a += 1
-	ba := new(big.Int).SetInt64(int64(a))
-	ba.Mul(ba, math.BigPow(10, 18))
-
-	amount := ba.String()
-	//tid, _ := types.HexToTokenTypeId("tti_5649544520544f4b454e6e40")
-	tid, _ := types.HexToTokenTypeId(testapi_tti)
-
-	err = t.CreateTxWithPrivKey(CreateTxWithPrivKeyParmsTest{
-		SelfAddr:    SelfAddr,
-		ToAddr:      ToAddr,
-		TokenTypeId: tid,
-		PrivateKey:  testapi_hexPrivKey,
-		Amount:      amount,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return amount, nil
 }
 
 func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error {
