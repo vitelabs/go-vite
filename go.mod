@@ -26,7 +26,6 @@ require (
 	github.com/peterh/liner v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/robertkrimen/otto v0.0.0-20191219234010-c382bd3c16ff
-	github.com/robfig/cron v1.2.0
 	github.com/rs/cors v1.7.0
 	github.com/shirou/gopsutil v2.20.7+incompatible
 	github.com/stretchr/testify v1.6.1
@@ -45,5 +44,4 @@ require (
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/urfave/cli.v1 v1.20.0
 	gopkg.in/yaml.v2 v2.2.2 // indirect
-	gotest.tools v2.2.0+incompatible
 )

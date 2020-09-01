@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -29,9 +29,9 @@ func TestClient_NewOrderInputs(t *testing.T) {
 // wss://testnet.vitewallet.com/beta/ws
 func TestClient_BuildRequestNewOrderBlock(t *testing.T) {
 	viteTokeId, err := types.HexToTokenTypeId("tti_5649544520544f4b454e6e40")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	btcTokenId, err := types.HexToTokenTypeId("tti_322862b3f8edae3b02b110b1")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	// 1000
 	// 0.00001899
 
@@ -46,16 +46,16 @@ func TestClient_BuildRequestNewOrderBlock(t *testing.T) {
 		Price:      price,
 		Quantity:   quantity,
 	})
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	dataBase64 := base64.StdEncoding.EncodeToString(data)
 	t.Log(dataBase64)
 
 	expected := "FHkn7AAAAAAAAAAAAAAAAAAAAAAAAAAAAABWSVRFIFRPS0VOAAAAAAAAAAAAAAAAAAAAAAAAAAAAADIoYrP47a47ArEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADY1ya3F3qAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKMC4wMDAwMTg5OQAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 	input, err := base64.StdEncoding.DecodeString(expected)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, expected, dataBase64)
 	newOrder, err := parseDexNewOrderData(input)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	t.Log(newOrder)
 
 	//accountAddress: "vite_fea8b95db177c7bf8faf8826469c828731816e03149279cfd5"
@@ -82,21 +82,21 @@ func TestClient_BuildRequestNewOrderBlock(t *testing.T) {
 func TestClient_BuildRequestCancelOrderBlock(t *testing.T) {
 	orderId := "0000010100000000000001312d00005d2e049e000000"
 	id, err := hex.DecodeString(orderId)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	data, err := buildDexCancelOrderData(&dex.ParamDexCancelOrder{
 		OrderId: id,
 	})
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	dataBase64 := base64.StdEncoding.EncodeToString(data)
 	t.Log(dataBase64)
 
 	expected := "slGtxQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABYAAAEBAAAAAAAAATEtAABdLgSeAAAAAAAAAAAAAAAAAA=="
 	input, err := base64.StdEncoding.DecodeString(expected)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, expected, dataBase64)
 	newOrder, err := parseDexCancelOrderData(input)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	t.Log(hex.EncodeToString(newOrder.OrderId))
 
 	//accountAddress: "vite_fea8b95db177c7bf8faf8826469c828731816e03149279cfd5"

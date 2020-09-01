@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
@@ -85,16 +85,16 @@ func TestVmLogList_Serialize(t *testing.T) {
 	})
 
 	byt, err := vmLogList.Serialize()
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	var vmLogList2 = &VmLogList{}
 
 	err = vmLogList2.Deserialize(byt)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, len(vmLogList), len(*vmLogList2))
 	for i, vmLog := range vmLogList {
-		assert.DeepEqual(t, (*vmLogList2)[i].Data, vmLog.Data)
-		assert.DeepEqual(t, (*vmLogList2)[i].Topics, vmLog.Topics)
+		assert.Equal(t, (*vmLogList2)[i].Data, vmLog.Data)
+		assert.Equal(t, (*vmLogList2)[i].Topics, vmLog.Topics)
 	}
 }

@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/syndtr/goleveldb/leveldb"
-	"gotest.tools/assert"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -79,7 +79,7 @@ func TestRecover(t *testing.T) {
 
 func TestParseRedoLog(t *testing.T) {
 	fd, oErr := os.OpenFile("./flush.redo.log", os.O_RDWR, 0666)
-	assert.NilError(t, oErr)
+	assert.NoError(t, oErr)
 
 	defer fd.Close()
 
@@ -91,10 +91,10 @@ func TestParseRedoLog(t *testing.T) {
 	}
 
 	f, err := NewFlusher(mockStores, nil, "")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	redoLogs, stores, err := f.loadRedo(fd)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	blockDbId, err := types.BytesToHash(crypto.Hash256([]byte("blockDb")))
 	if err != nil {

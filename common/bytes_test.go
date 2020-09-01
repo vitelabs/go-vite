@@ -20,14 +20,14 @@ import (
 	"bytes"
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCopyBytes(t *testing.T) {
 	data1 := []byte{1, 2, 3, 4}
 	exp1 := []byte{1, 2, 3, 4}
 	res1 := CopyBytes(data1)
-	assert.DeepEqual(t, res1, exp1)
+	assert.Equal(t, res1, exp1)
 }
 
 func TestLeftPadBytes(t *testing.T) {
@@ -37,8 +37,8 @@ func TestLeftPadBytes(t *testing.T) {
 	res1 := LeftPadBytes(val1, 8)
 	res2 := LeftPadBytes(val1, 2)
 
-	assert.DeepEqual(t, res1, exp1)
-	assert.DeepEqual(t, res2, val1)
+	assert.Equal(t, res1, exp1)
+	assert.Equal(t, res2, val1)
 }
 
 func TestRightPadBytes(t *testing.T) {
@@ -48,8 +48,8 @@ func TestRightPadBytes(t *testing.T) {
 	resstd := RightPadBytes(val, 8)
 	resshrt := RightPadBytes(val, 2)
 
-	assert.DeepEqual(t, resstd, exp)
-	assert.DeepEqual(t, resshrt, val)
+	assert.Equal(t, resstd, exp)
+	assert.Equal(t, resshrt, val)
 }
 
 func TestFromHex(t *testing.T) {

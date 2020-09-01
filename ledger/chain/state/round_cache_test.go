@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"gotest.tools/assert"
-	is "gotest.tools/assert/cmp"
+	"github.com/stretchr/testify/assert"
 
 	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
@@ -412,12 +411,12 @@ func checkRedoLogs(t *testing.T, redoLogs *RoundCacheRedoLogs,
 					for i, kv := range logItem.Storage {
 						mockKv := mockLogItem.Storage[i]
 
-						assert.Check(t, bytes.Equal(kv[0], mockKv[0]))
-						assert.Check(t, bytes.Equal(kv[1], mockKv[1]))
+						assert.True(t, bytes.Equal(kv[0], mockKv[0]))
+						assert.True(t, bytes.Equal(kv[1], mockKv[1]))
 					}
 				}
 
-				assert.Check(t, logItem.BalanceMap[ledger.ViteTokenId].Cmp(mockLogItem.BalanceMap[ledger.ViteTokenId]) == 0)
+				assert.True(t, logItem.BalanceMap[ledger.ViteTokenId].Cmp(mockLogItem.BalanceMap[ledger.ViteTokenId]) == 0)
 			}
 		}
 	}
@@ -462,10 +461,10 @@ func compareIter(t *testing.T, iter1 interfaces.StorageIterator, iter2 interface
 
 		kv1 := list1[index]
 		kv2 := list2[index]
-		if !assert.Check(t, bytes.Equal(kv1[0], kv2[0]), fmt.Sprintf("%d. %d != %d. %v", index, kv1[0], kv2[0], fastCheck)) {
+		if !assert.True(t, bytes.Equal(kv1[0], kv2[0]), fmt.Sprintf("%d. %d != %d. %v", index, kv1[0], kv2[0], fastCheck)) {
 			t.FailNow()
 		}
-		if !assert.Check(t, bytes.Equal(kv1[1], kv2[1]), fmt.Sprintf("%d. %d != %d. %v", index, kv1[1], kv2[1], fastCheck)) {
+		if !assert.True(t, bytes.Equal(kv1[1], kv2[1]), fmt.Sprintf("%d. %d != %d. %v", index, kv1[1], kv2[1], fastCheck)) {
 			t.FailNow()
 		}
 	}
@@ -534,8 +533,8 @@ func checkRoundCache(t *testing.T, mockData *MockData,
 			checkRedoLogs(t, dataItem.redoLogs, roundSnapshotData.Snapshots)
 
 			if dataItem.lastSnapshotBlock == nil {
-				assert.Check(t, dataItem.currentData == nil)
-				assert.Check(t, roundSnapshotData.LastSnapshot == nil)
+				assert.True(t, dataItem.currentData == nil)
+				assert.True(t, roundSnapshotData.LastSnapshot == nil)
 				continue
 			}
 		} else if index != 0 {
@@ -544,7 +543,7 @@ func checkRoundCache(t *testing.T, mockData *MockData,
 		}
 
 		// check roundSnapshotData.LastSnapshot
-		assert.Check(t, roundSnapshotData.LastSnapshot != nil)
+		assert.True(t, roundSnapshotData.LastSnapshot != nil)
 
 		lastSnapshotHeader := roundSnapshotData.LastSnapshot.SnapshotHeader
 
@@ -640,7 +639,7 @@ func checkRoundCacheQuery(t *testing.T, roundCache *RoundCache, mockData *MockDa
 			for addr, balance := range balanceMap {
 				mockBalance, ok := mockBalanceMap[addr]
 				assert.Equal(t, ok, true)
-				assert.Check(t, balance.Cmp(mockBalance) == 0)
+				assert.True(t, balance.Cmp(mockBalance) == 0)
 			}
 
 			// check not found addr list
@@ -656,12 +655,12 @@ func checkRoundCacheQuery(t *testing.T, roundCache *RoundCache, mockData *MockDa
 
 		} else {
 			// check query balance
-			assert.Check(t, balanceMap == nil)
-			assert.Check(t, notFoundAddrList == nil)
-			assert.NilError(t, err)
+			assert.True(t, balanceMap == nil)
+			assert.True(t, notFoundAddrList == nil)
+			assert.NoError(t, err)
 
 			// check storage iterator
-			assert.Check(t, storIter == nil)
+			assert.True(t, storIter == nil)
 
 		}
 	}
@@ -697,9 +696,9 @@ func TestRoundCache(t *testing.T) {
 	//  TODO real address check GetSnapshotViteBalanceList
 	balanceMap, notFoundAddressList, err := roundCache.GetSnapshotViteBalanceList(types.Hash{}, []types.Address{})
 
-	assert.Assert(t, is.Nil(balanceMap))
-	assert.Assert(t, is.Nil(notFoundAddressList))
-	assert.NilError(t, err)
+	assert.Nil(t, balanceMap)
+	assert.Nil(t, notFoundAddressList)
+	assert.NoError(t, err)
 
 	// check StorageIterator
 	iter := roundCache.StorageIterator(types.Hash{})
