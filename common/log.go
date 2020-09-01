@@ -1,6 +1,7 @@
 package common
 
 import (
+	"io"
 	"path/filepath"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 )
 
-func makeDefaultLogger(absFilePath string) *lumberjack.Logger {
+func makeDefaultLogger(absFilePath string) io.Writer {
 	return &lumberjack.Logger{
 		Filename:   absFilePath,
 		MaxSize:    100,
@@ -28,5 +29,6 @@ func LogHandler(baseDir string, subDir string, filename string, lvl string) log1
 	path := filepath.Join(baseDir, subDir, time.Now().Format("2006-01-02T15-04"))
 
 	absFilename := filepath.Join(path, filename)
-	return log15.LvlFilterHandler(logLevel, log15.StreamHandler(makeDefaultLogger(absFilename), log15.LogfmtFormat()))
+	out := makeDefaultLogger(absFilename)
+	return log15.LvlFilterHandler(logLevel, log15.StreamHandler(out, log15.LogfmtFormat()))
 }

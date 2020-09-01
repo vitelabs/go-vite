@@ -18,7 +18,6 @@ import (
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	db "github.com/vitelabs/go-vite/ledger/chain/db"
 	core "github.com/vitelabs/go-vite/ledger/consensus/core"
-	vm_db "github.com/vitelabs/go-vite/vm_db"
 )
 
 // MockEventListener is a mock of EventListener interface

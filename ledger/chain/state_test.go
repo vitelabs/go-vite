@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 
 	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
@@ -423,9 +423,9 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 
 func TestState(t *testing.T) {
 	homeDir, err := os.UserHomeDir()
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	db, err := leveldb.OpenFile(path.Join(homeDir, ".gvite", "tmp", "state"), nil)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	//printAllKey(db)
 

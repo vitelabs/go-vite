@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/ledger/chain/flusher"
@@ -27,7 +27,7 @@ func TestRedoLog(t *testing.T) {
 	var mu sync.RWMutex
 	flusher, err := chain_flusher.NewFlusher([]chain_flusher.Storage{store}, &mu, path.Join(test_tools.DefaultDataDir(), "test_store"))
 	// assert flusher
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	flusher.Flush()
 
 }
@@ -49,12 +49,12 @@ func TestFlush(t *testing.T) {
 	c.CheckBatch(store.flushingBatch)
 
 	// check snapshot batch
-	assert.Assert(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
+	assert.True(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
 
 	// 2.cancel prepare
 	store.CancelPrepare()
 	// check flushing batch
-	assert.Assert(t, store.flushingBatch == nil || store.flushingBatch.Len() <= 0)
+	assert.True(t, store.flushingBatch == nil || store.flushingBatch.Len() <= 0)
 
 	// check snapshot batch
 	c.CheckBatch(store.snapshotBatch)
@@ -66,21 +66,21 @@ func TestFlush(t *testing.T) {
 	c.CheckBatch(store.flushingBatch)
 
 	// check snapshot batch
-	assert.Assert(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
+	assert.True(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
 
 	// 4.redo log
 	log, err := store.RedoLog()
 
 	// assert nil error
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	// check flushing batch
 	c.CheckBatch(store.flushingBatch)
 	// check snapshot batch
-	assert.Assert(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
+	assert.True(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
 
 	// check log
-	assert.DeepEqual(t, log, store.flushingBatch.Dump())
+	assert.Equal(t, log, store.flushingBatch.Dump())
 
 	// check redo batch
 	redoBatch := store.NewBatch()
@@ -91,31 +91,31 @@ func TestFlush(t *testing.T) {
 	// 5.commit
 	err = store.Commit()
 	// assert nil error
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	// check flushing batch
 	c.CheckBatch(store.flushingBatch)
 	// check snapshot batch
-	assert.Assert(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
+	assert.True(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
 
 	// check value
 	v1, err := store.db.Get([]byte("key1"), nil)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, v1, []byte("value1"))
+	assert.NoError(t, err)
+	assert.Equal(t, v1, []byte("value1"))
 
 	v2, err := store.db.Get([]byte("key2"), nil)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, v2, []byte("value2"))
+	assert.NoError(t, err)
+	assert.Equal(t, v2, []byte("value2"))
 
 	v3, err := store.db.Get([]byte("key3"), nil)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, v3, []byte("value3"))
+	assert.NoError(t, err)
+	assert.Equal(t, v3, []byte("value3"))
 
 	// 6.after commit
 	store.AfterCommit()
 	// check flushing batch
-	assert.Assert(t, store.flushingBatch == nil || store.flushingBatch.Len() <= 0)
+	assert.True(t, store.flushingBatch == nil || store.flushingBatch.Len() <= 0)
 	// check snapshot batch
-	assert.Assert(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
+	assert.True(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
 }
 
 func TestRecover(t *testing.T) {
@@ -135,21 +135,21 @@ func TestRecover(t *testing.T) {
 	c.CheckBatch(store.flushingBatch)
 
 	// check snapshot batch
-	assert.Assert(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
+	assert.True(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
 
 	// 2.redo log
 	log, err := store.RedoLog()
 
 	// assert nil error
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	// check flushing batch
 	c.CheckBatch(store.flushingBatch)
 	// check snapshot batch
-	assert.Assert(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
+	assert.True(t, store.snapshotBatch == nil || store.snapshotBatch.Len() <= 0)
 
 	// check log
-	assert.DeepEqual(t, log, store.flushingBatch.Dump())
+	assert.Equal(t, log, store.flushingBatch.Dump())
 
 	// check redo batch
 	redoBatch := store.NewBatch()
@@ -180,16 +180,16 @@ func TestRecover(t *testing.T) {
 
 	// check value
 	v1, err := store.db.Get([]byte("key1"), nil)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, v1, []byte("value1"))
+	assert.NoError(t, err)
+	assert.Equal(t, v1, []byte("value1"))
 
 	v2, err := store.db.Get([]byte("key2"), nil)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, v2, []byte("value2"))
+	assert.NoError(t, err)
+	assert.Equal(t, v2, []byte("value2"))
 
 	v3, err := store.db.Get([]byte("key3"), nil)
-	assert.NilError(t, err)
-	assert.DeepEqual(t, v3, []byte("value3"))
+	assert.NoError(t, err)
+	assert.Equal(t, v3, []byte("value3"))
 
 }
 

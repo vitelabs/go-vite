@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -40,18 +40,18 @@ func TestAbiCli_CallOffChain(t *testing.T) {
 func TestUnpack(t *testing.T) {
 	abiCode := ``
 	contract, err := abi.JSONToABIContract(strings.NewReader(abiCode))
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	data, err := base64.StdEncoding.DecodeString("")
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	id, err := contract.MethodById(data[0:4])
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	t.Log(id)
 	var inputs types.Address
 
 	err = contract.UnpackMethod(&inputs, id.Name, data)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	t.Log(inputs)
 

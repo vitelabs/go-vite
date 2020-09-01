@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTree_SwitchMainTo(t *testing.T) {
@@ -71,7 +71,7 @@ func TestTree_SwitchMainTo(t *testing.T) {
 	}
 
 	err := tr.SwitchMainTo(b3)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	{
 		// print tree
@@ -81,7 +81,7 @@ func TestTree_SwitchMainTo(t *testing.T) {
 	}
 
 	err = tr.SwitchMainToEmpty()
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	{ // print tree
 		msg := PrintTree(tr)
@@ -90,10 +90,10 @@ func TestTree_SwitchMainTo(t *testing.T) {
 	}
 
 	err = CheckTree(tr)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	err = CheckTreeSize(tr)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestTree_SwitchMainTo2(t *testing.T) {
@@ -126,7 +126,7 @@ func TestTree_SwitchMainTo2(t *testing.T) {
 		flag := "b1"
 		main := tr.Main()
 		knot := main.GetKnot(5, false)
-		assert.Check(t, knot != nil)
+		assert.True(t, knot != nil)
 		b2 := tr.ForkBranch(main, knot.Height(), knot.Hash())
 		for i := 0; i < 2; i++ {
 			h1, h2 := b2.HeadHH()
@@ -141,7 +141,7 @@ func TestTree_SwitchMainTo2(t *testing.T) {
 		flag := "b2"
 		main := tr.Main()
 		knot := main.GetKnot(5, false)
-		assert.Check(t, knot != nil)
+		assert.True(t, knot != nil)
 		b2 := tr.ForkBranch(main, knot.Height(), knot.Hash())
 		for i := 0; i < 4; i++ {
 			h1, h2 := b2.HeadHH()
@@ -151,7 +151,7 @@ func TestTree_SwitchMainTo2(t *testing.T) {
 		assert.Equal(t, height, uint64(9))
 
 		knot = b2.GetKnot(6, false)
-		assert.Check(t, knot != nil)
+		assert.True(t, knot != nil)
 
 		b3 = tr.ForkBranch(b2, knot.Height(), knot.Hash())
 		for i := 0; i < 4; i++ {
@@ -166,7 +166,7 @@ func TestTree_SwitchMainTo2(t *testing.T) {
 		flag := "b3"
 		main := tr.Main()
 		knot := main.GetKnot(6, false)
-		assert.Check(t, knot != nil)
+		assert.True(t, knot != nil)
 		b2 := tr.ForkBranch(main, knot.Height(), knot.Hash())
 		for i := 0; i < 4; i++ {
 			h1, h2 := b2.HeadHH()
@@ -177,7 +177,7 @@ func TestTree_SwitchMainTo2(t *testing.T) {
 	}
 
 	err := tr.SwitchMainTo(b3)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	{
 		// print tree
@@ -186,7 +186,7 @@ func TestTree_SwitchMainTo2(t *testing.T) {
 		t.Log(string(byt))
 	}
 	err = CheckTreeRing(tr)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestTree_RootHeadAdd(t *testing.T) {
@@ -247,5 +247,5 @@ func TestTree_RootHeadAdd(t *testing.T) {
 	}
 
 	err := CheckTreeRing(tr)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 }
