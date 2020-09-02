@@ -295,7 +295,7 @@ func CalcPoWDifficulty(db quotaDb, quotaRequired uint64, q types.Quota, sbHeight
 
 // CalcStakeAmountByQuota calculate stake amount by expected quota used per second
 func CalcStakeAmountByQuota(q uint64) (*big.Int, error) {
-	if q > getMaxQutoa() {
+	if q > getMaxQuota() {
 		return nil, util.ErrInvalidMethodParam
 	} else if q == 0 {
 		return big.NewInt(0), nil
@@ -329,7 +329,7 @@ func calcStakeTargetParam(qc *big.Int, isCongestion bool, target *big.Int) (*big
 	return nil, util.ErrBlockQuotaLimitReached
 }
 
-func getMaxQutoa() uint64 {
+func getMaxQuota() uint64 {
 	return uint64(sectionLen) * quotaForSection
 }
 
