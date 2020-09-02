@@ -57,9 +57,6 @@ func (db *testDatabase) PrevAccountBlock() (*ledger.AccountBlock, error) {
 	}
 	return prevBlock, nil
 }
-func (db *testDatabase) IsContractAccount() (bool, error) {
-	return len(db.codeMap[db.addr]) > 0, nil
-}
 
 func (db *testDatabase) GetCallDepth(hash *types.Hash) (uint16, error) {
 	return 0, nil

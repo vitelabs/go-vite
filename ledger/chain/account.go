@@ -8,22 +8,6 @@ import (
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
-func (c *chain) IsContractAccount(address types.Address) (bool, error) {
-	if ok := types.IsBuiltinContractAddrInUse(address); ok {
-		return ok, nil
-	}
-
-	result, err := c.stateDB.HasContractMeta(address)
-
-	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.HasContractMeta failed, error is %s, address is %s", err.Error(), address))
-		c.log.Error(cErr.Error(), "method", "IsContractAccount")
-		return false, cErr
-	}
-
-	return result, nil
-}
-
 func (c *chain) GetAccountId(address types.Address) (uint64, error) {
 	accountId, err := c.indexDB.GetAccountId(&address)
 

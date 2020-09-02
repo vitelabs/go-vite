@@ -104,16 +104,7 @@ func (db *mockDB) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBloc
 		return db.prevAccountBlock, nil
 	}
 }
-func (db *mockDB) IsContractAccount() (bool, error) {
-	if !types.IsContractAddr(*db.currentAddr) {
-		return false, nil
-	}
-	if meta, err := db.GetContractMeta(); err != nil {
-		return false, err
-	} else {
-		return meta != nil, nil
-	}
-}
+
 func (db *mockDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return 0, nil
 }

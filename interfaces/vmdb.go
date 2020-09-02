@@ -24,8 +24,6 @@ type VmDb interface {
 
 	GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
 
-	IsContractAccount() (bool, error)
-
 	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
 
 	GetQuotaUsedList(addr types.Address) []types.QuotaInfo

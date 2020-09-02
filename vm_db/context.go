@@ -55,14 +55,6 @@ func (vdb *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
 	return vdb.prevAccountBlock, nil
 }
 
-func (vdb *vmDb) IsContractAccount() (bool, error) {
-	if vdb.address == nil {
-		return false, errors.New("No context, vdb.address is nil")
-	}
-
-	return vdb.chain.IsContractAccount(*vdb.address)
-}
-
 func (vdb *vmDb) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	if vdb.callDepth != nil {
 		return *vdb.callDepth, nil

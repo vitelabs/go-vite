@@ -195,10 +195,6 @@ type Chain interface {
 
 	// ====== Query account ======
 
-	// The address is contract address when it's first receive block inserted into the chain.
-	// In others words, The first receive block of the address is not contract address when the block has not yet been inserted into the chain
-	IsContractAccount(address types.Address) (bool, error)
-
 	IterateContracts(iterateFunc func(addr types.Address, meta *ledger.ContractMeta, err error) bool)
 
 	IterateAccounts(iterateFunc func(addr types.Address, accountId uint64, err error) bool)

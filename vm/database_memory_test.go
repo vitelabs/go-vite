@@ -173,10 +173,6 @@ func (db *memoryDatabase) DebugGetStorage() (map[string][]byte, error) {
 	return db.storage, nil
 }
 
-func (db *memoryDatabase) IsContractAccount() (bool, error) {
-	return len(db.storage[getCodeKey(db.addr)]) > 0, nil
-}
-
 func (db *memoryDatabase) GetCallDepth(hash *types.Hash) (uint16, error) {
 	return 0, nil
 }

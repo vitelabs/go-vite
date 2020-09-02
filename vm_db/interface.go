@@ -9,8 +9,6 @@ import (
 )
 
 type Chain interface {
-	IsContractAccount(address types.Address) (bool, error)
-
 	GetQuotaUsedList(address types.Address) []types.QuotaInfo
 
 	GetGlobalQuota() types.QuotaInfo
