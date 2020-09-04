@@ -63,7 +63,12 @@ const (
 		{"type":"function","name":"StakeForQuotaWithCallbackCallback", "inputs":[{"name":"id","type":"bytes32"},{"name":"success","type":"bool"}]},
 		{"type":"function","name":"CancelQuotaStakingWithCallbackCallback", "inputs":[{"name":"id","type":"bytes32"},{"name":"success","type":"bool"}]},
 		{"type":"function","name":"CancelOrderBySendHash", "inputs":[{"name":"sendHash","type":"bytes32"},{"name":"principal","type":"address"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"}]},
-		{"type":"function","name":"CommonAdminConfig", "inputs":[{"name":"operationCode","type":"uint8"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"}, {"name":"enable","type":"bool"}, {"name":"value","type":"int32"}, {"name":"amount","type":"uint256"}, {"name":"address","type":"address"}]}
+		{"type":"function","name":"CommonAdminConfig", "inputs":[{"name":"operationCode","type":"uint8"},{"name":"tradeToken","type":"tokenId"},{"name":"quoteToken","type":"tokenId"}, {"name":"enable","type":"bool"}, {"name":"value","type":"int32"}, {"name":"amount","type":"uint256"}, {"name":"address","type":"address"}]},
+
+        {"type":"function","name":"Transfer", "inputs":[{"name":"target","type":"address"},{"name":"token","type":"tokenId"},{"name":"amount","type":"uint256"}]},
+        {"type":"function","name":"AgentDeposit", "inputs":[{"name":"beneficiary","type":"address"}]},
+        {"type":"function","name":"AssignedWithdraw", "inputs":[{"name":"target","type":"address"},{"name":"token","type":"tokenId"},{"name":"amount","type":"uint256"},{"name":"label","type":"bytes"}]}
+
     ]`
 
 	// deprecated version
@@ -128,6 +133,10 @@ const (
 
 	MethodNameDexFundCancelOrderBySendHash = "CancelOrderBySendHash"
 	MethodNameDexFundCommonAdminConfig     = "CommonAdminConfig"
+
+	MethodNameDexFundTransfer         = "Transfer"
+	MethodNameDexFundAgentDeposit     = "AgentDeposit"
+	MethodNameDexFundAssignedWithdraw = "AssignedWithdraw"
 )
 
 var (
