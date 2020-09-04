@@ -190,6 +190,11 @@ func makeForkPointsConfig(genesisConfig *Genesis) *fork.ForkPoints {
 				Height:  39694000,
 				Version: 9,
 			},
+
+			DexEnrichOrderFork: &fork.ForkPoint{
+				Height:  50000000,
+				Version: 10,
+			},
 		}
 	}
 }

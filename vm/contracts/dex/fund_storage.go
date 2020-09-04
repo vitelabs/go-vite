@@ -386,6 +386,19 @@ type ParamCommonAdminConfig struct {
 	Address       types.Address
 }
 
+type ParamTransferConfig struct {
+	Target types.Address
+	Token  types.TokenTypeId
+	Amount *big.Int
+}
+
+type ParamAssignedWithdraw struct {
+	Target types.Address
+	Token  types.TokenTypeId
+	Amount *big.Int
+	Label  []byte
+}
+
 type Fund struct {
 	dexproto.Fund
 }

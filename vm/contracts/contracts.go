@@ -61,6 +61,7 @@ var (
 	earthContracts           = newEarthContracts()
 	dexRobotContracts        = newDexRobotContracts()
 	dexStableMarketContracts = newDexStableMarketContracts()
+	dexEnrichOrderContracts  = newDexEnrichOrderContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
@@ -233,10 +234,20 @@ func newDexStableMarketContracts() map[types.Address]*builtinContract {
 	return contracts
 }
 
+func newDexEnrichOrderContracts() map[types.Address]*builtinContract {
+	contracts := newDexStableMarketContracts()
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundTransfer] = &MethodDexTransfer{cabi.MethodNameDexFundTransfer}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundAgentDeposit] = &MethodDexAgentDeposit{cabi.MethodNameDexFundAgentDeposit}
+	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundAssignedWithdraw] = &MethodDexAssignedWithdraw{cabi.MethodNameDexFundAssignedWithdraw}
+	return contracts
+}
+
 // GetBuiltinContractMethod finds method instance of built-in contract method by address and method id
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if fork.IsDexStableMarketFork(sbHeight) {
+	if fork.IsDexEnrichOrderFork(sbHeight) {
+		contractsMap = dexEnrichOrderContracts
+	} else if fork.IsDexStableMarketFork(sbHeight) {
 		contractsMap = dexStableMarketContracts
 	} else if fork.IsDexRobotFork(sbHeight) {
 		contractsMap = dexRobotContracts

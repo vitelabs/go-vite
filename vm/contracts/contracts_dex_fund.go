@@ -1899,6 +1899,134 @@ func (md MethodDexCommonAdminConfig) DoReceive(db interfaces.VmDb, block *ledger
 	return nil, nil
 }
 
+type MethodDexTransfer struct {
+	MethodName string
+}
+
+func (md *MethodDexTransfer) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexTransfer) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexTransfer) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+	return util.RequestQuotaCost(data, gasTable)
+}
+
+func (md *MethodDexTransfer) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+	return gasTable.DexFundTransferQuota
+}
+
+func (md *MethodDexTransfer) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
+	var param = new(dex.ParamTransferConfig)
+	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
+		return err
+	} else if param.Amount.Sign() <= 0 {
+		return dex.InvalidInputParamErr
+	} else {
+		return nil
+	}
+}
+
+func (md MethodDexTransfer) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var param = new(dex.ParamTransferConfig)
+	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
+	if _, err := dex.ReduceAccount(db, sendBlock.AccountAddress, param.Token.Bytes(), param.Amount); err != nil {
+		return nil, err
+	} else {
+		dex.DepositAccount(db, param.Target, param.Token, param.Amount)
+		return nil, nil
+	}
+}
+
+type MethodDexAgentDeposit struct {
+	MethodName string
+}
+
+func (md *MethodDexAgentDeposit) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexAgentDeposit) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexAgentDeposit) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+	return util.RequestQuotaCost(data, gasTable)
+}
+
+func (md *MethodDexAgentDeposit) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+	return gasTable.DexFundAgentDepositQuota
+}
+
+func (md *MethodDexAgentDeposit) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
+	var target = types.Address{}
+	if err := cabi.ABIDexFund.UnpackMethod(target, md.MethodName, block.Data); err != nil {
+		return err
+	} else if block.Amount.Sign() <= 0 {
+		return dex.InvalidInputParamErr
+	}
+	return nil
+}
+
+func (md MethodDexAgentDeposit) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	var target = types.Address{}
+	cabi.ABIDexFund.UnpackMethod(target, md.MethodName, sendBlock.Data)
+	dex.DepositAccount(db, target, sendBlock.TokenId, sendBlock.Amount)
+	return nil, nil
+}
+
+type MethodDexAssignedWithdraw struct {
+	MethodName string
+}
+
+func (md *MethodDexAssignedWithdraw) GetFee(block *ledger.AccountBlock) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (md *MethodDexAssignedWithdraw) GetRefundData(sendBlock *ledger.AccountBlock, sbHeight uint64) ([]byte, bool) {
+	return []byte{}, false
+}
+
+func (md *MethodDexAssignedWithdraw) GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error) {
+	return util.RequestQuotaCost(data, gasTable)
+}
+
+func (md *MethodDexAssignedWithdraw) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
+	return gasTable.DexFundAssignedWithdrawQuota
+}
+
+func (md *MethodDexAssignedWithdraw) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
+	var param = new(dex.ParamAssignedWithdraw)
+	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
+		return err
+	}
+	if param.Amount.Sign() <= 0 {
+		return dex.InvalidInputParamErr
+	}
+	return nil
+}
+
+func (md MethodDexAssignedWithdraw) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	param := new(dex.ParamAssignedWithdraw)
+	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
+	if _, err := dex.ReduceAccount(db, sendBlock.AccountAddress, param.Token.Bytes(), param.Amount); err != nil {
+		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
+	}
+	return []*ledger.AccountBlock{
+		{
+			AccountAddress: types.AddressDexFund,
+			ToAddress:      param.Target,
+			BlockType:      ledger.BlockTypeSendCall,
+			Amount:         param.Amount,
+			TokenId:        param.Token,
+			Data:           param.Label,
+		},
+	}, nil
+}
+
 func handleDexReceiveErr(logger log15.Logger, method string, err error, sendBlock *ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
 	logger.Error("dex receive with err", "error", err.Error(), "method", method, "sendBlockHash", sendBlock.Hash.String(), "sendAddress", sendBlock.AccountAddress.String())
 	return nil, err
