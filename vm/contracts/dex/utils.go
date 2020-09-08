@@ -54,6 +54,9 @@ func DeComposeOrderId(idBytes []byte) (marketId int32, side bool, price []byte, 
 }
 
 func PriceToBytes(price string) []byte {
+	if len(price) == 0 {
+		price = "0"
+	}
 	parts := strings.Split(price, ".")
 	var intPart, decimalPart string
 	priceBytes := make([]byte, PriceBytesLength)
@@ -89,6 +92,9 @@ func PriceToBytes(price string) []byte {
 }
 
 func BytesToPrice(priceBytes []byte) string {
+	if priceBytes == nil {
+		return "0"
+	}
 	intBytes := make([]byte, 8)
 	copy(intBytes[3:], priceBytes[:5])
 	intValue := binary.BigEndian.Uint64(intBytes)
