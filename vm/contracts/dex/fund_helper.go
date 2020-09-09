@@ -451,7 +451,11 @@ func CheckAndLockFundForNewOrder(db vm_db.VmDb, dexFund *Fund, order *Order, mar
 	if available.Sign() < 0 {
 		return ExceedFundAvailableErr
 	}
-
+	if order.Type == Market {
+		marketOrderAmtThreshold := GetMarketOrderAmtThreshold(db, marketInfo.QuoteTokenType)
+		quoteTokenAdjustedAmt := AdjustAmountForDecimalsDiff(marketOrderAmtThreshold.Bytes(), QuoteTokenTypeInfos[marketInfo.QuoteTokenType].Decimals - marketInfo.QuoteTokenDecimals)
+		order.MarketOrderAmtThreshold = quoteTokenAdjustedAmt.Bytes()
+	}
 	account.Available = available.Bytes()
 	account.Locked = AddBigInt(account.Locked, lockAmountToInc.Bytes())
 	return

@@ -28,6 +28,7 @@ message Order {
     int64 Timestamp = 22; // [unset on serialize]
     bytes Agent = 23;
     bytes SendHash = 24;
+    bytes MarketOrderAmtThreshold = 25;
 }
 
 //storage

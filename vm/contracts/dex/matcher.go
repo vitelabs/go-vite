@@ -150,7 +150,7 @@ func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook, preHash ty
 			return
 		} else {
 			mc.handleTakerRes(taker)
-			if !(taker.Type == FillOrKill && taker.Status == Cancelled) {
+			if !(taker.CancelReason == cancelledByFillOrKillNotFilled || taker.CancelReason == cancelledByExceedMarketOrderAmtThreshold) {
 				mc.handleModifiedMakers(modifiedMakers)
 				mc.handleTxs(txs)
 			}
@@ -195,16 +195,21 @@ func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBoo
 }
 
 func (mc *Matcher) handleTakerRes(taker *Order) {
-	if taker.Status == PartialExecuted || taker.Status == Pending {
-		if taker.Type == Market || taker.Type == ImmediateOrCancel || taker.Type == FillOrKill {
+	if checkMarketOrderAmtThreshold(taker) {
+		mc.handleRefund(taker)
+	} else if taker.Status == PartialExecuted || taker.Status == Pending {
+		if taker.Type == Market || taker.Type == ImmediateOrCancel {
 			taker.Status = Cancelled
 			taker.CancelReason = cancelledByMarket
-			if taker.Type == FillOrKill {
-				taker.ExecutedAmount = nil
-				taker.ExecutedBaseFee = nil
-				taker.ExecutedOperatorFee = nil
-				taker.ExecutedQuantity = nil
-			}
+		} else if taker.Type == FillOrKill {
+			taker.Status = Cancelled
+			taker.ExecutedAmount = nil
+			taker.ExecutedBaseFee = nil
+			taker.ExecutedOperatorFee = nil
+			taker.ExecutedQuantity = nil
+			taker.CancelReason = cancelledByFillOrKillNotFilled
+		}
+		if taker.Status == Cancelled {
 			mc.handleRefund(taker)
 		} else {
 			mc.saveOrder(*taker, true)
@@ -213,6 +218,24 @@ func (mc *Matcher) handleTakerRes(taker *Order) {
 		mc.handleRefund(taker)
 	}
 	mc.emitNewOrder(*taker)
+}
+
+func checkMarketOrderAmtThreshold(taker *Order) (res bool) {
+	if taker.Type == Market {
+		totalAmount := new(big.Int).SetBytes(taker.ExecutedAmount)
+		totalAmount.Add(totalAmount, new(big.Int).SetBytes(taker.ExecutedBaseFee))
+		totalAmount.Add(totalAmount, new(big.Int).SetBytes(taker.ExecutedOperatorFee))
+		if totalAmount.Cmp(new(big.Int).SetBytes(taker.MarketOrderAmtThreshold)) > 0 {
+			taker.Status = Cancelled
+			taker.CancelReason = cancelledByExceedMarketOrderAmtThreshold
+			taker.ExecutedAmount = nil
+			taker.ExecutedBaseFee = nil
+			taker.ExecutedOperatorFee = nil
+			taker.ExecutedQuantity = nil
+			res = true
+		}
+	}
+	return
 }
 
 func (mc *Matcher) handleModifiedMakers(makers []*Order) {
