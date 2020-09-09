@@ -1893,6 +1893,14 @@ func (md MethodDexCommonAdminConfig) DoReceive(db interfaces.VmDb, block *ledger
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketNotExistsErr, sendBlock)
 			}
 		}
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.CommonAdminConfigMarketOrderAmtThreshold) {
+			if param.Amount.Sign() > 0 {
+				if _, ok := dex.QuoteTokenTypeInfos[param.Value]; !ok {
+					return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidInputParamErr, sendBlock)
+				}
+				dex.SaveMarketOrderAmtThreshold(db, uint8(param.Value), param.Amount)
+			}
+		}
 	} else {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.OnlyOwnerAllowErr, sendBlock)
 	}
@@ -1962,8 +1970,8 @@ func (md *MethodDexAgentDeposit) GetReceiveQuota(gasTable *util.QuotaTable) uint
 }
 
 func (md *MethodDexAgentDeposit) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
-	var target = types.Address{}
-	if err := cabi.ABIDexFund.UnpackMethod(target, md.MethodName, block.Data); err != nil {
+	var beneficiary = &types.Address{}
+	if err := cabi.ABIDexFund.UnpackMethod(beneficiary, md.MethodName, block.Data); err != nil {
 		return err
 	} else if block.Amount.Sign() <= 0 {
 		return dex.InvalidInputParamErr
@@ -1972,9 +1980,9 @@ func (md *MethodDexAgentDeposit) DoSend(db interfaces.VmDb, block *ledger.Accoun
 }
 
 func (md MethodDexAgentDeposit) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	var target = types.Address{}
-	cabi.ABIDexFund.UnpackMethod(target, md.MethodName, sendBlock.Data)
-	dex.DepositAccount(db, target, sendBlock.TokenId, sendBlock.Amount)
+	var beneficiary = &types.Address{}
+	cabi.ABIDexFund.UnpackMethod(beneficiary, md.MethodName, sendBlock.Data)
+	dex.DepositAccount(db, *beneficiary, sendBlock.TokenId, sendBlock.Amount)
 	return nil, nil
 }
 

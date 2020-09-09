@@ -25,6 +25,8 @@ const (
 	partialExecutedCancelledOnTimeout
 	unknownCancelledOnTimeout
 	cancelledByPostOnlyMatched
+	cancelledByFillOrKillNotFilled
+	cancelledByExceedMarketOrderAmtThreshold
 )
 
 const (
