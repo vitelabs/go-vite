@@ -54,6 +54,7 @@ func (md *MethodDexFundDeposit) DoReceive(db interfaces.VmDb, block *ledger.Acco
 			return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 		}
 	}
+	dex.AddTransferAssetEvent(db, dex.TransferAssetDeposit, sendBlock.AccountAddress, types.AddressDexFund, sendBlock.TokenId, sendBlock.Amount, nil)
 	return nil, nil
 }
 
@@ -107,6 +108,7 @@ func (md *MethodDexFundWithdraw) DoReceive(db interfaces.VmDb, block *ledger.Acc
 			}
 		}
 	}
+	dex.AddTransferAssetEvent(db, dex.TransferAssetWithdraw, types.AddressDexFund, sendBlock.AccountAddress, param.Token, param.Amount, nil)
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: types.AddressDexFund,
@@ -1893,7 +1895,7 @@ func (md MethodDexCommonAdminConfig) DoReceive(db interfaces.VmDb, block *ledger
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketNotExistsErr, sendBlock)
 			}
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.CommonAdminConfigMarketOrderAmtThreshold) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.CommonAdminConfigMarketOrderAmtThreshold) && dex.IsDexEnrichOrderFork(db) {
 			if param.Amount.Sign() > 0 {
 				if _, ok := dex.QuoteTokenTypeInfos[param.Value]; !ok {
 					return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidInputParamErr, sendBlock)
@@ -1945,6 +1947,7 @@ func (md MethodDexTransfer) DoReceive(db interfaces.VmDb, block *ledger.AccountB
 		return nil, err
 	} else {
 		dex.DepositAccount(db, param.Target, param.Token, param.Amount)
+		dex.AddTransferAssetEvent(db, dex.TransferAssetTransfer, sendBlock.AccountAddress, param.Target, param.Token, param.Amount, nil)
 		return nil, nil
 	}
 }
@@ -1983,6 +1986,7 @@ func (md MethodDexAgentDeposit) DoReceive(db interfaces.VmDb, block *ledger.Acco
 	var beneficiary = &types.Address{}
 	cabi.ABIDexFund.UnpackMethod(beneficiary, md.MethodName, sendBlock.Data)
 	dex.DepositAccount(db, *beneficiary, sendBlock.TokenId, sendBlock.Amount)
+	dex.AddTransferAssetEvent(db, dex.TransferAssetAgentDeposit, sendBlock.AccountAddress, *beneficiary, sendBlock.TokenId, sendBlock.Amount, nil)
 	return nil, nil
 }
 
@@ -2023,6 +2027,7 @@ func (md MethodDexAssignedWithdraw) DoReceive(db interfaces.VmDb, block *ledger.
 	if _, err := dex.ReduceAccount(db, sendBlock.AccountAddress, param.Token.Bytes(), param.Amount); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
+	dex.AddTransferAssetEvent(db, dex.TransferAssetAssignedWithdraw, sendBlock.AccountAddress, param.Target, param.Token, param.Amount, param.Label)
 	return []*ledger.AccountBlock{
 		{
 			AccountAddress: types.AddressDexFund,

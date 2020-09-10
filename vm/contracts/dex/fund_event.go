@@ -120,6 +120,17 @@ func AddBurnViteEvent(db interfaces.VmDb, bizType int, amount *big.Int) {
 	doEmitEventLog(db, event)
 }
 
+func AddTransferAssetEvent(db interfaces.VmDb, bizType int, from, to types.Address, token types.TokenTypeId, amount *big.Int, extra []byte) {
+	event := &TransferAssetEvent{}
+	event.BizType = int32(bizType)
+	event.From = from.Bytes()
+	event.To = to.Bytes()
+	event.Token = token.Bytes()
+	event.Amount = amount.Bytes()
+	event.Extra = extra
+	doEmitEventLog(db, event)
+}
+
 func AddErrEvent(db interfaces.VmDb, err error) {
 	event := &ErrEvent{}
 	event.error = err
