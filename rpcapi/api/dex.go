@@ -763,6 +763,28 @@ func (f DexPrivateApi) GetMinThresholdForTradeAndMining() (map[int]*apidex.RpcTh
 	return thresholds, nil
 }
 
+func (f DexPrivateApi) GetMarketOrderAmtThreshold() (map[string]string, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	thresholds := make(map[string]string, 4)
+	for tokenType := dex.ViteTokenType; tokenType <= dex.UsdTokenType; tokenType++ {
+		amount := dex.GetMarketOrderAmtThreshold(db, int32(tokenType)).String()
+		switch tokenType {
+		case dex.ViteTokenType:
+			thresholds["Vite"] = amount
+		case dex.EthTokenType:
+			thresholds["Eth"] = amount
+		case dex.BtcTokenType:
+			thresholds["Btc"] = amount
+		case dex.UsdTokenType:
+			thresholds["Usd"] = amount
+		}
+	}
+	return thresholds, nil
+}
+
 func (f DexPrivateApi) GetMakerMiningPool(periodId uint64) (string, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
@@ -772,16 +794,32 @@ func (f DexPrivateApi) GetMakerMiningPool(periodId uint64) (string, error) {
 	return balance.String(), nil
 }
 
-func (f DexPrivateApi) GetLastPeriodIdByJobType(bizType uint8) (uint64, error) {
+func (f DexPrivateApi) GetLastPeriodIdForJobs(bizType uint8) (map[string]uint64, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	if lastPeriodId := dex.GetLastJobPeriodIdByBizType(db, bizType); err != nil {
-		return 0, err
-	} else {
-		return lastPeriodId, nil
+	periodForJobs := make(map[string]uint64)
+	for bizType = dex.FeeDividendJob; bizType <= dex.FinishCancelMiningStake; bizType++ {
+		lastPeriodId := dex.GetLastJobPeriodIdByBizType(db, bizType)
+		switch bizType {
+		case dex.FeeDividendJob:
+			periodForJobs["FeeDividendJob"] = lastPeriodId
+		case dex.OperatorFeeDividendJob:
+			periodForJobs["OperatorFeeDividendJob"] = lastPeriodId
+		case dex.MineVxForFeeJob:
+			periodForJobs["MineVxForFeeJob"] = lastPeriodId
+		case dex.MineVxForStakingJob:
+			periodForJobs["MineVxForStakingJob"] = lastPeriodId
+		case dex.MineVxForMakerAndMaintainerJob:
+			periodForJobs["MineVxForMakerAndMaintainerJob"] = lastPeriodId
+		case dex.FinishVxUnlock:
+			periodForJobs["FinishVxUnlock"] = lastPeriodId
+		case dex.FinishCancelMiningStake:
+			periodForJobs["FinishCancelMiningStake"] = lastPeriodId
+		}
 	}
+	return periodForJobs, nil
 }
 
 func (f DexPrivateApi) VerifyDexBalance() (*dex.FundVerifyRes, error) {

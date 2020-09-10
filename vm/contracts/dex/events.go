@@ -25,6 +25,7 @@ const settleMakerMinedVxEventName = "settleMakerMinedVxEvent"
 const grantMarketToAgentEventName = "grantMarketToAgentEvent"
 const revokeMarketFromAgentEventName = "revokeMarketFromAgentEvent"
 const burnViteEventName = "burnViteEvent"
+const transferAssetEventName = "transferAssetEvent"
 const errEventName = "errEvent"
 
 type DexEvent interface {
@@ -99,6 +100,10 @@ type RevokeMarketFromAgentEvent struct {
 
 type BurnViteEvent struct {
 	dexproto.BurnVite
+}
+
+type TransferAssetEvent struct {
+	dexproto.TransferAsset
 }
 
 type ErrEvent struct {
@@ -405,6 +410,24 @@ func (bv BurnViteEvent) toDataBytes() []byte {
 func (bv BurnViteEvent) FromBytes(data []byte) interface{} {
 	event := BurnViteEvent{}
 	if err := proto.Unmarshal(data, &event.BurnVite); err != nil {
+		return nil
+	} else {
+		return event
+	}
+}
+
+func (bv TransferAssetEvent) GetTopicId() types.Hash {
+	return fromNameToHash(burnViteEventName)
+}
+
+func (bv TransferAssetEvent) toDataBytes() []byte {
+	data, _ := proto.Marshal(&bv.TransferAsset)
+	return data
+}
+
+func (bv TransferAssetEvent) FromBytes(data []byte) interface{} {
+	event := TransferAssetEvent{}
+	if err := proto.Unmarshal(data, &event.TransferAsset); err != nil {
 		return nil
 	} else {
 		return event

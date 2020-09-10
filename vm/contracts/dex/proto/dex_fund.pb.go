@@ -2372,6 +2372,94 @@ func (x *BurnVite) GetAmount() []byte {
 	return nil
 }
 
+//event
+type TransferAsset struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	BizType int32  `protobuf:"varint,1,opt,name=BizType,proto3" json:"BizType,omitempty"` // 1 deposit, 2 agentDeposit, 3 withdraw, 4 assignedWithdraw
+	From    []byte `protobuf:"bytes,2,opt,name=From,proto3" json:"From,omitempty"`
+	To      []byte `protobuf:"bytes,3,opt,name=To,proto3" json:"To,omitempty"`
+	Token   []byte `protobuf:"bytes,4,opt,name=Token,proto3" json:"Token,omitempty"`
+	Amount  []byte `protobuf:"bytes,5,opt,name=Amount,proto3" json:"Amount,omitempty"`
+	Extra   []byte `protobuf:"bytes,6,opt,name=Extra,proto3" json:"Extra,omitempty"`
+}
+
+func (x *TransferAsset) Reset() {
+	*x = TransferAsset{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_dex_fund_proto_msgTypes[38]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TransferAsset) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TransferAsset) ProtoMessage() {}
+
+func (x *TransferAsset) ProtoReflect() protoreflect.Message {
+	mi := &file_dex_fund_proto_msgTypes[38]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TransferAsset.ProtoReflect.Descriptor instead.
+func (*TransferAsset) Descriptor() ([]byte, []int) {
+	return file_dex_fund_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *TransferAsset) GetBizType() int32 {
+	if x != nil {
+		return x.BizType
+	}
+	return 0
+}
+
+func (x *TransferAsset) GetFrom() []byte {
+	if x != nil {
+		return x.From
+	}
+	return nil
+}
+
+func (x *TransferAsset) GetTo() []byte {
+	if x != nil {
+		return x.To
+	}
+	return nil
+}
+
+func (x *TransferAsset) GetToken() []byte {
+	if x != nil {
+		return x.Token
+	}
+	return nil
+}
+
+func (x *TransferAsset) GetAmount() []byte {
+	if x != nil {
+		return x.Amount
+	}
+	return nil
+}
+
+func (x *TransferAsset) GetExtra() []byte {
+	if x != nil {
+		return x.Extra
+	}
+	return nil
+}
+
 var File_dex_fund_proto protoreflect.FileDescriptor
 
 var file_dex_fund_proto_rawDesc = []byte{
@@ -2638,7 +2726,16 @@ var file_dex_fund_proto_rawDesc = []byte{
 	0x0a, 0x07, 0x42, 0x69, 0x7a, 0x54, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52,
 	0x07, 0x42, 0x69, 0x7a, 0x54, 0x79, 0x70, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x41, 0x6d, 0x6f, 0x75,
 	0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x41, 0x6d, 0x6f, 0x75, 0x6e, 0x74,
-	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x22, 0x91, 0x01, 0x0a, 0x0d, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x65, 0x72, 0x41, 0x73, 0x73,
+	0x65, 0x74, 0x12, 0x18, 0x0a, 0x07, 0x42, 0x69, 0x7a, 0x54, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x05, 0x52, 0x07, 0x42, 0x69, 0x7a, 0x54, 0x79, 0x70, 0x65, 0x12, 0x12, 0x0a, 0x04,
+	0x46, 0x72, 0x6f, 0x6d, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x46, 0x72, 0x6f, 0x6d,
+	0x12, 0x0e, 0x0a, 0x02, 0x54, 0x6f, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x02, 0x54, 0x6f,
+	0x12, 0x14, 0x0a, 0x05, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x52,
+	0x05, 0x54, 0x6f, 0x6b, 0x65, 0x6e, 0x12, 0x16, 0x0a, 0x06, 0x41, 0x6d, 0x6f, 0x75, 0x6e, 0x74,
+	0x18, 0x05, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x41, 0x6d, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x14,
+	0x0a, 0x05, 0x45, 0x78, 0x74, 0x72, 0x61, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x45,
+	0x78, 0x74, 0x72, 0x61, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -2653,7 +2750,7 @@ func file_dex_fund_proto_rawDescGZIP() []byte {
 	return file_dex_fund_proto_rawDescData
 }
 
-var file_dex_fund_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
+var file_dex_fund_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_dex_fund_proto_goTypes = []interface{}{
 	(*Account)(nil),                   // 0: proto.Account
 	(*VxUnlock)(nil),                  // 1: proto.VxUnlock
@@ -2693,6 +2790,7 @@ var file_dex_fund_proto_goTypes = []interface{}{
 	(*SettleMakerMinedVx)(nil),        // 35: proto.SettleMakerMinedVx
 	(*MarketAgentRelation)(nil),       // 36: proto.MarketAgentRelation
 	(*BurnVite)(nil),                  // 37: proto.BurnVite
+	(*TransferAsset)(nil),             // 38: proto.TransferAsset
 }
 var file_dex_fund_proto_depIdxs = []int32{
 	1,  // 0: proto.VxUnlocks.Unlocks:type_name -> proto.VxUnlock
@@ -3179,6 +3277,18 @@ func file_dex_fund_proto_init() {
 				return nil
 			}
 		}
+		file_dex_fund_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*TransferAsset); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -3186,7 +3296,7 @@ func file_dex_fund_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_dex_fund_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   38,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

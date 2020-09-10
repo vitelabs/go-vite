@@ -241,6 +241,14 @@ const (
 	StakeConfirmed
 )
 
+const (
+	TransferAssetDeposit = iota + 1
+	TransferAssetAgentDeposit
+	TransferAssetWithdraw
+	TransferAssetAssignedWithdraw
+	TransferAssetTransfer
+)
+
 type QuoteTokenTypeInfo struct {
 	Decimals                       int32
 	DefaultTradeThreshold          *big.Int
