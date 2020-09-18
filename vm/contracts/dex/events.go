@@ -417,7 +417,7 @@ func (bv BurnViteEvent) FromBytes(data []byte) interface{} {
 }
 
 func (bv TransferAssetEvent) GetTopicId() types.Hash {
-	return fromNameToHash(burnViteEventName)
+	return fromNameToHash(transferAssetEventName)
 }
 
 func (bv TransferAssetEvent) toDataBytes() []byte {

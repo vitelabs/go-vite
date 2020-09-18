@@ -283,6 +283,9 @@ func DoPlaceOrder(db vm_db.VmDb, param *ParamPlaceOrder, accountAddress, agent *
 			return nil, InvalidOrderTypeErr
 		}
 	}
+	if order.Type == Market {
+		param.Price = "0"
+	}
 	if marketInfo, err = RenderOrder(order, param, db, accountAddress, agent, sendHash, enrichOrderFork); err != nil {
 		return nil, err
 	}
@@ -547,7 +550,7 @@ func VerifyNewOrderPriceForRpc(data []byte) (valid bool) {
 	if bytes.Equal(data[:4], newOrderMethodId) {
 		param := new(ParamPlaceOrder)
 		if err := abi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, data); err == nil {
-			return ValidPrice(param.Price, true) || param.OrderType == Market && len(param.Price) < 25
+			return ValidPrice(param.Price, true) || param.OrderType == Market && len(param.Price) <= 25
 		} else {
 			valid = false
 		}

@@ -185,7 +185,6 @@ func (md MethodDexFundOpenNewMarket) DoReceive(db vm_db.VmDb, block *ledger.Acco
 				},
 			}, nil
 		}
-
 	}
 }
 
@@ -1942,12 +1941,12 @@ func (md MethodDexTransfer) DoReceive(db interfaces.VmDb, block *ledger.AccountB
 	var param = new(dex.ParamTransferConfig)
 	cabi.ABIDexFund.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if _, err := dex.ReduceAccount(db, sendBlock.AccountAddress, param.Token.Bytes(), param.Amount); err != nil {
-		return nil, err
+		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	} else {
 		dex.DepositAccount(db, param.Target, param.Token, param.Amount)
 		dex.AddTransferAssetEvent(db, dex.TransferAssetTransfer, sendBlock.AccountAddress, param.Target, param.Token, param.Amount, nil)
-		return nil, nil
 	}
+	return nil, nil
 }
 
 type MethodDexAgentDeposit struct {
