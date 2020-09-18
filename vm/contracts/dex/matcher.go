@@ -204,11 +204,11 @@ func (mc *Matcher) handleTakerRes(taker *Order) {
 			taker.CancelReason = cancelledByMarket
 		} else if taker.Type == FillOrKill {
 			taker.Status = Cancelled
+			taker.CancelReason = cancelledByFillOrKillNotFilled
 			taker.ExecutedAmount = nil
 			taker.ExecutedBaseFee = nil
 			taker.ExecutedOperatorFee = nil
 			taker.ExecutedQuantity = nil
-			taker.CancelReason = cancelledByFillOrKillNotFilled
 		}
 		if taker.Status == Cancelled {
 			mc.handleRefund(taker)
