@@ -167,13 +167,6 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewDashboardApi(vite),
 			Public:    true,
 		}
-	case "vmdebug":
-		return rpc.API{
-			Namespace: "vmdebug",
-			Version:   "1.0",
-			Service:   api.NewVmDebugApi(vite),
-			Public:    true,
-		}
 	case "subscribe":
 		return rpc.API{
 			Namespace: "subscribe",

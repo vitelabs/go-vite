@@ -27,7 +27,6 @@ import (
 
 // vmConfig holds the global status of vm.
 type vmConfig struct {
-	isTest  bool
 	IsDebug bool
 	// interpreterLog is used to print run log of interpreters under debug mode
 	interpreterLog log15.Logger
@@ -63,11 +62,6 @@ func GetContractABI(addr types.Address) (abi.ABIContract, bool) {
 
 var nodeConfig vmConfig
 
-// IsTest returns whether node is currently running under test mode or not.
-func IsTest() bool {
-	return nodeConfig.isTest
-}
-
 // InitVMConfig init global status of vm. This method is supposed be called when
 // the node started.
 // Parameters:
@@ -79,14 +73,12 @@ func IsTest() bool {
 func InitVMConfig(isTest bool, isTestParam bool, isQuotaTestParam bool, isDebug bool, dataDir string) {
 	if isTest {
 		nodeConfig = vmConfig{
-			isTest: isTest,
 			canTransfer: func(db interfaces.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				return true
 			},
 		}
 	} else {
 		nodeConfig = vmConfig{
-			isTest: isTest,
 			canTransfer: func(db interfaces.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				if feeAmount.Sign() == 0 {
 					b, err := db.GetBalance(&tokenTypeId)
