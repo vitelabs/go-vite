@@ -25,8 +25,8 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 )
 
-// NodeConfig holds the global status of vm.
-type NodeConfig struct {
+// vmConfig holds the global status of vm.
+type vmConfig struct {
 	isTest  bool
 	IsDebug bool
 	// interpreterLog is used to print run log of interpreters under debug mode
@@ -61,7 +61,7 @@ func GetContractABI(addr types.Address) (abi.ABIContract, bool) {
 	return contractAbi, ok
 }
 
-var nodeConfig NodeConfig
+var nodeConfig vmConfig
 
 // IsTest returns whether node is currently running under test mode or not.
 func IsTest() bool {
@@ -78,14 +78,14 @@ func IsTest() bool {
 //   datadir: print debug log under this directory.
 func InitVMConfig(isTest bool, isTestParam bool, isQuotaTestParam bool, isDebug bool, dataDir string) {
 	if isTest {
-		nodeConfig = NodeConfig{
+		nodeConfig = vmConfig{
 			isTest: isTest,
 			canTransfer: func(db interfaces.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				return true
 			},
 		}
 	} else {
-		nodeConfig = NodeConfig{
+		nodeConfig = vmConfig{
 			isTest: isTest,
 			canTransfer: func(db interfaces.VmDb, tokenTypeId types.TokenTypeId, tokenAmount *big.Int, feeAmount *big.Int) bool {
 				if feeAmount.Sign() == 0 {
@@ -358,9 +358,12 @@ func (vm *VM) sendCreate(db interfaces.VmDb, block *ledger.AccountBlock, useQuot
 		block.PrevHash)
 	block.ToAddress = contractAddr
 	// Deduct balance and service fee.
-	util.SubBalance(db, &block.TokenId, block.Amount)
-	util.SubBalance(db, &ledger.ViteTokenId, block.Fee)
-
+	if !util.SubBalance(db, &block.TokenId, block.Amount) {
+		return nil, util.ErrInsufficientBalance
+	}
+	if !util.SubBalance(db, &ledger.ViteTokenId, block.Fee) {
+		return nil, util.ErrInsufficientBalance
+	}
 	qStakeUsed, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
 	vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
 	// Set contract meta at send block, so that contract block producer module
@@ -480,8 +483,13 @@ func (vm *VM) sendCall(db interfaces.VmDb, block *ledger.AccountBlock, useQuota 
 		if err != nil {
 			return nil, err
 		}
-		util.SubBalance(db, &block.TokenId, block.Amount)
-		util.SubBalance(db, &ledger.ViteTokenId, block.Fee)
+		if !util.SubBalance(db, &block.TokenId, block.Amount) {
+			return nil, util.ErrInsufficientBalance
+		}
+
+		if !util.SubBalance(db, &ledger.ViteTokenId, block.Fee) {
+			return nil, util.ErrInsufficientBalance
+		}
 	} else {
 		block.Fee = helper.Big0
 		if useQuota {
@@ -493,7 +501,9 @@ func (vm *VM) sendCall(db interfaces.VmDb, block *ledger.AccountBlock, useQuota 
 		if !nodeConfig.canTransfer(db, block.TokenId, block.Amount, block.Fee) {
 			return nil, util.ErrInsufficientBalance
 		}
-		util.SubBalance(db, &block.TokenId, block.Amount)
+		if !util.SubBalance(db, &block.TokenId, block.Amount) {
+			return nil, util.ErrInsufficientBalance
+		}
 	}
 	qStakeUsed, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
 	vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
@@ -747,7 +757,9 @@ func (vm *VM) sendRefund(db interfaces.VmDb, block *ledger.AccountBlock, useQuot
 	if !nodeConfig.canTransfer(db, block.TokenId, block.Amount, block.Fee) {
 		return nil, util.ErrInsufficientBalance
 	}
-	util.SubBalance(db, &block.TokenId, block.Amount)
+	if !util.SubBalance(db, &block.TokenId, block.Amount) {
+		return nil, util.ErrInsufficientBalance
+	}
 	qStakeUsed, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
 	vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
 	return &interfaces.VmAccountBlock{block, db}, nil

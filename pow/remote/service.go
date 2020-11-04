@@ -109,7 +109,7 @@ func httpRequest(requestPath string, bytesData []byte, responseInterface interfa
 	if err != nil {
 		return err
 	}
-	powClientLog.Info("Response Status:", resp.Status)
+	powClientLog.Info("Response Status:", "status", resp.Status)
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err

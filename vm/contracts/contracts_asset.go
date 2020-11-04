@@ -253,7 +253,9 @@ func (p *MethodBurn) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, s
 		oldTokenInfo.MaxSupply,
 		oldTokenInfo.OwnerBurnOnly,
 		oldTokenInfo.Index)
-	util.SubBalance(db, &sendBlock.TokenId, sendBlock.Amount)
+	if !util.SubBalance(db, &sendBlock.TokenId, sendBlock.Amount) {
+		return nil, util.ErrInsufficientBalance
+	}
 	util.SetValue(db, abi.GetTokenInfoKey(sendBlock.TokenId), newTokenInfo)
 
 	db.AddLog(NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), sendBlock.TokenId, sendBlock.AccountAddress, sendBlock.Amount))
