@@ -1,14 +1,13 @@
 package bridge
 
-import "math/big"
-
 type Bridge interface {
-	Submit(height *big.Int, content interface{}) error
-	Proof(height *big.Int, content interface{}) (bool, error)
+	Init(content interface{}) error
+	Submit(content interface{}) error
+	Proof(content interface{}) (bool, error)
 }
 
 type InputCollector interface {
-	Input(height *big.Int, content interface{}) (InputResult, error)
+	Input(content interface{}) (InputResult, error)
 }
 
 type InputResult byte

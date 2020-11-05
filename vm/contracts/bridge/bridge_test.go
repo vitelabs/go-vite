@@ -1,7 +1,6 @@
 package bridge
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,17 +20,19 @@ func TestBridgeSimple(t *testing.T) {
 		assert.NotNil(t, b)
 	}
 
+	header := simpleHeader{height: 1}
+
 	// 2
-	proof, err := b.Proof(big.NewInt(0), []byte{})
+	proof, err := b.Proof(header)
 	assert.NoError(t, err)
 	assert.False(t, proof)
 
 	// 3
-	err = b.Submit(big.NewInt(0), []byte{})
+	err = b.Submit(header)
 	assert.NoError(t, err)
 
 	// 4
-	proof, err = b.Proof(big.NewInt(0), []byte{})
+	proof, err = b.Proof(header)
 	assert.NoError(t, err)
 	assert.True(t, proof)
 }
@@ -55,25 +56,25 @@ func TestTxInput(t *testing.T) {
 		assert.NotNil(t, input)
 	}
 	var result InputResult
-	height := big.NewInt(1)
-	tx := randSimpleTx()
+	header := &simpleHeader{height: 1}
+	tx := randSimpleTx(1)
 
 	// 2
-	result, err = input.Input(height, tx)
+	result, err = input.Input(tx)
 	assert.NoError(t, err)
-	assert.Equal(t, result, Input_Failed_Error)
+	assert.Equal(t, Input_Failed_Error, result)
 
 	// 3
-	err = b.Submit(height, []byte{})
+	err = b.Submit(header)
 	assert.NoError(t, err)
 
 	// 4
-	result, err = input.Input(height, tx)
+	result, err = input.Input(tx)
 	assert.NoError(t, err)
-	assert.Equal(t, result, Input_Success)
+	assert.Equal(t, Input_Success, result)
 
 	// 5
-	result, err = input.Input(height, tx)
+	result, err = input.Input(tx)
 	assert.NoError(t, err)
-	assert.Equal(t, result, Input_Failed_Duplicated)
+	assert.Equal(t, Input_Failed_Duplicated, result)
 }

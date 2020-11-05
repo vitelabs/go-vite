@@ -1,7 +1,6 @@
 package bridge
 
 import (
-	"math/big"
 	"math/rand"
 )
 
@@ -11,7 +10,8 @@ type inputSimple struct {
 }
 
 type inputSimpleTx struct {
-	txId int
+	height uint64
+	txId   int
 }
 
 func newInputSimpleTx(bg Bridge) (InputCollector, error) {
@@ -21,16 +21,16 @@ func newInputSimpleTx(bg Bridge) (InputCollector, error) {
 	}, nil
 }
 
-func randSimpleTx() *inputSimpleTx {
-	return &inputSimpleTx{txId: rand.Int()}
+func randSimpleTx(height uint64) *inputSimpleTx {
+	return &inputSimpleTx{txId: rand.Int(), height: height}
 }
 
-func (input *inputSimple) Input(height *big.Int, content interface{}) (InputResult, error) {
+func (input *inputSimple) Input(content interface{}) (InputResult, error) {
 	tx := content.(*inputSimpleTx)
 	if input.ok[tx.txId] {
 		return Input_Failed_Duplicated, nil
 	}
-	proof, err := input.bg.Proof(height, content)
+	proof, err := input.bg.Proof(&simpleHeader{height: tx.height})
 	if err != nil {
 		return Input_Failed_Error, err
 	}
