@@ -36,7 +36,7 @@ func opBenchmark(bench *testing.B, op func(pc *uint64, vm *VM, contract *contrac
 		BlockType:  ledger.BlockTypeReceive,
 		Difficulty: big.NewInt(67108863),
 	}
-	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase(), block: receiveCallBlock, sendBlock: sendCallBlock}
+	c := &contract{intPool: util.PoolOfIntPools.Get(), db: NewNoDatabase(), block: receiveCallBlock, sendBlock: sendCallBlock}
 	stack := newStack()
 
 	// convert args
@@ -282,7 +282,7 @@ func TestByteOp(t *testing.T) {
 	}
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase()}
+	c := &contract{intPool: util.PoolOfIntPools.Get(), db: NewNoDatabase()}
 	stack := newStack()
 	pc := uint64(0)
 	for _, test := range tests {
@@ -303,7 +303,7 @@ func TestByteOp(t *testing.T) {
 func testTwoOperandOp(t *testing.T, tests []twoOperandTest, opFn func(pc *uint64, vm *VM, contract *contract, memory *memory, stack *stack) ([]byte, error)) {
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase()}
+	c := &contract{intPool: util.PoolOfIntPools.Get(), db: NewNoDatabase()}
 	stack := newStack()
 	pc := uint64(0)
 	for i, test := range tests {
@@ -419,7 +419,7 @@ func TestSLT(t *testing.T) {
 func TestOpMstore(t *testing.T) {
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase()}
+	c := &contract{intPool: util.PoolOfIntPools.Get(), db: NewNoDatabase()}
 	stack := newStack()
 	mem := newMemory()
 	mem.resize(64)
@@ -444,7 +444,7 @@ func TestOpMstore(t *testing.T) {
 func BenchmarkOpMstore(bench *testing.B) {
 	vm := &VM{}
 	//vm.Debug = true
-	c := &contract{intPool: util.PoolOfIntPools.Get(), db: newNoDatabase()}
+	c := &contract{intPool: util.PoolOfIntPools.Get(), db: NewNoDatabase()}
 	stack := newStack()
 	mem := newMemory()
 	mem.resize(64)

@@ -1,6 +1,6 @@
 package vm
 
-import (
+import 		(
 	"bytes"
 	"encoding/hex"
 	"github.com/vitelabs/go-vite/interfaces"
@@ -28,7 +28,7 @@ type testDatabase struct {
 	addr              types.Address
 }
 
-func newNoDatabase() *testDatabase {
+func NewNoDatabase() *testDatabase {
 	return &testDatabase{
 		balanceMap:        make(map[types.Address]map[types.TokenTypeId]*big.Int),
 		storageMap:        make(map[types.Address]map[string][]byte),
@@ -311,7 +311,7 @@ func (db *testDatabase) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.Ac
 }
 
 func (db *testDatabase) GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error) {
-	data := db.storageMap[types.AddressQuota][ToKey(abi.GetStakeBeneficialKey(*addr))]
+	data, _ := db.storageMap[types.AddressQuota][ToKey(abi.GetStakeBeneficialKey(*addr))]
 	if len(data) > 0 {
 		amount := new(abi.VariableStakeBeneficial)
 		abi.ABIQuota.UnpackVariable(amount, abi.VariableNameStakeBeneficial, data)
@@ -342,7 +342,7 @@ func (db *testDatabase) GetLatestAccountBlock(addr types.Address) (*ledger.Accou
 func prepareDb(viteTotalSupply *big.Int) (db *testDatabase, addr1 types.Address, privKey ed25519.PrivateKey, hash12 types.Hash, snapshot2 *ledger.SnapshotBlock, timestamp int64) {
 	addr1, _ = types.BytesToAddress(helper.HexToBytes("6c1032417f80329f3abe0a024fa3a7aa0e952b0f00"))
 	privKey, _ = ed25519.HexToPrivateKey("44e9768b7d8320a282e75337df8fc1f12a4f000b9f9906ddb886c6823bb599addfda7318e7824d25aae3c749c1cbd4e72ce9401653c66479554a05a2e3cb4f88")
-	db = newNoDatabase()
+	db = NewNoDatabase()
 	db.storageMap[types.AddressAsset] = make(map[string][]byte)
 	viteTokenIDKey := abi.GetTokenInfoKey(ledger.ViteTokenId)
 	var err error

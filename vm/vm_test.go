@@ -27,13 +27,16 @@ func init() {
 
 func initFork() {
 	fork.SetForkPoints(&config.ForkPoints{
-		SeedFork:      &config.ForkPoint{Height: 100, Version: 1},
-		DexFork:       &config.ForkPoint{Height: 200, Version: 2},
-		DexFeeFork:    &config.ForkPoint{Height: 250, Version: 3},
-		StemFork:      &config.ForkPoint{Height: 300, Version: 4},
-		LeafFork:      &config.ForkPoint{Height: 400, Version: 5},
-		EarthFork:     &config.ForkPoint{Height: 500, Version: 6},
-		DexMiningFork: &config.ForkPoint{Height: 600, Version: 7}})
+		SeedFork:            &config.ForkPoint{Height: 100, Version: 1},
+		DexFork:             &config.ForkPoint{Height: 200, Version: 2},
+		DexFeeFork:          &config.ForkPoint{Height: 250, Version: 3},
+		StemFork:            &config.ForkPoint{Height: 300, Version: 4},
+		LeafFork:            &config.ForkPoint{Height: 400, Version: 5},
+		EarthFork:           &config.ForkPoint{Height: 500, Version: 6},
+		DexMiningFork:       &config.ForkPoint{Height: 600, Version: 7},
+		DexRobotFork:        &config.ForkPoint{Height: 600, Version: 8},
+		DexStableMarketFork: &config.ForkPoint{Height: 600, Version: 9},
+		DexEnrichOrderFork:  &config.ForkPoint{Height: 600, Version: 10}})
 	fork.SetActiveChecker(mockActiveChecker{})
 }
 
@@ -268,7 +271,7 @@ func TestVmRun(t *testing.T) {
 
 /*func TestDelegateCall(t *testing.T) {
 	// prepare db, add account1, add account2 with code, add account3 with code
-	db := newNoDatabase()
+	db := NewNoDatabase()
 	// code1 return 1+2
 	addr1, _, _ := types.CreateAddress()
 	code1 := []byte{1, byte(PUSH1), 1, byte(PUSH1), 2, byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}
