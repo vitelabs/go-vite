@@ -8,7 +8,7 @@ import (
 type ethVerifier struct {
 }
 
-func (ethVerifier) verifyHeader(hash ethcommon.Hash, header *ethtypes.Header) bool {
+func (ethVerifier) verifyHeader(header *ethtypes.Header) bool {
 	return true
 }
 
