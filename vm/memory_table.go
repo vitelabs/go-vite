@@ -15,6 +15,10 @@ func calcMemSize(off, l *big.Int) *big.Int {
 	return new(big.Int).Add(off, l)
 }
 
+func memorySha3(stack *stack) *big.Int {
+	return calcMemSize(stack.back(0), stack.back(1))
+}
+
 func memoryBlake2b(stack *stack) *big.Int {
 	return calcMemSize(stack.back(0), stack.back(1))
 }

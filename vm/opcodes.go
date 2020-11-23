@@ -55,6 +55,7 @@ const (
 
 // 0x20 range - hash ops.
 const (
+	SHA3    opCode = 0x20
 	BLAKE2B opCode = 0x21
 )
 
@@ -233,6 +234,7 @@ var opCodeToString = map[opCode]string{
 	MULMOD: "MULMOD",
 
 	// 0x20 range - crypto.
+	SHA3:    "SHA3",
 	BLAKE2B: "BLAKE2B",
 
 	// 0x30 range - closure state.
@@ -403,6 +405,7 @@ var stringToOp = map[string]opCode{
 	"SAR":            SAR,
 	"ADDMOD":         ADDMOD,
 	"MULMOD":         MULMOD,
+	"SHA3":           SHA3,
 	"BLAKE2B":        BLAKE2B,
 	"ADDRESS":        ADDRESS,
 	"BALANCE":        BALANCE,
