@@ -244,7 +244,9 @@ type QuotaTable struct {
 
 // QuotaTableByHeight returns different quota table by hard fork version
 func QuotaTableByHeight(sbHeight uint64) *QuotaTable {
-	if fork.IsDexStableMarketFork(sbHeight) {
+	if fork.IsTrustlessBridgeFork(sbHeight) {
+		return &trustlessBridgeQuotaTable
+	} else if fork.IsDexStableMarketFork(sbHeight) {
 		return &dexStableMarketQuotaTable
 	} else if fork.IsDexRobotFork(sbHeight) {
 		return &dexRobotQuotaTable
@@ -361,6 +363,7 @@ var (
 	earthQuotaTable           = newEarthQuotaTable()
 	dexRobotQuotaTable        = newDexRobotQuotaTable()
 	dexStableMarketQuotaTable = newDexStableMarketQuotaTable()
+	trustlessBridgeQuotaTable = newTrustlessBridgeQuotaTable()
 )
 
 func newViteQuotaTable() QuotaTable {
@@ -513,5 +516,12 @@ func newDexRobotQuotaTable() QuotaTable {
 func newDexStableMarketQuotaTable() QuotaTable {
 	gt := newDexRobotQuotaTable()
 	gt.DexFundCommonAdminConfigQuota = 10500
+	return gt
+}
+
+func newTrustlessBridgeQuotaTable() QuotaTable {
+	gt := newDexStableMarketQuotaTable()
+	gt.CodeQuota = 16
+	gt.TxDataQuota = 28
 	return gt
 }

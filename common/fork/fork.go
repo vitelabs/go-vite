@@ -23,6 +23,7 @@ type ForkPoints struct {
 	DexMiningFork       *ForkPoint
 	DexRobotFork        *ForkPoint
 	DexStableMarketFork *ForkPoint
+	TrustlessBridgeFork *ForkPoint
 }
 
 var forkPoints ForkPoints
@@ -212,6 +213,14 @@ func IsDexStableMarketFork(snapshotHeight uint64) bool {
 		panic("check dex stable market fork failed. DexStableMarketFork is not existed.")
 	}
 	return snapshotHeight >= dexStableMarketForkPoint.Height && IsForkActive(*dexStableMarketForkPoint)
+}
+
+func IsTrustlessBridgeFork(snapshotHeight uint64) bool {
+	forkPoint, ok := forkPointMap["TrustlessBridgeFork"]
+	if !ok {
+		panic("check trustless bridge fork failed. TrustlessBridgeFork is not existed.")
+	}
+	return snapshotHeight >= forkPoint.Height && IsForkActive(*forkPoint)
 }
 
 func GetLeafForkPoint() *ForkPointItem {
