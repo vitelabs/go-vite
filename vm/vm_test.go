@@ -34,7 +34,6 @@ func initFork() {
 		LeafFork:      &fork.ForkPoint{Height: 400, Version: 5},
 		EarthFork:     &fork.ForkPoint{Height: 500, Version: 6},
 		DexMiningFork: &fork.ForkPoint{Height: 600, Version: 7}})
-	fork.SetActiveChecker(mockActiveChecker{})
 }
 
 var (

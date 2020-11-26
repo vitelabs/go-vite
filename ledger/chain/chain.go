@@ -68,9 +68,6 @@ type chain struct {
 	plugins *chain_plugins.Plugins
 
 	status uint32
-
-	forkActiveCheckPoint fork.ForkPointItem
-	forkActiveCache      fork.ForkPointList
 }
 
 /*
@@ -93,19 +90,6 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 		log: log15.New("module", "chain"),
 
 		chainCfg: chainCfg,
-	}
-
-	// set leaf fork point
-	forkActiveCheckPoint := fork.GetLeafForkPoint()
-	if forkActiveCheckPoint == nil {
-		panic("LeafFork is not existed")
-	}
-
-	c.forkActiveCheckPoint = *forkActiveCheckPoint
-
-	// set active fork
-	if !fork.IsInitActiveChecker() {
-		fork.SetActiveChecker(c)
 	}
 
 	c.em = newEventManager(c)
@@ -147,11 +131,6 @@ func (c *chain) Init() error {
 
 	// init cache
 	if err := c.initCache(); err != nil {
-		return err
-	}
-
-	// init fork active
-	if err := c.initActiveFork(); err != nil {
 		return err
 	}
 

@@ -48,9 +48,6 @@ func (a ForkPointList) Less(i, j int) bool { return a[i].Height < a[j].Height }
 func IsInitForkPoint() bool {
 	return forkPointMap != nil
 }
-func IsInitActiveChecker() bool {
-	return activeChecker != nil
-}
 
 func SetForkPoints(points *ForkPoints) {
 	if points != nil {

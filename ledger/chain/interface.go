@@ -6,7 +6,6 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
@@ -304,8 +303,6 @@ type Chain interface {
 	WriteGenesisCheckSum(hash types.Hash) error
 
 	QueryGenesisCheckSum() (*types.Hash, error)
-
-	IsForkActive(point fork.ForkPointItem) bool
 
 	// ====== Check ======
 	CheckRedo() error
