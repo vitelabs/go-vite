@@ -117,6 +117,35 @@ func (bDB *BlockDB) ReadRaw(startLocation *chain_file_manager.Location, buf []by
 	return bDB.fm.ReadRaw(startLocation, buf)
 }
 
+func (bDB *BlockDB) ReadUnit(location *chain_file_manager.Location) (*ledger.SnapshotBlock, *ledger.AccountBlock, *chain_file_manager.Location, error) {
+	buf, nextLocation, err := bDB.fm.Read(location)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if len(buf) <= 0 {
+		return nil, nil, nextLocation, nil
+	}
+	sBuf, err := snappy.Decode(nil, buf[1:])
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	if buf[0] == BlockTypeSnapshotBlock {
+		sb := &ledger.SnapshotBlock{}
+		if err := sb.Deserialize(sBuf); err != nil {
+			return nil, nil, nil, err
+		}
+		return sb, nil, nextLocation, nil
+	} else if buf[0] == BlockTypeAccountBlock {
+		ab := &ledger.AccountBlock{}
+		if err := ab.Deserialize(sBuf); err != nil {
+			return nil, nil, nil, err
+		}
+		return nil, ab, nextLocation, nil
+	}
+	return nil, nil, nextLocation, nil
+}
+
 func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLocation *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {
 	bfp := newBlockFileParser()
 
