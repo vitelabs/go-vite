@@ -27,11 +27,9 @@ type IndexDB struct {
 	accountCache *lru.Cache
 
 	log log15.Logger
-
-	chain Chain
 }
 
-func NewIndexDB(chainDir string, chain Chain) (*IndexDB, error) {
+func NewIndexDB(chainDir string) (*IndexDB, error) {
 
 	store, err := chain_db.NewStore(path.Join(chainDir, "index"), "indexDb")
 	if err != nil {
@@ -41,7 +39,6 @@ func NewIndexDB(chainDir string, chain Chain) (*IndexDB, error) {
 	iDB := &IndexDB{
 		store: store,
 		log:   log15.New("module", "indexDB"),
-		chain: chain,
 	}
 
 	store.RegisterAfterRecover(iDB.InitAccountId)
@@ -55,8 +52,8 @@ func NewIndexDB(chainDir string, chain Chain) (*IndexDB, error) {
 	return iDB, nil
 }
 
-func (iDB *IndexDB) Init() error {
-	return iDB.initCache()
+func (iDB *IndexDB) Init(c Chain) error {
+	return iDB.initCache(c)
 }
 
 func (iDB *IndexDB) InitAccountId() {

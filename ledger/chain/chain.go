@@ -252,7 +252,7 @@ func (c *chain) newDbAndRecover() error {
 	}
 
 	// new ledger db
-	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir, c); err != nil {
+	if c.indexDB, err = chain_index.NewIndexDB(c.chainDir); err != nil {
 		c.log.Error(fmt.Sprintf("chain_index.NewIndexDB failed, error is %s, chainDir is %s", err, c.chainDir), "method", "newDbAndRecover")
 		return err
 	}
@@ -387,7 +387,7 @@ func (c *chain) initCache() error {
 	}
 
 	// init index db cache
-	if err := c.indexDB.Init(); err != nil {
+	if err := c.indexDB.Init(c); err != nil {
 		cErr := errors.New(fmt.Sprintf("c.indexDB.Init failed. Error: %s", err))
 		c.log.Error(cErr.Error(), "method", "initCache")
 		return cErr

@@ -35,9 +35,9 @@ func (iDB *IndexDB) newCache() error {
 	return nil
 }
 
-func (iDB *IndexDB) initCache() error {
+func (iDB *IndexDB) initCache(c Chain) error {
 	var returnErr error
-	iDB.chain.IterateContracts(func(addr types.Address, meta *ledger.ContractMeta, err error) bool {
+	c.IterateContracts(func(addr types.Address, meta *ledger.ContractMeta, err error) bool {
 		if err != nil {
 			returnErr = err
 			return false
