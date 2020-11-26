@@ -227,6 +227,10 @@ func getAddressChecksumFromHex(hexStr string) ([addressChecksumSize]byte, error)
 	return b, err
 }
 
+func (a Address) Compare(b Address) int {
+	return bytes.Compare(a.Bytes(), b.Bytes())
+}
+
 func (a *Address) UnmarshalJSON(input []byte) error {
 	if !isString(input) {
 		return ErrJsonNotString
