@@ -72,7 +72,7 @@ func TestReadAccountBlocks(t *testing.T) {
 }
 
 func TestReadLocation(t *testing.T) {
-	chainDir := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_2")
+	chainDir := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_1")
 	db, err := NewBlockDB(chainDir)
 	assert.NilError(t, err)
 	statusList := db.GetStatus()
@@ -80,7 +80,7 @@ func TestReadLocation(t *testing.T) {
 		t.Log(status.Name, status.Count, status.Size, status.Status)
 	}
 
-	location := chain_file_manager.NewLocation(1, 0)
+	location := chain_file_manager.NewLocation(1, 7333187)
 	printLocationContext(t, location, db)
 }
 
@@ -92,22 +92,22 @@ func TestDiffBlocksDB(t *testing.T) {
 	dbB, err := NewBlockDB(chainDirB)
 	assert.NilError(t, err)
 
-	location := chain_file_manager.NewLocation(1, 0)
-
-	bytA, err := dbA.Read(location)
-	bytB, err := dbB.Read(location)
-
-	assert.Equal(t, len(bytA), len(bytB))
-	assert.DeepEqual(t, crypto.Hash256(bytA), crypto.Hash256(bytB))
+	location := chain_file_manager.NewLocation(1, 7333187)
+	//printLocationContext(t, location, dbA)
+	//printLocationContext(t, location, dbB)
 
 	for {
-		nextLocationA, err := dbA.GetNextLocation(location)
+		bytA, nextLocationA, err := dbA.ReadUnitBytes(location)
 		assert.NilError(t, err)
-		nextLocationB, err := dbB.GetNextLocation(location)
+		bytB, nextLocationB, err := dbB.ReadUnitBytes(location)
 		assert.NilError(t, err)
+
 		t.Log(location.FileId, location.Offset)
 		assert.Equal(t, nextLocationA.FileId, nextLocationB.FileId, nextLocationA.String(), nextLocationB.String(), location.String())
 		assert.Equal(t, nextLocationA.Offset, nextLocationB.Offset, nextLocationA.String(), nextLocationB.String(), location.String())
+		assert.Equal(t, len(bytA), len(bytB))
+		assert.DeepEqual(t, crypto.Hash256(bytA), crypto.Hash256(bytB))
+
 		location = nextLocationA
 	}
 }
@@ -120,6 +120,8 @@ func printLocationContext(t *testing.T, location *chain_file_manager.Location, d
 	}
 	if ab != nil {
 		t.Log("account block", ab.AccountAddress, ab.Height, ab.Hash)
+		//byt, _ := json.Marshal(ab)
+		//t.Log(string(byt))
 	}
 	if nextLocation != nil {
 		t.Log("next location", nextLocation.FileId, nextLocation.Offset)

@@ -117,6 +117,21 @@ func (bDB *BlockDB) ReadRaw(startLocation *chain_file_manager.Location, buf []by
 	return bDB.fm.ReadRaw(startLocation, buf)
 }
 
+func (bDB *BlockDB) ReadUnitBytes(location *chain_file_manager.Location) ([]byte, *chain_file_manager.Location, error) {
+	buf, nextLocation, err := bDB.fm.Read(location)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(buf) <= 0 {
+		return nil, nextLocation, nil
+	}
+	sBuf, err := snappy.Decode(nil, buf[1:])
+	if err != nil {
+		return nil, nil, err
+	}
+	return sBuf, nextLocation, err
+}
+
 func (bDB *BlockDB) ReadUnit(location *chain_file_manager.Location) (*ledger.SnapshotBlock, *ledger.AccountBlock, *chain_file_manager.Location, error) {
 	buf, nextLocation, err := bDB.fm.Read(location)
 	if err != nil {
