@@ -119,7 +119,7 @@ func (c *chain) insertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	}
 
 	// write block db
-	abLocationList, snapshotBlockLocation, err := c.blockDB.Write(chunks[0])
+	abLocationMap, snapshotBlockLocation, err := c.blockDB.Write(chunks[0])
 
 	if err != nil {
 		cErr := errors.New(fmt.Sprintf("c.blockDB.WriteAccountBlock failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error()))
@@ -131,7 +131,7 @@ func (c *chain) insertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	go func() {
 		defer wg.Done()
 		// insert index
-		c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationList)
+		c.indexDB.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks, snapshotBlockLocation, abLocationMap)
 
 		// update latest snapshot block cache
 		c.cache.InsertSnapshotBlock(snapshotBlock, canBeSnappedBlocks)

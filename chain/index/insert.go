@@ -24,7 +24,7 @@ func (iDB *IndexDB) InsertAccountBlock(accountBlock *ledger.AccountBlock) error 
 
 // hash -> height、 height -> blockDB location、confirmed、
 // account block height -> blockDB location
-func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock, snapshotBlockLocation *chain_file_manager.Location, abLocationsList []*chain_file_manager.Location) {
+func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, confirmedBlocks []*ledger.AccountBlock, snapshotBlockLocation *chain_file_manager.Location, abLocationsList map[types.Hash]*chain_file_manager.Location) {
 
 	batch := iDB.store.NewBatch()
 
@@ -42,10 +42,10 @@ func (iDB *IndexDB) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock, con
 	}
 
 	// flush account block indexes
-	for index, block := range confirmedBlocks {
+	for _, block := range confirmedBlocks {
 		// height -> account block location
 
-		iDB.insertAbHeightLocation(batch, block, abLocationsList[index])
+		iDB.insertAbHeightLocation(batch, block, abLocationsList[block.Hash])
 
 		if block.BlockType == ledger.BlockTypeSendCreate {
 			iDB.insertConfirmCache(block.Hash, snapshotBlock.Height)

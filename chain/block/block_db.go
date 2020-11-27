@@ -63,9 +63,9 @@ func (bDB *BlockDB) Close() error {
 	return nil
 }
 
-func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) ([]*chain_file_manager.Location, *chain_file_manager.Location, error) {
+func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) (map[types.Hash]*chain_file_manager.Location, *chain_file_manager.Location, error) {
 
-	accountBlocksLocation := make([]*chain_file_manager.Location, 0, len(ss.AccountBlocks))
+	accountBlocksLocation := make(map[types.Hash]*chain_file_manager.Location)
 
 	for _, accountBlock := range sortAccountBlocksInChunk(ss) {
 		buf, err := accountBlock.Serialize()
@@ -76,7 +76,7 @@ func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) ([]*chain_file_manager.Locat
 		if location, err := bDB.fm.Write(makeWriteBytes(bDB.snappyWriteBuffer, BlockTypeAccountBlock, buf)); err != nil {
 			return nil, nil, errors.New(fmt.Sprintf("bDB.fm.Write failed, error is %s, accountBlock is %+v", err.Error(), accountBlock))
 		} else {
-			accountBlocksLocation = append(accountBlocksLocation, location)
+			accountBlocksLocation[accountBlock.Hash] = location
 		}
 	}
 
