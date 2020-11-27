@@ -26,3 +26,15 @@ func TestDumpFileLocation(t *testing.T) {
 		t.Log(location.FileId, location.Offset)
 	}
 }
+
+func TestIndexDB_GetLatestAccountBlock(t *testing.T) {
+	chainDir := path.Join(common.HomeDir(), ".gvite/mockdata/ledger")
+	db, err := NewIndexDB(chainDir)
+	assert.NilError(t, err)
+	address, err := types.HexToAddress("vite_cfe352f1778a77d6ee685182f2d15c4c4c1367ea612593171c")
+	assert.NilError(t, err)
+	height, location, err := db.GetLatestAccountBlock(&address)
+	assert.NilError(t, err)
+
+	t.Log(height, location.FileId, location.Offset)
+}
