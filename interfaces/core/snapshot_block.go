@@ -28,7 +28,9 @@ func scItemToBytes(addr *types.Address, hashHeight *HashHeight) []byte {
 	bytes := make([]byte, 0, ScItemBytesLen)
 	// Address
 	bytes = append(bytes, addr.Bytes()...)
-
+	if hashHeight == nil {
+		fmt.Println()
+	}
 	// Hash
 	bytes = append(bytes, hashHeight.Hash.Bytes()...)
 
@@ -87,11 +89,17 @@ func (sc SnapshotContent) bytesList() [][]byte {
 }
 
 func (sc SnapshotContent) proto() []byte {
-	scBytes := make([]byte, 0, ScItemBytesLen*len(sc))
-	for addr, hashHeight := range sc {
-		scBytes = append(scBytes, scItemToBytes(&addr, hashHeight)...)
+	keys := make([]types.Address, 0, len(sc))
+	for address, _ := range sc {
+		keys = append(keys, address)
 	}
-
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i].Compare(keys[j]) > 0
+	})
+	scBytes := make([]byte, 0, ScItemBytesLen*len(sc))
+	for _, key := range keys {
+		scBytes = append(scBytes, scItemToBytes(&key, sc[key])...)
+	}
 	return scBytes
 }
 
