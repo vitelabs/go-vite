@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
@@ -43,7 +44,7 @@ func newAccountPoolBlock(block *ledger.AccountBlock,
 		recover:   (&recoverStat{}).init(10, time.Hour),
 		failStat:  (&recoverStat{}).init(10, time.Second*30),
 		delStat:   (&recoverStat{}).init(100, time.Minute*10),
-		fail:      false,
+		failNum:   0,
 	}
 }
 
@@ -54,7 +55,7 @@ type accountPoolBlock struct {
 	recover  *recoverStat
 	failStat *recoverStat
 	delStat  *recoverStat
-	fail     bool
+	failNum  int
 }
 
 func (accB *accountPoolBlock) ReferHashes() (keys []types.Hash, accounts []types.Hash, snapshot *types.Hash) {
@@ -131,6 +132,7 @@ func (accP *accountPool) Compact() int {
 		accP.loopFetchTime = now
 		sum = sum + accP.loopFetchForSnippets()
 		accP.checkCurrent()
+		accP.checkReset()
 	}
 	return sum
 }
@@ -399,6 +401,7 @@ func (accP *accountPool) tryInsertItems(p batch.Batch, items []batch.Item, lates
 			case verifier.FAIL:
 				accP.log.Warn("add account block to blacklist.", "hash", block.Hash(), "height", block.Height(), "err", stat.err)
 				accP.hashBlacklist.AddAddTimeout(block.Hash(), time.Second*10)
+				block.failNum = block.failNum + 1
 				return errors.Wrap(stat.err, "fail verifier")
 			case verifier.PENDING:
 				accP.log.Error("snapshot db.", "hash", block.Hash(), "height", block.Height())
@@ -494,4 +497,23 @@ func (accP *accountPool) shouldDestroy() bool {
 		return false
 	}
 	return true
+}
+
+func (accP *accountPool) checkReset() {
+	tailHeight, _ := accP.CurrentChain().TailHH()
+	headHeight, _ := accP.CurrentChain().HeadHH()
+	if headHeight > tailHeight {
+		knot := accP.CurrentChain().GetKnot(tailHeight+1, false)
+		if knot == nil {
+			return
+		}
+		block := knot.(*accountPoolBlock)
+		if block.failNum > 20 && time.Now().After(block.nTime.Add(time.Minute)) {
+			accP.reset()
+		}
+	}
+}
+
+func (accP *accountPool) reset() {
+	accP.BCPool.init(accP.tools)
 }
