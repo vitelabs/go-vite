@@ -1,14 +1,14 @@
 package chain_block
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
+	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
 )
 
+// GetAccountBlock by location
 func (bDB *BlockDB) GetAccountBlock(location *chain_file_manager.Location) (*ledger.AccountBlock, error) {
 	buf, err := bDB.Read(location)
 	if err != nil {
@@ -17,7 +17,7 @@ func (bDB *BlockDB) GetAccountBlock(location *chain_file_manager.Location) (*led
 
 	ab := &ledger.AccountBlock{}
 	if err := ab.Deserialize(buf); err != nil {
-		return nil, errors.New(fmt.Sprintf("ab.Deserialize failed, [Error] %s", err.Error()))
+		return nil, fmt.Errorf("ab.Deserialize failed, [Error] %s", err.Error())
 	}
 
 	return ab, nil
@@ -34,9 +34,8 @@ func sortAccountBlocksInChunk(chunk *ledger.SnapshotChunk) []*ledger.AccountBloc
 		addressResult := result[i].AccountAddress.Compare(result[j].AccountAddress)
 		if addressResult == 0 {
 			return result[i].Height < result[j].Height
-		} else {
-			return addressResult < 0
 		}
+		return addressResult < 0
 	})
 	return result
 }

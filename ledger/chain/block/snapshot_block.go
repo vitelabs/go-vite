@@ -6,9 +6,10 @@ import (
 	"github.com/pkg/errors"
 
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
+	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
 )
 
+// GetSnapshotBlock by location
 func (bDB *BlockDB) GetSnapshotBlock(location *chain_file_manager.Location) (*ledger.SnapshotBlock, error) {
 	buf, err := bDB.Read(location)
 	if err != nil {

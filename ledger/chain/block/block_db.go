@@ -14,10 +14,11 @@ import (
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
+	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
 	"github.com/vitelabs/go-vite/log15"
 )
 
+// BlockDB append all blocks to file
 type BlockDB struct {
 	fm *chain_file_manager.FileManager
 
@@ -34,6 +35,7 @@ type BlockDB struct {
 	log log15.Logger
 }
 
+// NewBlockDB instance for BlocksDB
 func NewBlockDB(chainDir string) (*BlockDB, error) {
 	id, _ := types.BytesToHash(crypto.Hash256([]byte("blockDb")))
 
@@ -52,10 +54,12 @@ func NewBlockDB(chainDir string) (*BlockDB, error) {
 	}, nil
 }
 
+// FileSize file size for one data file
 func (bDB *BlockDB) FileSize() int64 {
 	return bDB.fileSize
 }
 
+// Close close db
 func (bDB *BlockDB) Close() error {
 	if err := bDB.fm.Close(); err != nil {
 		return errors.New(fmt.Sprintf("bDB.fm.Close failed, error is %s", err))
