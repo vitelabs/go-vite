@@ -88,6 +88,7 @@ func newSimpleContracts() map[types.Address]*builtinContract {
 				cabi.MethodNameIssue:             &MethodIssue{cabi.MethodNameIssue},
 				cabi.MethodNameReIssue:           &MethodReIssue{cabi.MethodNameReIssue},
 				cabi.MethodNameBurn:              &MethodBurn{cabi.MethodNameBurn},
+				cabi.MethodNameBurnV2:            &MethodBurn2{cabi.MethodNameBurnV2},
 				cabi.MethodNameTransferOwnership: &MethodTransferOwnership{cabi.MethodNameTransferOwnership},
 				cabi.MethodNameDisableReIssue:    &MethodDisableReIssue{cabi.MethodNameDisableReIssue},
 			},
