@@ -14,11 +14,15 @@ type mockChain struct {
 func (c mockChain) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
 	return nil, nil
 }
-func (c mockChain) GetSnapshotBlockByContractMeta(addr *types.Address, fromHash *types.Hash) (*ledger.SnapshotBlock, error) {
+func (c mockChain) GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error) {
 	return nil, nil
 }
 func (c mockChain) GetSeed(limitSb *ledger.SnapshotBlock, fromHash types.Hash) (uint64, error) {
 	return c.seed, nil
+}
+
+func (c mockChain) GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*ledger.SnapshotBlock, error) {
+	return nil, nil
 }
 
 func TestSeed(t *testing.T) {
