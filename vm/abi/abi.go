@@ -176,6 +176,16 @@ func (abi *ABIContract) MethodById(sigdata []byte) (*Method, error) {
 	return nil, errNoMethodId(sigdata[:4])
 }
 
+// EventID return error if not found
+func (abi ABIContract) EventID(name string) (*types.Hash, error) {
+	event, exist := abi.Events[name]
+	if !exist {
+		return nil, errEventNotFound(name)
+	}
+	id := event.Id()
+	return &id, nil
+}
+
 // UnmarshalJSON implements json.Unmarshaler interface
 func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 	var fields []struct {

@@ -71,7 +71,16 @@ const (
 var (
 	// ABIAsset is abi definition of asset contract
 	ABIAsset, _ = abi.JSONToABIContract(strings.NewReader(jsonAsset))
+
+	// AssetBurnEventID see Trustless Bridge
+	AssetBurnEventID = assetBurnEventID()
 )
+
+func assetBurnEventID() types.Hash {
+	hash, error := ABIAsset.EventID("burn2")
+	util.DealWithErr(error)
+	return *hash
+}
 
 type ParamIssue struct {
 	TokenName       string
