@@ -3,8 +3,6 @@ package chain_block
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
 )
@@ -20,7 +18,7 @@ func (bDB *BlockDB) GetSnapshotBlock(location *chain_file_manager.Location) (*le
 	}
 	sb := &ledger.SnapshotBlock{}
 	if err := sb.Deserialize(buf); err != nil {
-		return nil, errors.New(fmt.Sprintf("sb.Deserialize failed, Error: %s", err.Error()))
+		return nil, fmt.Errorf("sb.Deserialize failed, Error: %s", err.Error())
 	}
 
 	return sb, nil

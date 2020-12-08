@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
@@ -107,7 +106,7 @@ func (self *ConsensusDB) GetElectionResultByHash(hash types.Hash) ([]types.Addre
 	var result AddrArr
 	result, err = result.SetBytes(value)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("parse fail. %s, %s\n", err.Error(), string(value)))
+		return nil, fmt.Errorf("parse fail. %s, %s\n", err.Error(), string(value))
 	}
 	return []types.Address(result), nil
 }

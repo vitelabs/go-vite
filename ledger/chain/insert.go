@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -28,13 +27,13 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *interfaces.VmAccountBlock) er
 
 	// write index database
 	if err := c.indexDB.InsertAccountBlock(accountBlock); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.InsertAccountBlockAndSnapshot failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
+		cErr := fmt.Errorf("c.indexDB.InsertAccountBlockAndSnapshot failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash)
 		c.log.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
 	}
 
 	// write state db
 	if err := c.stateDB.Write(vmAccountBlock); err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.WriteAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash))
+		cErr := fmt.Errorf("c.stateDB.WriteAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash)
 		c.log.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
 	}
 
@@ -88,7 +87,7 @@ func (c *chain) getBlocksToBeConfirmed(sc ledger.SnapshotContent) ([]*ledger.Acc
 		}
 	}
 
-	return blocks, errors.New(fmt.Sprintf("lack block, sc is %s", sPrintError(sc, blocks)))
+	return blocks, fmt.Errorf("lack block, sc is %s", sPrintError(sc, blocks))
 }
 
 func (c *chain) insertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
@@ -122,7 +121,7 @@ func (c *chain) insertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 	abLocationMap, snapshotBlockLocation, err := c.blockDB.Write(chunks[0])
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.WriteAccountBlock failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error()))
+		cErr := fmt.Errorf("c.blockDB.WriteAccountBlock failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error())
 		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 

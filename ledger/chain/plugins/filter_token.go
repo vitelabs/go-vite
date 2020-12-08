@@ -3,15 +3,13 @@ package chain_plugins
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/db"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
+	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 type FilterToken struct {
@@ -43,11 +41,11 @@ func (ft *FilterToken) InsertAccountBlock(batch *leveldb.Batch, accountBlock *le
 		sendBlock, err := ft.chain.GetAccountBlockByHash(accountBlock.FromBlockHash)
 
 		if err != nil {
-			return errors.New(fmt.Sprintf("ft.chain.GetAccountBlockByHash failed. Error: %s", err))
+			return fmt.Errorf("ft.chain.GetAccountBlockByHash failed. Error: %s", err)
 		}
 
 		if sendBlock == nil {
-			return errors.New(fmt.Sprintf("send block is nil"))
+			return fmt.Errorf("send block is nil")
 		}
 
 		tokenTypeId = sendBlock.TokenId
@@ -98,7 +96,7 @@ func (ft *FilterToken) GetBlocks(addr types.Address, tokenId types.TokenTypeId, 
 			return nil, err
 		}
 		if block == nil {
-			return nil, errors.New(fmt.Sprintf("block %s is not exited", blockHash))
+			return nil, fmt.Errorf("block %s is not exited", blockHash)
 		}
 
 		if block.BlockType != ledger.BlockTypeGenesisReceive {
@@ -106,10 +104,10 @@ func (ft *FilterToken) GetBlocks(addr types.Address, tokenId types.TokenTypeId, 
 			if block.IsReceiveBlock() {
 				fromBlock, err := ft.chain.GetAccountBlockByHash(block.FromBlockHash)
 				if err != nil {
-					return nil, errors.New(fmt.Sprintf("from block %s is not exited", block.FromBlockHash))
+					return nil, fmt.Errorf("from block %s is not exited", block.FromBlockHash)
 				}
 				if fromBlock == nil {
-					return nil, errors.New(fmt.Sprintf("from block %s is nil", block.FromBlockHash))
+					return nil, fmt.Errorf("from block %s is nil", block.FromBlockHash)
 				}
 				blockTokenId = fromBlock.TokenId
 			} else {
@@ -183,7 +181,7 @@ func (ft *FilterToken) deleteAccountBlocks(batch *leveldb.Batch, accountBlocks [
 			}
 
 			if sendBlock == nil {
-				return errors.New(fmt.Sprintf("send block is nil, send block: %+v\n", sendBlock))
+				return fmt.Errorf("send block is nil, send block: %+v\n", sendBlock)
 			}
 			tokenTypeId = sendBlock.TokenId
 

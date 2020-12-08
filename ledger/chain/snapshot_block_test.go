@@ -2,7 +2,6 @@ package chain
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -10,7 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 func TestChain_SnapshotBlock(t *testing.T) {
@@ -121,27 +120,27 @@ func CheckGetSeedConfirmedSnapshotBlock(isContract bool, seedConfirmTimes uint8,
 
 	if isContract {
 		if snapshotBlock != nil || err == nil {
-			return errors.New(fmt.Sprintf("1.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+			return fmt.Errorf("1.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err)
 		}
 	} else {
 		if snapshotBlock != nil || err != nil {
-			return errors.New(fmt.Sprintf("2.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+			return fmt.Errorf("2.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err)
 		}
 	}
 
 	for index, seed := range seeds {
 		accountBlockListReturn, err := chainInstance.InsertSnapshotBlock(createSnapshotBlock(chainInstance, createSbOption{SnapshotAll: true, Seed: seed}))
 		if len(accountBlockListReturn) != 0 || err != nil {
-			return errors.New(fmt.Sprintf("3.accountBlockListReturn is %v, err is %+v", accountBlockListReturn, err))
+			return fmt.Errorf("3.accountBlockListReturn is %v, err is %+v", accountBlockListReturn, err)
 		}
 		snapshotBlock, err = chainInstance.GetSeedConfirmedSnapshotBlock(receiveBlock.AccountBlock.AccountAddress, sendCreateBlock.AccountBlock.Hash)
 		if !isContract {
 			if snapshotBlock != nil || err != nil {
-				return errors.New(fmt.Sprintf("4.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+				return fmt.Errorf("4.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err)
 			}
 
 			if offset[index] != -1 {
-				return errors.New(fmt.Sprintf("5.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+				return fmt.Errorf("5.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err)
 			}
 
 			continue
@@ -151,16 +150,16 @@ func CheckGetSeedConfirmedSnapshotBlock(isContract bool, seedConfirmTimes uint8,
 			if offset[index] == -1 {
 				continue
 			} else {
-				return errors.New(fmt.Sprintf("6.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+				return fmt.Errorf("6.snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err)
 			}
 		} else if snapshotBlock != nil && err == nil {
 			if offset[index] != -1 && snapshotBlock.Height-snapshotBlockLatestHeight == uint64(offset[index]) {
 				continue
 			} else {
-				return errors.New(fmt.Sprintf("7.snapshotBlock index %d is %+v, latestHeight %d ,err is %+v", 0, snapshotBlock, snapshotBlockLatestHeight, err))
+				return fmt.Errorf("7.snapshotBlock index %d is %+v, latestHeight %d ,err is %+v", 0, snapshotBlock, snapshotBlockLatestHeight, err)
 			}
 		} else {
-			return errors.New(fmt.Sprintf("8.unkown status snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err))
+			return fmt.Errorf("8.unkown status snapshotBlock index %d is %+v, err is %+v", 0, snapshotBlock, err)
 		}
 	}
 

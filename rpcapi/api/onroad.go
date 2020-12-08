@@ -3,8 +3,6 @@ package api
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vite"
@@ -26,7 +24,7 @@ func (pub PublicOnroadApi) String() string {
 // Deprecated: to use ledger_getUnreceivedBlocksByAddress instead
 func (pub PublicOnroadApi) GetOnroadBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
 	if count > math.MaxUint16+1 {
-		return nil, errors.New(fmt.Sprintf("maximum number per page allowed is %d", math.MaxUint16+1))
+		return nil, fmt.Errorf("maximum number per page allowed is %d", math.MaxUint16+1)
 	}
 	return pub.api.GetOnroadBlocksByAddress(address, index, count)
 }

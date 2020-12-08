@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -14,7 +13,7 @@ import (
 func (c *chain) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error) {
 	result, err := c.stateDB.GetBalance(addr, tokenId)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetBalance failed, Addr is %s, tokenId is %s. Error: %s", addr, tokenId, err))
+		cErr := fmt.Errorf("c.stateDB.GetBalance failed, Addr is %s, tokenId is %s. Error: %s", addr, tokenId, err)
 		c.log.Error(cErr.Error(), "method", "GetBalance")
 		return nil, cErr
 	}
@@ -23,7 +22,7 @@ func (c *chain) GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.
 func (c *chain) GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error) {
 	result, err := c.stateDB.GetBalanceMap(addr)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetBalanceMap failed, Addr is %s. Error: %s,", addr, err))
+		cErr := fmt.Errorf("c.stateDB.GetBalanceMap failed, Addr is %s. Error: %s,", addr, err)
 		c.log.Error(cErr.Error(), "method", "GetBalance")
 		return nil, cErr
 	}
@@ -46,7 +45,7 @@ func (c *chain) GetConfirmedBalanceList(addrList []types.Address, tokenId types.
 func (c *chain) GetContractCode(contractAddress types.Address) ([]byte, error) {
 	code, err := c.stateDB.GetCode(contractAddress)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetCode failed, error is %s, Addr is %s", err, contractAddress))
+		cErr := fmt.Errorf("c.stateDB.GetCode failed, error is %s, Addr is %s", err, contractAddress)
 		c.log.Error(cErr.Error(), "method", "GetBalance")
 		return nil, cErr
 	}
@@ -59,7 +58,7 @@ func (c *chain) GetContractMeta(contractAddress types.Address) (*ledger.Contract
 	}
 	meta, err := c.stateDB.GetContractMeta(contractAddress)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetContractMeta failed, error is %s, Addr is %s", err, contractAddress))
+		cErr := fmt.Errorf("c.stateDB.GetContractMeta failed, error is %s, Addr is %s", err, contractAddress)
 		c.log.Error(cErr.Error(), "method", "GetBalance")
 		return nil, cErr
 	}
@@ -73,7 +72,7 @@ func (c *chain) GetContractMetaInSnapshot(contractAddress types.Address, snapsho
 
 	meta, err := c.stateDB.GetContractMeta(contractAddress)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetContractMeta failed, error is %s, Addr is %s", err, contractAddress))
+		cErr := fmt.Errorf("c.stateDB.GetContractMeta failed, error is %s, Addr is %s", err, contractAddress)
 		c.log.Error(cErr.Error(), "method", "GetBalance")
 		return nil, cErr
 	}
@@ -98,7 +97,7 @@ func (c *chain) GetContractMetaInSnapshot(contractAddress types.Address, snapsho
 func (c *chain) GetContractList(gid types.Gid) ([]types.Address, error) {
 	addrList, err := c.stateDB.GetContractList(&gid)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetContractList failed, gid is %s. Error: %s", gid, err))
+		cErr := fmt.Errorf("c.stateDB.GetContractList failed, gid is %s. Error: %s", gid, err)
 		c.log.Error(cErr.Error(), "method", "GetContractList")
 		return nil, cErr
 	}
@@ -115,7 +114,7 @@ func (c *chain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error) 
 
 	logList, err := c.stateDB.GetVmLogList(logListHash)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetVmLogList failed, error is %s, logListHash is %s", err, logListHash))
+		cErr := fmt.Errorf("c.stateDB.GetVmLogList failed, error is %s, logListHash is %s", err, logListHash)
 		c.log.Error(cErr.Error(), "method", "GetVmLogList")
 		return nil, cErr
 	}
@@ -125,7 +124,7 @@ func (c *chain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error) 
 func (c *chain) GetQuotaUnused(address types.Address) (uint64, error) {
 	_, quotaInfo, err := c.GetStakeQuota(address)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.GetStakeQuota failed, address is %s. Error: %s", address, err))
+		cErr := fmt.Errorf("c.GetStakeQuota failed, address is %s. Error: %s", address, err)
 		c.log.Error(cErr.Error(), "method", "GetQuotaUnused")
 		return 0, cErr
 	}
@@ -150,7 +149,7 @@ func (c *chain) GetStorageIterator(address types.Address, prefix []byte) (interf
 func (c *chain) GetValue(address types.Address, key []byte) ([]byte, error) {
 	value, err := c.stateDB.GetStorageValue(&address, key)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetStorageValue failed, address is %s. key is %s", address, key))
+		cErr := fmt.Errorf("c.stateDB.GetStorageValue failed, address is %s. key is %s", address, key)
 		c.log.Error(cErr.Error(), "method", "GetStorageValue")
 		return nil, cErr
 	}

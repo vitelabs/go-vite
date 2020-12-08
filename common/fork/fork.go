@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 )
 
 type ForkPoint struct {
@@ -88,18 +86,18 @@ func CheckForkPoints(points ForkPoints) error {
 		forkPoint := v.Field(k).Interface().(*ForkPoint)
 
 		if forkPoint == nil {
-			return errors.New(fmt.Sprintf("The fork point %s can't be nil. the `ForkPoints` config in genesis.json is not correct, "+
-				"you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name))
+			return fmt.Errorf("The fork point %s can't be nil. the `ForkPoints` config in genesis.json is not correct, "+
+				"you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name)
 		}
 
 		if forkPoint.Height <= 0 {
-			return errors.New(fmt.Sprintf("The height of fork point %s is 0. "+
-				"the `ForkPoints` config in genesis.json is not correct, you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name))
+			return fmt.Errorf("The height of fork point %s is 0. "+
+				"the `ForkPoints` config in genesis.json is not correct, you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name)
 		}
 
 		if forkPoint.Version <= 0 {
-			return errors.New(fmt.Sprintf("The version of fork point %s is 0. "+
-				"the `ForkPoints` config in genesis.json is not correct, you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name))
+			return fmt.Errorf("The version of fork point %s is 0. "+
+				"the `ForkPoints` config in genesis.json is not correct, you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name)
 		}
 
 	}

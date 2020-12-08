@@ -3,8 +3,6 @@ package chain
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
@@ -119,7 +117,7 @@ func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, che
 				c.log.Error(fmt.Sprintf("quota.CalcBlockQuotaUsed failed when filterUnconfirmedBlocks. Error: %s", err), "method", "filterInvalidUnconfirmedBlocks")
 				valid = false
 			} else if enough, err := c.checkQuota(quotaUnusedCache, quotaUsedCache, block, snapshotBlock.Height); err != nil {
-				cErr := errors.New(fmt.Sprintf("c.checkQuota failed, block is %+v. Error: %s", block, err))
+				cErr := fmt.Errorf("c.checkQuota failed, block is %+v. Error: %s", block, err)
 				c.log.Error(cErr.Error(), "method", "filterInvalidUnconfirmedBlocks")
 				valid = false
 			} else if !enough {
@@ -236,7 +234,7 @@ func (c *chain) filterConsensusFailed(blocks []*ledger.AccountBlock) ([]*ledger.
 				return nil, err
 			}
 			if meta == nil {
-				return nil, errors.New(fmt.Sprintf("%s, meta is nil", addr))
+				return nil, fmt.Errorf("%s, meta is nil", addr)
 			}
 
 			contractMetaCache[addr] = meta

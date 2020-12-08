@@ -5,14 +5,12 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/pkg/errors"
-
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 func (sDB *StateDB) NewStorageIterator(addr types.Address, prefix []byte) interfaces.StorageIterator {
@@ -27,7 +25,7 @@ func (sDB *StateDB) NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, ad
 func (sDB *StateDB) NewSnapshotStorageIterator(snapshotHash types.Hash, addr types.Address, prefix []byte) (interfaces.StorageIterator, error) {
 	height, err := sDB.chain.GetSnapshotHeightByHash(snapshotHash)
 	if err != nil {
-		sErr := errors.New(fmt.Sprintf("sDB.chain.GetSnapshotHeightByHash failed, hash is %s. Error: %s", snapshotHash, err))
+		sErr := fmt.Errorf("sDB.chain.GetSnapshotHeightByHash failed, hash is %s. Error: %s", snapshotHash, err)
 		return nil, sErr
 	}
 

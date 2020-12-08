@@ -6,12 +6,11 @@ import (
 	"path"
 
 	"github.com/allegro/bigcache"
-	"github.com/hashicorp/golang-lru"
-	"github.com/pkg/errors"
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger/chain/db"
+	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
 	"github.com/vitelabs/go-vite/log15"
 )
 
@@ -71,7 +70,7 @@ func (iDB *IndexDB) CleanAllData() error {
 
 	// clean store
 	if err := iDB.store.Clean(); err != nil {
-		return errors.New(fmt.Sprintf("iDB.store.Clean failed, error is %s", err.Error()))
+		return fmt.Errorf("iDB.store.Clean failed, error is %s", err.Error())
 	}
 	return nil
 }
@@ -82,12 +81,12 @@ func (iDB *IndexDB) Store() *chain_db.Store {
 
 func (iDB *IndexDB) Close() error {
 	if err := iDB.cache.Close(); err != nil {
-		return errors.New(fmt.Sprintf("iDB.cache.Close failed, error is %s", err.Error()))
+		return fmt.Errorf("iDB.cache.Close failed, error is %s", err.Error())
 	}
 	iDB.cache = nil
 
 	if err := iDB.store.Close(); err != nil {
-		return errors.New(fmt.Sprintf("iDB.store.Close failed, error is %s", err.Error()))
+		return fmt.Errorf("iDB.store.Close failed, error is %s", err.Error())
 	}
 	iDB.store = nil
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/db"
+	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
 	"github.com/vitelabs/go-vite/log15"
 )
 
@@ -151,7 +151,7 @@ func (p *Plugins) RebuildData() error {
 
 			for _, plugin := range p.plugins {
 				if err := plugin.InsertSnapshotBlock(batch, chunk.SnapshotBlock, chunk.AccountBlocks); err != nil {
-					pErr := errors.New(fmt.Sprintf("InsertSnapshotBlock fail, err:%v, sb[%v, %v,len=%v] ", err, chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash, len(chunk.AccountBlocks)))
+					pErr := fmt.Errorf("InsertSnapshotBlock fail, err:%v, sb[%v, %v,len=%v] ", err, chunk.SnapshotBlock.Height, chunk.SnapshotBlock.Hash, len(chunk.AccountBlocks))
 					p.log.Error(pErr.Error(), "method", "RebuildData")
 					return pErr
 				}

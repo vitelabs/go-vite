@@ -61,7 +61,7 @@ func (t TestApi) CreateTxWithPrivKey(params CreateTxWithPrivKeyParmsTest) error 
 
 	addrState, err := generator.GetAddressStateForGenerator(t.walletApi.chain, &msg.AccountAddress)
 	if err != nil || addrState == nil {
-		return errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
+		return fmt.Errorf("failed to get addr state for generator, err:%v", err)
 	}
 	g, e := generator.NewGenerator(t.walletApi.chain, t.walletApi.consensus, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {
@@ -133,7 +133,7 @@ func (t TestApi) ReceiveOnroadTx(params CreateReceiveTxParms) error {
 
 	addrState, err := generator.GetAddressStateForGenerator(t.walletApi.chain, &msg.AccountAddress)
 	if err != nil || addrState == nil {
-		return errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
+		return fmt.Errorf("failed to get addr state for generator, err:%v", err)
 	}
 	g, e := generator.NewGenerator(t.walletApi.chain, t.walletApi.consensus, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {

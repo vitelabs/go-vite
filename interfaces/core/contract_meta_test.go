@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
@@ -82,7 +81,7 @@ func checkSame(cm ContractMeta, byteBuf []byte) error {
 		cm.QuotaRatio != cmNew.QuotaRatio ||
 		cm.SendConfirmedTimes != cmNew.SendConfirmedTimes ||
 		cm.SeedConfirmedTimes != cmNew.SeedConfirmedTimes {
-		return errors.New(fmt.Sprintf("cm is %+v, cmnew is %+v", cm, cmNew))
+		return fmt.Errorf("cm is %+v, cmnew is %+v", cm, cmNew)
 	}
 
 	return nil

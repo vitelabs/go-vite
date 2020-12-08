@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/golang/snappy"
-	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -62,7 +61,7 @@ func (bDB *BlockDB) FileSize() int64 {
 // Close close db
 func (bDB *BlockDB) Close() error {
 	if err := bDB.fm.Close(); err != nil {
-		return errors.New(fmt.Sprintf("bDB.fm.Close failed, error is %s", err))
+		return fmt.Errorf("bDB.fm.Close failed, error is %s", err)
 	}
 
 	bDB.fm = nil
@@ -76,11 +75,11 @@ func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) (map[types.Hash]*chain_file_
 	for _, accountBlock := range sortAccountBlocksInChunk(ss) {
 		buf, err := accountBlock.Serialize()
 		if err != nil {
-			return nil, nil, errors.New(fmt.Sprintf("ss.AccountBlocks.Serialize failed, error is %s, accountBlock is %+v", err.Error(), accountBlock))
+			return nil, nil, fmt.Errorf("ss.AccountBlocks.Serialize failed, error is %s, accountBlock is %+v", err.Error(), accountBlock)
 		}
 
 		if location, err := bDB.fm.Write(makeWriteBytes(bDB.snappyWriteBuffer, BlockTypeAccountBlock, buf)); err != nil {
-			return nil, nil, errors.New(fmt.Sprintf("bDB.fm.Write failed, error is %s, accountBlock is %+v", err.Error(), accountBlock))
+			return nil, nil, fmt.Errorf("bDB.fm.Write failed, error is %s, accountBlock is %+v", err.Error(), accountBlock)
 		} else {
 			accountBlocksLocation[accountBlock.Hash] = location
 		}
@@ -88,7 +87,7 @@ func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) (map[types.Hash]*chain_file_
 
 	buf, err := ss.SnapshotBlock.Serialize()
 	if err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("ss.SnapshotBlock.Serialize failed, error is %s, snapshotBlock is %+v", err.Error(), ss.SnapshotBlock))
+		return nil, nil, fmt.Errorf("ss.SnapshotBlock.Serialize failed, error is %s, snapshotBlock is %+v", err.Error(), ss.SnapshotBlock)
 	}
 
 	snapshotBlockLocation, err := bDB.fm.Write(makeWriteBytes(bDB.snappyWriteBuffer, BlockTypeSnapshotBlock, buf))
@@ -96,7 +95,7 @@ func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) (map[types.Hash]*chain_file_
 	//bDB.log.Info(fmt.Sprintf("sb %s %d %d", ss.SnapshotBlock.Hash, ss.SnapshotBlock.Height, data), "method", "Write")
 
 	if err != nil {
-		return nil, nil, errors.New(fmt.Sprintf("bDB.fm.Write failed, error is %s, snapshotBlock is %+v", err.Error(), ss.SnapshotBlock))
+		return nil, nil, fmt.Errorf("bDB.fm.Write failed, error is %s, snapshotBlock is %+v", err.Error(), ss.SnapshotBlock)
 	}
 	return accountBlocksLocation, snapshotBlockLocation, nil
 }

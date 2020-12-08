@@ -4,24 +4,22 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pkg/errors"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
+	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
 	"github.com/vitelabs/go-vite/ledger/chain/sync_cache"
 )
 
 func (c *chain) GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error) {
 	if startHeight < 2 {
-		return nil, errors.New(fmt.Sprintf("startHeight is %d", startHeight))
+		return nil, fmt.Errorf("startHeight is %d", startHeight)
 	}
 	if startHeight > endHeight {
-		return nil, errors.New(fmt.Sprintf("startHeight > endHeight, startHeight is %d, endHeight is %d", startHeight, endHeight))
+		return nil, fmt.Errorf("startHeight > endHeight, startHeight is %d, endHeight is %d", startHeight, endHeight)
 	}
 	latestSnapshotBlock := c.GetLatestSnapshotBlock()
 	if endHeight > latestSnapshotBlock.Height {
-		return nil, errors.New(fmt.Sprintf("endHeight is too big, endHeight is %d, latest snapshot height is %d", endHeight, latestSnapshotBlock.Height))
+		return nil, fmt.Errorf("endHeight is too big, endHeight is %d, latest snapshot height is %d", endHeight, latestSnapshotBlock.Height)
 	}
 
 	return newLedgerReader(c, startHeight, endHeight)
@@ -52,7 +50,7 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, err
 	}
 	if tmpFromLocation == nil {
-		return nil, errors.New(fmt.Sprintf("from location %d is not existed", tmpFromLocation))
+		return nil, fmt.Errorf("from location %d is not existed", tmpFromLocation)
 	}
 
 	fromLocation, err := chain.blockDB.GetNextLocation(tmpFromLocation)
@@ -60,7 +58,7 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, err
 	}
 	if fromLocation == nil {
-		return nil, errors.New(fmt.Sprintf("block %d is not existed", from))
+		return nil, fmt.Errorf("block %d is not existed", from)
 	}
 
 	tmpToLocation, err := chain.indexDB.GetSnapshotBlockLocation(to)
@@ -68,7 +66,7 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, err
 	}
 	if tmpToLocation == nil {
-		return nil, errors.New(fmt.Sprintf("block %d is not existed", to))
+		return nil, fmt.Errorf("block %d is not existed", to)
 	}
 
 	toLocation, err := chain.blockDB.GetNextLocation(tmpToLocation)
@@ -76,7 +74,7 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, err
 	}
 	if toLocation == nil {
-		return nil, errors.New(fmt.Sprintf("next location %d is not existed", toLocation))
+		return nil, fmt.Errorf("next location %d is not existed", toLocation)
 	}
 
 	fromPrevSnapshotBlock, err := chain.GetSnapshotHeaderByHeight(from - 1)
@@ -84,7 +82,7 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, err
 	}
 	if fromPrevSnapshotBlock == nil {
-		return nil, errors.New(fmt.Sprintf("fromPrevSnapshotBlock is nil, from is %d", from))
+		return nil, fmt.Errorf("fromPrevSnapshotBlock is nil, from is %d", from)
 	}
 
 	toSnapshotBlock, err := chain.GetSnapshotHeaderByHeight(to)
@@ -92,7 +90,7 @@ func newLedgerReader(chain *chain, from, to uint64) (interfaces.LedgerReader, er
 		return nil, err
 	}
 	if fromPrevSnapshotBlock == nil {
-		return nil, errors.New(fmt.Sprintf("toSnapshotBlock is nil, to is %d", to))
+		return nil, fmt.Errorf("toSnapshotBlock is nil, to is %d", to)
 	}
 
 	return &ledgerReader{

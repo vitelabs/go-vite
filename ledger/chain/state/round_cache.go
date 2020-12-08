@@ -276,7 +276,7 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 
 	// roundIndex can't be smaller than cache.latestRoundIndex
 	if roundIndex < cache.latestRoundIndex {
-		return errors.New(fmt.Sprintf("roundIndex < cache.latestRoundIndex, %d < %d", roundIndex, cache.latestRoundIndex))
+		return fmt.Errorf("roundIndex < cache.latestRoundIndex, %d < %d", roundIndex, cache.latestRoundIndex)
 	} else if roundIndex == cache.latestRoundIndex {
 		// the roundIndex of snapshot block equals to cache.latestRoundIndex
 
@@ -302,11 +302,11 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 		}
 
 		if lastSnapshotBlock == nil {
-			return errors.New(fmt.Sprintf("lastSnapshotBlock is nil, cache.latestRoundIndex is %d", cache.latestRoundIndex))
+			return fmt.Errorf("lastSnapshotBlock is nil, cache.latestRoundIndex is %d", cache.latestRoundIndex)
 		}
 
 		if roundData == nil {
-			return errors.New(fmt.Sprintf("roundData is nil, cache.latestRoundIndex is %d", cache.latestRoundIndex))
+			return fmt.Errorf("roundData is nil, cache.latestRoundIndex is %d", cache.latestRoundIndex)
 		}
 
 		cache.mu.Lock()
@@ -314,16 +314,16 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 		cache.mu.Unlock()
 
 	} else if dataLength == 1 {
-		return errors.New(fmt.Sprintf("len(cache.data) is 1, cache.data[0] is %+v", cache.data[0]))
+		return fmt.Errorf("len(cache.data) is 1, cache.data[0] is %+v", cache.data[0])
 	} else {
 		prevRoundData := cache.data[dataLength-1]
 		if prevRoundData.redoLogs == nil || len(prevRoundData.redoLogs.Logs) <= 0 {
-			return errors.New(fmt.Sprintf("prevRoundData.redoLogs == nil || len(prevRoundData.redoLogs.Logs) <= 0. prevRoundData is %+v", prevRoundData))
+			return fmt.Errorf("prevRoundData.redoLogs == nil || len(prevRoundData.redoLogs.Logs) <= 0. prevRoundData is %+v", prevRoundData)
 		}
 
 		prevBeforePrevRoundData := cache.data[dataLength-2]
 		if prevBeforePrevRoundData.currentData == nil {
-			return errors.New(fmt.Sprintf("prevBeforePrevRoundData.currentData == nil, prevBeforePrevRoundData is %+v", prevBeforePrevRoundData))
+			return fmt.Errorf("prevBeforePrevRoundData.currentData == nil, prevBeforePrevRoundData is %+v", prevBeforePrevRoundData)
 		}
 
 		// get lastSnapshotBlock
@@ -332,7 +332,7 @@ func (cache *RoundCache) InsertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock
 			return err
 		}
 		if lastSnapshotBlock == nil {
-			return errors.New(fmt.Sprintf("lastSnapshotBlock is nil, height is %d", snapshotBlock.Height-1))
+			return fmt.Errorf("lastSnapshotBlock is nil, height is %d", snapshotBlock.Height-1)
 		}
 
 		prevRoundData.mu.Lock()
@@ -452,7 +452,7 @@ func (cache *RoundCache) DeleteSnapshotBlocks(snapshotBlocks []*ledger.SnapshotB
 		return err
 	}
 	if beforeFirstSnapshotBlock == nil {
-		return errors.New(fmt.Sprintf("beforeFirstSnapshotBlock is nil, height is %d", firstSnapshotBlock.Height-1))
+		return fmt.Errorf("beforeFirstSnapshotBlock is nil, height is %d", firstSnapshotBlock.Height-1)
 	}
 	newLatestRoundIndex := cache.timeIndex.Time2Index(*beforeFirstSnapshotBlock.Timestamp)
 	cache.latestRoundIndex = newLatestRoundIndex
@@ -596,7 +596,7 @@ func (cache *RoundCache) initRounds(startRoundIndex, endRoundIndex uint64) ([]*R
 				return nil, err
 			}
 			if lastSnapshotBlock == nil {
-				return nil, errors.New(fmt.Sprintf("lastSnapshotBlock is nil, index is %d", index))
+				return nil, fmt.Errorf("lastSnapshotBlock is nil, index is %d", index)
 			}
 
 			curCurrentData = cache.buildCurrentData(prevCurrentData, redoLogs)

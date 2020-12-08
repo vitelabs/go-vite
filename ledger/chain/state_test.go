@@ -9,7 +9,6 @@ import (
 	"path"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
@@ -385,7 +384,7 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 			for key, value := range kvSet {
 				kvSetStr += fmt.Sprintf("%d: %d, ", []byte(key), value)
 			}
-			return errors.New(fmt.Sprintf("key: %d, kv: %s, value: %d, queryValue: %d", key, kvSetStr, kvSet[string(key)], value))
+			return fmt.Errorf("key: %d, kv: %s, value: %d, queryValue: %d", key, kvSetStr, kvSet[string(key)], value)
 		}
 
 	}
@@ -408,7 +407,7 @@ func checkIterator(kvSet map[string][]byte, getIterator func() (interfaces.Stora
 		value := iter.Value()
 		if !bytes.Equal(kvSet[string(key)], value) {
 			fmt.Println(string(key))
-			return errors.New(fmt.Sprintf("key: %s, kvValue:%d, value: %d", string(key), kvSet[string(key)], value))
+			return fmt.Errorf("key: %s, kvValue:%d, value: %d", string(key), kvSet[string(key)], value)
 		}
 		iterOk = iter.Prev()
 	}

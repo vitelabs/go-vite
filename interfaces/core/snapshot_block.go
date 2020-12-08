@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -106,7 +105,7 @@ func (sc SnapshotContent) proto() []byte {
 func (sc SnapshotContent) deProto(pb []byte) error {
 	lenPb := len(pb)
 	if lenPb%ScItemBytesLen != 0 {
-		return errors.New(fmt.Sprintf("The length of pb is %d, %d / %d != 0", lenPb, lenPb, ScItemBytesLen))
+		return fmt.Errorf("The length of pb is %d, %d / %d != 0", lenPb, lenPb, ScItemBytesLen)
 	}
 	currentPointer := 0
 	for currentPointer < lenPb {

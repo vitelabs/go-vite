@@ -112,8 +112,8 @@ func (self *SnapshotVerifier) verifyAccounts(block *ledger.SnapshotBlock, prev *
 		} else {
 			stat.results[addr] = FAIL
 			stat.result = FAIL
-			return errors.New(fmt.Sprintf("account[%s] fork, height:[%d], hash:[%s]",
-				addr.String(), b.Height, b.Hash))
+			return fmt.Errorf("account[%s] fork, height:[%d], hash:[%s]",
+				addr.String(), b.Height, b.Hash)
 		}
 	}
 	for _, v := range stat.results {

@@ -4,8 +4,6 @@ import (
 	"container/list"
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
@@ -269,7 +267,7 @@ func (ql *quotaList) build() (returnError error) {
 		}
 
 		if snapshotSegments == nil {
-			return errors.New(fmt.Sprintf("ql.chain.GetSubLedgerAfterHeight, snapshotSegments is nil, startSbHeight is %d", startSbHeight))
+			return fmt.Errorf("ql.chain.GetSubLedgerAfterHeight, snapshotSegments is nil, startSbHeight is %d", startSbHeight)
 		}
 
 		for _, seg := range snapshotSegments[1:] {
@@ -299,8 +297,8 @@ func (ql *quotaList) build() (returnError error) {
 		}
 
 		if snapshotSegments == nil {
-			return errors.New(fmt.Sprintf("ql.chain.GetSubLedger, snapshotSegments is nil, startSbHeight is %d, endSbHeight is %d",
-				startSbHeight, endSbHeight))
+			return fmt.Errorf("ql.chain.GetSubLedger, snapshotSegments is nil, startSbHeight is %d, endSbHeight is %d",
+				startSbHeight, endSbHeight)
 		}
 
 		segLength := len(snapshotSegments)

@@ -57,7 +57,7 @@ func (fd *fileDescription) Write(buf []byte) (int, error) {
 	defer cacheItem.Mu.Unlock()
 
 	if fd.fileId != cacheItem.FileId {
-		return 0, errors.New(fmt.Sprintf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId))
+		return 0, fmt.Errorf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId)
 	}
 
 	if cacheItem.BufferLen >= fd.writeMaxSize {
@@ -94,13 +94,13 @@ func (fd *fileDescription) Flush(startOffset int64, buf []byte) (int, error) {
 	defer cacheItem.Mu.Unlock()
 
 	if fd.fileId != cacheItem.FileId {
-		return 0, errors.New(fmt.Sprintf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId))
+		return 0, fmt.Errorf("fd.fileId is %d, cacheItem.FileId is %d", fd.fileId, cacheItem.FileId)
 	}
 
 	if cacheItem.FileWriter == nil {
 		fd, err := fd.fdSet.createNewFile(cacheItem.FileId)
 		if err != nil {
-			return 0, errors.New(fmt.Sprintf("fdSet.createNewFile failed, fileId is %d. Error: %s,", cacheItem.FileId, err))
+			return 0, fmt.Errorf("fdSet.createNewFile failed, fileId is %d. Error: %s,", cacheItem.FileId, err)
 		}
 		if fd == nil {
 			return 0, errors.New("fd is nil")
@@ -148,7 +148,7 @@ func (fd *fileDescription) readAt(b []byte, offset int64) (int, error) {
 			return 0, err
 		}
 		if fd.fileReader == nil {
-			return 0, errors.New(fmt.Sprintf("can't open fileReader, fileReader id is %d", fd.fileId))
+			return 0, fmt.Errorf("can't open fileReader, fileReader id is %d", fd.fileId)
 		}
 
 		return fd.fileReader.ReadAt(b, offset)

@@ -67,19 +67,19 @@ func newFdManager(fileManager *FileManager, dirName string, fileSize int, cacheL
 	fdSet.dirFd, err = fileutils.OpenOrCreateFd(dirName)
 
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("fileutils.OpenOrCreateFd failed, error is %s, dirName is %s", err, dirName))
+		return nil, fmt.Errorf("fileutils.OpenOrCreateFd failed, error is %s, dirName is %s", err, dirName)
 	}
 
 	location, err := fdSet.loadLatestLocation()
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("fdSet.loadLatestFileId failed. Error: %s", err))
+		return nil, fmt.Errorf("fdSet.loadLatestFileId failed. Error: %s", err)
 	}
 
 	if location == nil {
 		location = NewLocation(1, 0)
 	}
 	if err = fdSet.resetWriteFd(location); err != nil {
-		return nil, errors.New(fmt.Sprintf("fdSet.resetWriteFd failed. Error %s", err))
+		return nil, fmt.Errorf("fdSet.resetWriteFd failed. Error %s", err)
 	}
 
 	return fdSet, nil
@@ -274,7 +274,7 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 		}
 
 		if fd == nil {
-			return errors.New(fmt.Sprintf("fd is nil, fileId is %d, location is %+v\n", fileId, location))
+			return fmt.Errorf("fd is nil, fileId is %d, location is %+v\n", fileId, location)
 		}
 	}
 
@@ -334,7 +334,7 @@ func (fdSet *fdManager) resetWriteFd(location *Location) error {
 		if n, err := fd.Read(newItem.Buffer[:bufferLen]); err != nil {
 			return err
 		} else if int64(n) != bufferLen {
-			return errors.New(fmt.Sprintf("fd.Read, bufferLen is %d, n is %d, fileId is %d", bufferLen, n, fileId))
+			return fmt.Errorf("fd.Read, bufferLen is %d, n is %d, fileId is %d", bufferLen, n, fileId)
 		}
 
 	}
@@ -353,7 +353,7 @@ func (fdSet *fdManager) latestFileId() uint64 {
 func (fdSet *fdManager) loadLatestLocation() (*Location, error) {
 	allFilename, readErr := fdSet.dirFd.Readdirnames(0)
 	if readErr != nil {
-		return nil, errors.New(fmt.Sprintf("fm.dirFd.Readdirnames(0) failed, error is %s", readErr.Error()))
+		return nil, fmt.Errorf("fm.dirFd.Readdirnames(0) failed, error is %s", readErr.Error())
 	}
 
 	maxFileId := uint64(0)
@@ -364,7 +364,7 @@ func (fdSet *fdManager) loadLatestLocation() (*Location, error) {
 
 		fileId, err := fdSet.filenameToFileId(filename)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("strconv.ParseUint failed, error is %s, fileName is %s", err.Error(), filename))
+			return nil, fmt.Errorf("strconv.ParseUint failed, error is %s, fileName is %s", err.Error(), filename)
 		}
 
 		if fileId > maxFileId {
@@ -436,8 +436,8 @@ func (fdSet *fdManager) getFileFd(fileId uint64) (*os.File, error) {
 		if os.IsNotExist(oErr) {
 			return nil, nil
 		}
-		return nil, errors.New(fmt.Sprintf("error is %s, fileId is %d, absoluteFilename is %s",
-			oErr.Error(), fileId, absoluteFilename))
+		return nil, fmt.Errorf("error is %s, fileId is %d, absoluteFilename is %s",
+			oErr.Error(), fileId, absoluteFilename)
 	}
 	return file, oErr
 }

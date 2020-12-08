@@ -3,12 +3,11 @@ package chain
 import (
 	"fmt"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/state"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	chain_state "github.com/vitelabs/go-vite/ledger/chain/state"
+	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 func printSnapshotLog(snapshotLog chain_state.SnapshotLog) string {
@@ -32,20 +31,20 @@ func (c *chain) CheckRedo() error {
 		snapshotHeight := chain_utils.BytesToUint64(key[1:])
 
 		if prevHeight > 0 && prevHeight+1 != snapshotHeight {
-			return errors.New(fmt.Sprintf("prevHeight + 1 != snapshotHeight, prev height is %d, snapshot height is %d", prevHeight, snapshotHeight))
+			return fmt.Errorf("prevHeight + 1 != snapshotHeight, prev height is %d, snapshot height is %d", prevHeight, snapshotHeight)
 		}
 		prevHeight = snapshotHeight
 
 		chunks, err := c.GetSubLedger(snapshotHeight-1, snapshotHeight)
 		if err != nil {
-			return errors.New(fmt.Sprintf("c.GetSubLedger failed, start snapshot height is %d, end snapshot height is %d", snapshotHeight-1, snapshotHeight))
+			return fmt.Errorf("c.GetSubLedger failed, start snapshot height is %d, end snapshot height is %d", snapshotHeight-1, snapshotHeight)
 		}
 		snapshotLog, ok, err := redo.QueryLog(snapshotHeight)
 		if err != nil {
-			return errors.New(fmt.Sprintf("redo.QueryLog failed, snapshot height is %d", snapshotHeight))
+			return fmt.Errorf("redo.QueryLog failed, snapshot height is %d", snapshotHeight)
 		}
 		if !ok {
-			return errors.New(fmt.Sprintf("ok is false, snapshot height is %d", snapshotHeight))
+			return fmt.Errorf("ok is false, snapshot height is %d", snapshotHeight)
 		}
 
 		blockCount := 0
@@ -53,8 +52,8 @@ func (c *chain) CheckRedo() error {
 			blockCount += len(chunk.AccountBlocks)
 			for _, accountBlock := range chunk.AccountBlocks {
 				if logs, ok := snapshotLog[accountBlock.AccountAddress]; !ok || len(logs) <= 0 {
-					return errors.New(fmt.Sprintf("!ok || len(logs) <= 0. snapshot log is %s. accountBlock is %+v, snapshot height is %d",
-						printSnapshotLog(snapshotLog), accountBlock, snapshotHeight))
+					return fmt.Errorf("!ok || len(logs) <= 0. snapshot log is %s. accountBlock is %+v, snapshot height is %d",
+						printSnapshotLog(snapshotLog), accountBlock, snapshotHeight)
 				}
 			}
 		}
@@ -65,7 +64,7 @@ func (c *chain) CheckRedo() error {
 		}
 
 		if blockCount != logLength {
-			return errors.New(fmt.Sprintf("blockCount != logLength, blockCount is %d, logLength is %d, snapshot log is %s", blockCount, logLength, printSnapshotLog(snapshotLog)))
+			return fmt.Errorf("blockCount != logLength, blockCount is %d, logLength is %d, snapshot log is %s", blockCount, logLength, printSnapshotLog(snapshotLog))
 		}
 
 		c.log.Info(fmt.Sprintf("snapshot height: %d. %d logs, %d blocks", snapshotHeight, logLength, blockCount), "method", "checkRedo")
@@ -80,7 +79,7 @@ func (c *chain) CheckRecentBlocks() error {
 	c.log.Info(fmt.Sprintf("latest snapshot block is %d, %s", latestSb.Height, latestSb.Hash), "method", "checkRecentBlocks")
 	sbList, err := c.GetSnapshotBlocks(latestSb.Hash, false, 100)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.GetSnapshotBlocks failed. Error: %s", err))
+		cErr := fmt.Errorf("c.GetSnapshotBlocks failed. Error: %s", err)
 		return cErr
 	}
 
@@ -89,7 +88,7 @@ func (c *chain) CheckRecentBlocks() error {
 	accountLatestBlockMap := make(map[types.Address]*ledger.AccountBlock)
 	for _, sb := range sbList {
 		if prevSb != nil && (prevSb.PrevHash != sb.Hash || prevSb.Height != sb.Height+1) {
-			return errors.New(fmt.Sprintf("prevSb is %+v, sb is %+v", prevSb, sb))
+			return fmt.Errorf("prevSb is %+v, sb is %+v", prevSb, sb)
 		}
 
 		prevSb = sb
@@ -100,12 +99,12 @@ func (c *chain) CheckRecentBlocks() error {
 
 			block, err := c.GetAccountBlockByHash(hashHeight.Hash)
 			if err != nil {
-				return errors.New(fmt.Sprintf("c.GetAccountBlockByHash failed, addr is %s, hash is %s. Error: %s", addr, hashHeight.Hash, err))
+				return fmt.Errorf("c.GetAccountBlockByHash failed, addr is %s, hash is %s. Error: %s", addr, hashHeight.Hash, err)
 			}
 
 			for {
 				if block == nil {
-					return errors.New(fmt.Sprintf("c.GetAccountBlockByHash(), block is nil, addr is %s, hash is %s", addr, hashHeight.Hash))
+					return fmt.Errorf("c.GetAccountBlockByHash(), block is nil, addr is %s, hash is %s", addr, hashHeight.Hash)
 				}
 
 				c.log.Info(fmt.Sprintf("check account block %s %d %s %s", block.AccountAddress, block.Height, block.Hash, block.FromBlockHash))
@@ -114,19 +113,19 @@ func (c *chain) CheckRecentBlocks() error {
 				if !ok {
 					latestBlock, err := c.GetLatestAccountBlock(addr)
 					if err != nil {
-						return errors.New(fmt.Sprintf("c.GetLatestAccountBlock failed, addr is %s. Error: %s", addr, err))
+						return fmt.Errorf("c.GetLatestAccountBlock failed, addr is %s. Error: %s", addr, err)
 					}
 
 					if latestBlock == nil {
-						return errors.New(fmt.Sprintf("c.GetAccountBlockByHash(), latest account block is nil, addr is %s", addr))
+						return fmt.Errorf("c.GetAccountBlockByHash(), latest account block is nil, addr is %s", addr)
 					}
 
 					if latestBlock.Hash != block.Hash {
-						return errors.New(fmt.Sprintf("latest account block is %+v, block is %+v", latestBlock, block))
+						return fmt.Errorf("latest account block is %+v, block is %+v", latestBlock, block)
 					}
 
 				} else if cacheLatestBlock.Height <= block.Height {
-					return errors.New(fmt.Sprintf("cacheLatestBlock.Height <= block.Height, cacheLatestBlock is %+v, block is %+v", cacheLatestBlock, block))
+					return fmt.Errorf("cacheLatestBlock.Height <= block.Height, cacheLatestBlock is %+v, block is %+v", cacheLatestBlock, block)
 				}
 				// set latest
 				accountLatestBlockMap[addr] = block
@@ -138,11 +137,11 @@ func (c *chain) CheckRecentBlocks() error {
 
 				confirmedSb, err := c.GetConfirmSnapshotBlockByAbHash(block.PrevHash)
 				if err != nil {
-					return errors.New(fmt.Sprintf("GetConfirmSnapshotBlockByAbHash failed, addr is %s, prevHash is %s. Error: %s", addr, block.PrevHash, err))
+					return fmt.Errorf("GetConfirmSnapshotBlockByAbHash failed, addr is %s, prevHash is %s. Error: %s", addr, block.PrevHash, err)
 				}
 
 				if confirmedSb == nil {
-					return errors.New(fmt.Sprintf("confirmd sb is nil, account block hash is %s", block.PrevHash))
+					return fmt.Errorf("confirmd sb is nil, account block hash is %s", block.PrevHash)
 				}
 				if confirmedSb.Hash != sb.Hash {
 					break
@@ -150,10 +149,10 @@ func (c *chain) CheckRecentBlocks() error {
 
 				prevBlock, err := c.GetAccountBlockByHash(block.PrevHash)
 				if err != nil {
-					return errors.New(fmt.Sprintf("get prev account block failed, addr is %s, prevHash is %s. Error: %s", addr, block.PrevHash, err))
+					return fmt.Errorf("get prev account block failed, addr is %s, prevHash is %s. Error: %s", addr, block.PrevHash, err)
 				}
 				if prevBlock == nil {
-					return errors.New(fmt.Sprintf("get prev account block is nil, addr is %s, prevHash is %s. Error: %s", addr, block.PrevHash, err))
+					return fmt.Errorf("get prev account block is nil, addr is %s, prevHash is %s. Error: %s", addr, block.PrevHash, err)
 				}
 
 				block = prevBlock
@@ -180,28 +179,28 @@ func (c *chain) CheckOnRoad() error {
 
 		toAddr, err := types.BytesToAddress(toAddrBytes)
 		if err != nil {
-			return errors.New(fmt.Sprintf("types.BytesToAddress failed, toAddrBytes is %d", toAddrBytes))
+			return fmt.Errorf("types.BytesToAddress failed, toAddrBytes is %d", toAddrBytes)
 		}
 
 		sendBlockHash, err := types.BytesToHash(sendBlockHashBytes)
 		if err != nil {
-			return errors.New(fmt.Sprintf("types.HexToHash failed, sendBlockHashBytes is %d", sendBlockHashBytes))
+			return fmt.Errorf("types.HexToHash failed, sendBlockHashBytes is %d", sendBlockHashBytes)
 		}
 
 		existed, err := c.IsAccountBlockExisted(sendBlockHash)
 		if err != nil {
-			return errors.New(fmt.Sprintf("c.IsAccountBlockExisted failed, sendBlockHash is %s, toAddr is %s", sendBlockHash, toAddr))
+			return fmt.Errorf("c.IsAccountBlockExisted failed, sendBlockHash is %s, toAddr is %s", sendBlockHash, toAddr)
 		}
 		if !existed {
-			return errors.New(fmt.Sprintf("send block is not exsited, sendBlockHash is %s, toAddr is %s", sendBlockHash, toAddr))
+			return fmt.Errorf("send block is not exsited, sendBlockHash is %s, toAddr is %s", sendBlockHash, toAddr)
 		}
 
 		received, err := c.IsReceived(sendBlockHash)
 		if err != nil {
-			return errors.New(fmt.Sprintf("c.IsReceived failed, sendBlockHash is %s", sendBlockHash))
+			return fmt.Errorf("c.IsReceived failed, sendBlockHash is %s", sendBlockHash)
 		}
 		if received {
-			return errors.New(fmt.Sprintf("is received, sendBlockHash is %s", sendBlockHash))
+			return fmt.Errorf("is received, sendBlockHash is %s", sendBlockHash)
 		}
 
 		c.log.Info(fmt.Sprintf("check on road, to addr is %s, send block hash is %s", toAddr, sendBlockHash), "method", "checkOnRoad")
@@ -223,16 +222,16 @@ func (c *chain) CheckHash() error {
 		key := iter.Key()
 		hash, err := types.BytesToHash(key[1:])
 		if err != nil {
-			return errors.New(fmt.Sprintf("BytesToHash failed, key is %d. Error: %s", key, err))
+			return fmt.Errorf("BytesToHash failed, key is %d. Error: %s", key, err)
 		}
 
 		block, err := c.GetAccountBlockByHash(hash)
 		if err != nil {
-			return errors.New(fmt.Sprintf("c.GetAccountBlockByHash failed, hash is %s. Error: %s", hash, err))
+			return fmt.Errorf("c.GetAccountBlockByHash failed, hash is %s. Error: %s", hash, err)
 		}
 
 		if block == nil {
-			return errors.New(fmt.Sprintf("block is nil, hash is %s.", hash))
+			return fmt.Errorf("block is nil, hash is %s.", hash)
 		}
 		if !(block.IsSendBlock() && block.Height == 0 && block.PrevHash.IsZero()) {
 			if block.Hash != block.ComputeHash() {

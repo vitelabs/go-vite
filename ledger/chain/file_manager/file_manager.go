@@ -6,8 +6,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/pkg/errors"
-
 	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -102,16 +100,16 @@ func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location, 
 	for flushLocation.Compare(targetLocation) < 0 {
 		fd, err := fm.fdSet.GetFd(flushLocation.FileId)
 		if err != nil {
-			return errors.New(fmt.Sprintf("fm.fdSet.GetFd failed, fileId is %d. Error: %s. ", flushLocation.FileId, err.Error()))
+			return fmt.Errorf("fm.fdSet.GetFd failed, fileId is %d. Error: %s. ", flushLocation.FileId, err.Error())
 		}
 		if fd == nil {
 			fd, err = fm.fdSet.GetTmpFlushFd(flushLocation.FileId)
 			if err != nil {
-				return errors.New(fmt.Sprintf("fm.fdSet.GetTmpFlushFd failed, fileId is %d. Error: %s. ", flushLocation.FileId, err.Error()))
+				return fmt.Errorf("fm.fdSet.GetTmpFlushFd failed, fileId is %d. Error: %s. ", flushLocation.FileId, err.Error())
 			}
 
 			if fd == nil {
-				return errors.New(fmt.Sprintf("fd is nil, fileId is %d. Error: %s", flushLocation.FileId, err))
+				return fmt.Errorf("fd is nil, fileId is %d. Error: %s", flushLocation.FileId, err)
 			}
 		}
 
@@ -124,7 +122,7 @@ func (fm *FileManager) Flush(startLocation *Location, targetLocation *Location, 
 
 		n, err := fd.Flush(flushLocation.Offset, buf[bufStart:bufEnd])
 		if err != nil {
-			return errors.New(fmt.Sprintf("fd flush failed, fileId is %d", flushLocation.FileId))
+			return fmt.Errorf("fd flush failed, fileId is %d", flushLocation.FileId)
 		}
 
 		flushOffset := flushLocation.Offset + int64(n)
@@ -234,11 +232,11 @@ func (fm *FileManager) ReadRange(startLocation *Location, endLocation *Location,
 	for currentLocation.FileId <= realEndLocation.FileId {
 		fd, err := fm.fdSet.GetFd(currentLocation.FileId)
 		if err != nil {
-			parser.WriteError(errors.New(fmt.Sprintf("fm.fdSet.GetFd failed, fileId is %d. Error: %s. ", currentLocation.FileId, err.Error())))
+			parser.WriteError(fmt.Errorf("fm.fdSet.GetFd failed, fileId is %d. Error: %s. ", currentLocation.FileId, err.Error()))
 			return
 		}
 		if fd == nil {
-			parser.WriteError(errors.New(fmt.Sprintf("fd is nil, location is %+v\n", currentLocation)))
+			parser.WriteError(fmt.Errorf("fd is nil, location is %+v\n", currentLocation))
 			return
 		}
 
@@ -305,7 +303,7 @@ func (fm *FileManager) write(buf []byte) (int, error) {
 
 	if count < bufLen {
 		if err := fm.fdSet.CreateNextFd(); err != nil {
-			return count, errors.New(fmt.Sprintf("fm.Write failed, error is %s", err.Error()))
+			return count, fmt.Errorf("fm.Write failed, error is %s", err.Error())
 		}
 	}
 

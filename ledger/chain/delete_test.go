@@ -8,12 +8,10 @@ import (
 	_ "net/http/pprof"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 func TestChain_DeleteSnapshotBlocks(t *testing.T) {
@@ -163,11 +161,11 @@ func deleteSnapshotBlocks(chainInstance *chain, accounts map[types.Address]*Acco
 			if block.PrevHash != prev.Hash {
 				panic(fmt.Sprintf("%s-%d %s-%d", prev.Hash, prev.Height, block.Hash, block.Height))
 
-				//panic(errors.New(fmt.Sprintf("%s not a chain:"+printf(blocks), addr)))
+				//panic(fmt.Errorf("%s not a chain:"+printf(blocks), addr))
 			}
 
 			if block.Height-1 != prev.Height {
-				panic(errors.New(fmt.Sprintf("%s not a chain:"+printf(blocks), addr)))
+				panic(fmt.Errorf("%s not a chain:"+printf(blocks), addr))
 			}
 			prev = block
 		}

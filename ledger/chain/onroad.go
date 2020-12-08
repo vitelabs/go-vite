@@ -8,7 +8,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/plugins"
+	chain_plugins "github.com/vitelabs/go-vite/ledger/chain/plugins"
 )
 
 func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {
@@ -19,7 +19,7 @@ func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][
 
 	onRoadData, err := c.indexDB.Load(addrList)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.Load failed, addrList is %+v。 Error: %s", addrList, err))
+		cErr := fmt.Errorf("c.indexDB.Load failed, addrList is %+v。 Error: %s", addrList, err)
 		c.log.Error(cErr.Error(), "method", "LoadOnRoad")
 		return nil, cErr
 	}
@@ -31,8 +31,8 @@ func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][
 func (c *chain) GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error) {
 	hashList, err := c.indexDB.GetOnRoadHashList(addr, pageNum, pageSize)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.GetOnRoadBlocksByAddr failed, error is %s, address is %s, pageNum is %d, countPerPage is %d",
-			err, addr, pageNum, pageSize))
+		cErr := fmt.Errorf("c.GetOnRoadBlocksByAddr failed, error is %s, address is %s, pageNum is %d, countPerPage is %d",
+			err, addr, pageNum, pageSize)
 		c.log.Error(cErr.Error(), "method", "GetOnRoadBlocksByAddr")
 		return nil, cErr
 	}

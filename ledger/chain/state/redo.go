@@ -7,13 +7,11 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/pkg/errors"
-
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/db"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
+	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/log15"
 )
 
@@ -35,7 +33,7 @@ func (sl *SnapshotLog) Serialize() ([]byte, error) {
 
 	err := enc.Encode(sl)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("enc.Encode: %+v. Error: %s", sl, err.Error()))
+		return nil, fmt.Errorf("enc.Encode: %+v. Error: %s", sl, err.Error())
 	}
 
 	return valueBuffer.Bytes(), nil
@@ -50,7 +48,7 @@ func (sl *SnapshotLog) Deserialize(buf []byte) error {
 	dec := gob.NewDecoder(&valueBuffer)
 
 	if err := dec.Decode(sl); err != nil && err != io.EOF {
-		return errors.New(fmt.Sprintf("dec.Decode failed, buffer is %+v. Error: %s", buf, err))
+		return fmt.Errorf("dec.Decode failed, buffer is %+v. Error: %s", buf, err)
 	}
 	return nil
 }
@@ -89,7 +87,7 @@ func NewStorageRedoWithStore(chain Chain, store *chain_db.Store) (*Redo, error) 
 	store.RegisterAfterRecover(func() {
 		redo.log.Info("after recover, redo.initCache()")
 		if err := redo.initCache(); err != nil {
-			panic(errors.New(fmt.Sprintf("after recover, redo.initCache failed, Error: %s", err.Error())))
+			panic(fmt.Errorf("after recover, redo.initCache failed, Error: %s", err.Error()))
 		}
 	})
 	return redo, nil
@@ -217,7 +215,7 @@ func (redo *Redo) QueryLog(snapshotHeight uint64) (SnapshotLog, bool, error) {
 
 	if len(value) >= 0 {
 		if err := snapshotLog.Deserialize(value); err != nil {
-			return nil, true, errors.New(fmt.Sprintf("dec.Decode failed, value is %+v. Error: %s", value, err))
+			return nil, true, fmt.Errorf("dec.Decode failed, value is %+v. Error: %s", value, err)
 		}
 	}
 

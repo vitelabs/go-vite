@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
@@ -332,7 +330,7 @@ func (l *LedgerApi) GetConfirmedBalances(snapshotHash types.Hash, addrList []typ
 		}
 
 		if balances == nil {
-			return nil, errors.New(fmt.Sprintf("snapshot block %s is not existed.", snapshotHash))
+			return nil, fmt.Errorf("snapshot block %s is not existed.", snapshotHash)
 		}
 
 		for addr, balance := range balances {

@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/vitelabs/go-vite/common/types"
@@ -12,7 +11,7 @@ func (c *chain) GetAccountId(address types.Address) (uint64, error) {
 	accountId, err := c.indexDB.GetAccountId(&address)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountId failed, error is %s, address is %s", err.Error(), address))
+		cErr := fmt.Errorf("c.indexDB.GetAccountId failed, error is %s, address is %s", err.Error(), address)
 		c.log.Error(cErr.Error(), "method", "GetAccountId")
 		return 0, cErr
 	}
@@ -24,7 +23,7 @@ func (c *chain) GetAccountAddress(accountId uint64) (*types.Address, error) {
 	addr, err := c.indexDB.GetAccountAddress(accountId)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountAddress failed, error is %s, accountId is %d", err.Error(), accountId))
+		cErr := fmt.Errorf("c.indexDB.GetAccountAddress failed, error is %s, accountId is %d", err.Error(), accountId)
 		c.log.Error(cErr.Error(), "method", "getAccountAddress")
 		return nil, cErr
 	}

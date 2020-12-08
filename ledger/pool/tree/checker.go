@@ -42,20 +42,18 @@ func checkHeadTailLink(c1 Branch, c2 Branch) error {
 	if c1.Linked(c2) {
 		return nil
 	}
-	return errors.New(fmt.Sprintf("checkHeadTailLink fail. c1:%s, c2:%s, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s",
-		c1.ID(), c2.ID(), c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead()))
+	return fmt.Errorf("checkHeadTailLink fail. c1:%s, c2:%s, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s",
+		c1.ID(), c2.ID(), c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead())
 }
 func checkLink(c1 Branch, c2 Branch, refer bool) error {
 	tailHeight, tailHash := c1.TailHH()
 	block := c2.GetKnot(tailHeight, refer)
 	if block == nil {
-		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s",
-			c1.ID(), c2.ID(), refer,
-			c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead()))
+		return fmt.Errorf("checkLink fail. c1:%s, c2:%s, refer:%t, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s",
+			c1.ID(), c2.ID(), refer, c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead())
 	} else if block.Hash() != tailHash {
-		return errors.New(fmt.Sprintf("checkLink fail. c1:%s, c2:%s, refer:%t, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s, hash[%s-%s]",
-			c1.ID(), c2.ID(), refer,
-			c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead(), block.Hash(), tailHash))
+		return fmt.Errorf("checkLink fail. c1:%s, c2:%s, refer:%t, c1Tail:%s, c1Head:%s, c2Tail:%s, c2Head:%s, hash[%s-%s]",
+			c1.ID(), c2.ID(), refer, c1.SprintTail(), c1.SprintHead(), c2.SprintTail(), c2.SprintHead(), block.Hash(), tailHash)
 	}
 	return nil
 }

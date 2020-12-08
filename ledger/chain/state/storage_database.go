@@ -3,8 +3,6 @@ package chain_state
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
@@ -16,7 +14,7 @@ func (sDB *StateDB) NewStorageDatabase(snapshotHash types.Hash, addr types.Addre
 		return nil, err
 	}
 	if snapshotHeight <= 0 {
-		return nil, errors.New(fmt.Sprintf("snapshot hash %s is not existed", snapshotHash))
+		return nil, fmt.Errorf("snapshot hash %s is not existed", snapshotHash)
 	}
 
 	return NewStorageDatabase(sDB, ledger.HashHeight{
@@ -56,8 +54,8 @@ func (sd *StorageDatabase) NewStorageIterator(prefix []byte) (interfaces.Storage
 	}
 	ss, err := sd.stateDb.NewSnapshotStorageIteratorByHeight(sd.snapshotHeight, sd.addr, prefix)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHeight is %d, addr is %s, prefix is %s",
-			sd.snapshotHeight, sd.addr, prefix))
+		cErr := fmt.Errorf("c.stateDB.NewSnapshotStorageIterator failed, snapshotHeight is %d, addr is %s, prefix is %s",
+			sd.snapshotHeight, sd.addr, prefix)
 		return nil, cErr
 	}
 

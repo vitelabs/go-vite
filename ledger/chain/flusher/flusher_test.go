@@ -14,7 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 func TestFlusher(t *testing.T) {
@@ -188,7 +188,7 @@ func checkDB(db *mockDB, commitTimes uint64, writeToDB bool) error {
 	Kv := db.Kv
 	if writeToDB {
 		if uint64(len(Kv)) != 15*(commitTimes+1) {
-			return errors.New(fmt.Sprintf("len(kv) is %d, 15*(commitTimes+1) is %d", len(Kv), 15*(commitTimes+1)))
+			return fmt.Errorf("len(kv) is %d, 15*(commitTimes+1) is %d", len(Kv), 15*(commitTimes+1))
 		}
 	}
 	baseNum := commitTimes * 30
@@ -197,14 +197,14 @@ func checkDB(db *mockDB, commitTimes uint64, writeToDB bool) error {
 		valueNum := chain_utils.BytesToUint64(value)
 		if writeToDB {
 			if (keyNum > 10+baseNum && keyNum < 20+baseNum) || keyNum > 25+baseNum {
-				return errors.New(fmt.Sprintf("keyNum is %d, commitTimes is %d", keyNum, commitTimes))
+				return fmt.Errorf("keyNum is %d, commitTimes is %d", keyNum, commitTimes)
 			}
 			if (valueNum > 10+baseNum && valueNum < 20+baseNum) || valueNum > 25+baseNum {
-				return errors.New(fmt.Sprintf("valueNum is %d, commitTimes is %d", valueNum, commitTimes))
+				return fmt.Errorf("valueNum is %d, commitTimes is %d", valueNum, commitTimes)
 			}
 		} else {
 			if keyNum >= baseNum || valueNum >= baseNum {
-				return errors.New(fmt.Sprintf("baseNum is %d, keyNum is %d, valueNum is %d", baseNum, keyNum, valueNum))
+				return fmt.Errorf("baseNum is %d, keyNum is %d, valueNum is %d", baseNum, keyNum, valueNum)
 			}
 		}
 

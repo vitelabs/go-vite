@@ -462,7 +462,7 @@ func (v *AccountVerifier) verifyVMResult(origBlock *ledger.AccountBlock, genBloc
 		}
 		for k, v := range origBlock.SendBlockList {
 			if v.Hash != genBlock.SendBlockList[k].Hash {
-				return errors.New(fmt.Sprintf("SendBlockList[%v] Hash", k))
+				return fmt.Errorf("SendBlockList[%v] Hash", k)
 			}
 		}
 	}

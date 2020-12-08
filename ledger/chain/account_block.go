@@ -6,7 +6,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
+	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
 )
 
 func (c *chain) IsGenesisAccountBlock(hash types.Hash) bool {
@@ -23,7 +23,7 @@ func (c *chain) IsAccountBlockExisted(hash types.Hash) (bool, error) {
 	// query index
 	ok, err := c.indexDB.IsAccountBlockExisted(&hash)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.IsAccountBlockExisted failed, error is %s, hash is %s", err, hash))
+		cErr := fmt.Errorf("c.indexDB.IsAccountBlockExisted failed, error is %s, hash is %s", err, hash)
 		return false, cErr
 	}
 
@@ -39,8 +39,8 @@ func (c *chain) GetAccountBlockByHeight(addr types.Address, height uint64) (*led
 	// query location
 	location, err := c.indexDB.GetAccountBlockLocation(&addr, height)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocation failed, error is %s, address is %s, height is %d",
-			err.Error(), addr, height))
+		cErr := fmt.Errorf("c.indexDB.GetAccountBlockLocation failed, error is %s, address is %s, height is %d",
+			err.Error(), addr, height)
 		c.log.Error(cErr.Error(), "method", "GetAccountBlockByHeight")
 		return nil, err
 	}
@@ -53,8 +53,8 @@ func (c *chain) GetAccountBlockByHeight(addr types.Address, height uint64) (*led
 	block, err := c.blockDB.GetAccountBlock(location)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.GetAccountBlock failed, address is %s, height is %d, location is %+v. Error: %s,  ",
-			addr, height, location, err.Error()))
+		cErr := fmt.Errorf("c.blockDB.GetAccountBlock failed, address is %s, height is %d, location is %+v. Error: %s,  ",
+			addr, height, location, err.Error())
 		c.log.Error(cErr.Error(), "method", "GetAccountBlockByHeight")
 		return nil, err
 	}
@@ -71,8 +71,8 @@ func (c *chain) GetAccountBlockHashByHeight(addr types.Address, height uint64) (
 	// query location
 	hash, _, err := c.indexDB.GetAccountBlockLocationByHeight(&addr, height)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockHashByHeight failed, error is %s, address is %s, height is %d",
-			err.Error(), addr, height))
+		cErr := fmt.Errorf("c.indexDB.GetAccountBlockHashByHeight failed, error is %s, address is %s, height is %d",
+			err.Error(), addr, height)
 		c.log.Error(cErr.Error(), "method", "GetAccountBlockHashByHeight")
 		return nil, err
 	}
@@ -89,8 +89,8 @@ func (c *chain) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlo
 	// query location
 	location, err := c.indexDB.GetAccountBlockLocationByHash(&blockHash)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocation failed, hash is %s. Error: %s",
-			blockHash, err.Error()))
+		cErr := fmt.Errorf("c.indexDB.GetAccountBlockLocation failed, hash is %s. Error: %s",
+			blockHash, err.Error())
 		c.log.Error(cErr.Error(), "method", "GetCompleteBlockByHash")
 		return nil, cErr
 	}
@@ -103,8 +103,8 @@ func (c *chain) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlo
 	block, err := c.blockDB.GetAccountBlock(location)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.GetAccountBlock failed, hash is %s, location is %+v. Error: %s",
-			blockHash, location, err.Error()))
+		cErr := fmt.Errorf("c.blockDB.GetAccountBlock failed, hash is %s, location is %+v. Error: %s",
+			blockHash, location, err.Error())
 		c.log.Error(cErr.Error(), "method", "GetCompleteBlockByHash")
 		return nil, cErr
 	}
@@ -129,8 +129,8 @@ func (c *chain) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBloc
 func (c *chain) GetReceiveAbBySendAb(sendBlockHash types.Hash) (*ledger.AccountBlock, error) {
 	receiveBlockHash, err := c.indexDB.GetReceivedBySend(&sendBlockHash)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetReceivedBySend failed, hash is %s. Error: %s",
-			err.Error(), sendBlockHash))
+		cErr := fmt.Errorf("c.indexDB.GetReceivedBySend failed, hash is %s. Error: %s",
+			err.Error(), sendBlockHash)
 		c.log.Error(cErr.Error(), "method", "GetReceiveAbBySendAb")
 		return nil, cErr
 	}
@@ -140,8 +140,8 @@ func (c *chain) GetReceiveAbBySendAb(sendBlockHash types.Hash) (*ledger.AccountB
 
 	block, err := c.GetAccountBlockByHash(*receiveBlockHash)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.getAccountBlockByHeight failed, hash is %s. Error: %s"+
-			err.Error(), receiveBlockHash))
+		cErr := fmt.Errorf("c.getAccountBlockByHeight failed, hash is %s. Error: %s"+
+			err.Error(), receiveBlockHash)
 		c.log.Error(cErr.Error(), "method", "GetReceiveAbBySendAb")
 		return nil, cErr
 	}
@@ -152,8 +152,8 @@ func (c *chain) GetReceiveAbBySendAb(sendBlockHash types.Hash) (*ledger.AccountB
 func (c *chain) IsReceived(sendBlockHash types.Hash) (bool, error) {
 	result, err := c.indexDB.IsReceived(&sendBlockHash)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.IsReceived failed, error is %s,  hash is %s",
-			err.Error(), sendBlockHash))
+		cErr := fmt.Errorf("c.indexDB.IsReceived failed, error is %s,  hash is %s",
+			err.Error(), sendBlockHash)
 		c.log.Error(cErr.Error(), "method", "IsReceived")
 		return false, err
 	}
@@ -168,8 +168,8 @@ func (c *chain) GetAccountBlocks(blockHash types.Hash, count uint64) ([]*ledger.
 	addr, locations, heightRange, err := c.indexDB.GetAccountBlockLocationList(&blockHash, count)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocationList failed, error is %s,  hash is %s, count is %d",
-			err.Error(), blockHash, count))
+		cErr := fmt.Errorf("c.indexDB.GetAccountBlockLocationList failed, error is %s,  hash is %s, count is %d",
+			err.Error(), blockHash, count)
 		c.log.Error(cErr.Error(), "method", "GetAccountBlocks")
 		return nil, err
 	}
@@ -188,8 +188,8 @@ func (c *chain) GetAccountBlocksByHeight(addr types.Address, height uint64, coun
 	locations, heightRange, err := c.indexDB.GetAccountBlockLocationListByHeight(addr, height, count)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetAccountBlockLocationList failed, Addr is %s,  height is %d, count is %d.Error: %s",
-			addr, height, count, err.Error()))
+		cErr := fmt.Errorf("c.indexDB.GetAccountBlockLocationList failed, Addr is %s,  height is %d, count is %d.Error: %s",
+			addr, height, count, err.Error())
 		c.log.Error(cErr.Error(), "method", "GetAccountBlocksByHeight")
 		return nil, err
 	}
@@ -204,8 +204,8 @@ func (c *chain) GetAccountBlocksByHeight(addr types.Address, height uint64, coun
 func (c *chain) GetCallDepth(sendBlockHash types.Hash) (uint16, error) {
 	callDepth, err := c.stateDB.GetCallDepth(&sendBlockHash)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.stateDB.GetCallDepth failed, sendBlockHash is %s. Error: %s",
-			sendBlockHash, err.Error()))
+		cErr := fmt.Errorf("c.stateDB.GetCallDepth failed, sendBlockHash is %s. Error: %s",
+			sendBlockHash, err.Error())
 		c.log.Error(cErr.Error(), "method", "GetConfirmedTimes")
 		return 0, cErr
 	}
@@ -215,8 +215,8 @@ func (c *chain) GetCallDepth(sendBlockHash types.Hash) (uint16, error) {
 func (c *chain) GetConfirmedTimes(blockHash types.Hash) (uint64, error) {
 	confirmHeight, err := c.indexDB.GetConfirmHeightByHash(&blockHash)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetConfirmHeightByHash failed, blockHash is %s. Error: %s",
-			blockHash, err.Error()))
+		cErr := fmt.Errorf("c.indexDB.GetConfirmHeightByHash failed, blockHash is %s. Error: %s",
+			blockHash, err.Error())
 		c.log.Error(cErr.Error(), "method", "GetConfirmedTimes")
 		return 0, cErr
 	}
@@ -237,8 +237,8 @@ func (c *chain) IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, err
 
 	confirmedHeight, err := c.indexDB.GetConfirmHeightByHash(&blockHash)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetConfirmHeightByHash failed, blockHash is %s. Error: %s",
-			blockHash, err.Error()))
+		cErr := fmt.Errorf("c.indexDB.GetConfirmHeightByHash failed, blockHash is %s. Error: %s",
+			blockHash, err.Error())
 		c.log.Error(cErr.Error(), "method", "IsSeedConfirmedNTimes")
 		return false, cErr
 	}
@@ -252,8 +252,8 @@ func (c *chain) IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, err
 	for h := confirmedHeight; seedCount < n; h++ {
 		snapshotBlock, err := c.GetSnapshotBlockByHeight(h)
 		if err != nil {
-			cErr := errors.New(fmt.Sprintf("c.GetSnapshotBlockByHeight failed, height is %d. Error: %s",
-				h, err.Error()))
+			cErr := fmt.Errorf("c.GetSnapshotBlockByHeight failed, height is %d. Error: %s",
+				h, err.Error())
 			c.log.Error(cErr.Error(), "method", "IsSeedConfirmedNTimes")
 			return false, cErr
 		}
@@ -275,8 +275,8 @@ func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock,
 
 	height, location, err := c.indexDB.GetLatestAccountBlock(&addr)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetLatestAccountBlock failed, Addr is %s. Error: %s",
-			addr, err.Error()))
+		cErr := fmt.Errorf("c.indexDB.GetLatestAccountBlock failed, Addr is %s. Error: %s",
+			addr, err.Error())
 		c.log.Error(cErr.Error(), "method", "GetLatestAccountBlock")
 		return nil, cErr
 	}
@@ -292,8 +292,8 @@ func (c *chain) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock,
 	block, err := c.blockDB.GetAccountBlock(location)
 
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.blockDB.GetAccountBlock failed, address is %s, height is %d, location is %+v. Error: %s, ",
-			addr, height, location, err.Error()))
+		cErr := fmt.Errorf("c.blockDB.GetAccountBlock failed, address is %s, height is %d, location is %+v. Error: %s, ",
+			addr, height, location, err.Error())
 		c.log.Error(cErr.Error(), "method", "GetLatestAccountBlock")
 		return nil, err
 	}
@@ -308,8 +308,8 @@ func (c *chain) GetLatestAccountHeight(addr types.Address) (uint64, error) {
 
 	height, _, err := c.indexDB.GetLatestAccountBlock(&addr)
 	if err != nil {
-		cErr := errors.New(fmt.Sprintf("c.indexDB.GetLatestAccountBlock failed, Addr is %s. Error: %s",
-			addr, err.Error()))
+		cErr := fmt.Errorf("c.indexDB.GetLatestAccountBlock failed, Addr is %s. Error: %s",
+			addr, err.Error())
 		c.log.Error(cErr.Error(), "method", "GetLatestAccountBlock")
 		return 0, cErr
 	}
@@ -334,8 +334,8 @@ func (c *chain) getAccountBlocks(addr types.Address, locations []*chain_file_man
 			var err error
 			block, err = c.blockDB.GetAccountBlock(locations[index])
 			if err != nil {
-				cErr := errors.New(fmt.Sprintf("c.blockDB.GetAccountBlock failed, locations is %+v. Error: %s",
-					locations[index], err.Error()))
+				cErr := fmt.Errorf("c.blockDB.GetAccountBlock failed, locations is %+v. Error: %s",
+					locations[index], err.Error())
 				c.log.Error(cErr.Error(), "method", "getAccountBlocks")
 				return nil, cErr
 			}
