@@ -9,11 +9,11 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/block"
-	"github.com/vitelabs/go-vite/ledger/chain/flusher"
-	"github.com/vitelabs/go-vite/ledger/chain/index"
-	"github.com/vitelabs/go-vite/ledger/chain/plugins"
-	"github.com/vitelabs/go-vite/ledger/chain/state"
+	chain_block "github.com/vitelabs/go-vite/ledger/chain/block"
+	chain_flusher "github.com/vitelabs/go-vite/ledger/chain/flusher"
+	chain_index "github.com/vitelabs/go-vite/ledger/chain/index"
+	chain_plugins "github.com/vitelabs/go-vite/ledger/chain/plugins"
+	chain_state "github.com/vitelabs/go-vite/ledger/chain/state"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 )
@@ -106,6 +106,9 @@ type Chain interface {
 	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 
 	GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*ledger.AccountBlock, error)
+
+	// [start,end]
+	GetAccountBlocksByRange(addr types.Address, start uint64, end uint64) ([]*ledger.AccountBlock, error)
 
 	// get call depth
 	GetCallDepth(sendBlock types.Hash) (uint16, error)

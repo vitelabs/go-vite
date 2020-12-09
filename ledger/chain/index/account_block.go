@@ -1,12 +1,12 @@
 package chain_index
 
 import (
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
+	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 )
 
 func (iDB *IndexDB) IsAccountBlockExisted(hash *types.Hash) (bool, error) {
@@ -81,13 +81,14 @@ func (iDB *IndexDB) GetAccountBlockLocationByHeight(addr *types.Address, height 
 	return &hash, chain_utils.DeserializeLocation(value[types.HashSize:]), nil
 }
 
-func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, height uint64, count uint64) ([]*chain_file_manager.Location, [2]uint64, error) {
-	startHeight := uint64(1)
-
-	endHeight := height
-	if endHeight > count {
-		startHeight = endHeight - count + 1
+func (iDB *IndexDB) GetAccountBlockLocationListByRange(addr types.Address, start, end uint64) ([]*chain_file_manager.Location, [2]uint64, error) {
+	if end < start {
+		return nil, [2]uint64{}, nil
 	}
+
+	startHeight := start
+
+	endHeight := end
 
 	startKey := chain_utils.CreateAccountBlockHeightKey(&addr, startHeight)
 	endKey := chain_utils.CreateAccountBlockHeightKey(&addr, endHeight+1)
@@ -128,6 +129,17 @@ func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, heig
 	}
 
 	return locationList, [2]uint64{minHeight, maxHeight}, nil
+}
+
+func (iDB *IndexDB) GetAccountBlockLocationListByHeight(addr types.Address, height uint64, count uint64) ([]*chain_file_manager.Location, [2]uint64, error) {
+	startHeight := uint64(1)
+
+	endHeight := height
+	if endHeight > count {
+		startHeight = endHeight - count + 1
+	}
+
+	return iDB.GetAccountBlockLocationListByRange(addr, startHeight, endHeight)
 }
 
 func (iDB *IndexDB) GetAccountBlockLocationList(hash *types.Hash, count uint64) (*types.Address, []*chain_file_manager.Location, [2]uint64, error) {

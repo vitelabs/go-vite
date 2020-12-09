@@ -121,6 +121,32 @@ func (c *chain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error) 
 	return logList, nil
 }
 
+// GetVmLogListByAddress query && vmLogs filter  [start,end]
+func (c *chain) GetVMLogListByAddress(address types.Address, start uint64, end uint64, id *types.Hash) (ledger.VmLogList, error) {
+	if !types.IsContractAddr(address) {
+		return nil, nil
+	}
+	blocks, err := c.GetAccountBlocksByRange(address, start, end)
+	if err != nil {
+		return nil, err
+	}
+	var result ledger.VmLogList
+	for _, block := range blocks {
+		logs, err := c.GetVmLogList(block.LogHash)
+		if err != nil {
+			return nil, err
+		}
+		for _, log := range logs {
+			if id == nil {
+				result = append(result, log)
+			} else if id != nil && len(log.Topics) > 0 && log.Topics[0] == *id {
+				result = append(result, log)
+			}
+		}
+	}
+	return result, nil
+}
+
 func (c *chain) GetQuotaUnused(address types.Address) (uint64, error) {
 	_, quotaInfo, err := c.GetStakeQuota(address)
 	if err != nil {

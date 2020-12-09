@@ -8,7 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/ledger/chain/plugins"
+	chain_plugins "github.com/vitelabs/go-vite/ledger/chain/plugins"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/quota"
@@ -127,6 +127,21 @@ func (l *LedgerApi) GetAccountBlocksByAddress(addr types.Address, index int, cou
 	} else {
 		return blocks, nil
 	}
+}
+
+// GetAccountBlocksByHeightRange [start,end] sorted by height desc
+func (l *LedgerApi) GetAccountBlocksByHeightRange(addr types.Address, start uint64, end uint64) ([]*AccountBlock, error) {
+	list, err := l.chain.GetAccountBlocksByRange(addr, start, end)
+
+	if err != nil {
+		return nil, err
+	}
+
+	blocks, err := l.ledgerBlocksToRpcBlocks(list)
+	if err != nil {
+		return nil, err
+	}
+	return blocks, nil
 }
 
 // new api

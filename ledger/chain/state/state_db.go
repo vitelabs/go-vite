@@ -9,13 +9,13 @@ import (
 	"github.com/patrickmn/go-cache"
 
 	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/db"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
+	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/log15"
 )
 

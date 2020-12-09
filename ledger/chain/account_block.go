@@ -200,6 +200,27 @@ func (c *chain) GetAccountBlocksByHeight(addr types.Address, height uint64, coun
 	return c.getAccountBlocks(addr, locations, heightRange)
 }
 
+// GetAccountBlocksByRange [start,end]
+func (c *chain) GetAccountBlocksByRange(addr types.Address, start uint64, end uint64) ([]*ledger.AccountBlock, error) {
+	if start > end {
+		return nil, nil
+	}
+
+	locations, heightRange, err := c.indexDB.GetAccountBlockLocationListByRange(addr, start, end)
+
+	if err != nil {
+		cErr := fmt.Errorf("c.indexDB.GetAccountBlockLocationListByRange failed, Addr is %s,  start is %d, end is %d.Error: %s",
+			addr, start, end, err.Error())
+		c.log.Error(cErr.Error(), "method", "GetAccountBlockLocationListByRange")
+		return nil, err
+	}
+	if len(locations) <= 0 {
+		return nil, nil
+	}
+
+	return c.getAccountBlocks(addr, locations, heightRange)
+}
+
 // get call depth
 func (c *chain) GetCallDepth(sendBlockHash types.Hash) (uint16, error) {
 	callDepth, err := c.stateDB.GetCallDepth(&sendBlockHash)
