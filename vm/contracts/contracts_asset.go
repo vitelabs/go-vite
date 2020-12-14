@@ -282,7 +282,7 @@ func (p MethodBurn2) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) erro
 	if block.Amount.Sign() <= 0 {
 		return util.ErrInvalidMethodParam
 	}
-	if !util.CheckFork(db, fork.IsTrustlessBridgeFork) {
+	if !util.CheckFork(db, fork.IsVersion10Fork) {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamBurn2)

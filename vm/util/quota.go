@@ -244,7 +244,7 @@ type QuotaTable struct {
 
 // QuotaTableByHeight returns different quota table by hard fork version
 func QuotaTableByHeight(sbHeight uint64) *QuotaTable {
-	if fork.IsTrustlessBridgeFork(sbHeight) {
+	if fork.IsVersion10Fork(sbHeight) {
 		return &trustlessBridgeQuotaTable
 	} else if fork.IsDexStableMarketFork(sbHeight) {
 		return &dexStableMarketQuotaTable
