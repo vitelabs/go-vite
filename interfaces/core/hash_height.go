@@ -44,3 +44,27 @@ func (b *HashHeight) Deserialize(data []byte) error {
 	}
 	return b.DeProto(pb)
 }
+
+// HeightRange range
+type HeightRange struct {
+	Start HashHeight
+	End   HashHeight
+}
+
+// NewHeightRange from height and hash
+func NewHeightRange(height uint64, hash types.Hash) *HeightRange {
+	b := &HeightRange{}
+	b.Start = HashHeight{Hash: hash, Height: height}
+	b.End = HashHeight{Hash: hash, Height: height}
+	return b
+}
+
+// Update range if need
+func (b *HeightRange) Update(height uint64, hash types.Hash) {
+	if height > b.End.Height {
+		b.End = HashHeight{Hash: hash, Height: height}
+	}
+	if height < b.Start.Height {
+		b.Start = HashHeight{Hash: hash, Height: height}
+	}
+}

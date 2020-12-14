@@ -1,6 +1,8 @@
 package core
 
 import (
+	"bytes"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/vitelabs/go-vite/common/fork"
@@ -15,6 +17,22 @@ type VmLog struct {
 }
 
 type VmLogList []*VmLog
+
+func (a VmLogList) Len() int      { return len(a) }
+func (a VmLogList) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a VmLogList) Less(i, j int) bool {
+	if len(a[i].Topics) != len(a[j].Topics) {
+		return len(a[i].Topics) < len(a[j].Topics)
+	}
+	for ii, ai := range a[i].Topics {
+		aj := a[j].Topics[ii]
+		r := ai.Cmp(aj)
+		if r != 0 {
+			return r < 0
+		}
+	}
+	return bytes.Compare(a[i].Data, a[j].Data) < 0
+}
 
 func (vll VmLogList) Hash(snapshotHeight uint64, address types.Address, prevHash types.Hash) *types.Hash {
 	if len(vll) == 0 {

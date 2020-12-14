@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,5 +14,5 @@ func TestHashCmp(t *testing.T) {
 
 	result := hash1.Cmp(hash2)
 
-	t.Logf(fmt.Sprintf("%d", result))
+	assert.True(t, result == -1)
 }

@@ -19,6 +19,7 @@ func (c *chain) GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock 
 
 const maxSnapshotLength = 40000
 
+//Deprecated: ddfa
 func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 
@@ -39,6 +40,27 @@ func (c *chain) GetContentNeedSnapshot() ledger.SnapshotContent {
 	}
 
 	return sc
+}
+
+func (c *chain) GetContentNeedSnapshotRange() map[types.Address]*ledger.HeightRange {
+	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
+
+	result := make(map[types.Address]*ledger.HeightRange)
+	sc := make(ledger.SnapshotContent)
+	// limit account blocks be snapshot less than maxSnapshotLength
+	if len(unconfirmedBlocks) > maxSnapshotLength {
+		unconfirmedBlocks = unconfirmedBlocks[:maxSnapshotLength]
+	}
+
+	for _, block := range unconfirmedBlocks {
+		rg, ok := result[block.AccountAddress]
+		if ok {
+			rg.Update(block.Height, block.Hash)
+		} else {
+			result[block.AccountAddress] = ledger.NewHeightRange(block.Height, block.Hash)
+		}
+	}
+	return result
 }
 
 func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, checkConsensus bool) []*ledger.AccountBlock {

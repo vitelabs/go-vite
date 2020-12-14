@@ -193,7 +193,10 @@ type Chain interface {
 
 	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
 
+	//Deprecated:
 	GetContentNeedSnapshot() ledger.SnapshotContent
+
+	GetContentNeedSnapshotRange() map[types.Address]*ledger.HeightRange
 
 	// ====== Query account ======
 
@@ -231,6 +234,8 @@ type Chain interface {
 	GetValue(address types.Address, key []byte) ([]byte, error)
 
 	GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error)
+
+	GetVMLogListByAddress(address types.Address, start uint64, end uint64, id *types.Hash) (ledger.VmLogList, error)
 
 	// ====== Query built-in contract storage ======
 
