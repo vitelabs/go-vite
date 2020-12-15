@@ -248,7 +248,7 @@ func (node *Node) startRPC() (e error) {
 		filters.Es.Start()
 	}
 	defer func() {
-		if e != nil {
+		if e != nil && filters.Es != nil {
 			filters.Es.Stop()
 		}
 	}()

@@ -93,7 +93,7 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 		return rpc.API{
 			Namespace: "mintage",
 			Version:   "1.0",
-			Service:   api.NewAssetApi(vite),
+			Service:   api.NewMintageAPI(vite),
 			Public:    true,
 		}
 	case "pledge":
