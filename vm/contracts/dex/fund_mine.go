@@ -1,17 +1,18 @@
 package dex
 
 import (
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 //Note: allow mine from specify periodId, former periods will be ignore
-func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int, fundLogger log15.Logger) (*big.Int, error) {
+func DoMineVxForFee(db interfaces.VmDb, reader util.ConsensusReader, periodId uint64, amtForMarkets map[int32]*big.Int, fundLogger log15.Logger) (*big.Int, error) {
 	var (
 		dexFeesByPeriod       *DexFeesByPeriod
 		feeSumMap             = make(map[int32]*big.Int) // quoteTokenType -> amount
@@ -134,12 +135,12 @@ func DoMineVxForFee(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64,
 	return AccumulateAmountFromMap(toDivideVxLeaveAmtMap), nil
 }
 
-func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uint64, amountToMine *big.Int) (*big.Int, error) {
+func DoMineVxForStaking(db interfaces.VmDb, reader util.ConsensusReader, periodId uint64, amountToMine *big.Int) (*big.Int, error) {
 	var (
 		dexMiningStakings      *MiningStakings
 		dividedStakedAmountSum = big.NewInt(0)
 		amtLeavedToMine        = new(big.Int).Set(amountToMine)
-		ok               bool
+		ok                     bool
 	)
 	if amountToMine == nil {
 		return nil, nil
@@ -216,7 +217,7 @@ func DoMineVxForStaking(db vm_db.VmDb, reader util.ConsensusReader, periodId uin
 	return amtLeavedToMine, nil
 }
 
-func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader util.ConsensusReader, amtForMakerAndMaintainer map[int32]*big.Int) (err error) {
+func DoMineVxForMakerMineAndMaintainer(db interfaces.VmDb, periodId uint64, reader util.ConsensusReader, amtForMakerAndMaintainer map[int32]*big.Int) (err error) {
 	if amtForMakerAndMaintainer[MineForMaker].Sign() > 0 {
 		DoMineVxForMaker(db, periodId, amtForMakerAndMaintainer[MineForMaker])
 	}
@@ -226,7 +227,7 @@ func DoMineVxForMakerMineAndMaintainer(db vm_db.VmDb, periodId uint64, reader ut
 	return
 }
 
-func DoMineVxForMaker(db vm_db.VmDb, periodId uint64, amount *big.Int) {
+func DoMineVxForMaker(db interfaces.VmDb, periodId uint64, amount *big.Int) {
 	if amount.Sign() > 0 {
 		makerMiningAdmin := GetMakerMiningAdmin(db)
 		SaveMakerMiningPoolByPeriodId(db, periodId, amount)
@@ -234,7 +235,7 @@ func DoMineVxForMaker(db vm_db.VmDb, periodId uint64, amount *big.Int) {
 	}
 }
 
-func DoMineVxForMaintainer(db vm_db.VmDb, reader util.ConsensusReader, amount *big.Int) (err error) {
+func DoMineVxForMaintainer(db interfaces.VmDb, reader util.ConsensusReader, amount *big.Int) (err error) {
 	if amount.Sign() > 0 {
 		maintainer := GetMaintainer(db)
 		if err = OnVxMined(db, reader, *maintainer, amount); err != nil {
@@ -245,7 +246,7 @@ func DoMineVxForMaintainer(db vm_db.VmDb, reader util.ConsensusReader, amount *b
 	return
 }
 
-func BurnExtraVx(db vm_db.VmDb) ([]*ledger.AccountBlock, error) {
+func BurnExtraVx(db interfaces.VmDb) ([]*ledger.AccountBlock, error) {
 	poolAmt := GetVxMinePool(db)
 	if vxBurnAmt, err := GetVxAmountToBurn(db, poolAmt); err != nil {
 		return nil, err
@@ -268,7 +269,7 @@ func BurnExtraVx(db vm_db.VmDb) ([]*ledger.AccountBlock, error) {
 	}
 }
 
-func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rateSum string, begin, end int) (amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
+func GetVxAmountsForEqualItems(db interfaces.VmDb, periodId uint64, vxPool *big.Int, rateSum string, begin, end int) (amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
 	if vxPool.Sign() > 0 {
 		success = true
 		toDivideTotal := GetVxToMineByPeriodId(db, periodId)
@@ -299,7 +300,7 @@ func GetVxAmountsForEqualItems(db vm_db.VmDb, periodId uint64, vxPool *big.Int, 
 	return
 }
 
-func GetVxAmountToMine(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rate string) (amount, vxAmtLeaved *big.Int, success bool) {
+func GetVxAmountToMine(db interfaces.VmDb, periodId uint64, vxPool *big.Int, rate string) (amount, vxAmtLeaved *big.Int, success bool) {
 	if vxPool.Sign() > 0 {
 		success = true
 		toDivideTotal := GetVxToMineByPeriodId(db, periodId)
@@ -318,7 +319,7 @@ func GetVxAmountToMine(db vm_db.VmDb, periodId uint64, vxPool *big.Int, rate str
 	return
 }
 
-func GetVxAmountToBurn(db vm_db.VmDb, poolAmt *big.Int) (*big.Int, error) {
+func GetVxAmountToBurn(db interfaces.VmDb, poolAmt *big.Int) (*big.Int, error) {
 	if firstPeriodId := GetFirstMinedVxPeriodId(db); firstPeriodId != 0 {
 		lastFinishPeriodId := GetLastJobPeriodIdByBizType(db, MineVxForFeeJob)
 		finishedPeriods := lastFinishPeriodId - firstPeriodId + 1
@@ -333,7 +334,7 @@ func GetVxAmountToBurn(db vm_db.VmDb, poolAmt *big.Int) (*big.Int, error) {
 	}
 }
 
-func GetVxToMineByPeriodId(db vm_db.VmDb, periodId uint64) *big.Int {
+func GetVxToMineByPeriodId(db interfaces.VmDb, periodId uint64) *big.Int {
 	if !IsNormalMiningStarted(db) {
 		return PreheatMinedAmtPerPeriod
 	} else {

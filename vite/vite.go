@@ -6,19 +6,17 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
-
-	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/consensus"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/ledger/consensus"
+	"github.com/vitelabs/go-vite/ledger/onroad"
+	"github.com/vitelabs/go-vite/ledger/pool"
+	"github.com/vitelabs/go-vite/ledger/verifier"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/onroad"
-	"github.com/vitelabs/go-vite/pool"
 	"github.com/vitelabs/go-vite/producer"
-	"github.com/vitelabs/go-vite/verifier"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/wallet"
 )
@@ -41,7 +39,7 @@ type Vite struct {
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
-	var addressContext *producer.AddressContext
+	var account *wallet.Account
 	if cfg.Producer.Producer && cfg.Producer.Coinbase != "" {
 		var coinbase *types.Address
 		var index uint32
@@ -50,28 +48,16 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 			log.Error(fmt.Sprintf("coinBase parse fail. %v", cfg.Producer.Coinbase), "err", err)
 			return nil, err
 		}
-		err = walletManager.MatchAddress(cfg.EntropyStorePath, *coinbase, index)
+		account, err = walletManager.AccountAtIndex(cfg.EntropyStorePath, *coinbase, index)
 
 		if err != nil {
 			log.Error(fmt.Sprintf("coinBase is not child of entropyStore, coinBase is : %v", cfg.Producer.Coinbase), "err", err)
 			return nil, err
 		}
 
-		var key *derivation.Key
-		_, key, _, err = walletManager.GlobalFindAddr(*coinbase)
+		cfg.Net.MineKey, err = account.PrivateKey()
 		if err != nil {
 			return
-		}
-
-		cfg.Net.MineKey, err = key.PrivateKey()
-		if err != nil {
-			return
-		}
-
-		addressContext = &producer.AddressContext{
-			EntryPath: cfg.EntropyStorePath,
-			Address:   *coinbase,
-			Index:     index,
 		}
 	}
 
@@ -112,15 +98,11 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 		verifier:      verifier,
 	}
 
-	if addressContext != nil {
-		vite.producer = producer.NewProducer(chain, net, addressContext, cs, verifier.GetSnapshotVerifier(), walletManager, pl)
+	if account != nil {
+		vite.producer = producer.NewProducer(chain, net, account, cs, verifier.GetSnapshotVerifier(), pl)
 	}
-
-	// onroad
-	or := onroad.NewManager(net, pl, vite.producer, vite.consensus, walletManager)
-
 	// set onroad
-	vite.onRoad = or
+	vite.onRoad = onroad.NewManager(net, pl, vite.producer, vite.consensus, account)
 	return
 }
 
@@ -152,7 +134,7 @@ func (v *Vite) Start() (err error) {
 		return err
 	}
 	// hack
-	v.pool.Init(v.net, v.walletManager, v.verifier.GetSnapshotVerifier(), v.verifier, v.consensus)
+	v.pool.Init(v.net, v.verifier.GetSnapshotVerifier(), v.verifier, v.consensus)
 
 	v.consensus.Start()
 

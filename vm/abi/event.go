@@ -3,10 +3,11 @@ package abi
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
 	"reflect"
 	"strings"
+
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 // Event is an event potentially triggered by the VM's LOG mechanism. The Event

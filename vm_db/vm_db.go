@@ -2,11 +2,14 @@ package vm_db
 
 import (
 	"errors"
+
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type vmDb struct {
+	interfaces.VmDb
 	uns *Unsaved // the unsaved memory
 
 	chain Chain
@@ -24,7 +27,7 @@ type vmDb struct {
 	callDepth *uint16 // for cache
 }
 
-func NewVmDb(chain Chain, address *types.Address, latestSnapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash) (VmDb, error) {
+func NewVmDb(chain Chain, address *types.Address, latestSnapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash) (*vmDb, error) {
 	if address == nil {
 		return nil, errors.New("address is nil")
 	} else if latestSnapshotBlockHash == nil {
@@ -56,20 +59,20 @@ func (vdb *vmDb) CanWrite() bool {
 		vdb.latestSnapshotBlockHash != nil)
 }
 
-func NewNoContextVmDb(chain Chain) VmDb {
+func NewNoContextVmDb(chain Chain) *vmDb {
 	return &vmDb{
 		chain: chain,
 	}
 }
 
-func NewVmDbByAddr(chain Chain, address *types.Address) VmDb {
+func NewVmDbByAddr(chain Chain, address *types.Address) *vmDb {
 	return &vmDb{
 		chain:   chain,
 		address: address,
 	}
 }
 
-func NewGenesisVmDB(address *types.Address) VmDb {
+func NewGenesisVmDB(address *types.Address) *vmDb {
 	return &vmDb{
 		address:   address,
 		isGenesis: true,

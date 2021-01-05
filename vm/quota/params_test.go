@@ -2,12 +2,13 @@ package quota
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math"
 	"math/big"
 	"strconv"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 func TestPrintParamAndSectionList(t *testing.T) {

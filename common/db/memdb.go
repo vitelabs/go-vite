@@ -1,11 +1,12 @@
 package db
 
 import (
+	"sync"
+	"sync/atomic"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
-	"sync"
-	"sync/atomic"
 )
 
 type MemDB struct {

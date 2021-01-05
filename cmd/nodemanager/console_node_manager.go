@@ -1,8 +1,9 @@
 package nodemanager
 
 import (
-	"github.com/vitelabs/go-vite/node"
 	"gopkg.in/urfave/cli.v1"
+
+	"github.com/vitelabs/go-vite/node"
 )
 
 type ConsoleNodeManager struct {

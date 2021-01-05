@@ -3,7 +3,6 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
-	"github.com/vitelabs/go-vite/interfaces"
 	"math/big"
 	"sort"
 	"testing"
@@ -12,7 +11,8 @@ import (
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 )
@@ -56,9 +56,6 @@ func (db *testDatabase) PrevAccountBlock() (*ledger.AccountBlock, error) {
 		}
 	}
 	return prevBlock, nil
-}
-func (db *testDatabase) IsContractAccount() (bool, error) {
-	return len(db.codeMap[db.addr]) > 0, nil
 }
 
 func (db *testDatabase) GetCallDepth(hash *types.Hash) (uint16, error) {

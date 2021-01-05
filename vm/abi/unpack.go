@@ -2,11 +2,12 @@ package abi
 
 import (
 	"encoding/binary"
+	"math/big"
+	"reflect"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/util"
-	"math/big"
-	"reflect"
 )
 
 // reads the integer based on its kind

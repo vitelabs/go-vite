@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/ledger"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/net/vnode"
 	"github.com/vitelabs/go-vite/tools/circle"
 )

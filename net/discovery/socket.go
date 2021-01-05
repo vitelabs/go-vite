@@ -26,11 +26,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/log15"
-
-	"github.com/vitelabs/go-vite/net/vnode"
-
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/net/vnode"
 )
 
 var errIncompleteMessage = errors.New("incomplete message")

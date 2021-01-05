@@ -1,9 +1,10 @@
 package api
 
 import (
+	"time"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/vite"
-	"time"
 )
 
 const InvalidSnapshotMinutes = 3

@@ -7,11 +7,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -172,31 +173,6 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	if ctx.GlobalIsSet(utils.SingleFlag.Name) {
 		cfg.Single = ctx.GlobalBool(utils.SingleFlag.Name)
 	}
-
-	//metrics
-	if ctx.GlobalIsSet(utils.MetricsEnabledFlag.Name) {
-		mBool := ctx.GlobalBool(utils.MetricsEnabledFlag.Name)
-		cfg.MetricsEnable = &mBool
-	}
-	if ctx.GlobalIsSet(utils.InfluxDBEnableFlag.Name) {
-		iBool := ctx.GlobalBool(utils.InfluxDBEnableFlag.Name)
-		cfg.InfluxDBEnable = &iBool
-	}
-	if endpoint := ctx.GlobalString(utils.InfluxDBEndpointFlag.Name); len(endpoint) > 0 {
-		cfg.InfluxDBEndpoint = &endpoint
-	}
-	if database := ctx.GlobalString(utils.InfluxDBDatabaseFlag.Name); len(database) > 0 {
-		cfg.InfluxDBDatabase = &database
-	}
-	if username := ctx.GlobalString(utils.InfluxDBUsernameFlag.Name); len(username) > 0 {
-		cfg.InfluxDBUsername = &username
-	}
-	if password := ctx.GlobalString(utils.InfluxDBPasswordFlag.Name); len(password) > 0 {
-		cfg.InfluxDBPassword = &password
-	}
-	if tag := ctx.GlobalString(utils.InfluxDBHostTagFlag.Name); len(tag) > 0 {
-		cfg.InfluxDBHostTag = &tag
-	}
 }
 
 func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
@@ -288,30 +264,8 @@ func IsExist(f string) bool {
 }
 
 func makeRunLogFile(cfg *node.Config) {
+	defaultHandler := common.LogHandler(cfg.RunLogDir(), "", "vite.log", cfg.LogLevel)
+	errorHandler := common.LogHandler(cfg.RunLogDir(), "error", "vite.error.log", log15.LvlError.String())
 
-	logHandle := []log15.Handler{}
-
-	logLevel, err := log15.LvlFromString(cfg.LogLevel)
-	if err != nil {
-		logLevel = log15.LvlInfo
-	}
-
-	logHandle = append(logHandle, errorExcludeLvlFilterHandler(logLevel, cfg.RunLogHandler()))
-	logHandle = append(logHandle, log15.LvlFilterHandler(log15.LvlError, cfg.RunErrorLogHandler()))
-
-	log15.Root().SetHandler(log15.MultiHandler(
-		logHandle...,
-	))
-}
-
-func errorExcludeLvlFilterHandler(maxLvl log15.Lvl, h log15.Handler) log15.Handler {
-	return log15.FilterHandler(func(r *log15.Record) (ss bool) {
-
-		////Error、Crit 级别的过滤掉
-		//if r.Lvl <= log15.LvlError {
-		//	return false
-		//}
-
-		return r.Lvl <= maxLvl
-	}, h)
+	log15.Root().SetHandler(log15.MultiHandler(defaultHandler, errorHandler))
 }

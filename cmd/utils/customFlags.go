@@ -1,11 +1,12 @@
 package utils
 
 import (
-	"strings"
+	"flag"
+	"fmt"
 	"os"
 	"path"
-	"fmt"
-	"flag"
+	"strings"
+
 	"github.com/vitelabs/go-vite/common"
 )
 
@@ -17,7 +18,7 @@ func (self *DirectoryString) String() string {
 	return self.Value
 }
 
-func (self *DirectoryString) Set(value string) error  {
+func (self *DirectoryString) Set(value string) error {
 	self.Value = expandPath(value)
 	return nil
 }
@@ -25,7 +26,7 @@ func (self *DirectoryString) Set(value string) error  {
 // Custom cli.Flag type which expand the received string to an absolute path.
 // e.g. ~/viteisbest -> /home/username/viteisbest
 type DirectoryFlag struct {
-	Name string
+	Name  string
 	Value DirectoryString
 	Usage string
 }

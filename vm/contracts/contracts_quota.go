@@ -1,13 +1,14 @@
 package contracts
 
 import (
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 const (
@@ -37,7 +38,7 @@ func (p *MethodStake) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodStake) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if !util.IsViteToken(block.TokenId) ||
 		block.Amount.Cmp(stakeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
@@ -49,7 +50,7 @@ func (p *MethodStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
 	block.Data, _ = abi.ABIQuota.PackMethod(p.MethodName, *beneficiary)
 	return nil
 }
-func (p *MethodStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodStake) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	beneficiary := new(types.Address)
 	abi.ABIQuota.UnpackMethod(beneficiary, p.MethodName, sendBlock.Data)
 	stakeInfoKey, oldStakeInfo := getStakeInfo(db, sendBlock.AccountAddress, *beneficiary, noDelegate, noDelegateAddress, noBid, block.Height)
@@ -79,7 +80,7 @@ func (p *MethodStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendB
 	return nil, nil
 }
 
-func getStakeInfo(db vm_db.VmDb, stakeAddr types.Address, beneficiary types.Address, isDelegated bool, delegateAddr types.Address, bid uint8, currentIndex uint64) ([]byte, *types.StakeInfo) {
+func getStakeInfo(db interfaces.VmDb, stakeAddr types.Address, beneficiary types.Address, isDelegated bool, delegateAddr types.Address, bid uint8, currentIndex uint64) ([]byte, *types.StakeInfo) {
 	iterator, err := db.NewStorageIterator(abi.GetStakeInfoKeyPrefix(stakeAddr))
 	util.DealWithErr(err)
 	defer iterator.Release()
@@ -134,7 +135,7 @@ func (p *MethodCancelStake) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodCancelStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodCancelStake) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -149,7 +150,7 @@ func (p *MethodCancelStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) er
 	return nil
 }
 
-func (p *MethodCancelStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodCancelStake) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	stakeInfoKey, oldStakeInfo := getStakeInfo(db, sendBlock.AccountAddress, param.Beneficiary, noDelegate, noDelegateAddress, noBid, block.Height)
@@ -217,7 +218,7 @@ func (p *MethodDelegateStake) GetReceiveQuota(gasTable *util.QuotaTable) uint64 
 	return 0
 }
 
-func (p *MethodDelegateStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodDelegateStake) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if !util.IsViteToken(block.TokenId) ||
 		block.Amount.Cmp(stakeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
@@ -232,7 +233,7 @@ func (p *MethodDelegateStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) 
 	block.Data, _ = abi.ABIQuota.PackMethod(p.MethodName, param.StakeAddress, param.Beneficiary, param.Bid, param.StakeHeight)
 	return nil
 }
-func (p *MethodDelegateStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodDelegateStake) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	stakeInfoKey, oldStakeInfo := getStakeInfo(db, param.StakeAddress, param.Beneficiary, delegate, sendBlock.AccountAddress, param.Bid, block.Height)
@@ -298,7 +299,7 @@ func (p *MethodCancelDelegateStake) GetReceiveQuota(gasTable *util.QuotaTable) u
 	return 0
 }
 
-func (p *MethodCancelDelegateStake) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodCancelDelegateStake) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -313,7 +314,7 @@ func (p *MethodCancelDelegateStake) DoSend(db vm_db.VmDb, block *ledger.AccountB
 	return nil
 }
 
-func (p *MethodCancelDelegateStake) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodCancelDelegateStake) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamCancelDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	stakeInfoKey, oldStakeInfo := getStakeInfo(db, param.StakeAddress, param.Beneficiary, delegate, sendBlock.AccountAddress, param.Bid, block.Height)
@@ -388,7 +389,7 @@ func (p *MethodStakeV3) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 	return 0
 }
 
-func (p *MethodStakeV3) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodStakeV3) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if !util.IsViteToken(block.TokenId) ||
 		block.Amount.Cmp(stakeAmountMin) < 0 {
 		return util.ErrInvalidMethodParam
@@ -407,7 +408,7 @@ func (p *MethodStakeV3) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error 
 	}
 	return nil
 }
-func (p *MethodStakeV3) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodStakeV3) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	param := new(abi.ParamDelegateStake)
 	abi.ABIQuota.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	stakeInfoKey := getNextStakeInfoKey(db, sendBlock.AccountAddress, block.Height)
@@ -479,7 +480,7 @@ func (p *MethodCancelStakeV3) GetReceiveQuota(gasTable *util.QuotaTable) uint64 
 	return 0
 }
 
-func (p *MethodCancelStakeV3) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) error {
+func (p *MethodCancelStakeV3) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	if block.Amount.Sign() > 0 {
 		return util.ErrInvalidMethodParam
 	}
@@ -491,7 +492,7 @@ func (p *MethodCancelStakeV3) DoSend(db vm_db.VmDb, block *ledger.AccountBlock) 
 	return nil
 }
 
-func (p *MethodCancelStakeV3) DoReceive(db vm_db.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+func (p *MethodCancelStakeV3) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	id := new(types.Hash)
 	abi.ABIQuota.UnpackMethod(id, p.MethodName, sendBlock.Data)
 	stakeInfoKey := util.GetValue(db, id.Bytes())
@@ -540,7 +541,7 @@ func (p *MethodCancelStakeV3) DoReceive(db vm_db.VmDb, block *ledger.AccountBloc
 	}, nil
 }
 
-func getNextStakeInfoKey(db vm_db.VmDb, stakeAddr types.Address, currentIndex uint64) []byte {
+func getNextStakeInfoKey(db interfaces.VmDb, stakeAddr types.Address, currentIndex uint64) []byte {
 	iterator, err := db.NewStorageIterator(abi.GetStakeInfoKeyPrefix(stakeAddr))
 	util.DealWithErr(err)
 	defer iterator.Release()

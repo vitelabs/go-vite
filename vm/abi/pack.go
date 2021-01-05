@@ -1,9 +1,10 @@
 package abi
 
 import (
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"reflect"
+
+	"github.com/vitelabs/go-vite/common/helper"
 )
 
 // packBytesSlice packs the given bytes as [L, V] as the canonical representation

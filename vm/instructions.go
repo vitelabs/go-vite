@@ -2,10 +2,13 @@ package vm
 
 import (
 	"encoding/hex"
+
+	"golang.org/x/crypto/sha3"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/util"
 )
 
@@ -328,6 +331,16 @@ func opSAR(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, 
 	}
 
 	c.intPool.Put(shift)
+	return nil, nil
+}
+
+func opSha3(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	offset, size := stack.pop(), stack.pop()
+	data := mem.get(offset.Int64(), size.Int64())
+	sha3.NewLegacyKeccak256().Sum(data)
+	stack.push(c.intPool.Get().SetBytes(crypto.Keccak256(data)))
+
+	c.intPool.Put(offset, size)
 	return nil, nil
 }
 

@@ -5,16 +5,21 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/vitelabs/go-vite/vm/quota"
-
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/vm/quota"
 )
 
+// @Deprecated
 type SnapshotChunk struct {
 	AccountBlocks []*ledger.AccountBlock
 	SnapshotBlock *SnapshotBlock
+}
+
+type SnapshotChunkV2 struct {
+	AccountBlocks []*AccountBlock `json:"accountBlocks"`
+	SnapshotBlock *SnapshotBlock  `json:"snapshotBlock"`
 }
 
 type AccountBlock struct {

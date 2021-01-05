@@ -2,8 +2,9 @@ package abi
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
 	"strings"
+
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 // Method represents a callable given a `Names` and whether the method is a constant.

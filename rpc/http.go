@@ -287,7 +287,6 @@ func (s *Server) execHeader(ctx context.Context, codec ServerCodec, req *serverR
 	defer func() {
 		if err := recover(); err != nil {
 			log.Error(fmt.Sprintf("%v\n", err))
-			errors.New(fmt.Sprintf("%v", err))
 		}
 	}()
 	arguments := []reflect.Value{req.callb.rcvr}

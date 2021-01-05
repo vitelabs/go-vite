@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/pow"
-	"golang.org/x/crypto/blake2b"
 )
 
 func TestGetPowNonce(t *testing.T) {

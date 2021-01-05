@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common/types"
-
 	"github.com/vitelabs/go-vite/net/vnode"
 )
 

@@ -2,15 +2,16 @@ package dex
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 )
 
 //Note: allow dividend from specify periodId, former periods will be divided at that period
-func DoFeesDividend(db vm_db.VmDb, periodId uint64) (blocks []*ledger.AccountBlock, err error) {
+func DoFeesDividend(db interfaces.VmDb, periodId uint64) (blocks []*ledger.AccountBlock, err error) {
 	var (
 		dexFeesByPeriodMap map[uint64]*DexFeesByPeriod
 		vxSumFunds         *VxFunds
@@ -139,7 +140,7 @@ func DoFeesDividend(db vm_db.VmDb, periodId uint64) (blocks []*ledger.AccountBlo
 	return
 }
 
-func DoOperatorFeesDividend(db vm_db.VmDb, periodId uint64) error {
+func DoOperatorFeesDividend(db interfaces.VmDb, periodId uint64) error {
 	iterator, err := db.NewStorageIterator(append(operatorFeesKeyPrefix, Uint64ToBytes(periodId)...))
 	if err != nil {
 		panic(err)
@@ -205,7 +206,7 @@ func DivideByProportion(totalReferAmt, partReferAmt, dividedReferAmt, toDivideTo
 	return proportionAmt, finished
 }
 
-func tryBurnVite(db vm_db.VmDb, feeSumMap map[types.TokenTypeId]*big.Int) []*ledger.AccountBlock {
+func tryBurnVite(db interfaces.VmDb, feeSumMap map[types.TokenTypeId]*big.Int) []*ledger.AccountBlock {
 	if IsEarthFork(db) {
 		for token, amt := range feeSumMap {
 			if token == ledger.ViteTokenId {

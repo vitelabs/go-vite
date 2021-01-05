@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 	"fmt"
+
+	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 )
 
 func main() {
@@ -18,7 +19,6 @@ func main() {
 	//if err := derivation.Menmonic(b[:],""); err != nil {
 	//	fmt.Println(err)
 	//}
-
 
 	if err := derivation.RandomMnemonic24(""); err != nil {
 		fmt.Println(err)

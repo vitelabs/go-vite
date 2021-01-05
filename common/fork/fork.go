@@ -2,16 +2,32 @@ package fork
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/config"
 	"reflect"
 	"sort"
 )
 
-var forkPoints config.ForkPoints
+type ForkPoint struct {
+	Height  uint64
+	Version uint32
+}
+
+type ForkPoints struct {
+	SeedFork            *ForkPoint
+	DexFork             *ForkPoint
+	DexFeeFork          *ForkPoint
+	StemFork            *ForkPoint
+	LeafFork            *ForkPoint
+	EarthFork           *ForkPoint
+	DexMiningFork       *ForkPoint
+	DexRobotFork        *ForkPoint
+	DexStableMarketFork *ForkPoint
+	Version10           *ForkPoint
+}
+
+var forkPoints ForkPoints
 
 type ForkPointItem struct {
-	config.ForkPoint
+	ForkPoint
 	ForkName string
 }
 
@@ -30,11 +46,8 @@ func (a ForkPointList) Less(i, j int) bool { return a[i].Height < a[j].Height }
 func IsInitForkPoint() bool {
 	return forkPointMap != nil
 }
-func IsInitActiveChecker() bool {
-	return activeChecker != nil
-}
 
-func SetForkPoints(points *config.ForkPoints) {
+func SetForkPoints(points *ForkPoints) {
 	if points != nil {
 		forkPoints = *points
 
@@ -43,7 +56,7 @@ func SetForkPoints(points *config.ForkPoints) {
 		forkPointMap = make(ForkPointMap)
 
 		for k := 0; k < t.NumField(); k++ {
-			forkPoint := v.Field(k).Interface().(*config.ForkPoint)
+			forkPoint := v.Field(k).Interface().(*ForkPoint)
 
 			forkName := t.Field(k).Name
 			forkPointItem := &ForkPointItem{
@@ -65,26 +78,26 @@ func SetActiveChecker(ac ActiveChecker) {
 	activeChecker = ac
 }
 
-func CheckForkPoints(points config.ForkPoints) error {
+func CheckForkPoints(points ForkPoints) error {
 	t := reflect.TypeOf(points)
 	v := reflect.ValueOf(points)
 
 	for k := 0; k < t.NumField(); k++ {
-		forkPoint := v.Field(k).Interface().(*config.ForkPoint)
+		forkPoint := v.Field(k).Interface().(*ForkPoint)
 
 		if forkPoint == nil {
-			return errors.New(fmt.Sprintf("The fork point %s can't be nil. the `ForkPoints` config in genesis.json is not correct, "+
-				"you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name))
+			return fmt.Errorf("The fork point %s can't be nil. the `ForkPoints` config in genesis.json is not correct, "+
+				"you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name)
 		}
 
 		if forkPoint.Height <= 0 {
-			return errors.New(fmt.Sprintf("The height of fork point %s is 0. "+
-				"the `ForkPoints` config in genesis.json is not correct, you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name))
+			return fmt.Errorf("The height of fork point %s is 0. "+
+				"the `ForkPoints` config in genesis.json is not correct, you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name)
 		}
 
 		if forkPoint.Version <= 0 {
-			return errors.New(fmt.Sprintf("The version of fork point %s is 0. "+
-				"the `ForkPoints` config in genesis.json is not correct, you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name))
+			return fmt.Errorf("The version of fork point %s is 0. "+
+				"the `ForkPoints` config in genesis.json is not correct, you can remove the `ForkPoints` key in genesis.json then use the default config of `ForkPoints`", t.Field(k).Name)
 		}
 
 	}
@@ -197,6 +210,14 @@ func IsDexStableMarketFork(snapshotHeight uint64) bool {
 	return snapshotHeight >= dexStableMarketForkPoint.Height && IsForkActive(*dexStableMarketForkPoint)
 }
 
+func IsVersion10Fork(snapshotHeight uint64) bool {
+	forkPoint, ok := forkPointMap["Version10"]
+	if !ok {
+		panic("check trustless bridge fork failed. TrustlessBridgeFork is not existed.")
+	}
+	return snapshotHeight >= forkPoint.Height && IsForkActive(*forkPoint)
+}
+
 func GetLeafForkPoint() *ForkPointItem {
 	leafForkPoint, ok := forkPointMap["LeafFork"]
 	if !ok {
@@ -238,7 +259,7 @@ func GetForkPoint(snapshotHeight uint64) *ForkPointItem {
 	return nil
 }
 
-func GetForkPoints() config.ForkPoints {
+func GetForkPoints() ForkPoints {
 	return forkPoints
 }
 

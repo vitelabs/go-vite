@@ -459,6 +459,13 @@ func newBaseInstructionSet() [256]operation {
 			validateStack: makeStackFunc(2, 1),
 			valid:         true,
 		},
+		SHA3: {
+			execute:       opSha3,
+			gasCost:       gasBlake2b,
+			validateStack: makeStackFunc(2, 1),
+			memorySize:    memorySha3,
+			valid:         true,
+		},
 		BLAKE2B: {
 			execute:       opBlake2b,
 			gasCost:       gasBlake2b,

@@ -1,8 +1,9 @@
 package abi
 
 import (
-	"github.com/vitelabs/go-vite/vm/abi"
 	"strings"
+
+	"github.com/vitelabs/go-vite/vm/abi"
 )
 
 const (

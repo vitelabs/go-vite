@@ -10,13 +10,13 @@ import (
 	"sort"
 	"time"
 
-	"github.com/vitelabs/go-vite/vite/version"
+	"gopkg.in/urfave/cli.v1"
 
 	"github.com/vitelabs/go-vite/cmd/console"
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/log15"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/vitelabs/go-vite/vite/version"
 )
 
 // gvite is the official command-line client for Vite
@@ -107,17 +107,6 @@ var (
 		utils.PProfPortFlag,
 	}
 
-	// Metrics
-	metricsFlags = []cli.Flag{
-		utils.MetricsEnabledFlag,
-		utils.InfluxDBEnableFlag,
-		utils.InfluxDBEndpointFlag,
-		utils.InfluxDBDatabaseFlag,
-		utils.InfluxDBUsernameFlag,
-		utils.InfluxDBPasswordFlag,
-		utils.InfluxDBHostTagFlag,
-	}
-
 	// Ledger
 	ledgerFlags = []cli.Flag{
 		utils.LedgerDeleteToHeight,
@@ -162,7 +151,7 @@ func init() {
 	//Import: Please add the New Flags here
 	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags,
 		ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags,
-		vmFlags, netFlags, statFlags, metricsFlags, ledgerFlags, exportFlags)
+		vmFlags, netFlags, statFlags, ledgerFlags, exportFlags)
 
 	app.Before = beforeAction
 	app.Action = action

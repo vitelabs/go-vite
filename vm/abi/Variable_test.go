@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
 	"math/big"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/types"
 )
 
 // TestVariableMultiValueWithArrayUnpack verifies that array fields will be counted after parsing array.

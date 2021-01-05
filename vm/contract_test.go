@@ -3,11 +3,12 @@ package vm
 import (
 	"bytes"
 	"errors"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/vm/util"
 	"math/big"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/types"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/vm/util"
 )
 
 func TestRun(t *testing.T) {

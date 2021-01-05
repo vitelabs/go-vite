@@ -1,9 +1,10 @@
 package util
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type dbInterface interface {
@@ -15,7 +16,6 @@ type dbInterface interface {
 	LatestSnapshotBlock() (*ledger.SnapshotBlock, error)
 
 	Address() *types.Address
-	IsContractAccount() (bool, error)
 	GetContractCode() ([]byte, error)
 	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error)
 }
@@ -34,12 +34,15 @@ func AddBalance(db dbInterface, id *types.TokenTypeId, amount *big.Int) {
 // Balance check must be performed before calling this method.
 // Used in request block.
 // Panics when db error.
-func SubBalance(db dbInterface, id *types.TokenTypeId, amount *big.Int) {
+func SubBalance(db dbInterface, id *types.TokenTypeId, amount *big.Int) bool {
 	b, err := db.GetBalance(id)
 	DealWithErr(err)
 	if b.Cmp(amount) >= 0 {
 		b.Sub(b, amount)
 		db.SetBalance(id, b)
+		return true
+	} else {
+		return false
 	}
 }
 

@@ -54,6 +54,9 @@ You can choose one of the following installation options:
 
 - [Install from source](https://vite.wiki/tutorial/node/install.html#install-from-source)
 
+### Faster ledger sync
+
+[download](ledger_snapshot.md) gvite ledger file manually.
 
 ## Contribution
 

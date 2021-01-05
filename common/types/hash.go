@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -67,6 +68,11 @@ func (h Hash) Big() *big.Int {
 
 func (h Hash) IsZero() bool {
 	return h == ZERO_HASH
+}
+
+// Cmp see bytes.Compare
+func (h Hash) Cmp(a Hash) int {
+	return bytes.Compare(h[:], a[:])
 }
 
 func BigToHash(b *big.Int) (Hash, error) {

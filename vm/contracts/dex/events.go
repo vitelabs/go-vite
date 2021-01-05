@@ -2,7 +2,9 @@ package dex
 
 import (
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
+
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"

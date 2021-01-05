@@ -2,11 +2,12 @@ package abi
 
 import (
 	"bytes"
+	"math/big"
+	"strings"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"math/big"
-	"strings"
 )
 
 const (
@@ -19,6 +20,7 @@ const (
 		{"type":"function","name":"ReIssue","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"amount","type":"uint256"},{"name":"receiveAddress","type":"address"}]},
 
 		{"type":"function","name":"Burn","inputs":[]},
+		{"type":"function","name":"Burn2","inputs":[{"name":"target","type":"uint256"},{"name":"to","type":"bytes"}]},
 
 		{"type":"function","name":"TransferOwner","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"newOwner","type":"address"}]},
 		{"type":"function","name":"TransferOwnership","inputs":[{"name":"tokenId","type":"tokenId"},{"name":"newOwner","type":"address"}]},
@@ -41,6 +43,7 @@ const (
 		{"type":"event","name":"reIssue","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]},
 		
 		{"type":"event","name":"burn","inputs":[{"name":"tokenId","type":"tokenId","indexed":true},{"name":"address","type":"address"},{"name":"amount","type":"uint256"}]},
+		{"type":"event","name":"burn2","inputs":[{"name":"tokenId","type":"tokenId","indexed":true},{"name":"address","type":"address"},{"name":"amount","type":"uint256"},{"name":"target","type":"uint256"},{"name":"to","type":"bytes"}]},
 
 		{"type":"event","name":"transferOwner","inputs":[{"name":"tokenId","type":"tokenId","indexed":true},{"name":"owner","type":"address"}]},
 		{"type":"event","name":"transferOwnership","inputs":[{"name":"tokenId","type":"tokenId","indexed":true},{"name":"owner","type":"address"}]},
@@ -54,6 +57,7 @@ const (
 	MethodNameReIssue             = "Issue"
 	MethodNameReIssueV2           = "ReIssue"
 	MethodNameBurn                = "Burn"
+	MethodNameBurnV2              = "Burn2"
 	MethodNameTransferOwnership   = "TransferOwner"
 	MethodNameTransferOwnershipV2 = "TransferOwnership"
 	MethodNameDisableReIssue      = "ChangeTokenType"
@@ -67,7 +71,16 @@ const (
 var (
 	// ABIAsset is abi definition of asset contract
 	ABIAsset, _ = abi.JSONToABIContract(strings.NewReader(jsonAsset))
+
+	// AssetBurnEventID see Trustless Bridge
+	AssetBurnEventID = assetBurnEventID()
 )
+
+func assetBurnEventID() types.Hash {
+	hash, error := ABIAsset.EventID("burn2")
+	util.DealWithErr(error)
+	return *hash
+}
 
 type ParamIssue struct {
 	TokenName       string
@@ -83,6 +96,10 @@ type ParamReIssue struct {
 	TokenId        types.TokenTypeId
 	Amount         *big.Int
 	ReceiveAddress types.Address
+}
+type ParamBurn2 struct {
+	Target *big.Int // which chain?
+	To     []byte   // who?
 }
 
 type ParamTransferOwnership struct {

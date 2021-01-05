@@ -5,13 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/vitepb"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/vitepb"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/monitor"
 	"github.com/vitelabs/go-vite/tools/list"

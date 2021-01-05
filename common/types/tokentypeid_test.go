@@ -1,8 +1,8 @@
 package types
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 )
 
 const (

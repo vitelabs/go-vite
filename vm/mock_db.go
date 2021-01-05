@@ -3,14 +3,15 @@ package vm
 import (
 	"bytes"
 	"encoding/hex"
+	"math/big"
+	"sort"
+	"time"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
-	"sort"
-	"time"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 type mockDB struct {
@@ -103,16 +104,7 @@ func (db *mockDB) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBloc
 		return db.prevAccountBlock, nil
 	}
 }
-func (db *mockDB) IsContractAccount() (bool, error) {
-	if !types.IsContractAddr(*db.currentAddr) {
-		return false, nil
-	}
-	if meta, err := db.GetContractMeta(); err != nil {
-		return false, err
-	} else {
-		return meta != nil, nil
-	}
-}
+
 func (db *mockDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return 0, nil
 }

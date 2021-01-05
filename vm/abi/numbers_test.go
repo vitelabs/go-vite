@@ -2,9 +2,10 @@ package abi
 
 import (
 	"bytes"
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
 	"testing"
+
+	"github.com/vitelabs/go-vite/common/helper"
 )
 
 func TestNumberTypes(t *testing.T) {

@@ -10,7 +10,6 @@ import (
 func Init(dir, lvl string, testApi_prikey, testApi_tti string, netId uint, dexAvailable *bool) {
 	api.InitLog(dir, lvl)
 	api.InitTestAPIParams(testApi_prikey, testApi_tti)
-	api.InitGetTestTokenLimitPolicy()
 	api.InitConfig(netId, dexAvailable)
 }
 
@@ -94,7 +93,7 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 		return rpc.API{
 			Namespace: "mintage",
 			Version:   "1.0",
-			Service:   api.NewAssetApi(vite),
+			Service:   api.NewMintageAPI(vite),
 			Public:    true,
 		}
 	case "pledge":
@@ -132,13 +131,6 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewDexPrivateApi(vite),
 			Public:    false,
 		}
-	case "consensusGroup":
-		return rpc.API{
-			Namespace: "consensusGroup",
-			Version:   "1.0",
-			Service:   api.NewConsensusGroupApi(vite),
-			Public:    true,
-		}
 	case "tx":
 		return rpc.API{
 			Namespace: "tx",
@@ -146,33 +138,11 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewTxApi(vite),
 			Public:    true,
 		}
-		// test
-	case "testapi":
-		return rpc.API{
-			Namespace: "testapi",
-			Version:   "1.0",
-			Service:   api.NewTestApi(api.NewWalletApi(vite)),
-			Public:    true,
-		}
-	case "debug":
-		return rpc.API{
-			Namespace: "debug",
-			Version:   "1.0",
-			Service:   api.NewDebugApi(vite),
-			Public:    true,
-		}
 	case "dashboard":
 		return rpc.API{
 			Namespace: "dashboard",
 			Version:   "1.0",
 			Service:   api.NewDashboardApi(vite),
-			Public:    true,
-		}
-	case "vmdebug":
-		return rpc.API{
-			Namespace: "vmdebug",
-			Version:   "1.0",
-			Service:   api.NewVmDebugApi(vite),
 			Public:    true,
 		}
 	case "subscribe":

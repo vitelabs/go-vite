@@ -2,9 +2,11 @@ package vm_db
 
 import (
 	"fmt"
+
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 func (vdb *vmDb) Address() *types.Address {
@@ -21,7 +23,7 @@ func (vdb *vmDb) LatestSnapshotBlock() (*ledger.SnapshotBlock, error) {
 		if err != nil {
 			return nil, err
 		} else if vdb.latestSnapshotBlock == nil {
-			return nil, errors.New(fmt.Sprintf("the returned snapshotHeader of vdb.chain.GetSnapshotHeaderByHash is nil, vdb.latestSnapshotBlockHash is %s", vdb.latestSnapshotBlockHash))
+			return nil, fmt.Errorf("the returned snapshotHeader of vdb.chain.GetSnapshotHeaderByHash is nil, vdb.latestSnapshotBlockHash is %s", vdb.latestSnapshotBlockHash)
 		}
 	}
 	return vdb.latestSnapshotBlock, nil
@@ -47,18 +49,10 @@ func (vdb *vmDb) PrevAccountBlock() (*ledger.AccountBlock, error) {
 		if err != nil {
 			return nil, err
 		} else if vdb.prevAccountBlock == nil {
-			return nil, errors.New(fmt.Sprintf("the returned accountBlock of vdb.chain.GetAccountBlockByHash is nil, vdb.prevAccountBlockHash is %s", vdb.prevAccountBlockHash))
+			return nil, fmt.Errorf("the returned accountBlock of vdb.chain.GetAccountBlockByHash is nil, vdb.prevAccountBlockHash is %s", vdb.prevAccountBlockHash)
 		}
 	}
 	return vdb.prevAccountBlock, nil
-}
-
-func (vdb *vmDb) IsContractAccount() (bool, error) {
-	if vdb.address == nil {
-		return false, errors.New("No context, vdb.address is nil")
-	}
-
-	return vdb.chain.IsContractAccount(*vdb.address)
 }
 
 func (vdb *vmDb) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {

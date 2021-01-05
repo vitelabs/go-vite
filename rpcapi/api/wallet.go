@@ -4,14 +4,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/vitelabs/go-vite/header"
 	"math/big"
 
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/generator"
-	"github.com/vitelabs/go-vite/ledger"
-	"github.com/vitelabs/go-vite/pool"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/ledger/generator"
+	"github.com/vitelabs/go-vite/ledger/pool"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/wallet"
@@ -231,6 +231,7 @@ func (m WalletApi) GlobalFindAddr(addr types.Address) (findResult *FindAddrResul
 	}, nil
 }
 
+// Deprecated
 func (m WalletApi) GlobalFindAddrWithPassphrase(addr types.Address, passphrase string) (findResult *FindAddrResult, e error) {
 	path, _, index, e := m.wallet.GlobalFindAddrWithPassphrase(addr, passphrase)
 	if e != nil {
@@ -247,17 +248,16 @@ func (m WalletApi) AddEntropyStore(filename string) error {
 }
 
 func (m WalletApi) SignData(addr types.Address, hexMsg string) (*HexSignedTuple, error) {
-
-	msgbytes, err := hex.DecodeString(hexMsg)
+	hash, err := types.HexToHash(hexMsg)
 	if err != nil {
 		return nil, err
 	}
-	_, key, _, e := m.wallet.GlobalFindAddr(addr)
+	account, e := m.wallet.Account(addr)
 	if e != nil {
 		return nil, e
 	}
 
-	signedData, pubkey, err := key.SignData(msgbytes)
+	signedData, pubkey, err := account.Sign(hash)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +293,7 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 		}
 	}
 
-	msg := &header.IncomingMessage{
+	msg := &interfaces.IncomingMessage{
 		BlockType:      ledger.BlockTypeSendCall,
 		AccountAddress: params.SelfAddr,
 		ToAddress:      &params.ToAddr,
@@ -306,27 +306,18 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 
 	addrState, err := generator.GetAddressStateForGenerator(m.chain, &msg.AccountAddress)
 	if err != nil || addrState == nil {
-		return nil, errors.New(fmt.Sprintf("failed to get addr state for generator, err:%v", err))
+		return nil, fmt.Errorf("failed to get addr state for generator, err:%v", err)
 	}
 	g, e := generator.NewGenerator(m.chain, m.consensus, msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {
 		return nil, e
 	}
-	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, func(addr types.Address, data []byte) (signedData, pubkey []byte, err error) {
-		if params.EntropystoreFile != nil {
-			manager, e := m.wallet.GetEntropyStoreManager(*params.EntropystoreFile)
-			if e != nil {
-				return nil, nil, e
-			}
-			return manager.SignDataWithPassphrase(addr, params.Passphrase, data)
-		}
 
-		_, key, _, e := m.wallet.GlobalFindAddrWithPassphrase(addr, params.Passphrase)
-		if e != nil {
-			return nil, nil, e
-		}
-		return key.SignData(data)
-	})
+	account, err := m.wallet.AccountSearch(params.EntropystoreFile, msg.AccountAddress, params.Passphrase)
+	if err != nil {
+		return nil, err
+	}
+	result, e := g.GenerateWithMessage(msg, &msg.AccountAddress, account.Sign)
 
 	if e != nil {
 		return nil, e
@@ -343,16 +334,15 @@ func (m WalletApi) CreateTxWithPassphrase(params CreateTransferTxParms) (*types.
 }
 
 func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, passphrase string) (*HexSignedTuple, error) {
-
-	msgbytes, err := hex.DecodeString(hexMsg)
+	hash, err := types.HexToHash(hexMsg)
 	if err != nil {
 		return nil, err
 	}
-	_, key, _, e := m.wallet.GlobalFindAddrWithPassphrase(addr, passphrase)
-	if e != nil {
-		return nil, e
+	account, err := m.wallet.AccountSearch(nil, addr, passphrase)
+	if err != nil {
+		return nil, err
 	}
-	signedData, pubkey, err := key.SignData(msgbytes)
+	signedData, pubkey, err := account.Sign(hash)
 	if err != nil {
 		return nil, err
 	}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/vitelabs/go-vite/ledger"
 	"log"
 	"math/big"
 	"reflect"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 const jsondata = `
@@ -817,13 +817,7 @@ func TestABI_MethodById(t *testing.T) {
 
 func TestPackEvent(t *testing.T) {
 	genesisAccount := types.HexToAddressPanic("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
-	var testCases = []struct {
-		abiJson   string
-		eventName string
-		params    []interface{}
-		topics    []types.Hash
-		data      []byte
-	}{
+	var testCases = []caseArgs{
 		{
 			`[{"type":"event","name":"issue","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}]`,
 			"issue",
@@ -844,16 +838,47 @@ func TestPackEvent(t *testing.T) {
 		},
 	}
 	for _, test := range testCases {
-		abi, err := JSONToABIContract(strings.NewReader(test.abiJson))
-		if err != nil {
-			t.Fatal(err)
-		}
-		topics, data, err := abi.PackEvent(test.eventName, test.params...)
-		if err != nil {
-			t.Fatalf("pack %v event failed %v", test.eventName, err)
-		}
-		if len(topics) != len(test.topics) || !bytes.Equal(data, test.data) {
-			t.Fatalf("pack %v event result error, expected [%v, %v], got [%v, %v]", test.eventName, test.topics, hex.EncodeToString(test.data), topics, hex.EncodeToString(data))
-		}
+		packEventFunc(t, test)
+	}
+}
+
+func TestPackEvents(t *testing.T) {
+	genesisAccount := types.HexToAddressPanic("vite_60e292f0ac471c73d914aeff10bb25925e13b2a9fddb6e6122")
+
+	var case = caseArgs{
+		`[{"type":"event","name":"burn","inputs":[{"name":"tokenId","type":"tokenId","indexed":true},{"name":"address","type":"address"},{"name":"amount","type":"uint256"}]}]`,
+		"burn",
+		[]interface{}{ledger.ViteTokenId, genesisAccount, big.NewInt(1e18)},
+		[]types.Hash{
+			{97, 183, 48, 235, 101, 233, 99, 47, 158, 102, 219, 185, 87, 54, 55, 226, 222, 80, 17, 178, 245, 18, 137, 74, 55, 152, 28, 98, 222, 60, 189, 64},
+			{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'V', 'I', 'T', 'E', ' ', 'T', 'O', 'K', 'E', 'N'}},
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 226, 146, 240, 172, 71, 28, 115, 217, 20, 174, 255, 16, 187, 37, 146, 94, 19, 178, 169, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 224, 182, 179, 167, 100, 0, 0},
+	}
+	var args Arguments
+
+	args = append(args, Argument)
+	
+
+}
+
+type caseArgs struct {
+	abiJSON   string
+	eventName string
+	params    []interface{}
+	topics    []types.Hash
+	data      []byte
+}
+
+func packEventFunc(t *testing.T, test caseArgs) {
+	abi, err := JSONToABIContract(strings.NewReader(test.abiJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	topics, data, err := abi.PackEvent(test.eventName, test.params...)
+	if err != nil {
+		t.Fatalf("pack %v event failed %v", test.eventName, err)
+	}
+	if len(topics) != len(test.topics) || !bytes.Equal(data, test.data) {
+		t.Fatalf("pack %v event result error, expected [%v, %v], got [%v, %v]", test.eventName, test.topics, hex.EncodeToString(test.data), topics, hex.EncodeToString(data))
 	}
 }

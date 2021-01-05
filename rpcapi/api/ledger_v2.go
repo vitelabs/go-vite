@@ -2,17 +2,18 @@ package api
 
 import (
 	"fmt"
-	"github.com/vitelabs/go-vite/chain"
-	"github.com/vitelabs/go-vite/chain/plugins"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	chain_plugins "github.com/vitelabs/go-vite/ledger/chain/plugins"
 	"github.com/vitelabs/go-vite/vm"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/quota"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 // new api
@@ -126,6 +127,21 @@ func (l *LedgerApi) GetAccountBlocksByAddress(addr types.Address, index int, cou
 	} else {
 		return blocks, nil
 	}
+}
+
+// GetAccountBlocksByHeightRange [start,end] sorted by height desc
+func (l *LedgerApi) GetAccountBlocksByHeightRange(addr types.Address, start uint64, end uint64) ([]*AccountBlock, error) {
+	list, err := l.chain.GetAccountBlocksByRange(addr, start, end)
+
+	if err != nil {
+		return nil, err
+	}
+
+	blocks, err := l.ledgerBlocksToRpcBlocks(list)
+	if err != nil {
+		return nil, err
+	}
+	return blocks, nil
 }
 
 // new api
@@ -629,4 +645,28 @@ func calcQuotaRequired(c chain.Chain, param CalcQuotaRequiredParam) (*CalcQuotaR
 		return nil, err
 	}
 	return &CalcQuotaRequiredResult{Uint64ToString(quotaRequired), Float64ToString(float64(quotaRequired)/float64(quota.QuotaPerUt), 4)}, nil
+}
+
+func (l *LedgerApi) GetChunksV2(startHeight interface{}, endHeight interface{}) ([]*SnapshotChunkV2, error) {
+	startHeightUint64, err := parseHeight(startHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	endHeightUint64, err := parseHeight(endHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	chunks, err := l.chain.GetSubLedger(startHeightUint64-1, endHeightUint64)
+	if err != nil {
+		return nil, err
+	}
+	if len(chunks) > 0 {
+		if chunks[0].SnapshotBlock == nil || chunks[0].SnapshotBlock.Height == startHeightUint64-1 {
+			chunks = chunks[1:]
+		}
+	}
+
+	return l.ledgerChunksToRpcChunksV2(chunks)
 }

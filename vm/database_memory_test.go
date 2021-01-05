@@ -2,11 +2,12 @@ package vm
 
 import (
 	"encoding/hex"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger"
-	"math/big"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
 var (
@@ -170,10 +171,6 @@ func (db *memoryDatabase) GetUnsavedContractCode() []byte {
 
 func (db *memoryDatabase) DebugGetStorage() (map[string][]byte, error) {
 	return db.storage, nil
-}
-
-func (db *memoryDatabase) IsContractAccount() (bool, error) {
-	return len(db.storage[getCodeKey(db.addr)]) > 0, nil
 }
 
 func (db *memoryDatabase) GetCallDepth(hash *types.Hash) (uint16, error) {

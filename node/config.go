@@ -9,16 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/types"
-
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/config/biz"
-	"github.com/vitelabs/go-vite/config/gen"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/metrics"
-	"github.com/vitelabs/go-vite/wallet"
 )
 
 type Config struct {
@@ -122,21 +115,21 @@ type Config struct {
 	InfluxDBHostTag  *string `json:"InfluxDBHostTag"`
 }
 
-func (c *Config) makeWalletConfig() *wallet.Config {
-	return &wallet.Config{DataDir: c.KeyStoreDir}
+func (c *Config) makeWalletConfig() *config.Wallet {
+	return &config.Wallet{DataDir: c.KeyStoreDir}
 }
 
 func (c *Config) makeViteConfig() *config.Config {
 	return &config.Config{
-		Chain:     c.makeChainConfig(),
-		Producer:  c.makeMinerConfig(),
-		DataDir:   c.DataDir,
-		Net:       c.makeNetConfig(),
-		Vm:        c.makeVmConfig(),
-		Subscribe: c.makeSubscribeConfig(),
-		Reward:    c.makeRewardConfig(),
-		Genesis:   config_gen.MakeGenesisConfig(c.GenesisFile),
-		LogLevel:  c.LogLevel,
+		Chain:      c.makeChainConfig(),
+		Producer:   c.makeMinerConfig(),
+		DataDir:    c.DataDir,
+		Net:        c.makeNetConfig(),
+		Vm:         c.makeVmConfig(),
+		Subscribe:  c.makeSubscribeConfig(),
+		NodeReward: c.makeRewardConfig(),
+		Genesis:    config.MakeGenesisConfig(c.GenesisFile),
+		LogLevel:   c.LogLevel,
 	}
 }
 
@@ -172,8 +165,8 @@ func (c *Config) makeNetConfig() *config.Net {
 	}
 }
 
-func (c *Config) makeRewardConfig() *biz.Reward {
-	return &biz.Reward{
+func (c *Config) makeRewardConfig() *config.NodeReward {
+	return &config.NodeReward{
 		RewardAddr: c.RewardAddr,
 		Name:       c.Identity,
 	}
@@ -193,32 +186,6 @@ func (c *Config) makeSubscribeConfig() *config.Subscribe {
 		IsSubscribe: c.SubscribeEnabled,
 	}
 }
-
-func (c *Config) makeMetricsConfig() *metrics.Config {
-	mc := &metrics.Config{
-		IsEnable:         false,
-		IsInfluxDBEnable: false,
-		InfluxDBInfo:     nil,
-	}
-	if c.MetricsEnable != nil && *c.MetricsEnable == true {
-		mc.IsEnable = true
-		if c.InfluxDBEnable != nil && *c.InfluxDBEnable == true &&
-			c.InfluxDBEndpoint != nil && len(*c.InfluxDBEndpoint) > 0 &&
-			(c.InfluxDBEndpoint != nil && c.InfluxDBDatabase != nil && c.InfluxDBPassword != nil && c.InfluxDBHostTag != nil) {
-			mc.IsInfluxDBEnable = true
-			mc.InfluxDBInfo = &metrics.InfluxDBConfig{
-				Endpoint: *c.InfluxDBEndpoint,
-				Database: *c.InfluxDBDatabase,
-				Username: *c.InfluxDBUsername,
-				Password: *c.InfluxDBPassword,
-				HostTag:  *c.InfluxDBHostTag,
-			}
-		}
-	}
-
-	return mc
-}
-
 func (c *Config) makeMinerConfig() *config.Producer {
 	return &config.Producer{
 		Producer:         c.MinerEnabled,
@@ -309,21 +276,8 @@ func (c *Config) RunLogDir() string {
 	return filepath.Join(c.DataDir, "runlog", time.Now().Format("2006-01-02T15-04"))
 }
 
-func (c *Config) RunLogHandler() log15.Handler {
-	filename := "vite.log"
-	logger := common.MakeDefaultLogger(filepath.Join(c.RunLogDir(), filename))
-	return log15.StreamHandler(logger, log15.LogfmtFormat())
-}
-
-func (c *Config) RunErrorLogHandler() log15.Handler {
-	filename := "vite.error.log"
-	logger := common.MakeDefaultLogger(filepath.Join(c.RunLogDir(), "error", filename))
-	return log15.StreamHandler(logger, log15.LogfmtFormat())
-}
-
 // resolve the dataDir so future changes to the current working directory don't affect the node
 func (c *Config) DataDirPathAbs() error {
-
 	if c.DataDir != "" {
 		absDataDir, err := filepath.Abs(c.DataDir)
 		if err != nil {

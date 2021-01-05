@@ -1,33 +1,34 @@
 package dex
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
-	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 )
 
-func AddTokenEvent(db vm_db.VmDb, tokenInfo *TokenInfo) {
+func AddTokenEvent(db interfaces.VmDb, tokenInfo *TokenInfo) {
 	event := &TokenEvent{}
 	event.TokenInfo = tokenInfo.TokenInfo
 	doEmitEventLog(db, event)
 }
 
-func AddMarketEvent(db vm_db.VmDb, marketInfo *MarketInfo) {
+func AddMarketEvent(db interfaces.VmDb, marketInfo *MarketInfo) {
 	event := &MarketEvent{}
 	event.MarketInfo = marketInfo.MarketInfo
 	doEmitEventLog(db, event)
 }
 
-func AddPeriodWithBizEvent(db vm_db.VmDb, periodId uint64, bizType uint8) {
+func AddPeriodWithBizEvent(db interfaces.VmDb, periodId uint64, bizType uint8) {
 	event := &PeriodJobWithBizEvent{}
 	event.Period = periodId
 	event.BizType = int32(bizType)
 	doEmitEventLog(db, event)
 }
 
-func AddFeeDividendEvent(db vm_db.VmDb, address types.Address, feeToken types.TokenTypeId, vxAmount, feeDividend *big.Int) {
+func AddFeeDividendEvent(db interfaces.VmDb, address types.Address, feeToken types.TokenTypeId, vxAmount, feeDividend *big.Int) {
 	event := &FeeDividendEvent{}
 	event.Address = address.Bytes()
 	event.VxAmount = vxAmount.Bytes()
@@ -36,7 +37,7 @@ func AddFeeDividendEvent(db vm_db.VmDb, address types.Address, feeToken types.To
 	doEmitEventLog(db, event)
 }
 
-func AddOperatorFeeDividendEvent(db vm_db.VmDb, address types.Address, operatorMarketFee *dexproto.OperatorMarketFee) {
+func AddOperatorFeeDividendEvent(db interfaces.VmDb, address types.Address, operatorMarketFee *dexproto.OperatorMarketFee) {
 	event := &OperatorFeeDividendEvent{}
 	event.Address = address.Bytes()
 	event.MarketId = operatorMarketFee.MarketId
@@ -46,7 +47,7 @@ func AddOperatorFeeDividendEvent(db vm_db.VmDb, address types.Address, operatorM
 	doEmitEventLog(db, event)
 }
 
-func AddMinedVxForTradeFeeEvent(db vm_db.VmDb, address types.Address, quoteTokenType int32, feeAmount []byte, vxMined *big.Int) {
+func AddMinedVxForTradeFeeEvent(db interfaces.VmDb, address types.Address, quoteTokenType int32, feeAmount []byte, vxMined *big.Int) {
 	event := &MinedVxForTradeFeeEvent{}
 	event.Address = address.Bytes()
 	event.QuoteTokenType = quoteTokenType
@@ -55,7 +56,7 @@ func AddMinedVxForTradeFeeEvent(db vm_db.VmDb, address types.Address, quoteToken
 	doEmitEventLog(db, event)
 }
 
-func AddMinedVxForInviteeFeeEvent(db vm_db.VmDb, address types.Address, quoteTokenType int32, feeAmount []byte, vxMined *big.Int) {
+func AddMinedVxForInviteeFeeEvent(db interfaces.VmDb, address types.Address, quoteTokenType int32, feeAmount []byte, vxMined *big.Int) {
 	event := &MinedVxForInviteeFeeEvent{}
 	event.Address = address.Bytes()
 	event.QuoteTokenType = quoteTokenType
@@ -64,7 +65,7 @@ func AddMinedVxForInviteeFeeEvent(db vm_db.VmDb, address types.Address, quoteTok
 	doEmitEventLog(db, event)
 }
 
-func AddMinedVxForStakingEvent(db vm_db.VmDb, address types.Address, stakedAmt, minedAmt *big.Int) {
+func AddMinedVxForStakingEvent(db interfaces.VmDb, address types.Address, stakedAmt, minedAmt *big.Int) {
 	event := &MinedVxForStakingEvent{}
 	event.Address = address.Bytes()
 	event.StakedAmount = stakedAmt.Bytes()
@@ -72,7 +73,7 @@ func AddMinedVxForStakingEvent(db vm_db.VmDb, address types.Address, stakedAmt, 
 	doEmitEventLog(db, event)
 }
 
-func AddMinedVxForOperationEvent(db vm_db.VmDb, bizType int32, address types.Address, amount *big.Int) {
+func AddMinedVxForOperationEvent(db interfaces.VmDb, bizType int32, address types.Address, amount *big.Int) {
 	event := &MinedVxForOperationEvent{}
 	event.BizType = bizType
 	event.Address = address.Bytes()
@@ -80,7 +81,7 @@ func AddMinedVxForOperationEvent(db vm_db.VmDb, bizType int32, address types.Add
 	doEmitEventLog(db, event)
 }
 
-func AddInviteRelationEvent(db vm_db.VmDb, inviter, invitee types.Address, inviteCode uint32) {
+func AddInviteRelationEvent(db interfaces.VmDb, inviter, invitee types.Address, inviteCode uint32) {
 	event := &InviteRelationEvent{}
 	event.Inviter = inviter.Bytes()
 	event.Invitee = invitee.Bytes()
@@ -88,7 +89,7 @@ func AddInviteRelationEvent(db vm_db.VmDb, inviter, invitee types.Address, invit
 	doEmitEventLog(db, event)
 }
 
-func AddSettleMakerMinedVxEvent(db vm_db.VmDb, periodId uint64, page int32, finish bool) {
+func AddSettleMakerMinedVxEvent(db interfaces.VmDb, periodId uint64, page int32, finish bool) {
 	event := &SettleMakerMinedVxEvent{}
 	event.PeriodId = periodId
 	event.Page = page
@@ -96,7 +97,7 @@ func AddSettleMakerMinedVxEvent(db vm_db.VmDb, periodId uint64, page int32, fini
 	doEmitEventLog(db, event)
 }
 
-func AddGrantMarketToAgentEvent(db vm_db.VmDb, principal, agent types.Address, marketId int32) {
+func AddGrantMarketToAgentEvent(db interfaces.VmDb, principal, agent types.Address, marketId int32) {
 	event := &GrantMarketToAgentEvent{}
 	event.Principal = principal.Bytes()
 	event.Agent = agent.Bytes()
@@ -104,7 +105,7 @@ func AddGrantMarketToAgentEvent(db vm_db.VmDb, principal, agent types.Address, m
 	doEmitEventLog(db, event)
 }
 
-func AddRevokeMarketFromAgentEvent(db vm_db.VmDb, principal, agent types.Address, marketId int32) {
+func AddRevokeMarketFromAgentEvent(db interfaces.VmDb, principal, agent types.Address, marketId int32) {
 	event := &RevokeMarketFromAgentEvent{}
 	event.Principal = principal.Bytes()
 	event.Agent = agent.Bytes()
@@ -112,20 +113,20 @@ func AddRevokeMarketFromAgentEvent(db vm_db.VmDb, principal, agent types.Address
 	doEmitEventLog(db, event)
 }
 
-func AddBurnViteEvent(db vm_db.VmDb, bizType int, amount *big.Int) {
+func AddBurnViteEvent(db interfaces.VmDb, bizType int, amount *big.Int) {
 	event := &BurnViteEvent{}
 	event.BizType = int32(bizType)
 	event.Amount = amount.Bytes()
 	doEmitEventLog(db, event)
 }
 
-func AddErrEvent(db vm_db.VmDb, err error) {
+func AddErrEvent(db interfaces.VmDb, err error) {
 	event := &ErrEvent{}
 	event.error = err
 	doEmitEventLog(db, event)
 }
 
-func doEmitEventLog(db vm_db.VmDb, event DexEvent) {
+func doEmitEventLog(db interfaces.VmDb, event DexEvent) {
 	log := &ledger.VmLog{}
 	log.Topics = append(log.Topics, event.GetTopicId())
 	log.Data = event.toDataBytes()

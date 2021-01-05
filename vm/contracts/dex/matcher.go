@@ -2,12 +2,13 @@ package dex
 
 import (
 	"bytes"
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/ledger"
+	"github.com/vitelabs/go-vite/interfaces"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"github.com/vitelabs/go-vite/vm_db"
-	"math/big"
 )
 
 const maxTxsCountPerTaker = 100
@@ -16,7 +17,7 @@ const txIdLength = 20
 const bigFloatPrec = 120
 
 type Matcher struct {
-	db          vm_db.VmDb
+	db          interfaces.VmDb
 	MarketInfo  *MarketInfo
 	fundSettles map[types.Address]map[bool]*proto.AccountSettle
 	feeSettles  map[types.Address]*proto.FeeSettle
@@ -43,7 +44,7 @@ var (
 	RateCardinalNum int32 = 100000 // 100,000
 )
 
-func NewMatcher(db vm_db.VmDb, marketId int32) (mc *Matcher, err error) {
+func NewMatcher(db interfaces.VmDb, marketId int32) (mc *Matcher, err error) {
 	mc = NewRawMatcher(db)
 	var ok bool
 	if mc.MarketInfo, ok = GetMarketInfoById(db, marketId); !ok {
@@ -52,13 +53,13 @@ func NewMatcher(db vm_db.VmDb, marketId int32) (mc *Matcher, err error) {
 	return
 }
 
-func NewMatcherWithMarketInfo(db vm_db.VmDb, marketInfo *MarketInfo) (mc *Matcher) {
+func NewMatcherWithMarketInfo(db interfaces.VmDb, marketInfo *MarketInfo) (mc *Matcher) {
 	mc = NewRawMatcher(db)
 	mc.MarketInfo = marketInfo
 	return
 }
 
-func NewRawMatcher(db vm_db.VmDb) (mc *Matcher) {
+func NewRawMatcher(db interfaces.VmDb) (mc *Matcher) {
 	mc = &Matcher{}
 	mc.db = db
 	mc.fundSettles = make(map[types.Address]map[bool]*proto.AccountSettle)
@@ -503,7 +504,7 @@ func matchPrice(taker, maker *Order) (matched bool, executedPrice []byte) {
 	}
 }
 
-func filterTimeout(db vm_db.VmDb, maker *Order) bool {
+func filterTimeout(db interfaces.VmDb, maker *Order) bool {
 	if currentTime := GetTradeTimestamp(db); currentTime == 0 {
 		return false
 	} else if currentTime > maker.Timestamp+timeoutSecond {

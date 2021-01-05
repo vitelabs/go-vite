@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/vitelabs/go-vite/common/helper"
-
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
 	abi2 "github.com/vitelabs/go-vite/vm/contracts/abi"

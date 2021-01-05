@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
-	"github.com/vitelabs/go-vite/consensus"
-	"github.com/vitelabs/go-vite/consensus/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/ledger/consensus"
+	"github.com/vitelabs/go-vite/ledger/consensus/core"
+	"github.com/vitelabs/go-vite/ledger/pool/lock"
 	"github.com/vitelabs/go-vite/vm/quota"
 )
 
@@ -37,10 +38,10 @@ func main() {
 		panic(err)
 	}
 	dir := "devdata"
-	genesisJson := string(bytes)
-	c := newChain(dir, genesisJson)
+	genesisJSON := string(bytes)
+	c := newChain(dir, genesisJSON)
 
-	cs := consensus.NewConsensus(c)
+	cs := consensus.NewConsensus(c, &lock.EasyImpl{})
 	cs.Init()
 	reader := cs.SBPReader().(consensus.DposReader)
 

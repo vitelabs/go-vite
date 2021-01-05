@@ -5,8 +5,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
-
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const (
@@ -56,15 +54,4 @@ func DefaultIpcFile() string {
 		endpoint = `\\.\pipe\vite.ipc`
 	}
 	return endpoint
-}
-
-func MakeDefaultLogger(absFilePath string) *lumberjack.Logger {
-	return &lumberjack.Logger{
-		Filename:   absFilePath,
-		MaxSize:    100,
-		MaxBackups: 14,
-		MaxAge:     14,
-		Compress:   true,
-		LocalTime:  true,
-	}
 }

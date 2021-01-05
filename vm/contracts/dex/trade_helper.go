@@ -2,9 +2,10 @@ package dex
 
 import (
 	"bytes"
+
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 //Note: the 4th byte of trade db key must not be 0 or 1, in order to diff from orderId side value
@@ -24,7 +25,7 @@ type ParamDexInnerCancelOrder struct {
 	Owner    types.Address
 }
 
-func CleanExpireOrders(db vm_db.VmDb, orderIds []byte) (map[types.Address]map[bool]*dexproto.AccountSettle, *MarketInfo, error) {
+func CleanExpireOrders(db interfaces.VmDb, orderIds []byte) (map[types.Address]map[bool]*dexproto.AccountSettle, *MarketInfo, error) {
 	var (
 		matcher       *Matcher
 		marketId      int32
@@ -73,13 +74,13 @@ func CleanExpireOrders(db vm_db.VmDb, orderIds []byte) (map[types.Address]map[bo
 	}
 }
 
-func GetMarketInfoById(db vm_db.VmDb, marketId int32) (marketInfo *MarketInfo, ok bool) {
+func GetMarketInfoById(db interfaces.VmDb, marketId int32) (marketInfo *MarketInfo, ok bool) {
 	marketInfo = &MarketInfo{}
 	ok = deserializeFromDb(db, GetMarketInfoKeyById(marketId), marketInfo)
 	return
 }
 
-func SaveMarketInfoById(db vm_db.VmDb, marketInfo *MarketInfo) {
+func SaveMarketInfoById(db interfaces.VmDb, marketInfo *MarketInfo) {
 	serializeToDb(db, GetMarketInfoKeyById(marketInfo.MarketId), marketInfo)
 }
 
@@ -87,11 +88,11 @@ func GetMarketInfoKeyById(marketId int32) []byte {
 	return append(marketByMarketIdPrefix, Uint32ToBytes(uint32(marketId))...)
 }
 
-func SetTradeTimestamp(db vm_db.VmDb, timestamp int64) {
+func SetTradeTimestamp(db interfaces.VmDb, timestamp int64) {
 	setValueToDb(db, tradeTimestampKey, Uint64ToBytes(uint64(timestamp)))
 }
 
-func GetTradeTimestamp(db vm_db.VmDb) int64 {
+func GetTradeTimestamp(db interfaces.VmDb) int64 {
 	if bs := getValueFromDb(db, tradeTimestampKey); len(bs) == 8 {
 		return int64(BytesToUint64(bs))
 	} else {
@@ -99,11 +100,11 @@ func GetTradeTimestamp(db vm_db.VmDb) int64 {
 	}
 }
 
-func SaveHashMapOrderId(db vm_db.VmDb, sendHash []byte, orderId []byte) {
+func SaveHashMapOrderId(db interfaces.VmDb, sendHash []byte, orderId []byte) {
 	setValueToDb(db, GetHashMapOrderIdKey(sendHash), orderId)
 }
 
-func GetOrderIdByHash(db vm_db.VmDb, sendHash []byte) ([]byte, bool) {
+func GetOrderIdByHash(db interfaces.VmDb, sendHash []byte) ([]byte, bool) {
 	if orderId := getValueFromDb(db, GetHashMapOrderIdKey(sendHash)); len(orderId) == OrderIdBytesLength {
 		return orderId, true
 	} else {
@@ -111,7 +112,7 @@ func GetOrderIdByHash(db vm_db.VmDb, sendHash []byte) ([]byte, bool) {
 	}
 }
 
-func DeleteHashMapOrderId(db vm_db.VmDb, sendHash []byte) {
+func DeleteHashMapOrderId(db interfaces.VmDb, sendHash []byte) {
 	setValueToDb(db, GetHashMapOrderIdKey(sendHash), nil)
 }
 
@@ -119,7 +120,7 @@ func GetHashMapOrderIdKey(sendHash []byte) []byte {
 	return append(sendHashMapOrderIdPrefixKey, sendHash[len(sendHashMapOrderIdPrefixKey):]...)
 }
 
-func TryUpdateTimestamp(db vm_db.VmDb, timestamp int64, preHash types.Hash) {
+func TryUpdateTimestamp(db interfaces.VmDb, timestamp int64, preHash types.Hash) {
 	header := uint8(preHash[0])
 	if header < 32 {
 		SetTradeTimestamp(db, timestamp)

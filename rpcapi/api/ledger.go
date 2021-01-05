@@ -6,11 +6,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 )
@@ -60,6 +59,26 @@ func (l *LedgerApi) ledgerChunksToRpcChunks(list []*ledger.SnapshotChunk) ([]*Sn
 	return chunks, nil
 }
 
+func (l *LedgerApi) ledgerChunksToRpcChunksV2(list []*ledger.SnapshotChunk) ([]*SnapshotChunkV2, error) {
+	chunks := make([]*SnapshotChunkV2, 0, len(list))
+	for _, item := range list {
+		sb, err := l.ledgerSnapshotBlockToRpcBlock(item.SnapshotBlock)
+		if err != nil {
+			return nil, err
+		}
+
+		blocks, err := l.ledgerBlocksToRpcBlocks(item.AccountBlocks)
+		if err != nil {
+			return nil, err
+		}
+		chunks = append(chunks, &SnapshotChunkV2{
+			AccountBlocks: blocks,
+			SnapshotBlock: sb,
+		})
+	}
+	return chunks, nil
+}
+
 func (l *LedgerApi) ledgerBlockToRpcBlock(block *ledger.AccountBlock) (*AccountBlock, error) {
 	return ledgerToRpcBlock(l.chain, block)
 }
@@ -97,11 +116,6 @@ func (l *LedgerApi) GetRawBlockByHash(blockHash types.Hash) (*ledger.AccountBloc
 	return l.chain.GetAccountBlockByHash(blockHash)
 }
 
-// old api
-func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
-	return l.GetAccountBlockByHash(blockHash)
-}
-
 func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
 	block, getError := l.chain.GetCompleteBlockByHash(blockHash)
 
@@ -115,11 +129,6 @@ func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock,
 	}
 
 	return l.ledgerBlockToRpcBlock(block)
-}
-
-// old api
-func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
-	return l.GetAccountBlocks(addr, originBlockHash, nil, count)
 }
 
 // in token
@@ -166,25 +175,6 @@ func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height interface{}, co
 		return nil, nil
 	}
 	return l.ledgerBlocksToRpcBlocks(accountBlocks)
-}
-
-// old api
-func (l *LedgerApi) GetBlockByHeight(addr types.Address, height interface{}) (*AccountBlock, error) {
-	return l.GetAccountBlockByHeight(addr, height)
-}
-
-// old api
-func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
-	return l.GetAccountBlocksByAddress(addr, index, count)
-}
-
-// old api
-func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
-	info, err := l.getAccountInfoByAddress(addr)
-	if err != nil {
-		return nil, err
-	}
-	return ToRpcAccountInfo(l.chain, info), nil
 }
 
 func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*SnapshotBlock, error) {
@@ -311,7 +301,7 @@ func (l *LedgerApi) GetConfirmedBalances(snapshotHash types.Hash, addrList []typ
 		}
 
 		if balances == nil {
-			return nil, errors.New(fmt.Sprintf("snapshot block %s is not existed.", snapshotHash))
+			return nil, fmt.Errorf("snapshot block %s is not existed.", snapshotHash)
 		}
 
 		for addr, balance := range balances {

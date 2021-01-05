@@ -8,8 +8,9 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"golang.org/x/crypto/curve25519"
+
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
 
 const (

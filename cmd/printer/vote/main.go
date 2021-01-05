@@ -8,14 +8,12 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/vitelabs/go-vite/ledger"
-
-	"github.com/vitelabs/go-vite/consensus"
-	"github.com/vitelabs/go-vite/consensus/core"
-
-	"github.com/vitelabs/go-vite/chain"
+	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/config"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/ledger/consensus"
+	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/vm/quota"
 )
 

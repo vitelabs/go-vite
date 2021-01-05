@@ -2,23 +2,15 @@ package api
 
 import (
 	"encoding/hex"
+	"strings"
+
 	"github.com/pkg/errors"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
-	"strings"
 )
-
-// Deprecated: use contract_createContractAddress instead
-func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
-	h, err := StringToUint64(heightStr)
-	if err != nil {
-		return nil, err
-	}
-	addr := util.NewContractAddress(selfAddr, h, prevHash)
-	return &addr, nil
-}
 
 // Private
 func (c *ContractApi) GetCreateContractParams(abiStr string, params []string) ([]byte, error) {

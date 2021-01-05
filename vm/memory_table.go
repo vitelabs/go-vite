@@ -1,8 +1,9 @@
 package vm
 
 import (
-	"github.com/vitelabs/go-vite/common/helper"
 	"math/big"
+
+	"github.com/vitelabs/go-vite/common/helper"
 )
 
 // calculates the memory size required for a step
@@ -12,6 +13,10 @@ func calcMemSize(off, l *big.Int) *big.Int {
 	}
 
 	return new(big.Int).Add(off, l)
+}
+
+func memorySha3(stack *stack) *big.Int {
+	return calcMemSize(stack.back(0), stack.back(1))
 }
 
 func memoryBlake2b(stack *stack) *big.Int {

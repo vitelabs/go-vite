@@ -5,14 +5,13 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/vitelabs/go-vite/vite/version"
-
-	"github.com/vitelabs/go-vite/common/hexutil"
-
 	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/mem"
+
+	"github.com/vitelabs/go-vite/common/hexutil"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite/vite/version"
 )
 
 type DashboardApi struct {
@@ -57,8 +56,8 @@ func (api DashboardApi) ProcessInfo(id *string) map[string]interface{} {
 	}
 	result["build_version"] = version.VITE_BUILD_VERSION
 	result["commit_version"] = version.VITE_COMMIT_VERSION
-	if api.v.Config().Reward != nil {
-		result["nodeName"] = api.v.Config().Reward.Name
+	if api.v.Config().NodeReward != nil {
+		result["nodeName"] = api.v.Config().NodeReward.Name
 		result["rewardAddress"] = api.v.Config().RewardAddr
 	}
 	result["pid"] = os.Getpid()

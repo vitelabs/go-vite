@@ -1,9 +1,10 @@
 package dex
 
 import (
+	"math/big"
+
 	"github.com/vitelabs/go-vite/common/types"
 	dexProto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"math/big"
 )
 
 type Account struct {

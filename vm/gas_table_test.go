@@ -1,9 +1,10 @@
 package vm
 
 import (
+	"testing"
+
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/vm/util"
-	"testing"
 )
 
 func TestMemoryGasCost(t *testing.T) {

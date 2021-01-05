@@ -2,10 +2,12 @@ package gvite_plugins
 
 import (
 	"fmt"
+	"os"
+
+	"gopkg.in/urfave/cli.v1"
+
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
-	"gopkg.in/urfave/cli.v1"
-	"os"
 )
 
 var (

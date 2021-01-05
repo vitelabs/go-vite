@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/common/helper"
 	vcrypto "github.com/vitelabs/go-vite/crypto"
@@ -225,6 +225,10 @@ func getAddressChecksumFromHex(hexStr string) ([addressChecksumSize]byte, error)
 	var b [addressChecksumSize]byte
 	_, err := hex.Decode(b[:], []byte(hexStr[hexAddrCoreLen+addressPrefixLen:]))
 	return b, err
+}
+
+func (a Address) Compare(b Address) int {
+	return bytes.Compare(a.Bytes(), b.Bytes())
 }
 
 func (a *Address) UnmarshalJSON(input []byte) error {

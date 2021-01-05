@@ -7,7 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger"
+	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vm/abi"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -59,8 +59,6 @@ func NewClient(rpc RpcClient) (Client, error) {
 type client struct {
 	rpc RpcClient
 }
-
-type SignFunc func(addr types.Address, data []byte) (signedData, pubkey []byte, err error)
 
 func (c *client) BuildNormalRequestBlock(params RequestTxParams, prev *ledger.HashHeight) (block *api.AccountBlock, err error) {
 	if prev == nil {
