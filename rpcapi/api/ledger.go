@@ -116,11 +116,6 @@ func (l *LedgerApi) GetRawBlockByHash(blockHash types.Hash) (*ledger.AccountBloc
 	return l.chain.GetAccountBlockByHash(blockHash)
 }
 
-// old api
-func (l *LedgerApi) GetBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
-	return l.GetAccountBlockByHash(blockHash)
-}
-
 func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock, error) {
 	block, getError := l.chain.GetCompleteBlockByHash(blockHash)
 
@@ -134,11 +129,6 @@ func (l *LedgerApi) GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock,
 	}
 
 	return l.ledgerBlockToRpcBlock(block)
-}
-
-// old api
-func (l *LedgerApi) GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error) {
-	return l.GetAccountBlocks(addr, originBlockHash, nil, count)
 }
 
 // in token
@@ -185,25 +175,6 @@ func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height interface{}, co
 		return nil, nil
 	}
 	return l.ledgerBlocksToRpcBlocks(accountBlocks)
-}
-
-// old api
-func (l *LedgerApi) GetBlockByHeight(addr types.Address, height interface{}) (*AccountBlock, error) {
-	return l.GetAccountBlockByHeight(addr, height)
-}
-
-// old api
-func (l *LedgerApi) GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error) {
-	return l.GetAccountBlocksByAddress(addr, index, count)
-}
-
-// old api
-func (l *LedgerApi) GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error) {
-	info, err := l.getAccountInfoByAddress(addr)
-	if err != nil {
-		return nil, err
-	}
-	return ToRpcAccountInfo(l.chain, info), nil
 }
 
 func (l *LedgerApi) GetSnapshotBlockByHash(hash types.Hash) (*SnapshotBlock, error) {

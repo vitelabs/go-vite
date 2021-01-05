@@ -27,9 +27,6 @@ func scItemToBytes(addr *types.Address, hashHeight *HashHeight) []byte {
 	bytes := make([]byte, 0, ScItemBytesLen)
 	// Address
 	bytes = append(bytes, addr.Bytes()...)
-	if hashHeight == nil {
-		fmt.Println()
-	}
 	// Hash
 	bytes = append(bytes, hashHeight.Hash.Bytes()...)
 

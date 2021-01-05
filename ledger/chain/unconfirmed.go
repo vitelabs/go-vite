@@ -46,7 +46,6 @@ func (c *chain) GetContentNeedSnapshotRange() map[types.Address]*ledger.HeightRa
 	unconfirmedBlocks := c.cache.GetUnconfirmedBlocks()
 
 	result := make(map[types.Address]*ledger.HeightRange)
-	sc := make(ledger.SnapshotContent)
 	// limit account blocks be snapshot less than maxSnapshotLength
 	if len(unconfirmedBlocks) > maxSnapshotLength {
 		unconfirmedBlocks = unconfirmedBlocks[:maxSnapshotLength]
