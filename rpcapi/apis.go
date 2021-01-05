@@ -46,7 +46,13 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewPow(vite),
 			Public:    true,
 		}
-
+	case "debug":
+		return rpc.API{
+			Namespace: "debug",
+			Version:   "1.0",
+			Service:   api.NewDebug(),
+			Public:    true,
+		}
 	case "ledger":
 		return rpc.API{
 			Namespace: "ledger",
