@@ -11,13 +11,13 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/ledger/generator"
 	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/wallet"
 )

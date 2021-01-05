@@ -7,7 +7,7 @@ import (
 	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vite"
+	"github.com/vitelabs/go-vite"
 )
 
 type StatsApi struct {

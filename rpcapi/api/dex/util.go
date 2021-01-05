@@ -3,9 +3,9 @@ package dex
 import (
 	"math/big"
 
+	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/util"
 )
