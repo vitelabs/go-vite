@@ -7,12 +7,12 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/common/hexutil"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/pow"
 	"github.com/vitelabs/go-vite/pow/remote"
-	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/quota"
 )
 

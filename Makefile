@@ -11,8 +11,8 @@ WORK_DIR=$(shell pwd)
 MAIN=$(shell pwd)/cmd/$(MAIN_DIR)/main.go
 BUILD_ROOT_DIR=$(shell pwd)/build
 VITE_GIT_COMMIT=$(shell git rev-parse HEAD)
-VITE_VERSION=$(shell cat vite/version/buildversion)
-VITE_VERSION_FILE=$(shell pwd)/vite/version/buildversion.go
+VITE_VERSION=$(shell cat version/buildversion)
+VITE_VERSION_FILE=$(shell pwd)/version/buildversion.go
 
 BUILD_DIR=$(BUILD_ROOT_DIR)/cmd/$(MAIN_DIR)
 BUILD_BIN=$(BUILD_DIR)/gvite

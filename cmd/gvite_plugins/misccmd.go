@@ -9,7 +9,7 @@ import (
 	"gopkg.in/urfave/cli.v1"
 
 	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/vite/version"
+	"github.com/vitelabs/go-vite/version"
 )
 
 var (

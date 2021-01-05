@@ -1,10 +1,10 @@
 package rpcapi
 
 import (
+	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/rpcapi/api/filters"
-	"github.com/vitelabs/go-vite/vite"
 )
 
 func Init(dir, lvl string, testApi_prikey, testApi_tti string, netId uint, dexAvailable *bool) {

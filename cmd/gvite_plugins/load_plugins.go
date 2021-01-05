@@ -16,7 +16,7 @@ import (
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vite/version"
+	"github.com/vitelabs/go-vite/version"
 )
 
 // gvite is the official command-line client for Vite
