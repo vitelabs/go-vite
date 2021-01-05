@@ -101,3 +101,17 @@ func (c *ContractApi) GetCallOffChainData(abiStr string, offChainName string, pa
 	}
 	return abiContract.PackOffChain(offChainName, arguments...)
 }
+
+// ------------------------------------------------------------------------------------------------------------------------
+// ---------------------deprecated-----------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------
+
+// Deprecated: use contract_createContractAddress instead
+func (c *ContractApi) GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error) {
+	h, err := StringToUint64(heightStr)
+	if err != nil {
+		return nil, err
+	}
+	addr := util.NewContractAddress(selfAddr, h, prevHash)
+	return &addr, nil
+}

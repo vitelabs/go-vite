@@ -1,6 +1,8 @@
 package api
 
 import (
+	"sort"
+
 	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/types"
@@ -100,4 +102,61 @@ func checkGenesisToken(db interfaces.VmDb, owner types.Address, genesisTokenInfo
 		}
 	}
 	return tokenList, nil
+}
+
+// ------------------------------------------------------------------------------------------------------------------------
+// ---------------------deprecated-----------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------
+
+// Deprecated: use contract_getTokenInfoList instead
+func (m *MintageAPI) GetTokenInfoList(index int, count int) (*TokenInfoList, error) {
+	db, err := getVmDb(m.chain, types.AddressAsset)
+	if err != nil {
+		return nil, err
+	}
+	tokenMap, err := abi.GetTokenMap(db)
+	if err != nil {
+		return nil, err
+	}
+	listLen := len(tokenMap)
+	tokenList := make([]*RpcTokenInfo, 0)
+	for tokenId, tokenInfo := range tokenMap {
+		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
+	}
+	sort.Sort(byName(tokenList))
+	start, end := getRange(index, count, listLen)
+	return &TokenInfoList{listLen, tokenList[start:end]}, nil
+}
+
+// Deprecated: use contract_getTokenInfoById instead
+func (m *MintageAPI) GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error) {
+	db, err := getVmDb(m.chain, types.AddressAsset)
+	if err != nil {
+		return nil, err
+	}
+	tokenInfo, err := abi.GetTokenByID(db, tokenId)
+	if err != nil {
+		return nil, err
+	}
+	if tokenInfo != nil {
+		return RawTokenInfoToRpc(tokenInfo, tokenId), nil
+	}
+	return nil, nil
+}
+
+// Deprecated: use contract_getTokenInfoListByOwner
+func (m *MintageAPI) GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error) {
+	db, err := getVmDb(m.chain, types.AddressAsset)
+	if err != nil {
+		return nil, err
+	}
+	tokenMap, err := abi.GetTokenMapByOwner(db, owner)
+	if err != nil {
+		return nil, err
+	}
+	tokenList := make([]*RpcTokenInfo, 0)
+	for tokenId, tokenInfo := range tokenMap {
+		tokenList = append(tokenList, RawTokenInfoToRpc(tokenInfo, tokenId))
+	}
+	return checkGenesisToken(db, owner, m.vite.Config().AssetInfo.TokenInfoMap, tokenList)
 }
