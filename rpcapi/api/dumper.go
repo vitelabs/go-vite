@@ -162,6 +162,53 @@ func (f Dumper) DumpAccountBalance(token types.TokenTypeId, snapshotHeight uint6
 	return
 }
 
+func (f Dumper) DumpStakeForMiningAddresses(snapshotHeight uint64) (err error) {
+	var (
+		snapshotBlock *ledger.SnapshotBlock
+		lastKey = types.ZERO_HASH.Bytes()
+		addresses []*types.Address
+		addressesRes = make(map[types.Address]string)
+		pageSize = 100
+		v1Size = 0
+		v2Size = 0
+	)
+	if snapshotBlock, err = f.chain.GetSnapshotBlockByHeight(snapshotHeight); err != nil {
+		return
+	}
+	for {
+		if addresses, lastKey, err = f.chain.GetDexFundStakeForMiningV1ListByPage(snapshotBlock.Hash, lastKey, pageSize); err != nil {
+			f.log.Error("DumpStakeForMiningAddresses failed, error is "+err.Error(), "method", "GetDexFundStakeForMiningV1ListByPage")
+			return
+		}
+		v1Size += len(addresses)
+		for _, addr := range addresses {
+			addressesRes[*addr] = ""
+		}
+		if len(addresses) < pageSize {
+			break
+		}
+	}
+	lastKey = types.ZERO_HASH.Bytes()
+	for {
+		if addresses, lastKey, err = f.chain.GetDexFundStakeForMiningV2ListByPage(snapshotBlock.Hash, lastKey, pageSize); err != nil {
+			f.log.Error("DumpStakeForMiningAddresses failed, error is "+err.Error(), "method", "GetDexFundStakeForMiningV2ListByPage")
+			return
+		}
+		v2Size += len(addresses)
+		for _, addr := range addresses {
+			addressesRes[*addr] = ""
+		}
+		if len(addresses) < pageSize {
+			break
+		}
+	}
+	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> DumpStakeForMiningAddresses totalSize %d, v1Size %d, v2Size %d\n", len(addressesRes), v1Size, v2Size)
+	for k, _ := range addressesRes {
+		fmt.Printf("%s\n", k.String())
+	}
+	return
+}
+
 type SnapshotBalance struct {
 	WalletBalance *big.Int `json:"walletBalance"`
 	DexBalance    *big.Int `json:"dexBalance"`

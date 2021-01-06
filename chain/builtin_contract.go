@@ -259,7 +259,7 @@ func (c *chain) GetDexFundByAddress(snapshotHash types.Hash, address types.Addre
 	if v, err1 := sd.GetValue(dex.GetFundKey(address)); err1 != nil {
 		return nil, err1
 	} else {
-		if  len(v) > 0 {
+		if len(v) > 0 {
 			fund := &dex.Fund{}
 			err2 := fund.DeSerialize(v)
 			return fund, err2
@@ -267,4 +267,24 @@ func (c *chain) GetDexFundByAddress(snapshotHash types.Hash, address types.Addre
 			return nil, nil
 		}
 	}
+}
+
+func (c *chain) GetDexFundStakeForMiningV1ListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*types.Address, []byte, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
+		c.log.Error(cErr.Error(), "method", "GetDexFundStakeForMiningV1ListByPage")
+		return nil, nil, cErr
+	}
+	return dex.GetStakeForMiningV1ByPage(sd, lastKey, count)
+}
+
+func (c *chain) GetDexFundStakeForMiningV2ListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*types.Address, []byte, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
+	if err != nil {
+		cErr := errors.New(fmt.Sprintf("c.stateDB.NewStorageDatabase failed"))
+		c.log.Error(cErr.Error(), "method", "GetDexFundStakeForMiningV2ListByPage")
+		return nil, nil, cErr
+	}
+	return dex.GetStakeForMiningV2ByPage(sd, lastKey, count)
 }

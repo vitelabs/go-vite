@@ -338,3 +338,48 @@ func GetStakeListByPage(db abi.StorageDatabase, lastKey []byte, count int) (info
 	}
 	return infos, iterator.Key(), nil //iterator.Key() will keep last valid key when Next() return false
 }
+
+
+func GetStakeForMiningV1ByPage(db abi.StorageDatabase, lastKey []byte, count int) (addresses []*types.Address, newLastKey []byte, err error) {
+	return getStakeForMiningInnerByPage(db, miningStakedAmountKeyPrefix, lastKey, count)
+}
+
+func GetStakeForMiningV2ByPage(db abi.StorageDatabase, lastKey []byte, count int) (addresses []*types.Address, newLastKey []byte, err error) {
+	return getStakeForMiningInnerByPage(db, miningStakedAmountV2KeyPrefix, lastKey, count)
+}
+
+func getStakeForMiningInnerByPage(db abi.StorageDatabase, keyPrefix []byte, lastKey []byte, count int) (addresses []*types.Address, newLastKey []byte, err error) {
+	var iterator interfaces.StorageIterator
+	if iterator, err = db.NewStorageIterator(keyPrefix); err != nil {
+		return
+	}
+	defer iterator.Release()
+
+	if !bytes.Equal(lastKey, types.ZERO_HASH.Bytes()) {
+		ok := iterator.Seek(lastKey)
+		if !ok {
+			err = fmt.Errorf("last key not valid for page stake mining list")
+			return
+		}
+	}
+	addresses = make([]*types.Address, 0, count)
+	for {
+		if !iterator.Next() {
+			if err = iterator.Error(); err != nil {
+				return
+			}
+			break
+		}
+
+		data := iterator.Value()
+		if len(data) > 0 {
+			addressBytes := iterator.Key()[len(keyPrefix):]
+			address := &types.Address{}
+			if err = address.SetBytes(addressBytes); err != nil {
+				panic(err)
+			}
+			addresses = append(addresses, address)
+		}
+	}
+	return addresses, iterator.Key(), nil //iterator.Key() will keep last valid key when Next() return false
+}

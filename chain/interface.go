@@ -273,6 +273,10 @@ type Chain interface {
 
 	GetDexStakeListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*dex.DelegateStakeInfo, []byte, error)
 
+	GetDexFundStakeForMiningV1ListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*types.Address, []byte, error)
+
+	GetDexFundStakeForMiningV2ListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*types.Address, []byte, error)
+
 	// ====== Sync ledger ======
 	GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error)
 
