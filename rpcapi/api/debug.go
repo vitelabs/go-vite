@@ -1,16 +1,16 @@
 package api
 
-type Debug struct {
+type Deprecated struct {
 }
 
-func NewDebug() *Debug {
-	return &Debug{}
+func NewDeprecated() *Deprecated {
+	return &Deprecated{}
 }
 
-func (p Debug) String() string {
-	return "DebugApi"
+func (p Deprecated) String() string {
+	return "DeprecatedApi"
 }
 
-func (p *Debug) Hello() (string, error) {
+func (p *Deprecated) Hello() (string, error) {
 	return "hello world", nil
 }

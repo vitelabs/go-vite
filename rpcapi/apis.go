@@ -50,7 +50,14 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 		return rpc.API{
 			Namespace: "debug",
 			Version:   "1.0",
-			Service:   api.NewDebug(),
+			Service:   api.NewDeprecated(),
+			Public:    true,
+		}
+	case "consensusGroup":
+		return rpc.API{
+			Namespace: "debug",
+			Version:   "1.0",
+			Service:   api.NewDeprecated(),
 			Public:    true,
 		}
 	case "ledger":
