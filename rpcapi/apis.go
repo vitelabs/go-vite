@@ -1,10 +1,10 @@
 package rpcapi
 
 import (
+	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/rpcapi/api/filters"
-	"github.com/vitelabs/go-vite/vite"
 )
 
 func Init(dir, lvl string, testApi_prikey, testApi_tti string, netId uint, dexAvailable *bool) {
@@ -46,7 +46,20 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewPow(vite),
 			Public:    true,
 		}
-
+	case "debug":
+		return rpc.API{
+			Namespace: "debug",
+			Version:   "1.0",
+			Service:   api.NewDeprecated(),
+			Public:    true,
+		}
+	case "consensusGroup":
+		return rpc.API{
+			Namespace: "debug",
+			Version:   "1.0",
+			Service:   api.NewDeprecated(),
+			Public:    true,
+		}
 	case "ledger":
 		return rpc.API{
 			Namespace: "ledger",
