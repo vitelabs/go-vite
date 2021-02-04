@@ -38,7 +38,7 @@ parent:
 ---
 ```
 
-Setting order: false removes the item (file or directory) from the sidebar. It is, however, remains accessible by means other than the sidebar. It is valid use a readme.md to set an order of a parent-directory and hide the file with order: false.
+Setting `order: false` removes the item (file or directory) from the sidebar. It is, however, remains accessible by means other than the sidebar. It is valid use a `readme.md` to set an order of a parent-directory and hide the file with `order: false`.
 
 ## Links
 
