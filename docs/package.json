@@ -1,0 +1,15 @@
+{
+  "name": "docs",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "vuepress dev --no-cache",
+    "build": "vuepress build"
+  },
+  "dependencies": {
+    "markdown-it": "^12.0.4",
+    "vuepress-theme-cosmos": "^1.0.180"
+  }
+}
