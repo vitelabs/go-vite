@@ -44,6 +44,15 @@ module.exports = {
                 path: "/articles"
               }
             ]
+          },
+          {
+            title: "SDK",
+            children: [
+              {
+                title: "Vite.js",
+                path: "https://docs.vite.org/vite.js/"
+              }
+            ]
           }
         ]
       },
