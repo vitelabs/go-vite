@@ -94,6 +94,15 @@ module.exports = {
                 url: "https://medium.com/vitelabs"
               },
             ]
+          },
+          {
+            title: "Community",
+            children: [
+              {
+                title: "Contributing to the docs",
+                url: "https://github.com/vitelabs/go-vite/blob/master/docs/DOCS_README.md"
+              },
+            ]
           }
         ]
       }
