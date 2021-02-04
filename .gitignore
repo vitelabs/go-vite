@@ -43,3 +43,13 @@ genesis_*.json
 !**/p2p/**/simular/**/*.go
 **/net/**/simular/**
 !**/net/**/simular/**/*.go
+
+
+# node.js
+node_modules
+docs/.vuepress/dist
+*.log
+package-lock.json
+sw.*
+workbox-*
+
