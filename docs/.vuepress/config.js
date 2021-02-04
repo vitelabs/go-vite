@@ -37,11 +37,11 @@ module.exports = {
             children: [
               {
                 title: "Simple Introduction to Vite",
-                path: "start"
+                path: "/start"
               },
               {
                 title: "Tech Articles",
-                path: "articles"
+                path: "/articles"
               }
             ]
           }
