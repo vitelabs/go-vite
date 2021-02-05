@@ -4,7 +4,7 @@ const basePath = process.env.VUEPRESS_BASE || '/';
 
 module.exports = {
     theme: "cosmos",
-    title: "Vite Core",
+    title: "Vite: Bridging Every Blockchain in a Multi-Chain Future",
     base: basePath,
 
     locales: {
