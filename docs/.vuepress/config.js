@@ -14,10 +14,7 @@ module.exports = {
     },
 
     plugins: [
-      ["mathjax", {
-        target: "svg",
-        cache: true
-      }]
+      ["@vite/vuepress-plugin-mathjax"]
     ],
 
     themeConfig: {

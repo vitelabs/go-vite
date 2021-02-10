@@ -59,9 +59,7 @@ The following table lists quota consumption of common transactions:
 
 In addition, each character in comment field of transaction consumes 68 quota.
 
-For example, sending a transfer transaction with comment of '0x0001' (two hexadecimal characters) will consume
-
-$${\it Q} = 21000 + 68 * 2 = 21136$$ quota, which translates to `1.0065` UT.
+For example, sending a transfer transaction with comment of '0x0001' (two hexadecimal characters) will consume ${\it Q} = 21000 + 68 * 2 = 21136$ quota, which translates to `1.0065` UT.
 
 ::: tip Additional Quota Cost
 * Due to implementation of [VEP-8](../../vep/vep-8.md), a 2-char prefix that takes additional 136 quota will be added to your comment if you send a transaction with comment in Vite official wallet. 
