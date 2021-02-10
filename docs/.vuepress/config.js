@@ -14,7 +14,7 @@ module.exports = {
     },
 
     head: [
-      ['link', { rel: 'icon', href: path.join(basePath, '/icon.png') }]
+      ['link', { rel: 'icon', href: '/icon.png' }]
     ],
 
     plugins: [
