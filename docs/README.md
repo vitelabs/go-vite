@@ -6,17 +6,18 @@ footer:
 aside: true
 ---
 
-# Go-Vite Documentation
+# Vite Documentation
 
 ## Get Start
 
-* **[Simple Introduction to Vite](./start)**: Bridging Every Blockchain in a Multi-Chain Future
-* **[Dex Introduction](./dex/)**: ViteX - Cross-Chain Exchange By the Community, For the Community
-* **[Smart Contract Guid](./contract/)**: A guid for writing and deloying smart-contract on vite.
+* **[Vite Blockchain](./start)**: Vite - Reactive blockchain that adopts a message-driven, asynchronous architecture and a DAG-based ledger.  [White Paper](https://github.com/vitelabs/whitepaper/blob/master/vite_en.pdf)
+* **[Cross-Chain Bridge](./bridge/vitebridge.md)**: ViteBridge - Bridging every blockchain in a multi-chain future.
+* **[DEX](./dex/)**: ViteX - Cross-chain exchange by the community, for the community.
+* **[Smart Contract](./contract/)**: A guide for writing and deploying smart contracts on Vite.
 
 ## Reference
 
-* **[Vite RPC](./api/rpc/)**:  List of endpoints to interact with a vite full-node through RPC.
+* **[Vite RPC](./api/rpc/)**:  List of endpoints to interact with a Vite fullnode through RPC.
 * **[ViteX Data Query API](./dex/api/vitex-data-api.md)**: Data Query API for ViteX
 * **[ViteX API](./dex/api/dex-apis.md)**: ViteX API enables users to complete trading operations on ViteX decentralized exchange without exposing private keys.
 * **[ViteX Gateway Technical Specification](./dex/api/gate.md)**: This specification describes the API interface that 3rd party gateways need to implement for plugging into ViteX. 
