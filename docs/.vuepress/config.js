@@ -18,7 +18,13 @@ module.exports = {
     ],
 
     plugins: [
-      ["@vite/vuepress-plugin-mathjax"]
+      ["@vite/vuepress-plugin-mathjax"],
+      [
+        "sitemap",
+        {
+          hostname: "https://docs.vite.org"
+        }
+      ]
     ],
 
     themeConfig: {
