@@ -13,6 +13,13 @@ module.exports = {
       },
     },
 
+    plugins: [
+      ["mathjax", {
+        target: "svg",
+        cache: true
+      }]
+    ],
+
     themeConfig: {
       repo: "vitelabs/go-vite",
       docsRepo: "vitelabs/go-vite",

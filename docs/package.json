@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "markdown-it": "^12.0.4",
+    "vuepress-plugin-mathjax": "^1.2.8",
     "vuepress-theme-cosmos": "^1.0.180"
   }
 }
