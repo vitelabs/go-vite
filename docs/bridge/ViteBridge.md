@@ -6,9 +6,13 @@ title: ViteBridge White Paper
 # ViteBridge: A Generic Decentralized Cross-Chain Transfer Protocol 
 
 ## Background
-Currently, there are many competitive blockchain projects dedicated to build an exclusive and closed ecosystem. When users want to store values, trade assets, or access dApps in a trustless manner, they constrain within these closed ecosystems, but instead of across their boundaries. In this circumstance, different blockchains are becoming isolated islands of information and values, and no single ecosystem meets all the demands.
+In recent years, many public blockchain projects have been created, but almost all of them have been built to become closed ecosystems.
 
-This article proposes a generic decentralized cross-chain transfer protocol that bridges between different blockchains to allow free value circulation across the borders, break the barriers of various heterogeneous blockchain ecosystems, and build a more open blockchain world in the end.
+This means when users make transactions or use dApps, these actions are only of a trustless nature when performed within the same protocol.
+
+As such, independent blockchains have become isolated islands of both data and digital assets. The space is screaming for an effective and trustless cross-chain protocol.
+
+This paper proposes a generic and decentralized cross-chain transfer protocol to bridge all blockchains. This protocol will allow unconstrained transfer of information and value between heterogeneous ecosystems, and push our industry towards more openness and interoperability.
 
 ## Design Goals
 - **Generic**. The protocol is not designed for specific blockchains but should apply to most existing blockchains.
