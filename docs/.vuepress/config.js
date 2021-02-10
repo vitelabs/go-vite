@@ -13,6 +13,10 @@ module.exports = {
       },
     },
 
+    head: [
+      ['link', { rel: 'icon', href: path.join(basePath, '/icon.png') }]
+    ],
+
     plugins: [
       ["@vite/vuepress-plugin-mathjax"]
     ],
