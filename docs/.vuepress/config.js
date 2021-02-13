@@ -50,10 +50,6 @@ module.exports = {
             title: "Resources",
             children: [
               {
-                title: "Simple Introduction to Vite",
-                path: "/start"
-              },
-              {
                 title: "Tech Articles",
                 path: "/articles"
               }
