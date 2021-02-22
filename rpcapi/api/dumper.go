@@ -9,7 +9,10 @@ import (
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"io/ioutil"
 	"math/big"
+	"os"
+	"path/filepath"
 	"sort"
 )
 
@@ -162,17 +165,24 @@ func (f Dumper) DumpAccountBalance(token types.TokenTypeId, snapshotHeight uint6
 	return
 }
 
-func (f Dumper) DumpStakeForMiningAddresses(snapshotHeight uint64) (err error) {
+func (f Dumper) DumpStakeForMiningAddresses(snapshotHeight uint64, outputFile string) (err error) {
 	var (
 		snapshotBlock *ledger.SnapshotBlock
-		lastKey = types.ZERO_HASH.Bytes()
-		addresses []*types.Address
-		addressesRes = make(map[types.Address]string)
-		pageSize = 100
-		v1Size = 0
-		v2Size = 0
+		lastKey       = types.ZERO_HASH.Bytes()
+		addresses     []*types.Address
+		addressesRes  = make(map[types.Address]string)
+		addressesRes2  = make(map[types.Address]string)
+		pageSize      = 100
+		v1Size        = 0
+		v2Size        = 0
 	)
+		f.log.Error("DumpStakeForMiningAddresses start!!!")
 	if snapshotBlock, err = f.chain.GetSnapshotBlockByHeight(snapshotHeight); err != nil {
+		f.log.Error("DumpStakeForMiningAddresses failed, error is "+err.Error(), "method", "GetSnapshotBlockByHeight")
+		return
+	}
+	if snapshotBlock, err = f.chain.GetSnapshotBlockByHeight(snapshotHeight); err != nil {
+		f.log.Error("DumpStakeForMiningAddresses failed, error is "+err.Error(), "method", "GetSnapshotBlockByHeight")
 		return
 	}
 	for {
@@ -181,10 +191,18 @@ func (f Dumper) DumpStakeForMiningAddresses(snapshotHeight uint64) (err error) {
 			return
 		}
 		v1Size += len(addresses)
+		f.log.Error("DumpStakeForMiningAddresses success", "method", "GetDexFundStakeForMiningV1ListByPage", "len(addresses)s", len(addresses))
+		duplicated := false
 		for _, addr := range addresses {
-			addressesRes[*addr] = ""
+			f.log.Error("DumpStakeForMiningAddresses success", "method", "GetDexFundStakeForMiningV1ListByPage", "address", addr.String())
+			if _, ok := addressesRes[*addr]; ok {
+				duplicated = true
+				break
+			} else {
+				addressesRes[*addr] = ""
+			}
 		}
-		if len(addresses) < pageSize {
+		if len(addresses) < pageSize || duplicated {
 			break
 		}
 	}
@@ -195,18 +213,41 @@ func (f Dumper) DumpStakeForMiningAddresses(snapshotHeight uint64) (err error) {
 			return
 		}
 		v2Size += len(addresses)
+		f.log.Error("DumpStakeForMiningAddresses success", "method", "GetDexFundStakeForMiningV2ListByPage", "len(addresses)s", len(addresses))
+		duplicated := false
 		for _, addr := range addresses {
-			addressesRes[*addr] = ""
+			f.log.Error("DumpStakeForMiningAddresses success", "method", "GetDexFundStakeForMiningV2ListByPage", "address", addr.String())
+			if _, ok := addressesRes2[*addr]; ok {
+				duplicated = true
+				break
+			} else {
+				addressesRes2[*addr] = ""
+				addressesRes[*addr] = ""
+			}
 		}
-		if len(addresses) < pageSize {
+		if len(addresses) < pageSize || duplicated {
 			break
 		}
 	}
-	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> DumpStakeForMiningAddresses totalSize %d, v1Size %d, v2Size %d\n", len(addressesRes), v1Size, v2Size)
-	for k, _ := range addressesRes {
-		fmt.Printf("%s\n", k.String())
+
+	if err = os.MkdirAll(filepath.Dir(outputFile), 0700); err != nil {
+		return err
 	}
-	return
+	var file *os.File
+	file, err = ioutil.TempFile(filepath.Dir(outputFile), "."+filepath.Base(outputFile)+".tmp")
+	if err != nil {
+		return err
+	}
+	if err = writeLineToFile(file, fmt.Sprintf(">>>>>>>>>>>>>>>>>>>>>  totalSize %d, v1Size %d, v2Size %d\n", len(addressesRes), v1Size, v2Size)); err != nil {
+		return
+	}
+	for k, _ := range addressesRes {
+		if err = writeLineToFile(file, fmt.Sprintf("%s\n", k.String())); err != nil {
+			return
+		}
+	}
+	file.Close()
+	return os.Rename(file.Name(), outputFile)
 }
 
 type SnapshotBalance struct {
@@ -231,4 +272,13 @@ func (st DumpedAmountSorter) Less(i, j int) bool {
 	} else {
 		return false
 	}
+}
+
+func writeLineToFile(file *os.File, content string) error {
+	if _, err := file.Write([]byte(content)); err != nil {
+		file.Close()
+		os.Remove(file.Name())
+		return err
+	}
+	return nil
 }
