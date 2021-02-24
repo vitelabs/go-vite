@@ -134,7 +134,7 @@ func (c *chain) Init() error {
 	}
 
 	// check fork points and rollback
-	if err := c.checkForkPointsAndPanic(); err != nil {
+	if err := c.checkForkPoints(); err != nil {
 		return err
 	}
 
