@@ -134,7 +134,7 @@ func (c *chain) Init() error {
 	}
 
 	// check fork points and rollback
-	if err := c.checkForkPointsAndRollback(); err != nil {
+	if err := c.checkForkPointsAndPanic(); err != nil {
 		return err
 	}
 
@@ -337,7 +337,7 @@ func (c *chain) checkAndInitData() (byte, error) {
 	return status, nil
 }
 
-func (c *chain) checkForkPointsAndRollback() error {
+func (c *chain) checkForkPoints() error {
 	forkPointList := fork.GetActiveForkPointList()
 
 	// check
@@ -361,9 +361,7 @@ func (c *chain) checkForkPointsAndRollback() error {
 
 	// rollback
 	if rollbackForkPoint != nil {
-		if _, err := c.DeleteSnapshotBlocksToHeight(rollbackForkPoint.Height); err != nil {
-			return err
-		}
+		return fmt.Errorf("error fork point check, %d", rollbackForkPoint.Height)
 	}
 
 	return nil
