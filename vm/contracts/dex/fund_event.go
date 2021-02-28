@@ -130,7 +130,7 @@ func AddTransferAssetEvent(db vm_db.VmDb, bizType int, from, to types.Address, t
 	doEmitEventLog(db, event)
 }
 
-func AddErrEvent(db vm_dbgo.mod.VmDb, err error) {
+func AddErrEvent(db vm_db.VmDb, err error) {
 	event := &ErrEvent{}
 	event.error = err
 	doEmitEventLog(db, event)

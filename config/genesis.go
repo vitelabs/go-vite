@@ -89,6 +89,7 @@ type ForkPoints struct {
 	DexMiningFork       *ForkPoint
 	DexRobotFork        *ForkPoint
 	DexStableMarketFork *ForkPoint
+	DexEnrichOrderFork  *ForkPoint
 }
 
 type GenesisVmLog struct {
