@@ -2378,7 +2378,7 @@ type TransferAsset struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	BizType int32  `protobuf:"varint,1,opt,name=BizType,proto3" json:"BizType,omitempty"` // 1 deposit, 2 agentDeposit, 3 withdraw, 4 assignedWithdraw
+	BizType int32  `protobuf:"varint,1,opt,name=BizType,proto3" json:"BizType,omitempty"` // 1 deposit, 2 agentDeposit, 3 withdraw, 4 assignedWithdraw, 5 transfer
 	From    []byte `protobuf:"bytes,2,opt,name=From,proto3" json:"From,omitempty"`
 	To      []byte `protobuf:"bytes,3,opt,name=To,proto3" json:"To,omitempty"`
 	Token   []byte `protobuf:"bytes,4,opt,name=Token,proto3" json:"Token,omitempty"`
