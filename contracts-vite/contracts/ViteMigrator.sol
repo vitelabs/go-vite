@@ -1,5 +1,5 @@
 // contracts/erc20.sol
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.6.0;
 
 // @openzeppelin/contracts@v3.3.0
