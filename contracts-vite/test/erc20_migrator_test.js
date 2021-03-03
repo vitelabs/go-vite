@@ -60,5 +60,7 @@ describe('ERC20 Migrator', function () {
 
     assert.equal((await token2.balanceOf(account1.address)).toString(), amount.toString(), 'after migration');
     assert.equal((await token1.balanceOf(account1.address)).toString(), '0', 'after migration');
-  })
+  });
+
+
 });
