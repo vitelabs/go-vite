@@ -1,8 +1,11 @@
 // test/erc20_migrator_test.js
 // Load dependencies
-const { assert } = require('chai');
+const { use, expect, assert } = require('chai');
+const { solidity } = require('ethereum-waffle');
 const { ethers } = require('hardhat');
 const keccak256 = require('keccak256')
+
+use(solidity);
 
 let migrator;
 let token1;
@@ -20,8 +23,9 @@ describe('ERC20 Migrator', function () {
   beforeEach(async function () {
     token1 = await deployContract('ViteToken');
     token2 = await deployContract('ViteToken');
-    migrator = await deployContract('ViteMigrator');
-    await migrator.initialize(token1.address, token2.address);
+
+    migrator = await (await ethers.getContractFactory('ViteMigrator')).deploy(token1.address, token2.address);
+    await migrator.deployed();
   });
 
   // Test case
@@ -45,6 +49,10 @@ describe('ERC20 Migrator', function () {
 
     // grant minter role
     await token2.grantRole(keccak256('MINTER_ROLE'), migrator.address);
+
+    await expect(
+      migrator.migrate(amount.toString())
+    ).to.be.revertedWith('revert ERC20: transfer amount exceeds allowance');
 
     // migrate from to
     await token1.approve(migrator.address, amount.toString());
