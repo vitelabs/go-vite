@@ -10,6 +10,10 @@ npx hardhat compile
 # test
 
 ```
+// run a local node
+npx hardhat node 
+
+// run the test scripts
 npx hardhat test test/erc20_migrator_test.js
 ```
 
