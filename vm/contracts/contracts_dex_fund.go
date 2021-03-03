@@ -52,6 +52,9 @@ func (md *MethodDexFundDeposit) DoReceive(db vm_db.VmDb, block *ledger.AccountBl
 			return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 		}
 	}
+	if dex.IsDexEnrichOrderFork(db) {
+		dex.AddTransferAssetEvent(db, dex.TransferAssetDeposit, sendBlock.AccountAddress, types.AddressDexFund, sendBlock.TokenId, sendBlock.Amount, nil)
+	}
 	return nil, nil
 }
 
@@ -104,6 +107,9 @@ func (md *MethodDexFundWithdraw) DoReceive(db vm_db.VmDb, block *ledger.AccountB
 				return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 			}
 		}
+	}
+	if dex.IsDexEnrichOrderFork(db) {
+		dex.AddTransferAssetEvent(db, dex.TransferAssetWithdraw, types.AddressDexFund, sendBlock.AccountAddress, param.Token, param.Amount, nil)
 	}
 	return []*ledger.AccountBlock{
 		{

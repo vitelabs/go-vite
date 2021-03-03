@@ -556,7 +556,7 @@ func matchPrice(taker, maker *Order) (matched bool, executedPrice []byte) {
 func filterTimeout(db vm_db.VmDb, maker *Order) bool {
 	if currentTime := GetTradeTimestamp(db); currentTime == 0 {
 		return false
-	} else if currentTime > maker.Timestamp+timeoutSecond {
+	} else if currentTime > maker.Timestamp+timeoutSecond && !IsDexEnrichOrderFork(db) {
 		switch maker.Status {
 		case Pending:
 			maker.CancelReason = cancelledOnTimeout
