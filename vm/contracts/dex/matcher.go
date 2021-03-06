@@ -276,7 +276,7 @@ func (mc *Matcher) emitNewOrder(taker Order) {
 	newOrderInfo.Order = &taker.Order
 	newOrderInfo.TradeToken = mc.MarketInfo.TradeToken
 	newOrderInfo.QuoteToken = mc.MarketInfo.QuoteToken
-	event := NewOrderEvent{newOrderInfo}
+	event := &NewOrderEvent{newOrderInfo}
 	(mc.db).AddLog(newLog(event))
 }
 
@@ -293,7 +293,7 @@ func (mc *Matcher) emitOrderUpdate(order Order) {
 	updateInfo.ExecutedOperatorFee = order.ExecutedOperatorFee
 	updateInfo.RefundToken = order.RefundToken
 	updateInfo.RefundQuantity = order.RefundQuantity
-	event := OrderUpdateEvent{updateInfo}
+	event := &OrderUpdateEvent{updateInfo}
 	(mc.db).AddLog(newLog(event))
 }
 
@@ -301,7 +301,7 @@ func (mc *Matcher) handleTxs(txs []*OrderTx) {
 	//fmt.Printf("matched txs >>>>>>>>> %d\n", len(txs))
 	for _, tx := range txs {
 		mc.handleTxFundSettle(*tx)
-		txEvent := TransactionEvent{tx.Transaction}
+		txEvent := &TransactionEvent{tx.Transaction}
 		mc.db.AddLog(newLog(txEvent))
 		//fmt.Printf("matched tx is : %s\n", tx.String())
 	}

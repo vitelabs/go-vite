@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -29,20 +30,16 @@ type DexFundCase struct {
 	PreBalanceMap map[types.TokenTypeId]string
 	AssetActions  []*AssetAction
 
-	InitContract    *InitContract
-	SetQuoteTokens  []*SetQuoteToken
+	InitContract   *InitContract
+	SetQuoteTokens []*SetQuoteToken
+
 	NewMarkets      []*NewMarket
 	NewMarketTokens []*NewMarketToken
 	PlaceOrders     []*PlaceOrder
 
 	CheckBalances []*CheckBalance
 	CheckMarkets  []*CheckMarket
-	// result
-	//
-	//SendBlockList []*TestCaseSendBlock
-	//LogList       []TestLog
-	//Storage       map[string]string
-	//BalanceMap    map[types.TokenTypeId]string
+	CheckEvents   []*CheckEvent
 }
 
 type GlobalEnv struct {
@@ -151,6 +148,10 @@ type SetQuoteToken struct {
 	Owner       types.Address
 }
 
+type NewTokenEvent struct {
+	TokenId types.TokenTypeId
+}
+
 type NewMarket struct {
 	Address    types.Address
 	TradeToken types.TokenTypeId
@@ -177,6 +178,15 @@ type PlaceOrder struct {
 	Quantity   *big.Int
 }
 
+type TransferAssetEvent struct {
+	BizType int32
+	From    types.Address
+	To      types.Address
+	Token   types.TokenTypeId
+	Amount  *big.Int
+	Extra   string
+}
+
 type CheckMarket struct {
 	MarketId           int32
 	MarketSymbol       string
@@ -187,6 +197,13 @@ type CheckMarket struct {
 	QuoteTokenDecimals int32
 	Owner              types.Address
 	Creator            types.Address
+}
+
+type CheckEvent struct {
+	TopicName string
+	Transfer  *TransferAssetEvent
+	NewToken  *NewTokenEvent
+	NewMarket *NewMarket
 }
 
 func TestContractsFund(t *testing.T) {
@@ -227,12 +244,12 @@ func executeActions(testCase *DexFundCase, vm *VM, db *testDatabase, t *testing.
 				vmSendBlock *vm_db.VmAccountBlock
 				err         error
 			)
-			if action.ActionTye == 0 { // deposit
+			if action.ActionTye == dex.TransferAssetDeposit { // deposit
 				sendBlock.TokenId = action.Token
 				sendBlock.Amount = action.Amount
 				sendBlock.Data, _ = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundDeposit)
 				vmSendBlock, _, err = vm.RunV2(db, sendBlock, nil, nil)
-			} else if action.ActionTye == 1 {
+			} else if action.ActionTye == dex.TransferAssetWithdraw {
 				sendBlock.Data, err = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundWithdraw, action.Token, action.Amount)
 				vmSendBlock, _, err = vm.RunV2(db, sendBlock, nil, nil)
 			} else { // transfer\
@@ -298,6 +315,7 @@ func doAction(name string, db *testDatabase, vm *VM, from types.Address, data []
 	assert.True(t, err == nil, name+" vm.RunV2 handle send result err not nil")
 	db.addr = types.AddressDexFund
 	vmSendBlock, _, err = vm.RunV2(db, newRecBlock(), vmSendBlock.AccountBlock, nil)
+
 	//fmt.Printf("handle receive runVm err %v\n", err)
 	assert.True(t, err == nil, name+" vm.RunV2 handle receive result err not nil")
 }
@@ -349,41 +367,69 @@ func executeChecks(testCase *DexFundCase, db *testDatabase, t *testing.T) {
 			assert.Equal(t, mk.QuoteTokenType, cm.QuoteTokenType, "QuoteTokenType not equal")
 		}
 	}
+	if testCase.CheckEvents != nil {
+		assert.Equal(t, len(testCase.CheckEvents), len(db.logList))
+		for i, ev := range testCase.CheckEvents {
+			log := db.logList[i]
+			assert.Equal(t, getTopicId(ev.TopicName), log.Topics[0])
+			if ev.Transfer != nil {
+				ae := &dex.TransferAssetEvent{}
+				ae.FromBytes(log.Data)
+				assert.Equal(t, ev.Transfer.BizType, ae.BizType)
+				assert.True(t, bytes.Equal(ev.Transfer.From.Bytes(), ae.From))
+				assert.True(t, bytes.Equal(ev.Transfer.To.Bytes(), ae.To))
+				assert.True(t, bytes.Equal(ev.Transfer.Token.Bytes(), ae.Token))
+				assert.True(t, bytes.Equal(ev.Transfer.Amount.Bytes(), ae.Amount))
+				assert.True(t, len(ev.Transfer.Extra) == 0 && len(ae.Extra) == 0 || ev.Transfer.Extra == string(ae.Extra))
+			}
+			if ev.NewToken != nil {
+				te := &dex.TokenEvent{}
+				te.FromBytes(log.Data)
+				assert.True(t, bytes.Equal(ev.NewToken.TokenId.Bytes(), te.TokenId))
+			}
+			if ev.NewMarket != nil {
+				me := &dex.MarketEvent{}
+				me.FromBytes(log.Data)
+				assert.True(t, bytes.Equal(ev.NewMarket.Address.Bytes(), me.Owner))
+				assert.True(t, bytes.Equal(ev.NewMarket.TradeToken.Bytes(), me.TradeToken))
+				assert.True(t, bytes.Equal(ev.NewMarket.QuoteToken.Bytes(), me.QuoteToken))
+			}
+		}
+	}
 }
 
-func initFundDb(dexFundCase *DexFundCase, t *testing.T) *testDatabase {
+func generateDb(caseName string, globalEnv *GlobalEnv, t *testing.T) *testDatabase {
 	var currentTime time.Time
-	if dexFundCase.GlobalEnv.SbTime > 0 {
-		currentTime = time.Unix(dexFundCase.GlobalEnv.SbTime, 0)
+	if globalEnv.SbTime > 0 {
+		currentTime = time.Unix(globalEnv.SbTime, 0)
 	} else {
 		currentTime = time.Now()
 	}
 	latestSnapshotBlock := &ledger.SnapshotBlock{
-		Height:    dexFundCase.GlobalEnv.SbHeight,
+		Height:    globalEnv.SbHeight,
 		Timestamp: &currentTime,
 	}
-	if len(dexFundCase.GlobalEnv.SbHash) > 0 {
-		sbHash, parseErr := types.HexToHash(dexFundCase.GlobalEnv.SbHash)
+	if len(globalEnv.SbHash) > 0 {
+		sbHash, parseErr := types.HexToHash(globalEnv.SbHash)
 		if parseErr != nil {
-			t.Fatal("invalid test case sbHash", "sbHash", dexFundCase.GlobalEnv.SbHash)
+			t.Fatal("invalid test case sbHash", "sbHash", globalEnv.SbHash)
 		}
 		latestSnapshotBlock.Hash = sbHash
 	}
 	var db *testDatabase
 	var newDbErr error
-	//db, newDbErr = NewMockDB(&types.AddressDexFund, latestSnapshotBlock, nil, quotaInfoList, big.NewInt(0), nil, nil, nil, []byte{}, genesisTimestamp, forkSnapshotBlockMap)
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, _, _, _, _, _ = prepareDb(viteTotalSupply)
 	t2 := time.Unix(1600663514, 0)
 	snapshot20 := &ledger.SnapshotBlock{Height: 2000, Timestamp: &t2, Hash: types.DataHash([]byte{10, 2})}
 	db.snapshotBlockList = append(db.snapshotBlockList, snapshot20)
 	if newDbErr != nil {
-		t.Fatal("new mock db failed", "name", dexFundCase.Name)
+		t.Fatal("new mock db failed", "name", caseName)
 	}
 
-	if len(dexFundCase.GlobalEnv.Quotas) > 0 {
+	if len(globalEnv.Quotas) > 0 {
 		db.storageMap[types.AddressQuota] = make(map[string][]byte, 0)
-		for _, qt := range dexFundCase.GlobalEnv.Quotas {
+		for _, qt := range globalEnv.Quotas {
 			data, packErr := abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 			assert.True(t, packErr == nil)
 			key := ToKey(abi.GetStakeBeneficialKey(qt.Address))
@@ -391,15 +437,19 @@ func initFundDb(dexFundCase *DexFundCase, t *testing.T) *testDatabase {
 		}
 	}
 
-	if len(dexFundCase.GlobalEnv.Balances) > 0 {
-		for _, balance := range dexFundCase.GlobalEnv.Balances {
+	if len(globalEnv.Balances) > 0 {
+		for _, balance := range globalEnv.Balances {
 			db.balanceMap[balance.Address] = make(map[types.TokenTypeId]*big.Int)
 			for _, bl := range balance.Balances {
 				db.balanceMap[balance.Address][bl.TokenId] = bl.Amount
 			}
 		}
 	}
+	return db
+}
 
+func initFundDb(dexFundCase *DexFundCase, t *testing.T) *testDatabase {
+	db := generateDb(dexFundCase.Name, &dexFundCase.GlobalEnv, t)
 	if dexFundCase.DexStorage != nil {
 		db.storageMap[types.AddressDexFund] = make(map[string][]byte, 0)
 		db.addr = types.AddressDexFund
@@ -463,4 +513,11 @@ func initFundDb(dexFundCase *DexFundCase, t *testing.T) *testDatabase {
 
 func saveToStorage(db *testDatabase, key []byte, value []byte) {
 	db.storageMap[types.AddressDexFund][ToKey(key)] = value
+}
+
+func getTopicId(name string) types.Hash {
+	hs := types.Hash{}
+	hs.SetBytes(common.RightPadBytes([]byte(name), types.HashSize))
+	return hs
+
 }

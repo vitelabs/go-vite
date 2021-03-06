@@ -69,7 +69,6 @@
               "TokenId": "tti_5649544520544f4b454e6e40",
               "Amount": 50000000000000000000000
             }
-
           ]
         },
         {
@@ -88,14 +87,8 @@
     },
     "AssetActions": [
       {
-        "ActionTye": 0,
+        "ActionTye": 1,
         "Address": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
-        "Token": "tti_2736f320d7ed1c2871af1d9d",
-        "Amount": 200000000000000000000000
-      },
-      {
-        "ActionTye": 0,
-        "Address": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
         "Token": "tti_2736f320d7ed1c2871af1d9d",
         "Amount": 200000000000000000000000
       },
@@ -103,23 +96,29 @@
         "ActionTye": 1,
         "Address": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
         "Token": "tti_2736f320d7ed1c2871af1d9d",
+        "Amount": 200000000000000000000000
+      },
+      {
+        "ActionTye": 3,
+        "Address": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
+        "Token": "tti_2736f320d7ed1c2871af1d9d",
         "Amount": 100000000000000000000000
       },
       {
-        "ActionTye": 2,
+        "ActionTye": 5,
         "Address": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
         "Target": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
         "Token": "tti_2736f320d7ed1c2871af1d9d",
         "Amount": 50000000000000000000000
       },
       {
-        "ActionTye": 0,
+        "ActionTye": 1,
         "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
         "Token": "tti_5649544520544f4b454e6e40",
         "Amount": 20000000000000000000000
       },
       {
-        "ActionTye": 0,
+        "ActionTye": 1,
         "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
         "Token": "tti_5649544520544f4b454e6e40",
         "Amount": 20000000000000000000000
@@ -217,6 +216,13 @@
             "Locked": 200000000000000000000,
             "VxUnlocking": 0,
             "CancellingStake": 0
+          },
+          {
+            "Token": "tti_5649544520544f4b454e6e40",
+            "Available": 10000000000000000000000,
+            "Locked": 0,
+            "VxUnlocking": 0,
+            "CancellingStake": 0
           }
         ]
       },
@@ -233,17 +239,101 @@
         ]
       }
     ],
-    "CheckMarkets":[
+    "CheckMarkets": [
       {
-        "MarketId":1,
-        "MarketSymbol":"VTT-000_VITE",
-        "TradeToken":"tti_2736f320d7ed1c2871af1d9d",
-        "QuoteToken":"tti_5649544520544f4b454e6e40",
-        "QuoteTokenType":1,
-        "TradeTokenDecimals":18,
-        "QuoteTokenDecimals":18,
-        "Owner":"vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
-        "Creator":"vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880"
+        "MarketId": 1,
+        "MarketSymbol": "VTT-000_VITE",
+        "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+        "QuoteToken": "tti_5649544520544f4b454e6e40",
+        "QuoteTokenType": 1,
+        "TradeTokenDecimals": 18,
+        "QuoteTokenDecimals": 18,
+        "Owner": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+        "Creator": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880"
+      }
+    ],
+    "CheckEvents": [
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 1,
+          "From": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
+          "To":"vite_0000000000000000000000000000000000000006e82b8ba657",
+          "Token": "tti_2736f320d7ed1c2871af1d9d",
+          "Amount": 200000000000000000000000
+        }
+      },
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 1,
+          "From": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
+          "To":"vite_0000000000000000000000000000000000000006e82b8ba657",
+          "Token": "tti_2736f320d7ed1c2871af1d9d",
+          "Amount": 200000000000000000000000
+        }
+      },
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 3,
+          "From":"vite_0000000000000000000000000000000000000006e82b8ba657",
+          "To": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
+          "Token": "tti_2736f320d7ed1c2871af1d9d",
+          "Amount": 100000000000000000000000
+        }
+      },
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 5,
+          "From": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
+          "To": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "Token": "tti_2736f320d7ed1c2871af1d9d",
+          "Amount": 50000000000000000000000
+        }
+      },
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 1,
+          "From": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+          "To":"vite_0000000000000000000000000000000000000006e82b8ba657",
+          "Token": "tti_5649544520544f4b454e6e40",
+          "Amount": 20000000000000000000000
+        }
+      },
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 1,
+          "From": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "To":"vite_0000000000000000000000000000000000000006e82b8ba657",
+          "Token": "tti_5649544520544f4b454e6e40",
+          "Amount": 20000000000000000000000
+        }
+      },
+      {
+        "TopicName": "tokenEvent",
+        "NewToken": {
+          "TokenId": "tti_5649544520544f4b454e6e40"
+        }
+      },
+      {
+        "TopicName": "tokenEvent",
+        "NewToken": {
+          "TokenId": "tti_2736f320d7ed1c2871af1d9d"
+        }
+      },
+      {
+        "TopicName": "marketEvent",
+        "NewMarket": {
+          "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+          "QuoteToken": "tti_5649544520544f4b454e6e40",
+          "Amount": 20000000000000000000000,
+          "Extra": ""
+        }
       }
     ]
   }
