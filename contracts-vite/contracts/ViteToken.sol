@@ -12,7 +12,7 @@ contract ViteToken is ERC20PresetMinterPauser {
     uint256 private erc20_decimals = 18;
     uint256 private erc20_units = 10**erc20_decimals;
 
-    constructor() public ERC20PresetMinterPauser("ViteToken", "VITE") {}
+    constructor() public ERC20PresetMinterPauser("Vite Token", "VITE") {}
 
     /**
      * @dev See {ERC20-_beforeTokenTransfer}.
