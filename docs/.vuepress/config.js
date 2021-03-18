@@ -51,10 +51,6 @@ module.exports = {
             title: "Resources",
             children: [
               {
-                title: "Simple Introduction to Vite",
-                path: "/start"
-              },
-              {
                 title: "Tech Articles",
                 path: "/articles"
               }
@@ -66,6 +62,10 @@ module.exports = {
               {
                 title: "Vite.js",
                 path: "https://docs.vite.org/vite.js/"
+              },
+              {
+                title: "Vite JAVA SDK",
+                path: "https://docs.vite.org/vitej/"
               }
             ]
           }
