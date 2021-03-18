@@ -61,6 +61,10 @@ module.exports = {
               {
                 title: "Vite.js",
                 path: "https://docs.vite.org/vite.js/"
+              },
+              {
+                title: "Vite JAVA SDK",
+                path: "https://docs.vite.org/vitej/"
               }
             ]
           }
