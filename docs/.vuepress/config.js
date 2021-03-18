@@ -14,7 +14,7 @@ module.exports = {
     },
 
     head: [
-      ['link', { rel: 'icon', href: '/icon.png' }]
+      ['link', { rel: 'icon', href: 'https://vite.org/icon.png' }]
     ],
 
     plugins: [
