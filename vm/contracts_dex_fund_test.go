@@ -22,9 +22,9 @@ import (
 )
 
 type DexFundCase struct {
-	Name       string
-	GlobalEnv  GlobalEnv
-	DexStorage *DexStorage
+	Name           string
+	GlobalEnv      GlobalEnv
+	DexFundStorage *DexFundStorage
 	// environment
 	PreStorage    map[string]string
 	PreBalanceMap map[types.TokenTypeId]string
@@ -57,7 +57,7 @@ type StakeQuota struct {
 	Quota   *big.Int
 }
 
-type DexStorage struct {
+type DexFundStorage struct {
 	Funds     []*FundStorage
 	Tokens    []*TokenStorage
 	Markets   []*MarketStorage
@@ -169,13 +169,30 @@ type NewMarketToken struct {
 }
 
 type PlaceOrder struct {
-	Address    types.Address
-	TradeToken types.TokenTypeId
-	QuoteToken types.TokenTypeId
-	Side       bool
-	OrderType  uint8
-	Price      string
-	Quantity   *big.Int
+	Address          types.Address
+	TradeToken       types.TokenTypeId
+	QuoteToken       types.TokenTypeId
+	Side             bool
+	OrderType        uint8
+	Price            string
+	Quantity         *big.Int
+	CheckPlacedOrder *PlacedOrder
+}
+
+type PlacedOrder struct {
+	Address              *types.Address
+	MarketId             int32
+	Side                 bool
+	Type                 int32
+	Price                string
+	TakerFeeRate         int32
+	MakerFeeRate         int32
+	TakerOperatorFeeRate int32
+	MakerOperatorFeeRate int32
+	Quantity             *big.Int
+	Amount               *big.Int
+	LockedBuyFee         *big.Int
+	Status               int32
 }
 
 type TransferAssetEvent struct {
@@ -206,8 +223,8 @@ type CheckEvent struct {
 	NewMarket *NewMarket
 }
 
-func TestContractsFund(t *testing.T) {
-	testDir := "./contracts/dex/test/"
+func TestDexFund(t *testing.T) {
+	testDir := "./contracts/dex/test/fund/"
 	testFiles, ok := ioutil.ReadDir(testDir)
 	if ok != nil {
 		t.Fatalf("read dir failed, %v", ok)
@@ -238,7 +255,7 @@ func TestContractsFund(t *testing.T) {
 func executeActions(testCase *DexFundCase, vm *VM, db *testDatabase, t *testing.T) {
 	if testCase.AssetActions != nil {
 		for _, action := range testCase.AssetActions {
-			sendBlock := newSendBlock(action.Address)
+			sendBlock := newSendBlock(action.Address, types.AddressDexFund)
 			db.addr = action.Address
 			var (
 				vmSendBlock *vm_db.VmAccountBlock
@@ -261,7 +278,7 @@ func executeActions(testCase *DexFundCase, vm *VM, db *testDatabase, t *testing.
 			}
 			assert.True(t, err == nil, "vm.RunV2 handle send result err not nil")
 			db.addr = types.AddressDexFund
-			vmSendBlock, _, err = vm.RunV2(db, newRecBlock(), vmSendBlock.AccountBlock, nil)
+			vmSendBlock, _, err = vm.RunV2(db, newRecBlock(types.AddressDexFund), vmSendBlock.AccountBlock, nil)
 			//fmt.Printf("handle receive runVm err %v\n", err)
 			assert.True(t, err == nil, "vm.RunV2 handle receive result err not nil")
 		}
@@ -269,70 +286,100 @@ func executeActions(testCase *DexFundCase, vm *VM, db *testDatabase, t *testing.
 	if testCase.InitContract != nil {
 		ic := *testCase.InitContract
 		data, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundOwnerConfig, uint8(dex.AdminConfigOwner+dex.AdminConfigTimeOracle+dex.AdminConfigPeriodJobTrigger+dex.AdminConfigMakerMiningAdmin+dex.AdminConfigMaintainer), ic.Owner, ic.Timer, ic.Trigger, false, ic.MineProxy, ic.MaintainerProxy)
-		doAction("initContract", db, vm, ic.InitOwner, data, t)
+		doAction("initContract", db, vm, ic.InitOwner, types.AddressDexFund, data, t)
 	}
 	if testCase.SetQuoteTokens != nil {
 		for _, st := range testCase.SetQuoteTokens {
 			data, _ := abi.ABIDexFund.PackMethod(abi.MethodNameDexFundTradeAdminConfig, uint8(dex.TradeAdminConfigNewQuoteToken), ledger.ViteTokenId, ledger.ViteTokenId, false, st.TokenId, uint8(dex.ViteTokenType), uint8(1), big.NewInt(0), uint8(1), big.NewInt(0))
-			doAction("setQuoteToken", db, vm, st.DexOwner, data, t)
+			doAction("setQuoteToken", db, vm, st.DexOwner, types.AddressDexFund, data, t)
 		}
 		for _, st := range testCase.SetQuoteTokens {
 			data, _ := cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundGetTokenInfoCallback, st.TokenId, st.Bid, st.Exist, st.Decimals, st.TokenSymbol, st.Index, st.Owner)
-			doAction("setQuoteTokenCallback", db, vm, types.AddressAsset, data, t)
+			doAction("setQuoteTokenCallback", db, vm, types.AddressAsset, types.AddressDexFund, data, t)
 		}
 	}
 	if testCase.NewMarkets != nil {
 		for _, nm := range testCase.NewMarkets {
 			data, _ := cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundOpenNewMarket, nm.TradeToken, nm.QuoteToken)
-			doAction("newMarket", db, vm, nm.Address, data, t)
+			doAction("newMarket", db, vm, nm.Address, types.AddressDexFund, data, t)
 		}
 	}
 	if testCase.NewMarketTokens != nil {
 		for _, nmt := range testCase.NewMarketTokens {
 			data, _ := cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundGetTokenInfoCallback, nmt.TokenId, nmt.Bid, nmt.Exist, nmt.Decimals, nmt.TokenSymbol, nmt.Index, nmt.Owner)
-			doAction("newMarketToken", db, vm, types.AddressAsset, data, t)
+			doAction("newMarketToken", db, vm, types.AddressAsset, types.AddressDexFund, data, t)
 		}
 	}
 	if testCase.PlaceOrders != nil {
 		for _, od := range testCase.PlaceOrders {
 			data, _ := cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundPlaceOrder, od.TradeToken, od.QuoteToken, od.Side, od.OrderType, od.Price, od.Quantity)
-			doAction("placeOrder", db, vm, od.Address, data, t)
+			sendBlocks := doAction("placeOrder", db, vm, od.Address, types.AddressDexFund, data, t)
+			assert.Equal(t, 1, len(sendBlocks))
+			if od.CheckPlacedOrder != nil {
+				param := new(dex.ParamSerializedData)
+				err := cabi.ABIDexTrade.UnpackMethod(param, cabi.MethodNameDexTradePlaceOrder, sendBlocks[0].Data)
+				assert.Nil(t, err)
+				order := &dex.Order{}
+				err = order.DeSerialize(param.Data)
+				assert.Nil(t, err)
+				if od.CheckPlacedOrder != nil {
+					checkOrderSend(t, od.CheckPlacedOrder, order)
+				}
+			}
 		}
 	}
 }
 
-func doAction(name string, db *testDatabase, vm *VM, from types.Address, data []byte, t *testing.T) {
-	sendBlock := newSendBlock(from)
+func checkOrderSend(t *testing.T, po *PlacedOrder, od *dex.Order) {
+	assertAddressEqual(t, po.Address, od.Address)
+	marketId, side, price, _, _ := dex.DeComposeOrderId(od.Id)
+	assert.Equal(t, po.MarketId, marketId)
+	assert.Equal(t, po.Side, side)
+	assert.Equal(t, po.Type, od.Type)
+	assert.Equal(t, po.Price, dex.BytesToPrice(price))
+	assert.Equal(t, po.TakerFeeRate, od.TakerFeeRate)
+	assert.Equal(t, po.MakerFeeRate, od.MakerFeeRate)
+	assert.Equal(t, po.TakerOperatorFeeRate, od.TakerOperatorFeeRate)
+	assert.Equal(t, po.MakerOperatorFeeRate, od.MakerOperatorFeeRate)
+	assertAmountEqual(t, po.Quantity, od.Quantity)
+	assertAmountEqual(t, po.Amount, od.Amount)
+	assertAmountEqual(t, po.LockedBuyFee, od.LockedBuyFee)
+	assert.Equal(t, po.Status, od.Status)
+}
+
+func doAction(name string, db *testDatabase, vm *VM, from, to types.Address, data []byte, t *testing.T) []*ledger.AccountBlock  {
+	sendBlock := newSendBlock(from, to)
 	db.addr = from
 	var (
-		vmSendBlock *vm_db.VmAccountBlock
-		err         error
+		vmSendBlock, sendCreateBlock *vm_db.VmAccountBlock
+		err                          error
 	)
 	sendBlock.Data = data
 	vmSendBlock, _, err = vm.RunV2(db, sendBlock, nil, nil)
 
 	//fmt.Printf("executeActions send runVm err %v\n", err)
 	assert.True(t, err == nil, name+" vm.RunV2 handle send result err not nil")
-	db.addr = types.AddressDexFund
-	vmSendBlock, _, err = vm.RunV2(db, newRecBlock(), vmSendBlock.AccountBlock, nil)
+	db.addr = to
+	sendCreateBlock, _, err = vm.RunV2(db, newRecBlock(to), vmSendBlock.AccountBlock, nil)
 
 	//fmt.Printf("handle receive runVm err %v\n", err)
 	assert.True(t, err == nil, name+" vm.RunV2 handle receive result err not nil")
+	return sendCreateBlock.AccountBlock.SendBlockList
 }
 
-func newSendBlock(from types.Address) *ledger.AccountBlock {
+func newSendBlock(from, to types.Address) *ledger.AccountBlock {
 	sendBlock := &ledger.AccountBlock{}
 	sendBlock.AccountAddress = from
 	sendBlock.BlockType = ledger.BlockTypeSendCall
-	sendBlock.ToAddress = types.AddressDexFund
+	sendBlock.ToAddress = to
 	sendBlock.TokenId = ledger.ViteTokenId
 	sendBlock.Amount = big.NewInt(0)
 	return sendBlock
 }
 
-func newRecBlock() *ledger.AccountBlock {
+func newRecBlock(to types.Address) *ledger.AccountBlock {
 	rcBlock := &ledger.AccountBlock{}
-	rcBlock.AccountAddress = types.AddressDexFund
+	rcBlock.AccountAddress = to
 	rcBlock.BlockType = ledger.BlockTypeReceive
 	return rcBlock
 }
@@ -450,11 +497,11 @@ func generateDb(caseName string, globalEnv *GlobalEnv, t *testing.T) *testDataba
 
 func initFundDb(dexFundCase *DexFundCase, t *testing.T) *testDatabase {
 	db := generateDb(dexFundCase.Name, &dexFundCase.GlobalEnv, t)
-	if dexFundCase.DexStorage != nil {
+	if dexFundCase.DexFundStorage != nil {
 		db.storageMap[types.AddressDexFund] = make(map[string][]byte, 0)
 		db.addr = types.AddressDexFund
-		if dexFundCase.DexStorage.Funds != nil {
-			for _, fd := range dexFundCase.DexStorage.Funds {
+		if dexFundCase.DexFundStorage.Funds != nil {
+			for _, fd := range dexFundCase.DexFundStorage.Funds {
 				fund := &dex.Fund{}
 				fund.Address = fd.Address.Bytes()
 				for _, acc := range fd.Accounts {
@@ -469,8 +516,8 @@ func initFundDb(dexFundCase *DexFundCase, t *testing.T) *testDatabase {
 				dex.SaveFund(db, fd.Address, fund)
 			}
 		}
-		if dexFundCase.DexStorage.Tokens != nil {
-			for _, tk := range dexFundCase.DexStorage.Tokens {
+		if dexFundCase.DexFundStorage.Tokens != nil {
+			for _, tk := range dexFundCase.DexFundStorage.Tokens {
 				tokenInfo := &dex.TokenInfo{}
 				tokenInfo.TokenId = tk.TokenId.Bytes()
 				tokenInfo.Decimals = tk.Decimals
@@ -481,34 +528,40 @@ func initFundDb(dexFundCase *DexFundCase, t *testing.T) *testDatabase {
 				dex.SaveTokenInfo(db, tk.TokenId, tokenInfo)
 			}
 		}
-		if dexFundCase.DexStorage.Markets != nil {
-			for _, mk := range dexFundCase.DexStorage.Markets {
-				mkInfo := &dex.MarketInfo{}
-				mkInfo.MarketId = mk.MarketId
-				mkInfo.MarketSymbol = mk.Symbol
-				mkInfo.TradeToken = mk.TradeToken.Bytes()
-				mkInfo.QuoteToken = mk.QuoteToken.Bytes()
-				mkInfo.QuoteTokenType = mk.QuoteTokenType
-				mkInfo.TradeTokenDecimals = mk.TradeTokenDecimals
-				mkInfo.QuoteTokenType = mk.QuoteTokenType
-				mkInfo.TakerOperatorFeeRate = mk.TakerOperatorFeeRate
-				mkInfo.MakerOperatorFeeRate = mk.MakerOperatorFeeRate
-				mkInfo.AllowMining = mk.AllowMining
-				mkInfo.Valid = mk.Valid
-				mkInfo.Owner = mk.Owner.Bytes()
-				mkInfo.Creator = mk.Creator.Bytes()
-				mkInfo.Stopped = mk.Stopped
-				mkInfo.Timestamp = mk.Timestamp
-				mkInfo.StableMarket = mk.StableMarket
+		if dexFundCase.DexFundStorage.Markets != nil {
+			for _, mk := range dexFundCase.DexFundStorage.Markets {
+				mkInfo := toDexMarketStorage(mk)
 				dex.SaveMarketInfo(db, mkInfo, mk.TradeToken, mk.QuoteToken)
 				//serializeToDb(db, dex.GetMarketInfoKey(mk.TradeToken, mk.QuoteToken), mkInfo)
 			}
 		}
-		if dexFundCase.DexStorage.Timestamp > 0 {
-			saveToStorage(db, []byte("tts:"), dex.Uint64ToBytes(uint64(dexFundCase.DexStorage.Timestamp)))
+		if dexFundCase.DexFundStorage.Timestamp > 0 {
+			saveToStorage(db, []byte("tts:"), dex.Uint64ToBytes(uint64(dexFundCase.DexFundStorage.Timestamp)))
 		}
 	}
 	return db
+}
+
+func toDexMarketStorage(mk *MarketStorage) *dex.MarketInfo {
+	mkInfo := &dex.MarketInfo{}
+	mkInfo.MarketId = mk.MarketId
+	mkInfo.MarketSymbol = mk.Symbol
+	mkInfo.TradeToken = mk.TradeToken.Bytes()
+	mkInfo.QuoteToken = mk.QuoteToken.Bytes()
+	mkInfo.QuoteTokenType = mk.QuoteTokenType
+	mkInfo.TradeTokenDecimals = mk.TradeTokenDecimals
+	mkInfo.QuoteTokenDecimals = mk.QuoteTokenDecimals
+	mkInfo.QuoteTokenType = mk.QuoteTokenType
+	mkInfo.TakerOperatorFeeRate = mk.TakerOperatorFeeRate
+	mkInfo.MakerOperatorFeeRate = mk.MakerOperatorFeeRate
+	mkInfo.AllowMining = mk.AllowMining
+	mkInfo.Valid = mk.Valid
+	mkInfo.Owner = mk.Owner.Bytes()
+	mkInfo.Creator = mk.Creator.Bytes()
+	mkInfo.Stopped = mk.Stopped
+	mkInfo.Timestamp = mk.Timestamp
+	mkInfo.StableMarket = mk.StableMarket
+	return mkInfo
 }
 
 func saveToStorage(db *testDatabase, key []byte, value []byte) {
@@ -519,5 +572,4 @@ func getTopicId(name string) types.Hash {
 	hs := types.Hash{}
 	hs.SetBytes(common.RightPadBytes([]byte(name), types.HashSize))
 	return hs
-
 }

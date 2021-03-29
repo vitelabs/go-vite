@@ -1,5 +1,5 @@
 {
-  "test1": {
+  "dex fund assert": {
     "Name": "asset check",
     "GlobalEnv": {
       "sBHeight": 100,
@@ -82,7 +82,7 @@
         }
       ]
     },
-    "DexStorage": {
+    "DexFundStorage": {
       "Timestamp": 1614571200
     },
     "AssetActions": [
