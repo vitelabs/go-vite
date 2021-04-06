@@ -1,6 +1,6 @@
 {
   "dex trade limit order": {
-    "Name": "trade book limit order",
+    "Name": "trade book limit order base",
     "GlobalEnv": {
       "sBHeight": 100,
       "SbTime": 1600663514,
@@ -84,6 +84,7 @@
         "MarketId": 1,
         "BuyOrders": [
           {
+            "Id": "00000100fffffffffeffffffffff00603c66c0000000",
             "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
             "Type": 0,
             "Price": "1",
@@ -92,12 +93,14 @@
         ],
         "SellOrders": [
           {
+            "Id": "000001010000000002000000000000603c66c0000001",
             "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
             "Type": 0,
             "Price": "2",
             "Quantity": 200000000000000000000
           },
           {
+            "Id": "000001010000000003000000000000603c66c0000002",
             "Address": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
             "MarketId": 1,
             "Side": true,
@@ -113,6 +116,29 @@
             "Status": 0
           }
         ]
+      }
+    ],
+    "CheckEvents": [
+      {
+        "TopicName": "newOrderEvent",
+        "NewOrder": {
+          "Id": "000001010000000003000000000000603c66c0000002",
+          "Address": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
+          "MarketId": 1,
+          "Side": true,
+          "Type": 0,
+          "Price": "3",
+          "TakerFeeRate": 200,
+          "MakerFeeRate": 200,
+          "TakerOperatorFeeRate": 400,
+          "MakerOperatorFeeRate": 500,
+          "Quantity": 500000000000000000000,
+          "Amount": 0,
+          "LockedBuyFee": 0,
+          "Status": 0,
+          "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+          "QuoteToken": "tti_5649544520544f4b454e6e40"
+        }
       }
     ]
   }

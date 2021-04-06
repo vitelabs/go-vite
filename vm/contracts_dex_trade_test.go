@@ -1,6 +1,8 @@
 package vm
 
 import (
+	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
@@ -35,7 +37,7 @@ type DexTradeStorage struct {
 }
 
 type OrderStorage struct {
-	Id                      []byte
+	Id                      string
 	Address                 *types.Address
 	MarketId                int32
 	Side                    bool
@@ -82,12 +84,13 @@ type CheckTradeEvent struct {
 }
 
 type NewOrderEvent struct {
-	OrderStorage *OrderStorage
-	TradeToken   *types.TokenTypeId
-	QuoteToken   *types.TokenTypeId
+	*OrderStorage
+	TradeToken *types.TokenTypeId
+	QuoteToken *types.TokenTypeId
 }
 
 type OrderUpdateEvent struct {
+	Id                  string
 	TradeToken          *types.TokenTypeId
 	QuoteToken          *types.TokenTypeId
 	Status              int32
@@ -102,8 +105,8 @@ type OrderUpdateEvent struct {
 
 type TransactionEvent struct {
 	TakerSide        bool
-	TakerId          *types.Address
-	MakerId          *types.Address
+	TakerId          string
+	MakerId          string
 	Price            string
 	Quantity         *big.Int
 	Amount           *big.Int
@@ -180,14 +183,14 @@ func executeTradeChecks(testCase *DexTradeCase, db *testDatabase, t *testing.T) 
 				buyOrders, size, err := mc.GetOrdersFromMarket(false, 0, len(co.BuyOrders))
 				assert.Nil(t, err)
 				for i := 0; i < size; i++ {
-					assertOrder(t, co.BuyOrders[i], &buyOrders[i].Order)
+					assertOrder(t, co.BuyOrders[i], &buyOrders[i].Order, "BuyOrders")
 				}
 			}
 			if co.SellOrders != nil {
 				sellOrders, size, err := mc.GetOrdersFromMarket(true, 0, len(co.SellOrders))
 				assert.Nil(t, err)
 				for i := 0; i < size; i++ {
-					assertOrder(t, co.SellOrders[i], &sellOrders[i].Order)
+					assertOrder(t, co.SellOrders[i], &sellOrders[i].Order, "SellOrders")
 				}
 			}
 		}
@@ -200,35 +203,37 @@ func executeTradeChecks(testCase *DexTradeCase, db *testDatabase, t *testing.T) 
 			if cev.NewOrder != nil {
 				no := &dex.NewOrderEvent{}
 				no.FromBytes(log.Data)
-				assertTokenIdEqual(t, cev.NewOrder.TradeToken, no.TradeToken)
-				assertTokenIdEqual(t, cev.NewOrder.QuoteToken, no.QuoteToken)
+				assertTokenIdEqual(t, cev.NewOrder.TradeToken, no.TradeToken, "NewOrderEvent.TradeToken")
+				assertTokenIdEqual(t, cev.NewOrder.QuoteToken, no.QuoteToken, "NewOrderEvent.QuoteToken")
+				assertOrder(t, cev.NewOrder.OrderStorage, no.Order, "NewOrderEvent")
 			}
 			if cev.OrderUpdate != nil {
 				ou := &dex.OrderUpdateEvent{}
 				ou.FromBytes(log.Data)
-				assertTokenIdEqual(t, cev.OrderUpdate.TradeToken, ou.OrderUpdateInfo.TradeToken)
-				assertTokenIdEqual(t, cev.OrderUpdate.QuoteToken, ou.OrderUpdateInfo.QuoteToken)
+				assertOrderIdEqual(t, cev.OrderUpdate.Id, ou.Id, "OrderUpdateInfo.Id")
+				assertTokenIdEqual(t, cev.OrderUpdate.TradeToken, ou.OrderUpdateInfo.TradeToken, "OrderUpdateInfo.TradeToken")
+				assertTokenIdEqual(t, cev.OrderUpdate.QuoteToken, ou.OrderUpdateInfo.QuoteToken, "OrderUpdateInfo.QuoteToken")
 				assert.Equal(t, cev.OrderUpdate.Status, ou.OrderUpdateInfo.Status)
-				assertAmountEqual(t, cev.OrderUpdate.ExecutedQuantity, ou.OrderUpdateInfo.ExecutedQuantity)
-				assertAmountEqual(t, cev.OrderUpdate.ExecutedAmount, ou.OrderUpdateInfo.ExecutedAmount)
-				assertAmountEqual(t, cev.OrderUpdate.ExecutedBaseFee, ou.OrderUpdateInfo.ExecutedBaseFee)
-				assertAmountEqual(t, cev.OrderUpdate.ExecutedOperatorFee, ou.OrderUpdateInfo.ExecutedOperatorFee)
-				assertTokenIdEqual(t, cev.OrderUpdate.RefundToken, ou.OrderUpdateInfo.RefundToken)
-				assertAmountEqual(t, cev.OrderUpdate.RefundQuantity, ou.OrderUpdateInfo.RefundQuantity)
+				assertAmountEqual(t, cev.OrderUpdate.ExecutedQuantity, ou.OrderUpdateInfo.ExecutedQuantity, "OrderUpdateInfo.ExecutedQuantity")
+				assertAmountEqual(t, cev.OrderUpdate.ExecutedAmount, ou.OrderUpdateInfo.ExecutedAmount, "OrderUpdateInfo.ExecutedAmount")
+				assertAmountEqual(t, cev.OrderUpdate.ExecutedBaseFee, ou.OrderUpdateInfo.ExecutedBaseFee, "OrderUpdateInfo.ExecutedBaseFee")
+				assertAmountEqual(t, cev.OrderUpdate.ExecutedOperatorFee, ou.OrderUpdateInfo.ExecutedOperatorFee, "OrderUpdateInfo.ExecutedOperatorFee")
+				assertTokenIdEqual(t, cev.OrderUpdate.RefundToken, ou.OrderUpdateInfo.RefundToken, "OrderUpdateInfo.RefundToken")
+				assertAmountEqual(t, cev.OrderUpdate.RefundQuantity, ou.OrderUpdateInfo.RefundQuantity, "OrderUpdateInfo.RefundQuantity")
 			}
 			if cev.Transaction != nil {
 				tx := &dex.TransactionEvent{}
 				tx.FromBytes(log.Data)
-				assert.True(t, cev.Transaction.TakerSide, tx.TakerSide)
-				assertAddressEqual(t, cev.Transaction.TakerId, tx.TakerId)
-				assertAddressEqual(t, cev.Transaction.MakerId, tx.MakerId)
-				assertPriceEqual(t, cev.Transaction.Price, tx.Price)
-				assertAmountEqual(t, cev.Transaction.Quantity, tx.Quantity)
-				assertAmountEqual(t, cev.Transaction.Amount, tx.Amount)
-				assertAmountEqual(t, cev.Transaction.TakerFee, tx.TakerFee)
-				assertAmountEqual(t, cev.Transaction.MakerFee, tx.MakerFee)
-				assertAmountEqual(t, cev.Transaction.TakerOperatorFee, tx.TakerOperatorFee)
-				assertAmountEqual(t, cev.Transaction.MakerOperatorFee, tx.MakerOperatorFee)
+				assert.Equal(t, cev.Transaction.TakerSide, tx.TakerSide)
+				assertOrderIdEqual(t, cev.Transaction.TakerId, tx.TakerId, "TransactionEvent.TakerId")
+				assertOrderIdEqual(t, cev.Transaction.MakerId, tx.MakerId, "TransactionEvent.MakerId")
+				assertPriceEqual(t, cev.Transaction.Price, tx.Price, "TransactionEvent.Price")
+				assertAmountEqual(t, cev.Transaction.Quantity, tx.Quantity, "TransactionEvent.Quantity")
+				assertAmountEqual(t, cev.Transaction.Amount, tx.Amount, "TransactionEvent.Amount")
+				assertAmountEqual(t, cev.Transaction.TakerFee, tx.TakerFee, "TransactionEvent.TakerFee")
+				assertAmountEqual(t, cev.Transaction.MakerFee, tx.MakerFee, "TransactionEvent.MakerFee")
+				assertAmountEqual(t, cev.Transaction.TakerOperatorFee, tx.TakerOperatorFee, "TransactionEvent.TakerOperatorFee")
+				assertAmountEqual(t, cev.Transaction.MakerOperatorFee, tx.MakerOperatorFee, "TransactionEvent.MakerOperatorFee")
 			}
 		}
 	}
@@ -323,37 +328,40 @@ func saveOrder(db *testDatabase, order *dex.Order, isTaker bool) {
 	}
 }
 
-func assertOrder(t *testing.T, checkOrder *OrderStorage, dbOrder *dexproto.Order) {
-	assertAddressEqual(t, checkOrder.Address, dbOrder.Address)
+func assertOrder(t *testing.T, checkOrder *OrderStorage, dbOrder *dexproto.Order, source string) {
+	assertOrderIdEqual(t, checkOrder.Id, dbOrder.Id, source+".Id")
+	assertAddressEqual(t, checkOrder.Address, dbOrder.Address, source+".Address")
 	assert.Equal(t, checkOrder.Type, dbOrder.Type)
-	assertPriceEqual(t, checkOrder.Price, dbOrder.Price)
-	assert.Equal(t, checkOrder.TakerFeeRate, dbOrder.TakerFeeRate)
-	assert.Equal(t, checkOrder.MakerFeeRate, dbOrder.MakerFeeRate)
+	assertPriceEqual(t, checkOrder.Price, dbOrder.Price, source+".Price")
+	assert.Equal(t, checkOrder.TakerFeeRate, dbOrder.TakerFeeRate, source+".TakerFeeRate")
+	assert.Equal(t, checkOrder.MakerFeeRate, dbOrder.MakerFeeRate, source+".MakerFeeRate")
 	assert.Equal(t, checkOrder.TakerOperatorFeeRate, dbOrder.TakerOperatorFeeRate)
 	assert.Equal(t, checkOrder.MakerOperatorFeeRate, dbOrder.MakerOperatorFeeRate)
-	assertAmountEqual(t, checkOrder.Quantity, dbOrder.Quantity)
-	assertAmountEqual(t, checkOrder.Amount, dbOrder.Amount)
-	assertAmountEqual(t, checkOrder.LockedBuyFee, dbOrder.LockedBuyFee)
+	assertAmountEqual(t, checkOrder.Quantity, dbOrder.Quantity, source+".Quantity")
+	assertAmountEqual(t, checkOrder.Amount, dbOrder.Amount, source+".Amount")
+	assertAmountEqual(t, checkOrder.LockedBuyFee, dbOrder.LockedBuyFee, source+".LockedBuyFee")
 	assert.Equal(t, checkOrder.Status, dbOrder.Status)
 	assert.Equal(t, checkOrder.CancelReason, dbOrder.CancelReason)
-	assertAmountEqual(t, checkOrder.ExecutedQuantity, dbOrder.ExecutedQuantity)
-	assertAmountEqual(t, checkOrder.ExecutedAmount, dbOrder.ExecutedAmount)
-	assertAmountEqual(t, checkOrder.ExecutedBaseFee, dbOrder.ExecutedBaseFee)
-	assertAmountEqual(t, checkOrder.ExecutedOperatorFee, dbOrder.ExecutedOperatorFee)
-	assertAddressEqual(t, checkOrder.Agent, dbOrder.Agent)
+	assertAmountEqual(t, checkOrder.ExecutedQuantity, dbOrder.ExecutedQuantity, source+".ExecutedQuantity")
+	assertAmountEqual(t, checkOrder.ExecutedAmount, dbOrder.ExecutedAmount, source+".ExecutedAmount")
+	assertAmountEqual(t, checkOrder.ExecutedBaseFee, dbOrder.ExecutedBaseFee, source+".ExecutedBaseFee")
+	assertAmountEqual(t, checkOrder.ExecutedOperatorFee, dbOrder.ExecutedOperatorFee, source+".ExecutedOperatorFee")
+	assertTokenIdEqual(t, checkOrder.RefundToken, dbOrder.RefundToken, source+".RefundToken")
+	assertAmountEqual(t, checkOrder.RefundQuantity, dbOrder.RefundQuantity, source+".RefundQuantity")
+	assertAddressEqual(t, checkOrder.Agent, dbOrder.Agent, source+".Address")
 	assertHashEqual(t, checkOrder.SendHash, dbOrder.SendHash)
-	assertAmountEqual(t, checkOrder.MarketOrderAmtThreshold, dbOrder.MarketOrderAmtThreshold)
+	assertAmountEqual(t, checkOrder.MarketOrderAmtThreshold, dbOrder.MarketOrderAmtThreshold, source+".MarketOrderAmtThreshold")
 }
 
-func assertAmountEqual(t *testing.T, amount *big.Int, amountBytes []byte) {
+func assertAmountEqual(t *testing.T, amount *big.Int, amountBytes []byte, field string) {
 	if amount == nil {
 		amount = big.NewInt(0)
 	}
 	amountCmp := big.NewInt(0).SetBytes(amountBytes)
-	assert.True(t, amount.Cmp(amountCmp) == 0, fmt.Sprintf("assertAmountEqual expected %s, actual %s", amount.String(), amountCmp.String()))
+	assert.True(t, amount.Cmp(amountCmp) == 0, fmt.Sprintf("%s expected %s, actual %s", field, amount.String(), amountCmp.String()))
 }
 
-func assertAddressEqual(t *testing.T, address *types.Address, addressBytes []byte) {
+func assertAddressEqual(t *testing.T, address *types.Address, addressBytes []byte, field string) {
 	if address == nil {
 		address = &types.ZERO_ADDRESS
 	}
@@ -363,10 +371,16 @@ func assertAddressEqual(t *testing.T, address *types.Address, addressBytes []byt
 	} else {
 		addressCmp = &types.ZERO_ADDRESS
 	}
-	assert.Equal(t, address, addressCmp)
+	assert.Equal(t, address, addressCmp, fmt.Sprintf("%s expected %s, actual %s", field, address.String(), addressCmp.String()))
 }
 
-func assertTokenIdEqual(t *testing.T, token *types.TokenTypeId, tokenBytes []byte) {
+func assertOrderIdEqual(t *testing.T, orderIdStr string, orderIdBytes []byte, field string) {
+	orderId, err := hex.DecodeString(orderIdStr)
+	assert.Nil(t, err)
+	assert.True(t, bytes.Equal(orderId, orderIdBytes), fmt.Sprintf("%s expected %s, actual %s", field, orderIdStr, hex.EncodeToString(orderIdBytes)))
+}
+
+func assertTokenIdEqual(t *testing.T, token *types.TokenTypeId, tokenBytes []byte, field string) {
 	if token == nil {
 		token = &types.ZERO_TOKENID
 	}
@@ -376,10 +390,10 @@ func assertTokenIdEqual(t *testing.T, token *types.TokenTypeId, tokenBytes []byt
 	} else {
 		tokenCmp = &types.ZERO_TOKENID
 	}
-	assert.Equal(t, token, tokenCmp)
+	assert.Equal(t, token, tokenCmp, fmt.Sprintf("%s expected %s, actual %s", field, token.String(), tokenCmp.String()))
 }
 
-func assertPriceEqual(t *testing.T, price string, priceBytes []byte) {
+func assertPriceEqual(t *testing.T, price string, priceBytes []byte, field string) {
 	if len(price) == 0 {
 		price = "0";
 	}
@@ -387,7 +401,7 @@ func assertPriceEqual(t *testing.T, price string, priceBytes []byte) {
 	if len(priceBytes) > 0 {
 		priceCmp = dex.BytesToPrice(priceBytes)
 	}
-	assert.Equal(t, price, priceCmp)
+	assert.Equal(t, price, priceCmp, fmt.Sprintf("%s expected %s, actual %s",field, price, priceCmp))
 }
 
 func assertHashEqual(t *testing.T, hash *types.Hash, hashBytes []byte) {

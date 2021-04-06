@@ -75,6 +75,7 @@
         "MarketId": 1,
         "BuyOrders": [
           {
+            "Id": "00000100fffffffffeffffffffff00603c66c0000000",
             "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
             "Type": 0,
             "Price": "1",
@@ -83,6 +84,7 @@
         ],
         "SellOrders": [
           {
+            "Id": "000001010000000002000000000000603c66c0000001",
             "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
             "Type": 0,
             "Price": "2",

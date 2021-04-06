@@ -331,7 +331,7 @@ func executeActions(testCase *DexFundCase, vm *VM, db *testDatabase, t *testing.
 }
 
 func checkOrderSend(t *testing.T, po *PlacedOrder, od *dex.Order) {
-	assertAddressEqual(t, po.Address, od.Address)
+	assertAddressEqual(t, po.Address, od.Address, "checkOrderSend.Address")
 	marketId, side, price, _, _ := dex.DeComposeOrderId(od.Id)
 	assert.Equal(t, po.MarketId, marketId)
 	assert.Equal(t, po.Side, side)
@@ -341,9 +341,9 @@ func checkOrderSend(t *testing.T, po *PlacedOrder, od *dex.Order) {
 	assert.Equal(t, po.MakerFeeRate, od.MakerFeeRate)
 	assert.Equal(t, po.TakerOperatorFeeRate, od.TakerOperatorFeeRate)
 	assert.Equal(t, po.MakerOperatorFeeRate, od.MakerOperatorFeeRate)
-	assertAmountEqual(t, po.Quantity, od.Quantity)
-	assertAmountEqual(t, po.Amount, od.Amount)
-	assertAmountEqual(t, po.LockedBuyFee, od.LockedBuyFee)
+	assertAmountEqual(t, po.Quantity, od.Quantity, "checkOrderSend.Quantity")
+	assertAmountEqual(t, po.Amount, od.Amount, "checkOrderSend.Amount")
+	assertAmountEqual(t, po.LockedBuyFee, od.LockedBuyFee, "checkOrderSend.LockedBuyFee")
 	assert.Equal(t, po.Status, od.Status)
 }
 
