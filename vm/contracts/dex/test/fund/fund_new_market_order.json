@@ -1,6 +1,6 @@
 {
-  "dex fund new limit order": {
-    "Name": "dex fund new limit order",
+  "dex fund new market order": {
+    "Name": "dex fund new market order",
     "GlobalEnv": {
       "sBHeight": 100,
       "SbTime": 1600663514,
@@ -62,23 +62,24 @@
         "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
         "QuoteToken": "tti_5649544520544f4b454e6e40",
         "Side": false,
-        "OrderType": 0,
+        "OrderType": 1,
         "Price": "1",
         "Quantity": 200000000000000000000,
         "CheckPlacedOrder": {
           "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
           "MarketId": 1,
           "Side": false,
-          "Type": 0,
+          "Type": 1,
           "Price": "1",
           "TakerFeeRate": 200,
           "MakerFeeRate": 200,
           "TakerOperatorFeeRate": 1000,
           "MakerOperatorFeeRate": 1000,
           "Quantity": 200000000000000000000,
-          "Amount": 200000000000000000000,
-          "LockedBuyFee": 2400000000000000000,
-          "Status": 0
+          "Amount": 4940700000000000000000000,
+          "LockedBuyFee": 59300000000000000000000,
+          "Status": 0,
+          "MarketOrderAmtThreshold": 8000000000000000000000000
         }
       },
       {
@@ -86,23 +87,24 @@
         "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
         "QuoteToken": "tti_5649544520544f4b454e6e40",
         "Side": true,
-        "OrderType": 0,
-        "Price": "2",
+        "OrderType": 1,
+        "Price": "1",
         "Quantity": 200000000000000000000,
         "CheckPlacedOrder": {
           "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
           "MarketId": 1,
           "Side": true,
-          "Type": 0,
-          "Price": "2",
+          "Type": 1,
+          "Price": "1",
           "TakerFeeRate": 200,
           "MakerFeeRate": 200,
           "TakerOperatorFeeRate": 1000,
           "MakerOperatorFeeRate": 1000,
           "Quantity": 200000000000000000000,
-          "Amount": 400000000000000000000,
+          "Amount": 0,
           "LockedBuyFee": 0,
-          "Status": 0
+          "Status": 0,
+          "MarketOrderAmtThreshold": 8000000000000000000000000
         }
       }
     ],
@@ -112,8 +114,8 @@
         "Balances": [
           {
             "Token": "tti_5649544520544f4b454e6e40",
-            "Available": 4999797600000000000000000,
-            "Locked": 202400000000000000000,
+            "Available": 0,
+            "Locked": 5000000000000000000000000,
             "VxUnlocking": 0,
             "CancellingStake": 0
           },

@@ -1,0 +1,274 @@
+{
+  "dex trade fill or kill order matched": {
+    "Name": "dex trade fill or kill order matched",
+    "GlobalEnv": {
+      "sBHeight": 100,
+      "SbTime": 1600663514,
+      "SbHash": "15dcf1c82ee56d91fb8605a39f26a2887fa4796aac2793d01b022540c629cbc8",
+      "Quotas": [
+        {
+          "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_0000000000000000000000000000000000000006e82b8ba657",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_00000000000000000000000000000000000000079710f19dc7",
+          "Quota": 220000000000000
+        }
+      ]
+    },
+    "DexTradeStorage": {
+      "Timestamp": 1614571200,
+      "Markets": [
+        {
+          "MarketId": 1,
+          "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+          "QuoteToken": "tti_5649544520544f4b454e6e40",
+          "Symbol": "VTT-000_VITE",
+          "QuoteTokenType": 1,
+          "TradeTokenDecimals": 18,
+          "QuoteTokenDecimals": 18,
+          "Owner": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "Creator": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880"
+        }
+      ],
+      "Orders": [
+        {
+          "Id": "00000100fffffffffeffffffffff00603c66c0000000",
+          "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+          "MarketId": 1,
+          "Side": false,
+          "Type": 0,
+          "Price": "1",
+          "TakerFeeRate": 200,
+          "MakerFeeRate": 200,
+          "TakerOperatorFeeRate": 400,
+          "MakerOperatorFeeRate": 500,
+          "Quantity": 200000000000000000000,
+          "Amount": 200000000000000000000,
+          "LockedBuyFee": 4000000000000000000
+        },
+        {
+          "Id": "000001010000000002000000000000603c66c0000001",
+          "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "MarketId": 1,
+          "Side": true,
+          "Type": 0,
+          "Price": "2",
+          "TakerFeeRate": 200,
+          "MakerFeeRate": 200,
+          "TakerOperatorFeeRate": 400,
+          "MakerOperatorFeeRate": 500,
+          "Quantity": 200000000000000000000,
+          "Amount": 400000000000000000000
+        }
+      ]
+    },
+    "OrderActions": [
+      {
+        "Address": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
+        "MarketId": 1,
+        "Side": true,
+        "Type": 3,
+        "Price": "1",
+        "TakerFeeRate": 200,
+        "MakerFeeRate": 200,
+        "TakerOperatorFeeRate": 400,
+        "MakerOperatorFeeRate": 500,
+        "Quantity": 100000000000000000000,
+        "Amount": 100000000000000000000,
+        "LockedBuyFee": 0,
+        "Status": 0
+      },
+      {
+        "Address": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
+        "MarketId": 1,
+        "Side": false,
+        "Type": 3,
+        "Price": "2",
+        "TakerFeeRate": 200,
+        "MakerFeeRate": 200,
+        "TakerOperatorFeeRate": 400,
+        "MakerOperatorFeeRate": 500,
+        "Quantity": 100000000000000000000,
+        "Amount": 200000000000000000000,
+        "LockedBuyFee": 10000000000000000000,
+        "Status": 0
+      }
+    ],
+    "CheckOrders": [
+      {
+        "MarketId": 1,
+        "BuyOrders": [
+          {
+            "Id": "00000100fffffffffeffffffffff00603c66c0000000",
+            "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+            "Type": 0,
+            "Price": "1",
+            "TakerFeeRate": 200,
+            "MakerFeeRate": 200,
+            "TakerOperatorFeeRate": 400,
+            "MakerOperatorFeeRate": 500,
+            "Status": 1,
+            "Quantity": 200000000000000000000,
+            "Amount": 200000000000000000000,
+            "LockedBuyFee": 4000000000000000000,
+            "ExecutedQuantity": 100000000000000000000,
+            "ExecutedAmount": 100000000000000000000,
+            "ExecutedBaseFee": 200000000000000000,
+            "ExecutedOperatorFee": 500000000000000000
+          }
+        ],
+        "SellOrders": [
+          {
+            "Id": "000001010000000002000000000000603c66c0000001",
+            "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+            "MarketId": 1,
+            "Side": true,
+            "Type": 0,
+            "Price": "2",
+            "TakerFeeRate": 200,
+            "MakerFeeRate": 200,
+            "TakerOperatorFeeRate": 400,
+            "MakerOperatorFeeRate": 500,
+            "Status": 1,
+            "Quantity": 200000000000000000000,
+            "Amount": 400000000000000000000,
+            "ExecutedQuantity": 100000000000000000000,
+            "ExecutedAmount": 200000000000000000000,
+            "ExecutedBaseFee": 400000000000000000,
+            "ExecutedOperatorFee": 1000000000000000000
+          }
+        ]
+      }
+    ],
+    "CheckEvents": [
+      {
+        "TopicName": "newOrderEvent",
+        "NewOrder": {
+          "Id": "000001010000000001000000000000603c66c0000002",
+          "Address": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
+          "MarketId": 1,
+          "Side": true,
+          "Type": 3,
+          "Price": "1",
+          "TakerFeeRate": 200,
+          "MakerFeeRate": 200,
+          "TakerOperatorFeeRate": 400,
+          "MakerOperatorFeeRate": 500,
+          "Status": 2,
+          "CancelReason": 0,
+          "Quantity": 100000000000000000000,
+          "Amount": 100000000000000000000,
+          "LockedBuyFee": 0,
+          "ExecutedQuantity": 100000000000000000000,
+          "ExecutedAmount": 100000000000000000000,
+          "ExecutedBaseFee": 200000000000000000,
+          "ExecutedOperatorFee": 400000000000000000,
+          "RefundQuantity": 0,
+          "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+          "QuoteToken": "tti_5649544520544f4b454e6e40"
+        }
+      },
+      {
+        "TopicName": "orderUpdateEvent",
+        "OrderUpdate": {
+          "Id": "00000100fffffffffeffffffffff00603c66c0000000",
+          "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+          "QuoteToken": "tti_5649544520544f4b454e6e40",
+          "Status": 1,
+          "CancelReason": 0,
+          "ExecutedQuantity": 100000000000000000000,
+          "ExecutedAmount": 100000000000000000000,
+          "ExecutedBaseFee": 200000000000000000,
+          "ExecutedOperatorFee": 500000000000000000,
+          "RefundQuantity": 0
+        }
+      },
+      {
+        "TopicName": "txEvent",
+        "Transaction": {
+          "TakerSide": true,
+          "TakerId": "000001010000000001000000000000603c66c0000002",
+          "MakerId": "00000100fffffffffeffffffffff00603c66c0000000",
+          "Price": "1",
+          "Quantity": 100000000000000000000,
+          "Amount": 100000000000000000000,
+          "TakerFee": 200000000000000000,
+          "MakerFee": 200000000000000000,
+          "TakerOperatorFee": 400000000000000000,
+          "MakerOperatorFee": 500000000000000000
+        }
+      },
+      {
+        "TopicName": "newOrderEvent",
+        "NewOrder": {
+          "Id": "00000100fffffffffdffffffffff00603c66c0000003",
+          "Address": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
+          "MarketId": 1,
+          "Side": false,
+          "Type": 3,
+          "Price": "2",
+          "TakerFeeRate": 200,
+          "MakerFeeRate": 200,
+          "TakerOperatorFeeRate": 400,
+          "MakerOperatorFeeRate": 500,
+          "Status": 2,
+          "CancelReason": 0,
+          "Quantity": 100000000000000000000,
+          "Amount": 200000000000000000000,
+          "LockedBuyFee": 10000000000000000000,
+          "ExecutedQuantity": 100000000000000000000,
+          "ExecutedAmount": 200000000000000000000,
+          "ExecutedBaseFee": 400000000000000000,
+          "ExecutedOperatorFee": 800000000000000000,
+          "RefundToken": "tti_5649544520544f4b454e6e40",
+          "RefundQuantity": 8800000000000000000,
+          "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+          "QuoteToken": "tti_5649544520544f4b454e6e40"
+        }
+      },
+      {
+        "TopicName": "orderUpdateEvent",
+        "OrderUpdate": {
+          "Id": "000001010000000002000000000000603c66c0000001",
+          "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+          "QuoteToken": "tti_5649544520544f4b454e6e40",
+          "Status": 1,
+          "CancelReason": 0,
+          "ExecutedQuantity": 100000000000000000000,
+          "ExecutedAmount": 200000000000000000000,
+          "ExecutedBaseFee": 400000000000000000,
+          "ExecutedOperatorFee": 1000000000000000000,
+          "RefundQuantity": 0
+        }
+      },
+      {
+        "TopicName": "txEvent",
+        "Transaction": {
+          "TakerSide": false,
+          "TakerId": "00000100fffffffffdffffffffff00603c66c0000003",
+          "MakerId": "000001010000000002000000000000603c66c0000001",
+          "Price": "2",
+          "Quantity": 100000000000000000000,
+          "Amount": 200000000000000000000,
+          "TakerFee": 400000000000000000,
+          "MakerFee": 400000000000000000,
+          "TakerOperatorFee": 800000000000000000,
+          "MakerOperatorFee": 1000000000000000000
+        }
+      }
+    ]
+  }
+}

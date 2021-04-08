@@ -1,6 +1,6 @@
 {
-  "dex fund new limit order": {
-    "Name": "dex fund new limit order",
+  "dex fund new ImmediateOrCancel order": {
+    "Name": "dex fund new ImmediateOrCancel order",
     "GlobalEnv": {
       "sBHeight": 100,
       "SbTime": 1600663514,
@@ -62,14 +62,14 @@
         "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
         "QuoteToken": "tti_5649544520544f4b454e6e40",
         "Side": false,
-        "OrderType": 0,
+        "OrderType": 3,
         "Price": "1",
         "Quantity": 200000000000000000000,
         "CheckPlacedOrder": {
           "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
           "MarketId": 1,
           "Side": false,
-          "Type": 0,
+          "Type": 3,
           "Price": "1",
           "TakerFeeRate": 200,
           "MakerFeeRate": 200,
@@ -86,14 +86,14 @@
         "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
         "QuoteToken": "tti_5649544520544f4b454e6e40",
         "Side": true,
-        "OrderType": 0,
+        "OrderType": 3,
         "Price": "2",
         "Quantity": 200000000000000000000,
         "CheckPlacedOrder": {
           "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
           "MarketId": 1,
           "Side": true,
-          "Type": 0,
+          "Type": 3,
           "Price": "2",
           "TakerFeeRate": 200,
           "MakerFeeRate": 200,

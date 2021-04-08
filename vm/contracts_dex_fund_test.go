@@ -180,19 +180,20 @@ type PlaceOrder struct {
 }
 
 type PlacedOrder struct {
-	Address              *types.Address
-	MarketId             int32
-	Side                 bool
-	Type                 int32
-	Price                string
-	TakerFeeRate         int32
-	MakerFeeRate         int32
-	TakerOperatorFeeRate int32
-	MakerOperatorFeeRate int32
-	Quantity             *big.Int
-	Amount               *big.Int
-	LockedBuyFee         *big.Int
-	Status               int32
+	Address                 *types.Address
+	MarketId                int32
+	Side                    bool
+	Type                    int32
+	Price                   string
+	TakerFeeRate            int32
+	MakerFeeRate            int32
+	TakerOperatorFeeRate    int32
+	MakerOperatorFeeRate    int32
+	Quantity                *big.Int
+	Amount                  *big.Int
+	LockedBuyFee            *big.Int
+	Status                  int32
+	MarketOrderAmtThreshold *big.Int
 }
 
 type TransferAssetEvent struct {
@@ -323,15 +324,15 @@ func executeActions(testCase *DexFundCase, vm *VM, db *testDatabase, t *testing.
 				err = order.DeSerialize(param.Data)
 				assert.Nil(t, err)
 				if od.CheckPlacedOrder != nil {
-					checkOrderSend(t, od.CheckPlacedOrder, order)
+					checkPlaceOrder(t, od.CheckPlacedOrder, order)
 				}
 			}
 		}
 	}
 }
 
-func checkOrderSend(t *testing.T, po *PlacedOrder, od *dex.Order) {
-	assertAddressEqual(t, po.Address, od.Address, "checkOrderSend.Address")
+func checkPlaceOrder(t *testing.T, po *PlacedOrder, od *dex.Order) {
+	assertAddressEqual(t, po.Address, od.Address, "checkPlaceOrder.Address")
 	marketId, side, price, _, _ := dex.DeComposeOrderId(od.Id)
 	assert.Equal(t, po.MarketId, marketId)
 	assert.Equal(t, po.Side, side)
@@ -341,13 +342,14 @@ func checkOrderSend(t *testing.T, po *PlacedOrder, od *dex.Order) {
 	assert.Equal(t, po.MakerFeeRate, od.MakerFeeRate)
 	assert.Equal(t, po.TakerOperatorFeeRate, od.TakerOperatorFeeRate)
 	assert.Equal(t, po.MakerOperatorFeeRate, od.MakerOperatorFeeRate)
-	assertAmountEqual(t, po.Quantity, od.Quantity, "checkOrderSend.Quantity")
-	assertAmountEqual(t, po.Amount, od.Amount, "checkOrderSend.Amount")
-	assertAmountEqual(t, po.LockedBuyFee, od.LockedBuyFee, "checkOrderSend.LockedBuyFee")
+	assertAmountEqual(t, po.Quantity, od.Quantity, "checkPlaceOrder.Quantity")
+	assertAmountEqual(t, po.Amount, od.Amount, "checkPlaceOrder.Amount")
+	assertAmountEqual(t, po.LockedBuyFee, od.LockedBuyFee, "checkPlaceOrder.LockedBuyFee")
+	assertAmountEqual(t, po.MarketOrderAmtThreshold, od.MarketOrderAmtThreshold, "checkPlaceOrder.MarketOrderAmtThreshold")
 	assert.Equal(t, po.Status, od.Status)
 }
 
-func doAction(name string, db *testDatabase, vm *VM, from, to types.Address, data []byte, t *testing.T) []*ledger.AccountBlock  {
+func doAction(name string, db *testDatabase, vm *VM, from, to types.Address, data []byte, t *testing.T) []*ledger.AccountBlock {
 	sendBlock := newSendBlock(from, to)
 	db.addr = from
 	var (
