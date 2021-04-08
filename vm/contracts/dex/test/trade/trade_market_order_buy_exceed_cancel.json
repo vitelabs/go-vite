@@ -102,21 +102,24 @@
             "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
             "Type": 0,
             "Price": "1",
-            "Quantity": 200000000000000000000,
-            "Amount": 200000000000000000000,
+            "Status": 0,
             "TakerFeeRate": 200,
             "MakerFeeRate": 200,
             "TakerOperatorFeeRate": 400,
             "MakerOperatorFeeRate": 500,
-            "LockedBuyFee": 4000000000000000000
+            "Quantity": 200000000000000000000,
+            "Amount": 200000000000000000000,
+            "LockedBuyFee": 4000000000000000000,
+            "ExecutedQuantity": 0,
+            "ExecutedAmount": 0,
+            "ExecutedBaseFee": 0,
+            "ExecutedOperatorFee": 0
           }
         ],
         "SellOrders": [
           {
             "Id": "000001010000000002000000000000603c66c0000001",
             "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
-            "MarketId": 1,
-            "Side": true,
             "Type": 0,
             "Price": "2",
             "Status": 0,
@@ -126,6 +129,7 @@
             "MakerOperatorFeeRate": 500,
             "Quantity": 200000000000000000000,
             "Amount": 400000000000000000000,
+            "LockedBuyFee": 0,
             "ExecutedQuantity": 0,
             "ExecutedAmount": 0,
             "ExecutedBaseFee": 0,

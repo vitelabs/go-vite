@@ -153,7 +153,7 @@ type NewTokenEvent struct {
 }
 
 type NewMarket struct {
-	Address    types.Address
+	Owner      types.Address
 	TradeToken types.TokenTypeId
 	QuoteToken types.TokenTypeId
 }
@@ -302,7 +302,7 @@ func executeActions(testCase *DexFundCase, vm *VM, db *testDatabase, t *testing.
 	if testCase.NewMarkets != nil {
 		for _, nm := range testCase.NewMarkets {
 			data, _ := cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundOpenNewMarket, nm.TradeToken, nm.QuoteToken)
-			doAction("newMarket", db, vm, nm.Address, types.AddressDexFund, data, t)
+			doAction("newMarket", db, vm, nm.Owner, types.AddressDexFund, data, t)
 		}
 	}
 	if testCase.NewMarketTokens != nil {
@@ -439,7 +439,7 @@ func executeChecks(testCase *DexFundCase, db *testDatabase, t *testing.T) {
 			if ev.NewMarket != nil {
 				me := &dex.MarketEvent{}
 				me.FromBytes(log.Data)
-				assert.True(t, bytes.Equal(ev.NewMarket.Address.Bytes(), me.Owner))
+				assert.True(t, bytes.Equal(ev.NewMarket.Owner.Bytes(), me.Owner))
 				assert.True(t, bytes.Equal(ev.NewMarket.TradeToken.Bytes(), me.TradeToken))
 				assert.True(t, bytes.Equal(ev.NewMarket.QuoteToken.Bytes(), me.QuoteToken))
 			}

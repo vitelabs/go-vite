@@ -79,6 +79,7 @@
     },
     "OrderActions": [
       {
+        "Id": "000001010000000001000000000000603c66c0000002",
         "Address": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
         "MarketId": 1,
         "Side": true,
@@ -93,6 +94,7 @@
         "LockedBuyFee": 0
       },
       {
+        "Id": "00000100fffffffffcffffffffff00603c66c0000003",
         "Address": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
         "MarketId": 1,
         "Side": false,

@@ -146,7 +146,7 @@
     ],
     "NewMarkets": [
       {
-        "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+        "Owner": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
         "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
         "QuoteToken": "tti_5649544520544f4b454e6e40"
       }
@@ -328,11 +328,9 @@
       {
         "TopicName": "marketEvent",
         "NewMarket": {
-          "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "Owner": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
           "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
-          "QuoteToken": "tti_5649544520544f4b454e6e40",
-          "Amount": 20000000000000000000000,
-          "Extra": ""
+          "QuoteToken": "tti_5649544520544f4b454e6e40"
         }
       }
     ]
