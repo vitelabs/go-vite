@@ -65,6 +65,7 @@ func (pl *pool) insertChunks(chunks *net.Chunk) bool {
 	err := pl.insertChunksToChain(chunks.SnapshotChunks, source)
 	if err != nil {
 		pl.log.Error("insert chunks fail.", "err", err)
+		pl.insertChunksToPool(chunks.SnapshotChunks, source)
 		pl.PopDownloadedChunks(head)
 		return false
 	}
