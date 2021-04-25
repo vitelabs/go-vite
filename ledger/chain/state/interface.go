@@ -4,12 +4,12 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
+	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/db"
+	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
 )
 
