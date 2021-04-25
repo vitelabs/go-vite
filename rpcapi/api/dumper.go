@@ -128,10 +128,10 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) erro
 		i++
 	}
 	sort.Sort(DumpedAmountSorter(resList))
-	fmt.Println("address, sum , wallet , dexAvailable, dexLocked, dexOther")
+	fmt.Println("address, sum , wallet , dexAvailable, dexLocked, dexOther, unReceived")
 	overAllSum := big.NewInt(0)
 	for _, v := range resList {
-		fmt.Printf("%s,%s,%s,%s,%s,%s\n", v.Address.String(), v.Sum.String(), v.WalletAmount.String(), v.DexAvailable.String(), v.DexLocked.String(), v.DexOther.String())
+		fmt.Printf("%s,%s,%s,%s,%s,%s,%s\n", v.Address.String(), v.Sum.String(), v.WalletAmount.String(), v.DexAvailable.String(), v.DexLocked.String(), v.DexOther.String(), v.UnReceiveAmount.String())
 		overAllSum.Add(overAllSum, v.Sum)
 	}
 	fmt.Printf(">>>>>>>>>>>>>>>>>>>>> valid size %d, overAllSum %s\n", len(resList), overAllSum.String())
