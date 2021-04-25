@@ -46,6 +46,10 @@ type DumpedAmount struct {
 	UnReceiveAmount *big.Int
 }
 
+func newDumpedAmount(addr types.Address) *DumpedAmount {
+	return &DumpedAmount{&addr, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0)}
+}
+
 func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) error {
 	var snapshotBlock *ledger.SnapshotBlock
 	var err error
@@ -62,16 +66,26 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) erro
 			f.log.Error("GetLatestAccountBlock GetConfirmedBalanceList failed, error is "+err2.Error(), "method", "DumpBalance")
 			return false
 		} else if balance, ok := balances[addr]; ok && balance.Sign() > 0 {
-			dumpAmt := &DumpedAmount{}
-			dumpAmt.Address = &addr
+			dumpAmt := newDumpedAmount(addr)
+			if accAmt, ok := res[addr]; ok {
+				dumpAmt = accAmt
+			} else {
+				res[addr] = dumpAmt
+			}
 			dumpAmt.WalletAmount = balance
 			dumpAmt.Sum = balance
 			res[addr] = dumpAmt
 		}
 		if roadInfo, err := f.chain.GetAccountOnRoadInfo(addr); err != nil {
 			f.log.Error(fmt.Sprintf("GetAccountOnRoadInfo failed, error is %s", err.Error()), "method", "DumpBalance")
-		} else {
-			res[addr].UnReceiveAmount = &roadInfo.TokenBalanceInfoMap[token].TotalAmount
+		} else if roadTokenInfo, ok := roadInfo.TokenBalanceInfoMap[token]; ok {
+			dumpAmt := newDumpedAmount(addr)
+			if accAmt, ok := res[addr]; ok {
+				dumpAmt = accAmt
+			} else {
+				res[addr] = dumpAmt
+			}
+			dumpAmt.UnReceiveAmount = &roadTokenInfo.TotalAmount
 		}
 		return true
 	})
@@ -95,17 +109,24 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) erro
 						dexAmt := new(big.Int).Add(new(big.Int).Add(dexAvailable, dexLocked), dexOther)
 						if dexAmt.Sign() > 0 {
 							address, _ := types.BytesToAddress(fund.Address)
-							walletAmt := new(big.Int)
+							dumpAmt := newDumpedAmount(address)
 							if accAmt, ok := res[address]; ok {
-								walletAmt.Set(accAmt.WalletAmount)
+								dumpAmt = accAmt
+							} else {
+								res[address] = dumpAmt
 							}
+
+							walletAmt := dumpAmt.WalletAmount
 							sum := new(big.Int)
 							sum = sum.Add(sum, walletAmt)
 							sum = sum.Add(sum, dexAvailable)
 							sum = sum.Add(sum, dexLocked)
 							sum = sum.Add(sum, dexOther)
-							newAmt := &DumpedAmount{&address, sum, walletAmt, dexAvailable, dexLocked, dexOther, res[address].UnReceiveAmount}
-							res[address] = newAmt
+
+							dumpAmt.DexAvailable = dexAvailable
+							dumpAmt.DexLocked = dexLocked
+							dumpAmt.DexOther = dexOther
+							dumpAmt.Sum = sum
 						}
 						break
 					}
