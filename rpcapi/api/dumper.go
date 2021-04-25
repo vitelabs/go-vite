@@ -3,17 +3,18 @@ package api
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"math/big"
+	"os"
+	"path/filepath"
+	"sort"
+
 	"github.com/vitelabs/go-vite/chain"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/ledger"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/vite"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"io/ioutil"
-	"math/big"
-	"os"
-	"path/filepath"
-	"sort"
 )
 
 type Dumper struct {
@@ -41,9 +42,11 @@ type DumpedAmount struct {
 	DexAvailable *big.Int
 	DexLocked    *big.Int
 	DexOther     *big.Int
+
+	UnReceiveAmount *big.Int
 }
 
-func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) (error) {
+func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) error {
 	var snapshotBlock *ledger.SnapshotBlock
 	var err error
 	if snapshotBlock, err = f.chain.GetSnapshotBlockByHeight(snapshotHeight); err != nil {
@@ -64,6 +67,11 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) (err
 			dumpAmt.WalletAmount = balance
 			dumpAmt.Sum = balance
 			res[addr] = dumpAmt
+		}
+		if roadInfo, err := f.chain.GetAccountOnRoadInfo(addr); err != nil {
+			f.log.Error(fmt.Sprintf("GetAccountOnRoadInfo failed, error is %s", err.Error()), "method", "DumpBalance")
+		} else {
+			res[addr].UnReceiveAmount = &roadInfo.TokenBalanceInfoMap[token].TotalAmount
 		}
 		return true
 	})
@@ -96,7 +104,7 @@ func (f Dumper) DumpBalance(token types.TokenTypeId, snapshotHeight uint64) (err
 							sum = sum.Add(sum, dexAvailable)
 							sum = sum.Add(sum, dexLocked)
 							sum = sum.Add(sum, dexOther)
-							newAmt := &DumpedAmount{&address, sum, walletAmt, dexAvailable, dexLocked, dexOther}
+							newAmt := &DumpedAmount{&address, sum, walletAmt, dexAvailable, dexLocked, dexOther, res[address].UnReceiveAmount}
 							res[address] = newAmt
 						}
 						break
@@ -171,12 +179,12 @@ func (f Dumper) DumpStakeForMiningAddresses(snapshotHeight uint64, outputFile st
 		lastKey       = types.ZERO_HASH.Bytes()
 		addresses     []*types.Address
 		addressesRes  = make(map[types.Address]string)
-		addressesRes2  = make(map[types.Address]string)
+		addressesRes2 = make(map[types.Address]string)
 		pageSize      = 100
 		v1Size        = 0
 		v2Size        = 0
 	)
-		f.log.Error("DumpStakeForMiningAddresses start!!!")
+	f.log.Error("DumpStakeForMiningAddresses start!!!")
 	if snapshotBlock, err = f.chain.GetSnapshotBlockByHeight(snapshotHeight); err != nil {
 		f.log.Error("DumpStakeForMiningAddresses failed, error is "+err.Error(), "method", "GetSnapshotBlockByHeight")
 		return
