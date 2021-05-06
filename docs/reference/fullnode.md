@@ -16,7 +16,7 @@ Configuration details can be found at [Installation](../node/install.md#full-nod
 
 * A daily amount of **5,700 VITE** will be distributed equally to all qualified full nodes. 
 * A qualified node must keep at least 90% uptime in a cycle.
-* The reward program started at 12:13:14 GMT+8 on December 13th, 2018. Rewards are distributed on a daily basis. Please note the time we send out rewards could be in delay due to large amount of computation, and be patient. Additional details can be found at https://reward.vite.net/.
+* The reward program started at 12:13:14 GMT+8 on December 13th, 2018. Rewards are distributed on a daily basis. Please note the time we send out rewards could be in delay due to large amount of computation, and be patient. 
 * As special full node, supernode is eligible for this reward program.
 
 ::: tip Reward Increase
