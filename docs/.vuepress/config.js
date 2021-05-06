@@ -14,7 +14,7 @@ module.exports = {
     },
 
     head: [
-      ['link', { rel: 'icon', href: '/icon.png' }]
+      ['link', { rel: 'icon', href: 'https://vite.org/icon.png' }]
     ],
 
     plugins: [
@@ -36,10 +36,11 @@ module.exports = {
       logo: {
         src: path.join(basePath, '/logo.svg'),
       },
-      // algolia: {
-      //   key: "fe006d1336f2a85d144fdfaf4a089378",
-      //   index: "vite_labs"
-      // },
+      algolia: {
+        id: "BH4D9OD16A",
+        key: "d3bce2a3d5eff7e76467823aae0c647e",
+        index: "vitelabs"
+      },
       topbar: {
         banner: false
       },
@@ -61,6 +62,10 @@ module.exports = {
               {
                 title: "Vite.js",
                 path: "https://docs.vite.org/vite.js/"
+              },
+              {
+                title: "Vite JAVA SDK",
+                path: "https://docs.vite.org/vitej/"
               }
             ]
           }
