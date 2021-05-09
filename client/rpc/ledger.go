@@ -31,7 +31,6 @@ type LedgerApi interface {
 	GetUnconfirmedBlocks(addr types.Address) []*ledger.AccountBlock
 	GetConfirmedBalances(snapshotHash types.Hash, addrList []types.Address, tokenIds []types.TokenTypeId) (api.GetBalancesRes, error)
 	GetHourSBPStats(startIdx uint64, endIdx uint64) ([]map[string]interface{}, error)
-	GetUnreceivedBlocksInBatch(queryList []api.PagingQueryBatch) (map[types.Address][]*api.AccountBlock, error)
 }
 
 type ledgerApi struct {
