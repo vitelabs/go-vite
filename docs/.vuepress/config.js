@@ -53,6 +53,10 @@ module.exports = {
               {
                 title: "Tech Articles",
                 path: "/articles"
+              },
+              {
+                title: "Solidity++ Guide",
+                path: "https://www.weserickson.com/soliditypp_docs/"
               }
             ]
           },
