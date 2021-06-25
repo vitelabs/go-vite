@@ -1,0 +1,14 @@
+pragma soliditypp ^0.4.3;
+
+contract SimpleStorage {
+    uint storedData;
+
+    onMessage set(uint x) {
+        storedData = x;
+    }
+
+    // define an off-chain method to access storedData
+    getter get() returns(uint) {
+        return storedData;
+    }
+}

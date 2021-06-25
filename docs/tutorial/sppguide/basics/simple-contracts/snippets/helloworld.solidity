@@ -1,0 +1,10 @@
+pragma soliditypp ^0.4.3;
+
+contract HelloWorld {
+    event MyLog(address indexed addr, string log);
+
+    onMessage sayHello(address dest) payable {
+        dest.transfer(msg.tokenid, msg.amount);
+        emit MyLog(dest, "Hello! Have some Vite!");
+    }
+}

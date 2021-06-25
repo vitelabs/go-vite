@@ -1,0 +1,38 @@
+pragma soliditypp ^0.4.3;
+
+contract Scheduler {
+    uint numsec;
+    uint height0;
+    uint locked;
+    address owner;
+
+    event Log(address indexed addr, uint t, string log);
+    
+    message run();
+    message docall();
+
+    onMessage initiate(uint sec) {
+        require(locked == 0);
+        owner = msg.sender;
+        locked = 1;
+        numsec = sec;
+        height0 = block.timestamp;
+        // invoke default message handler to do call        
+        send(address(this),docall());
+
+        emit Log(owner, block.timestamp, "initiate message event.");
+    }
+
+    onMessage() {
+        require(locked == 1);
+        if(block.timestamp > height0 + numsec){
+            locked = 0;
+            emit Log(owner, block.timestamp, "running scheduled event.");
+        } else {
+            emit Log(owner, block.timestamp, "event not ready yet.");    
+            send(address(this),docall());
+        }
+    }
+
+
+}
