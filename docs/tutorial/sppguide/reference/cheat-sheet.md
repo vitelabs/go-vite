@@ -1,3 +1,6 @@
+---
+order: 2
+---
 # Syntax Cheat Sheet
 
 ::: tip Coming Soon

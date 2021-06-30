@@ -1,5 +1,5 @@
 # Installation
-The recommended development environment for Solidity++ is **Visual Studio Code**, for which ViteLabs has developed the **Soliditypp** extension containing a ready-to-go compiler and debugging environment. Follow the [instructions](#installing-the-visual-studio-code-extension) below for installing and testing.<!--, or if you prefer, there is a [video guide]() for setting up the environment.-->
+The recommended development environment for Solidity++ is **Visual Studio Code**, for which Vite Labs has developed the **Soliditypp** extension containing a ready-to-go compiler and debugging environment. Follow the [instructions](#installing-the-visual-studio-code-extension) below for installing and testing.<!--, or if you prefer, there is a [video guide]() for setting up the environment.-->
 
 ::: tip Manual Compiler Installation:
 Instructions for installation *without* VSCode [here](https://docs.vite.org/go-vite/contract/debug.html#debugging-in-command-line).  **(not recommended for most users)**

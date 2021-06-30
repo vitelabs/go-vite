@@ -20,7 +20,7 @@ Before following this tutorial, you should follow the [installation guide](../in
 
 Here is the `HelloWorld.solpp` code we want to deploy on the test net (see [here](../basics/simple-contracts/hello-world/) for an explanation):
 
-<<< @/src/.vuepress/public/snippets/helloworld.solidity
+<<< @/tutorial/sppguide/basics/simple-contracts/snippets/helloworld.solidity
 
 You can deploy this code on the testnet similarly to [how you deploy](../introduction/installation.html#deploying-your-first-contract) on the local debug node, but there are a few differences:
 

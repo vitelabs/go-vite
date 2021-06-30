@@ -8,7 +8,7 @@ parent:
 ::: tip Hi Everyone! This beginner's guide is still under development.
 If you find some mistakes or want to contribute to this project, your support or comments are greatly appreciated! Please contact me at weserickson.gmail.com.
 
-—Wes, Research Officer at ViteLabs
+—Wes, Research Officer at Vite Labs
 :::
 
 # Overview
