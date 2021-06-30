@@ -1,15 +1,5 @@
 # FAQ
 
-::: tip Where are all the questions?
-
-You might know there's a hackathon coming up, and we're expecting to see a lot of new developers on Vite! (See ViteLab's [Gitcoin's GR10 Hackathon page](https://gitcoin.co/hackathon/gr10/?org=vitelabs)).
-
-As such, we're doing updates on this FAQ as new good questions come in. Visit the [Discord](https://discordapp.com/invite/CsVY76q) or our [Reddit](https://www.reddit.com/r/vitelabs/) and ask away. Expect to see this page change quickly.
-
-—Wes (Sunday June 13, 20:56:25 PDT 2021)
-:::
-
-
 ### Testnet
 
 #### Q: How do I connect to Testnet in my code?

@@ -1,3 +1,6 @@
+---
+order: 2
+---
 # Using the Debugger
 
 Before reading this page, you should have already followed the [installation guide](../introduction/installation/) and successfully [deployed your first contract](../introduction/installation.html#deploying-your-first-contract) to the local debug network. This page will cover the features of the debugging interface in more detail.

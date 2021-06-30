@@ -1,5 +1,5 @@
 ---
-order: 1
+order: 2
 ---
 # Simple Contracts
 
@@ -18,8 +18,8 @@ In this section we will look at several simple contracts to introduce the basic 
 - [Guess The Secret](./guess-the-secret/)
 <br> Our first use of mappings, abi functions, and hashing.
 
-- [Scheduled Functions](./scheduled-functions/)
-<br> Shows how to use the fallback message listener, the ResponseLatency parameter, and some special global variables.
+- [Quota Bank](./delegate-stake/)
+<br> Shows how to call the built-in smart contract to obtain quota for given address.
 
 - [Casino Game](./casino/)
 <br> Introduces random number generation, structs, tokenID, and important modifiers (`memory`, `public`, `pure`).

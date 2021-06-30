@@ -45,7 +45,7 @@ yarn add @vite/vitejs-ws @vite/vitejs
 
 2. The following code demonstrates using Vite.js to interact with a contract. The code calls the `sayHello` function, sends a transaction, and receives a response. Save this as `test_contract.js`.
 
-``` js
+```js
 const { WS_RPC } = require('@vite/vitejs-ws');
 const { ViteAPI, wallet, utils, abi, accountBlock, keystore } =require('@vite/vitejs');
 

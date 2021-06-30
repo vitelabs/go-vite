@@ -6,7 +6,7 @@ parent:
 ---
 
 ::: tip Hi Everyone! This beginner's guide is still under development.
-If you find some mistakes or want to contribute to this project, your support or comments are greatly appreciated! Please contact me at weserickson[at]gmail[dot]com.
+If you find some mistakes or want to contribute to this project, your support or comments are greatly appreciated! Please contact me at weserickson.gmail.com.
 
 —Wes, Research Officer at ViteLabs
 :::
@@ -31,4 +31,4 @@ Solidity++ is a smart contract language derived from [Solidity](https://docs.sol
 
 This guide is designed for aspiring smart contract developers. You're expected to have some basic programming knowledge, but previous Solidity/Solidity++ experience is not needed.
 
-The goal of this guide is to have you writing contracts and deploying your own dApps as quickly as possible, so **we will not cover some important details of the underlying Vite architecture**. Once you complete this guide, there is much more to learn through reading the [official documentation](https://docs.vite.org).
+The goal of this guide is to have you writing contracts and deploying your own dApps as quickly as possible, so **we will not cover some important details of the underlying Vite architecture**. Once you complete this guide, there is much more to learn through reading the [Vite documentation](https://docs.vite.org).

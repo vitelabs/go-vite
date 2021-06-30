@@ -11,7 +11,7 @@ Developing usable smart contracts using Solidity++ can roughly be split into two
 
 ### 1. Writing the Smart Contract.
 
-Solidity++ is used to write the contract itself, which is then then deployed onto the blockchain. Once a contract is deployed, anyone can interact with it, making the contract essentially a decentralized and publicly accessible application backend.
+Solidity++ is used to write the contract itself, which is then deployed onto the blockchain. Once a contract is deployed, anyone can interact with it, making the contract essentially a decentralized and publicly accessible application backend.
 
 This can be done entirely within VSCode and the Solidity++ extension, following steps from the [debugger guide](./debugger/) and examples from [Simple Contracts.](./simple-contracts/)
 
@@ -20,7 +20,7 @@ This can be done entirely within VSCode and the Solidity++ extension, following 
 There is a much greater freedom when it comes to developing an interface to interact with a smart contract. For starters, the platform can be anything: an Android App, an iPhone app, a website, a browser plugin, a command-line interface, a shell script, etc.
 
 There are several tools available to help you build interfaces:
-- Vitelabs has both a [JavaScript API](https://docs.vite.org/vite.js/) and a [Java API](https://docs.vite.org/vitej/) for interfacing with nodes/contracts.
+- Vite Labs has both a [JavaScript API](https://docs.vite.org/vite.js/) and a [Java API](https://docs.vite.org/vitej/) for interfacing with nodes/contracts.
 - Using the [Solidity++ VSCode extension's debugger interface](./debugger/).
 - Vite node [RPC calls](https://docs.vite.org/go-vite/contract/debug.html#create-contract) can be invoked directly.
 - Wallet authentication through [ViteConnect](https://github.com/vitelabs/vite-connect-client) is also possible.
@@ -66,7 +66,7 @@ There is a much greater freedom when it comes to developing an interface to inte
 This allows you to write a Android App, an iPhone app, a Website, a browser plugin, a command-line interface, a sophisticated curl script. You name it!
  also directly interact with nodes through RPC
 
-Vitelabs has both a JavaScript API and a [Java API]() for interacting with
+Vite Labs has both a JavaScript API and a [Java API]() for interacting with
 [ViteConnect]
 
 

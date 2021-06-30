@@ -9,7 +9,7 @@ Below contract defines a batch transfer which accepts a list of addresses and am
 
 #### Key features
 
-- `uint[] calldata body`
+- `address[] calldata addrs`
   This shows how data can be passed to a contract in the form of an array and parsed.
 
 - `uint256 totalAmount = 0;` This variable is local, and is not stored on the blockchain.

@@ -53,6 +53,6 @@ Buy Vite from any of the exchanges [here](https://vite.org/token#getToken), and 
 
 4. Now you can lock Vite for Quota using the web wallet.
     - **(testnet)**: [https://buidl.vite.net](https://buidl.vite.net)
-	- **(mainnet)**: [https://vite.net](https://vite.net)
+	- **(mainnet)**: [https://x.vite.net](https://x.vite.net)
 
    You'll want to provide Quota for your Developer wallet, as well as any contracts you deploy. Since your funds are still stored in your personal wallet, and you can log into the web wallet through ViteConnect, this approach is safer.

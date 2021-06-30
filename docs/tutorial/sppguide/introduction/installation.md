@@ -37,7 +37,7 @@ This automatically generates a `launch.json` file which is used by VSCode to con
 
 3. Create a new file called `HelloWorld.solpp` and paste the following code below:
 
-<<< @/src/.vuepress/public/snippets/helloworld.solidity
+<<< @/tutorial/sppguide/basics/simple-contracts/snippets/helloworld.solidity
 
  This HelloWorld contract redirects funds sent to the contract's `sayHello` function, while emitting a logging event. [We will cover this contract in depth later](../basics/simple-contracts/hello-world/), but for now let's compile and deploy it.
 
