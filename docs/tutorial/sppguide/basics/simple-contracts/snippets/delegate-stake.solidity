@@ -1,0 +1,38 @@
+pragma soliditypp ^0.4.5;
+contract DelegateStake {
+
+    address constant stakeContract = "vite_0000000000000000000000000000000000000003f6af7459b9"; // built-in quota contract
+    tokenId constant viteTokenId = "tti_5649544520544f4b454e6e40";
+    address owner;
+    bytes32 hash;
+    message StakeForQuota(address recipient) payable;
+    mapping(bytes32 => StakeInfo) stakeMap;
+    struct StakeInfo {
+        address addr;
+        bytes32 id;
+        uint256 amount;
+    }
+
+    event Stake(address indexed addr, bytes32 id, uint256 amount);
+
+    constructor() public payable {
+      owner = msg.sender;
+    }
+
+    onMessage () payable {} // payable fallback message listener makes transferring to contract possible
+
+    onMessage delegateStake(address addr, uint256 amount) {
+      require(owner == msg.sender && amount >= 134 vite);
+      hash = send(stakeContract, StakeForQuota(addr), viteTokenId, amount); // stake for the specified address to get quota
+      stakeMap[hash] = StakeInfo(addr, hash, amount);
+      emit Stake(addr, hash, amount);
+    }
+
+    getter getStakeInfo(bytes32 hash) returns(address addr, bytes32 id, uint256 amount) {
+      return (stakeMap[hash].addr, stakeMap[hash].id, stakeMap[hash].amount);
+    }
+
+    getter getHash() returns(bytes32) {
+      return hash;
+    }
+}
