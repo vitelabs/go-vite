@@ -1,7 +1,7 @@
 # HD Wallet
 
 :::tip
-Vite wallet and mobile app are HD compatible. Check [VEP-3](../vep/vep-3.md) for the address derivation. 
+Vite wallet and mobile app are HD compatible. Check [VEP-3](../vep/vep-3.md) for the address derivation specification. 
 
 You can also refer to [HD Protocol, HD Wallet, BIP3](https://bitcoin.org/en/glossary/hd-protocol) for more information.
 :::

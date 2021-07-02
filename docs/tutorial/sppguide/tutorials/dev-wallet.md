@@ -36,7 +36,7 @@ This is not a secure method for generating a Vite wallet. This is not an issue f
 1. Create a wallet through the [Vite iOS or Android app](https://x.vite.net/startCreate).
 
 2. **(testnet only)**
-In the Android/iOS Vite wallet app, set your network to `http://18.217.135.251:48132`.
+In the Android/iOS Vite wallet app, set your network to `https://buidl.vite.net/gvite`.
 
 3. Get Vite:
     - **(testnet)** <br>

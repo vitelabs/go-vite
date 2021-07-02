@@ -1,8 +1,13 @@
+---
+order: 3
+---
 # Run a Local Dev Node
+
+This section introduces how to manually set up a development node on your machine. However, to simplify the process, it's highly recommended you get a dev node with [Visual Studio Code Solidity++ Extension](../sppguide/introduction/installation.html#installing-the-visual-studio-code-extension).
 
 :::tip
 
-Please refer to `gvite` [Installation Guide](../node/install.html) before proceed.
+Please refer to [gvite installation guide](../node/install.html) before proceed.
 
 :::
 

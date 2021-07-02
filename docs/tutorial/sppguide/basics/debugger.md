@@ -49,7 +49,7 @@ The debugger interface is split into several sections as shown below.
 
 - **Account Block Number**: Shows the currently selected address' account block height. Each `Send` and `Receive` transaction adds one additional block.
 
-- **Balance**: Shows the Balance of the current address. On the `debug` network you are automatically provided 1000 Vite. Testnet Vite can be [requested from a faucet](https://discord.com/channels/425843004616474635/425844259745300481/854155000376328254), while mainnet Vite must be acquired through an exchange.
+- **Balance**: Shows the Balance of the current address. On the `debug` network you are automatically provided 1000 Vite. Testnet Vite can be [requested from a faucet](../tutorials/dev-wallet.html#personal-wallet-setup), while mainnet Vite must be acquired through an exchange.
 
 - **Address/Selected Address**: Current address used for contract deployment and debugging. If you want to use a different address, click `+` to generate a new address and then choose the new address in the drop-down list.
 
