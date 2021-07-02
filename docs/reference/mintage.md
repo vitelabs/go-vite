@@ -25,6 +25,16 @@ For re-issuable token, the owner can re-issue an additional amount of token afte
 Similarly, re-issuable token can be destroyed by burning a certain amount through burn transaction. As the result, this will reduce the total supply. 
 In addition, the ownership and token type of re-issuable token can also be changed.
 
+### Token Type ID
+A TTI (Token Type ID) is a 28 characters length hex string that is composed of three parts:
+* "tti_": 4-char long prefix
+* TTI body: a byte array of 10 bytes length 
+* Checksum: a 2 bytes blake2b hash of the TTI body. 
+
+The TTI body comes from the following equation:
+$$TTI_{body}=blake2b\left(IssuerAddress+MintageHeight+PrevBlockHash\right)$$
+IssuerAddress, MintageHeight and PrevBlockHash are byte arrays of the token issuer address, the mintage contract height and the previous block hash of the issuer's account. Note that MintageHeight is in 8-byte length, if the converted value does not reach this length, zeros will be padded at left.
+
 ## Mintage
 
 Mintage transaction is the transaction of issuing new token on Vite. Token issuer can send such a transaction to Vite's built-in mintage contract with given parameters. 
