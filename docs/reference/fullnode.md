@@ -1,8 +1,6 @@
 # Full Node Rewards
 
-To incentivize operators who run full nodes, full node reward is provided in Vite network. 
-The daily reward is **5,700 VITE**, which will be shared equally among all qualified nodes. 
-This page explains full node reward program and how to participate in it.
+A brand new Full Node Rewards Program is launched on April 3, 2021 to encourage participation and provide more flexibility for full node providers to earn rewards. 
 
 ## Full Node
 
@@ -14,23 +12,16 @@ Configuration details can be found at [Installation](../node/install.md#full-nod
 
 ## Reward Program Details
 
-* A daily amount of **5,700 VITE** will be distributed equally to all qualified full nodes. 
-* A qualified node must keep at least 90% uptime in a cycle.
-* The reward program started at 12:13:14 GMT+8 on December 13th, 2018. Rewards are distributed on a daily basis. Please note the time we send out rewards could be in delay due to large amount of computation, and be patient. 
-* As special full node, supernode is eligible for this reward program.
+* A Snapshot Block Producer (SBP) named "FullNode.Pool" will be set up and maintained by Vite Labs. It will be backed by 10 million VITE votes from the Vite Foundation. All income for "FullNode.Pool", including block creation rewards and voting rewards, will be shared with all eligible full nodes.
+* The size of the full node rewards pool varies on a daily basis. It will determine the incentives provided by the Vite Foundation. The calculation is as follows:
+    1. On a daily basis, when the size of the full node rewards pool ( x ) is no more than 8,000 VITE, an equal mount will be provided by the Vite Foundation. 
+    $$y=x \left\{ 0 \leq x \leq 8000 \right\}$$
+    2. On a daily basis, when the size of the full node rewards pool ( x ) is above 8,000 VITE, the incentives are determined by the following equation.
+    $$y=\left( x - 8000 \right) \times \frac{8000}{x} + 8000 \left\{ x \gt 8000 \right\}$$
+* Rewards will be shared equally by all live (uptime is above 90%) full nodes in the pool.
 
-::: tip Reward Increase
-At the time being, a temporary multiply factor of 2.6 will be applied to base amount to increase the daily full node rewards up to **14,820 VITE**.
-:::
+More details please refer to [Announcement of Full Node Reward Upgrade](https://medium.com/vitelabs/vite-incentive-plan-full-node-reward-program-upgrade-c6e96c6405bb).
 
-::: tip Full Node Reward Program II
-In Full Node Reward Program II it is required for full node operators to stake **10,000 VITE** for each node to be eligible for rewards. By staking, operators can receive:
-* Daily full node reward, and
-* Additional voting reward from Vite_SBP03.
-
-More details please refer to [Announcement of Full Node Reward Upgrade](https://forum.vite.net/topic/3215/announcement-upgrade-of-full-node-reward).
-:::
-
-::: warning IP Restriction
-If multiple full nodes run from the same IP address, only one node can receive reward. Do NOT setup your nodes on the same IP address! 
+::: warning Distinct IP Required
+Note that if multiple full nodes run with the same IP address, only one node can get reward. Do NOT setup your nodes with the same IP address! 
 :::
