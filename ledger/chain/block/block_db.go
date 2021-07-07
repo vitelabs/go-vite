@@ -72,7 +72,7 @@ func (bDB *BlockDB) Write(ss *ledger.SnapshotChunk) (map[types.Hash]*chain_file_
 
 	accountBlocksLocation := make(map[types.Hash]*chain_file_manager.Location)
 
-	for _, accountBlock := range sortAccountBlocksInChunk(ss) {
+	for _, accountBlock := range ss.AccountBlocks {
 		buf, err := accountBlock.Serialize()
 		if err != nil {
 			return nil, nil, fmt.Errorf("ss.AccountBlocks.Serialize failed, error is %s, accountBlock is %+v", err.Error(), accountBlock)
