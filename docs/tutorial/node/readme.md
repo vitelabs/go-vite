@@ -1,6 +1,6 @@
 ---
 order: false
 parent:
-    title: Node
+    title: Running A Node
     order: 1
 ---

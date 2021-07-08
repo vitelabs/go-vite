@@ -1,3 +1,7 @@
+---
+order: 4
+---
+
 # Installation Guide for Ledger Nano S
 
 The **Ledger Vite App** has completed development and has been submitted to Ledger for formal review. Since the review is still in progress, users who want to use Ledger hardware wallet to manage assets on Vite are unable to install the app directly through Ledger Live at the moment. 

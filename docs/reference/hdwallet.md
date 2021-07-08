@@ -1,9 +1,9 @@
 # HD Wallet
 
 :::tip
-All Vite official wallets are HD wallets. For specific derivation rules, please visit: [VEP-3](../../vep/vep-3.md)
+Vite wallet and mobile app are HD compatible. Check [VEP-3](../vep/vep-3.md) for the address derivation specification. 
 
-For the HD protocol, please visit: [HD Protocol, HD Wallet, BIP3](https://bitcoin.org/en/glossary/hd-protocol)
+You can also refer to [HD Protocol, HD Wallet, BIP3](https://bitcoin.org/en/glossary/hd-protocol) for more information.
 :::
 
 ### Key generation steps

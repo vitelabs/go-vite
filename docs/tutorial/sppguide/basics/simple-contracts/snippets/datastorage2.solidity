@@ -1,0 +1,15 @@
+pragma soliditypp ^0.4.3;
+
+contract ContractStorage {
+    uint storedData;
+
+    message replyData(uint);
+
+    onMessage set(uint x) {
+        storedData = x;
+    }
+    
+    onMessage requestData() {
+        send(msg.sender, replyData(storedData));
+    }
+}

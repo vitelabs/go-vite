@@ -1,8 +1,13 @@
+---
+order: 3
+---
 # Run a Local Dev Node
+
+This section introduces how to manually set up a development node on your machine. However, to simplify the process, it's highly recommended you get a dev node with [Visual Studio Code Solidity++ Extension](../sppguide/introduction/installation.html#installing-the-visual-studio-code-extension).
 
 :::tip
 
-Please refer to `gvite` [Installation Guide](../node/install.html) before proceed.
+Please refer to [gvite installation guide](../node/install.html) before proceed.
 
 :::
 
@@ -98,7 +103,7 @@ An example of coinbase's keystore file:
 ## Configure genesis.json
 See [Genesis Config](../node/genesis_config.html)
 
-Below is a full example of genesis_config.json with following settings:
+Below is a full example of genesis.json with following settings:
 * Consensus group settings
   - 1 snapshot block is produced per second
   - 3 continuous blocks are produced by the same producer in a round
@@ -139,6 +144,14 @@ Below is a full example of genesis_config.json with following settings:
       "DexMiningFork":{
         "Height":7,
         "Version":7
+      },
+      "DexRobotFork":{
+        "Height":8,
+        "Version":8
+      },
+      "DexStableMarketFork":{
+        "Height":9,
+        "Version":9
       }
     },
   "ConsensusGroupInfo": {

@@ -1,33 +1,35 @@
 ---
-order: 6
+order: 1
+parent:
+    order: 3
+    title: Vite dApp Development Guide
 ---
 
+# Get Started
 
-# Vite DApp Development Guide
-
-## How DApp Works in Vite
+## How dApp Works in Vite
 ![](./dapp-architecture.png)
 
-Above diagram shows how DApp works in Vite. In general, a DApp consists of one (or several) smart contract and companion web application. DApp communicates to a full node (private or non-private) via HTTP or WebSocket connection, fetches data from blockchain and then displays on the webpage. Usually DApp doesn't manage private keys and addresses. Instead, a DApp establishes a connection to Vite wallet (where mnemonic seed and private keys are managed) for sending/receiving transactions, calling smart contract deployed on blockchain, etc. 
-To set up the connection between DApp and Vite wallet, at present there are three options.
+Above diagram shows how dApp works in Vite. In general, a dApp consists of one (or several) smart contract and companion web application. dApp communicates to a full node (private or non-private) via HTTP or WebSocket connection, fetches data from blockchain and then displays on the webpage. Usually dApp doesn't manage private keys and addresses. Instead, a dApp establishes a connection to Vite wallet (where mnemonic seed and private keys are managed) for sending/receiving transactions, calling smart contract deployed on blockchain, etc. 
+To set up the connection between dApp and Vite wallet, at present there are three options.
 
-1. Scan a QR code on the DApp by using Vite wallet for every transaction;
-2. Integrate the DApp into Vite wallet;
+1. Scan a QR code on the dApp by using Vite wallet for every transaction;
+2. Integrate the dApp into Vite wallet;
 3. **Use ViteConnect**. 
 
-The first option is not good enough because you have to scan QR code each time you send transaction or call smart contract. It only applies to very simple DApp where user should only talk to smart contract once! A simple voting program could be an example of this case. 
+The first option is not good enough because you have to scan QR code each time you send transaction or call smart contract. It only applies to very simple dApp where user should only talk to smart contract once! A simple voting program could be an example of this case. 
 
-Integrating DApp into Vite wallet is a good choice once you got approval from Vite team, so that you have a place for your DApp in Vite wallet! So far so good! However, you need request first and there is no guarantee that it must be approved. 
+Integrating dApp into Vite wallet is a good choice once you got approval from Vite team, so that you have a place for your dApp in Vite wallet! So far so good! However, you need request first and there is no guarantee that it must be approved. 
 
-We recommend ViteConnect. ViteConnect establishes WebSocket connection between DApp and Vite wallet. More safe, and more convenient. User just need scan QR code once and the subsequent transactions can be auto-signed (if you turn on the switch). For how to incorporate ViteConnect into your DApp, see [Vite Connect SDK](https://github.com/vitelabs/vite-connect-client). 
+We recommend ViteConnect. ViteConnect establishes WebSocket connection between dApp and Vite wallet. More safe, and more convenient. User just need scan QR code once and the subsequent transactions can be auto-signed (if you turn on the switch). For how to incorporate ViteConnect into your dApp, see [Vite Connect SDK](https://github.com/vitelabs/vite-connect-client). 
 
-## DApp Release Process
+## dApp Release Process
  
-* Complete DApp (smart contract and companion web application) development and testing;
+* Complete dApp (smart contract and companion web application) development and testing;
 * Set up a full node that provides both HTTP and WebSocket RPC services;
 * Deploy smart contract on blockchain and stake VITE coins for the contract's account to make sure it has enough quota;
 * Deploy companion web application;
-* Test DApp's functionalities to make sure it works well. If it should integrate with Vite wallet, test in [Vite Test Wallet](./testdapp.html).
+* Test dApp's functionalities to make sure it works well. If it should integrate with Vite wallet, test in [Vite Test Wallet](./testdapp.html).
 
 ## Before Development
 
@@ -156,16 +158,16 @@ callContract(contractAddress,'SayHello', abi, ['vite_d8f67aa50fd158f1394130a5545
 
 ## Remote Signing Library
 
-In most cases, DApp should not manage private keys and mnemonics, which, for safety reasons, should always be stored in user's Vite wallet. Therefore, how DApp calls up Vite wallet and sends transactions through becomes the real concern. How is it addressed in Vite? 
+In most cases, dApp should not manage private keys and mnemonics, which, for safety reasons, should always be stored in user's Vite wallet. Therefore, how dApp calls up Vite wallet and sends transactions through becomes the real concern. How is it addressed in Vite? 
 
 We provide two libraries.
 - [@vite/bridge](https://www.npmjs.com/package/@vite/bridge)   
-    Vite Bridge is recommended for DApps that are integrated into Vite wallet. Through Vite Bridge client SDK, you are able to
+    Vite Bridge is recommended for dApps that are integrated into Vite wallet. Through Vite Bridge client SDK, you are able to
     - Obtain current user's Vite address within web application, and
     - Send transaction or call smart contract from web application.
     
 :::warning Important
-If your DApp is not to be integrated with Vite wallet app. Do NOT use Vite Bridge.
+If your dApp is not to be integrated with Vite wallet app. Do NOT use Vite Bridge.
 :::
 
 Let's see an example of sending 1 VITE to a second address.
@@ -229,14 +231,14 @@ bridge["wallet.sendTxByURI"]({
 To learn more about Vite Bridge, access our source code on [Github](https://github.com/vitelabs/bridge/).
 
 - [@vite/connector](https://github.com/vitelabs/vite-connect-client)
-    Vite Connect is the recommended solution for signing transactions for DApps that are not hosted in Vite wallet. At present the following features are supported
-    - Establish connection sessions from Vite wallet to DApp by scanning QR code displayed on DApp's web page
+    Vite Connect is the recommended solution for signing transactions for dApps that are not hosted in Vite wallet. At present the following features are supported
+    - Establish connection sessions from Vite wallet to dApp by scanning QR code displayed on dApp's web page
     - Connection is retained for the whole session until disconnected
-    - Transactions triggered on DApp are signed and sent out through Vite wallet app, not on DApp
+    - Transactions triggered on dApp are signed and sent out through Vite wallet app, not on dApp
     - Once enabled, transactions can be auto-signed
     
 :::tip Recommended
-Vite Connect is the general remote signing solution for all DApps that will not be integrated into Vite Wallet.
+Vite Connect is the general remote signing solution for all dApps that will not be integrated into Vite Wallet.
 :::
 Let's see a piece of code that defines how Vite Connect should be setup in Javascript client.
 ```javascript
@@ -309,7 +311,7 @@ To learn more about Vite Connect, access our source code on [Github](https://git
 
 ## Useful APIs
 
-You may use the following APIs in your DApp.
+You may use the following APIs in your dApp.
 
 ### RPC Query API
 
@@ -332,9 +334,9 @@ To learn more abut calling RPC API in Vite.js, please visit [Vite.js SDK](../../
 
 ### Event Subscription
 
-Event subscription is an advanced function that can be used in DApp to monitor state change of smart contract.
+Event subscription is an advanced function that can be used in dApp to monitor state change of smart contract.
 
-See [Event Subscription](./subscribe.md) and [Subscription API](../../api/rpc/subscribe_v2.md) for more information.
+See [Event Subscription](../../contract/subscribe.md) and [Subscription API](../../api/rpc/subscribe_v2.md) for more information.
 
 ## FAQ
 
