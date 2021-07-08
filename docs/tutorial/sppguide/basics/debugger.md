@@ -74,7 +74,7 @@ If a contract uses timestamps, snapshot block height, or random numbers, then th
 
 - **Quota multiplier**: This parameter modifies the amount of quota consumed by all transactions that call the contract. Quota charged on the contract's response transactions are not affected. The Quota multiplier has a range from 10 to 100, which corresponds to a range of 1x to 10x quota consumption. For example, a value of 15 means that the requested transaction to the contract uses 1.5x the default rate.
 
-- **Random degree**: The number of snapshot blocks having random seed by which request sent to this contract is confirmed before responding to the specific transaction. Value range is 0-75. 0 indicates that there is no waiting for the request transaction to be included in a snapshot block that contains random number. If any random number related instruction is used in the contract, the value must be above 0. In general, the larger the value, the more secure the random number. This parameter must be no less than response latency.
+- **Random degree**: The number of snapshot blocks having random seed by which request sent to this contract is confirmed before responding to the specific transaction. Value range is 0-75. 0 indicates that there is no waiting for the request transaction to be included in a snapshot block that contains random number. If any random number related instruction is used in the contract, the value must be above 0. In general, the larger the value, the more secure the random number. This parameter must be no greater than response latency.
 
 - **show abi**: Shows the contract's abi, specified in json. It is important to have this information to design interfaces for any deployed contract.
 
