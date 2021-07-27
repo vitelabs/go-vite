@@ -8,13 +8,13 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.7.1
 	github.com/docker/docker v1.13.1
-	github.com/ethereum/go-ethereum v1.9.23
+	github.com/ethereum/go-ethereum v1.9.25
 	github.com/fatih/color v1.9.0
 	github.com/go-stack/stack v1.8.0
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.4.2
-	github.com/golang/snappy v0.0.2-0.20200707131729-196ae77b8a26
+	github.com/golang/snappy v0.0.3-0.20201103224600-674baa8c7fc3
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/mattn/go-colorable v0.1.7
 	github.com/mattn/go-isatty v0.0.12
