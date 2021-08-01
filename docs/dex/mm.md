@@ -2,7 +2,7 @@
 order: 3
 ---
 
-# Tradding Bot
+# Trading Bot
 
 ## How to use Humming Bot
 
