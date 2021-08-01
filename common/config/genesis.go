@@ -18,6 +18,7 @@ type Genesis struct {
 	AssetInfo             *AssetContractInfo
 	QuotaInfo             *QuotaContractInfo
 	AccountBalanceMap     map[string]map[string]*big.Int // address - tokenId - balanceAmount
+	DexFundInfo           *DexFundContractInfo
 }
 
 func (g *Genesis) UnmarshalJSON(data []byte) error {
@@ -55,6 +56,10 @@ type GovernanceContractInfo struct {
 type AssetContractInfo struct {
 	TokenInfoMap map[string]*TokenInfo // tokenId - info
 	LogList      []*GenesisVmLog       // issue events
+}
+
+type DexFundContractInfo struct {
+	Owner *types.Address
 }
 
 type QuotaContractInfo struct {

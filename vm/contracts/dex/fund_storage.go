@@ -137,6 +137,10 @@ var (
 	newOrderMethodId, _   = hex.DecodeString("147927ec")
 )
 
+func InitFundOwner(owner types.Address) {
+	initOwner = owner
+}
+
 const (
 	priceIntMaxLen     = 12
 	priceDecimalMaxLen = 12

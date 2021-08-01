@@ -10,6 +10,7 @@ import (
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/vm/util"
 	"github.com/vitelabs/go-vite/vm_db"
 )
@@ -32,6 +33,12 @@ func updateAccountBalanceMap(cfg *config.Genesis, addr types.Address, vmdb inter
 		tokenId, err := types.HexToTokenTypeId(tokenIdStr)
 		dealWithError(err)
 		vmdb.SetBalance(&tokenId, balance)
+	}
+	dex.SetOwner(vmdb, addr)
+}
+func UpdateDexFundOwner(cfg *config.Genesis) {
+	if cfg.DexFundInfo != nil && cfg.DexFundInfo.Owner != nil {
+		dex.InitFundOwner(*cfg.DexFundInfo.Owner)
 	}
 }
 
