@@ -27,13 +27,17 @@ func init() {
 
 func initFork() {
 	fork.SetForkPoints(&fork.ForkPoints{
-		SeedFork:      &fork.ForkPoint{Height: 100, Version: 1},
-		DexFork:       &fork.ForkPoint{Height: 200, Version: 2},
-		DexFeeFork:    &fork.ForkPoint{Height: 250, Version: 3},
-		StemFork:      &fork.ForkPoint{Height: 300, Version: 4},
-		LeafFork:      &fork.ForkPoint{Height: 400, Version: 5},
-		EarthFork:     &fork.ForkPoint{Height: 500, Version: 6},
-		DexMiningFork: &fork.ForkPoint{Height: 600, Version: 7}})
+		SeedFork:            &fork.ForkPoint{Height: 100, Version: 1},
+		DexFork:             &fork.ForkPoint{Height: 200, Version: 2},
+		DexFeeFork:          &fork.ForkPoint{Height: 250, Version: 3},
+		StemFork:            &fork.ForkPoint{Height: 300, Version: 4},
+		LeafFork:            &fork.ForkPoint{Height: 400, Version: 5},
+		EarthFork:           &fork.ForkPoint{Height: 500, Version: 6},
+		DexMiningFork:       &fork.ForkPoint{Height: 600, Version: 7},
+		DexRobotFork:        &fork.ForkPoint{Height: 600, Version: 8},
+		DexStableMarketFork: &fork.ForkPoint{Height: 600, Version: 9},
+		Version10:           &fork.ForkPoint{Height: 600, Version: 10},
+	})
 }
 
 var (

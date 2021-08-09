@@ -1,0 +1,226 @@
+/*
+Full credit to "jack"
+Posted at https://forum.vite.net/topic/1976/zootopia-application
+
+<Zootopia> application
+Jjack Jun 25, 2019, 3:13 AM
+dApp name: Zootopia
+
+dApp description：
+This is a lottery game:
+Choose 3 animals, and click Go.
+The lottery then returns 3 animals.
+
+If there are 3 matches, get 150x back.
+If there are 2 matches, get 15x back.
+If there is 1 match, get 2x back.
+
+For example, you buy 10 vite for 🐱🐶🐵.
+The lottery result are 🐱🐶🦄.
+There are 2 matches
+Then your rewards are 150 vite.
+
+online status: yes
+
+dApp contract vite_b073bc42191cce464cca669fb2a2cd66a1f227e3c427f300a0
+
+dApp contract content: */
+
+pragma soliditypp ^0.4.2;
+ 
+contract Lottery {
+    address owner;
+ 
+    uint256 constant gameNumCount = 29; // number count can be choosed
+ 
+    struct BetInfo {
+        uint256 ll; // min amount can buy
+        uint256 ul; // max amount can buy
+ 
+        uint256 winRateWhen3Count; // win rate when 3 same numbers
+        uint256 winRateWhen2Count; // win rate when 2 same numbers
+        uint256 winRateWhen1Count; // win rate when 1 same numbers
+    }
+    mapping(tokenId => BetInfo) public tokenBetInfoMap;
+    // record all tokenIds
+    tokenId[] public tokens;
+ 
+ 
+    event numsEvent(address indexed addr, uint256 betAmount,
+        uint256 bankerNums0, uint256 bankerNums1, uint256 bankerNums2,
+        uint256 playerNums0, uint256 playerNums1, uint256 playerNums2
+    );
+    event winEvent(address indexed addr, uint256 betAmount,
+        uint256 bankerNums0, uint256 bankerNums1, uint256 bankerNums2,
+        uint256 playerNums0, uint256 playerNums1, uint256 playerNums2,
+        uint256 rewards
+    );
+    event loseEvent(address indexed addr, uint256 betAmount,
+        uint256 bankerNums0, uint256 bankerNums1, uint256 bankerNums2,
+        uint256 playerNums0, uint256 playerNums1, uint256 playerNums2
+    );
+    event suspendBetEvent(address indexed addr, uint256 betAmount,
+        uint256 bankerNums0, uint256 bankerNums1, uint256 bankerNums2,
+        uint256 playerNums0, uint256 playerNums1, uint256 playerNums2,
+        uint256 rewards
+    );
+ 
+    constructor() public {
+        owner = msg.sender;
+ 
+        tokenId viteTokenId = "tti_5649544520544f4b454e6e40";
+        tokens.push(viteTokenId);
+ 
+        tokenBetInfoMap[viteTokenId].ll = 1 vite;
+        tokenBetInfoMap[viteTokenId].ul = 100 vite;
+        tokenBetInfoMap[viteTokenId].winRateWhen3Count = 150;
+        tokenBetInfoMap[viteTokenId].winRateWhen2Count = 15;
+        tokenBetInfoMap[viteTokenId].winRateWhen1Count = 2;
+    }
+ 
+    // anyone can pay to this contract
+    onMessage () payable {
+    }
+ 
+    onMessage configBetInfo(uint256 ll, uint256 ul, uint256 winRateWhen3Count, uint256 winRateWhen2Count, uint256 winRateWhen1Count) {
+        require(owner == msg.sender);
+        require(ll > 0 && ul >= ll);
+        require(winRateWhen3Count > winRateWhen2Count && winRateWhen2Count > winRateWhen1Count);
+ 
+        if (tokenBetInfoMap[msg.tokenid].ll == 0){ // push when first time
+            tokens.push(msg.tokenid);
+        }
+        tokenBetInfoMap[msg.tokenid].ll = ll;
+        tokenBetInfoMap[msg.tokenid].ul = ul;
+        tokenBetInfoMap[msg.tokenid].winRateWhen3Count = winRateWhen3Count;
+        tokenBetInfoMap[msg.tokenid].winRateWhen2Count = winRateWhen2Count;
+        tokenBetInfoMap[msg.tokenid].winRateWhen1Count = winRateWhen1Count;
+    }
+ 
+    // withdraw the money and use for contract quota
+    onMessage OwnerWithdrawMoney(uint256 amount) {
+        require(owner == msg.sender);
+        require(amount <= balance(msg.tokenid));
+        msg.sender.transfer(msg.tokenid, amount);
+    }
+ 
+    getter getBetInfo(tokenId tokenid) returns(uint256 ll, uint256 ul, uint256 winRateWhen3Count, uint256 winRateWhen2Count, uint256 winRateWhen1Count) {
+        return (
+          tokenBetInfoMap[tokenid].ll,
+          tokenBetInfoMap[tokenid].ul,
+          tokenBetInfoMap[tokenid].winRateWhen3Count,
+          tokenBetInfoMap[tokenid].winRateWhen2Count,
+          tokenBetInfoMap[tokenid].winRateWhen1Count
+        );
+    }
+ 
+    // Get the token list
+    getter getTokenList() returns(tokenId[] memory) {
+        return tokens;
+    }
+ 
+    onMessage Bet(uint256 playerNum1, uint256 playerNum2, uint256 playerNum3) payable {
+        uint256 betAmount = msg.amount;
+        BetInfo memory betInfo = tokenBetInfoMap[msg.tokenid];
+        require(betInfo.ll > 0 && betAmount >= betInfo.ll && betAmount <= betInfo.ul);
+ 
+        address betAddr = msg.sender;
+ 
+        uint256[3] memory bankerNums = get3Nums();
+        uint256[3] memory playerNums = [playerNum1, playerNum2, playerNum3];
+        require(checkUniq(playerNums));
+        require(checkRange(playerNums));
+ 
+        emit numsEvent(betAddr, betAmount, bankerNums[0], bankerNums[1], bankerNums[2], playerNums[0], playerNums[1], playerNums[2]);
+ 
+        uint256 winCount = drawLottery(bankerNums, playerNums);
+        require(winCount >= 0 && winCount <= 3);
+ 
+        if (winCount > 0) {
+            uint256 rewards = calcRewards(betAmount, winCount, msg.tokenid);
+ 
+            if (rewards > balance(msg.tokenid)) { // money is not enough
+                emit suspendBetEvent(betAddr, betAmount, bankerNums[0], bankerNums[1], bankerNums[2], playerNums[0], playerNums[1], playerNums[2], rewards);
+                betAddr.transfer(msg.tokenid, betAmount); // return back betAmount
+            } else {
+                emit winEvent(betAddr, betAmount, bankerNums[0], bankerNums[1], bankerNums[2], playerNums[0], playerNums[1], playerNums[2], rewards);
+                betAddr.transfer(msg.tokenid, rewards);
+            }
+        } else {
+            emit loseEvent(betAddr, betAmount, bankerNums[0], bankerNums[1], bankerNums[2], playerNums[0], playerNums[1], playerNums[2]);
+        }
+    }
+ 
+    // draw the lottery, and calculate player's rewards
+    function drawLottery(uint256[3] memory bankerNums, uint256[3] memory playerNums) public returns(uint256) {
+        uint256 winCount = 0;
+        for (uint i = 0; i < 3; i++) {
+            for (uint j = 0; j < 3; j++) {
+                if (bankerNums[i] == playerNums[j]) {
+                    winCount++;
+                    break;
+                }
+            }
+        }
+ 
+        return winCount;
+    }
+ 
+    function checkUniq(uint256[3] memory nums) public pure returns(bool) {
+        return nums[0] != nums[1] && nums[0] != nums[2] && nums[1] != nums[2];
+    }
+ 
+    function checkRange(uint256[3] memory nums) public pure returns(bool) {
+        for (uint i = 0; i < 3; i++) {
+            if (nums[i] >= 0 && nums[i] < gameNumCount) {
+ 
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+ 
+    function get3Nums() public returns(uint256[3] memory) {
+        uint64 seed = random64();
+        uint256[3] memory nums;
+ 
+        uint256[29] memory allNums = initAllNums();
+ 
+        for (uint i = 0; i < 3; i++) {
+            uint64 subSeed = seed >> (i * 16);
+            uint numIndex = subSeed % (gameNumCount - i);
+            nums[i] = allNums[numIndex];
+            removeEleFromAllNums(allNums, numIndex, gameNumCount - i);
+        }
+ 
+        return nums;
+    }
+ 
+    function initAllNums() public pure returns(uint256[29] memory) {
+        uint256[29] memory allNums;
+        for (uint i = 0; i < gameNumCount; i++) {
+            allNums[i] = i;
+        }
+        return allNums;
+    }
+ 
+    function removeEleFromAllNums(uint256[29] memory allNums, uint index, uint numCount) public pure {
+        allNums[index] = allNums[numCount - 1];
+    }
+ 
+    function calcRewards(uint256 betAmount, uint256 winCount, tokenId tokenid) public view returns(uint256) {
+        BetInfo memory betInfo = tokenBetInfoMap[tokenid];
+        uint256 winRate;
+        if (3 == winCount) {
+            winRate = betInfo.winRateWhen3Count;
+        } else if (2 == winCount) {
+            winRate = betInfo.winRateWhen2Count;
+        } else if (1 == winCount) {
+            winRate = betInfo.winRateWhen1Count;
+        } else {
+            winRate = 0;
+        }
+        return betAmount * winRate;
+    }
+}

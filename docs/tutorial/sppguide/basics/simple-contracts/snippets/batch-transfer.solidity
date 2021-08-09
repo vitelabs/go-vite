@@ -1,0 +1,25 @@
+// Declare the contract is written in soliditypp 0.4.3. Backwards compatibility is guaranteed for generating the same compiling result.
+pragma soliditypp ^0.4.3;
+ 
+// Define contract BatchTransfer
+contract BatchTransfer {
+     // Define a message listener. Every external method should be defined as message listener in Solidity++
+     // Define listener name and parameters. Visibility is not necessary. Message listener has no return value
+     // Messsage listener "transfer" is defined with a passed-in parameter of a uint array, in format of address in odd element and amount in even
+     onMessage transfer(address[] calldata addrs, uint[] calldata values) payable {
+         // Check if the parameter length is even because each address should have corresponding amount
+         require(addrs.length == values.length);
+         uint256 totalAmount = 0;
+         for(uint i = 0; i < addrs.length; i++) {
+             address addr = addrs[i];
+             uint amount = values[i];
+             totalAmount = totalAmount + amount;
+             require(totalAmount >= amount);
+             if(amount > 0) {
+                // Transfer to address
+                addr.transfer(msg.tokenid, amount);
+             }
+         }
+         require(totalAmount == msg.amount);
+     }
+}

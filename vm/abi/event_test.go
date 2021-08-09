@@ -2,6 +2,7 @@ package abi
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
@@ -322,6 +323,28 @@ func TestEventUnpackIndexed(t *testing.T) {
 	require.NoError(t, abi.UnpackEvent(&rst, "test", b.Bytes()))
 	require.Equal(t, uint8(0), rst.Value1)
 	require.Equal(t, uint8(8), rst.Value2)
+}
+
+func TestEventUnpack(t *testing.T) {
+	definition := `[{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"id","type":"uint256"}],"name":"TestEvent","type":"event"},{"executionBehavior":"sync","inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"test","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
+	abi, err := JSONToABIContract(strings.NewReader(definition))
+	require.NoError(t, err)
+
+	topics, data, err := abi.PackEvent("TestEvent", big.NewInt(1))
+	require.NoError(t, err)
+
+	require.Equal(t, len(topics), 1)
+	require.Equal(t, topics[0].String(), "f4b438317c19db561b92fff32ab607d614813e8511408c082bd2f32d720e0fd7")
+	require.Equal(t, base64.RawStdEncoding.EncodeToString(data), "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE")
+
+	b, err := base64.RawStdEncoding.DecodeString("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE")
+	require.NoError(t, err)
+	// t.Log(b)
+
+	var rst *big.Int
+	require.NoError(t, abi.UnpackEvent(&rst, "TestEvent", b))
+	// t.Log(rst.String())
+	require.Equal(t, rst.String(), big.NewInt(1).String())
 }
 
 // TestEventIndexedWithArrayUnpack verifies that decoder will not overlow when static array is indexed input.

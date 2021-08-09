@@ -1,0 +1,17 @@
+contract Accesser {
+    uint copyData;
+
+    message requestData();
+    
+    onMessage updateCopyData(address contractAddr){
+        send(contractAddr, requestData());
+    }
+    
+    onMessage replyData(uint x){
+        copyData = x;
+    }
+
+    getter get() returns(uint){
+        return copyData;
+    }
+}

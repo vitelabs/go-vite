@@ -92,7 +92,8 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 	}
 
 	c.em = newEventManager(c)
-
+	// risk
+	chain_genesis.UpdateDexFundOwner(genesisCfg)
 	c.genesisAccountBlocks = chain_genesis.NewGenesisAccountBlocks(genesisCfg)
 	c.genesisSnapshotBlock = chain_genesis.NewGenesisSnapshotBlock(c.genesisAccountBlocks)
 
