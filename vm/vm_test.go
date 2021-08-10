@@ -38,6 +38,7 @@ func initFork() {
 		DexStableMarketFork: &fork.ForkPoint{Height: 600, Version: 9},
 		Version10:           &fork.ForkPoint{Height: 600, Version: 10},
 	})
+	fork.SetActiveChecker(mockActiveChecker{})
 }
 
 var (
@@ -271,7 +272,7 @@ func TestVmRun(t *testing.T) {
 
 /*func TestDelegateCall(t *testing.T) {
 	// prepare db, add account1, add account2 with code, add account3 with code
-	db := newNoDatabase()
+	db := NewNoDatabase()
 	// code1 return 1+2
 	addr1, _, _ := types.CreateAddress()
 	code1 := []byte{1, byte(PUSH1), 1, byte(PUSH1), 2, byte(ADD), byte(PUSH1), 32, byte(DUP1), byte(SWAP2), byte(SWAP1), byte(MSTORE), byte(PUSH1), 32, byte(SWAP1), byte(RETURN)}

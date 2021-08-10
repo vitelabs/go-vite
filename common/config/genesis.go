@@ -41,6 +41,11 @@ func IsCompleteGenesisConfig(genesisConfig *Genesis) bool {
 	return true
 }
 
+type ForkPoint struct {
+	Height  uint64
+	Version uint32
+}
+
 type GenesisVmLog struct {
 	Data   string
 	Topics []types.Hash

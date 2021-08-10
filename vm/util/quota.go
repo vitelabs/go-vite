@@ -240,12 +240,15 @@ type QuotaTable struct {
 	DexFundDelegateCancelStakeCallbackV2Quota uint64
 	DexFundCancelOrderBySendHashQuota         uint64
 	DexFundCommonAdminConfigQuota             uint64
+	DexFundTransferQuota                      uint64
+	DexFundAgentDepositQuota                  uint64
+	DexFundAssignedWithdrawQuota              uint64
 }
 
 // QuotaTableByHeight returns different quota table by hard fork version
 func QuotaTableByHeight(sbHeight uint64) *QuotaTable {
 	if fork.IsVersion10Fork(sbHeight) {
-		return &trustlessBridgeQuotaTable
+		return &version10QuotaTable
 	} else if fork.IsDexStableMarketFork(sbHeight) {
 		return &dexStableMarketQuotaTable
 	} else if fork.IsDexRobotFork(sbHeight) {
@@ -363,7 +366,7 @@ var (
 	earthQuotaTable           = newEarthQuotaTable()
 	dexRobotQuotaTable        = newDexRobotQuotaTable()
 	dexStableMarketQuotaTable = newDexStableMarketQuotaTable()
-	trustlessBridgeQuotaTable = newTrustlessBridgeQuotaTable()
+	version10QuotaTable       = newVersion10QuotaTable()
 )
 
 func newViteQuotaTable() QuotaTable {
@@ -519,9 +522,12 @@ func newDexStableMarketQuotaTable() QuotaTable {
 	return gt
 }
 
-func newTrustlessBridgeQuotaTable() QuotaTable {
+func newVersion10QuotaTable() QuotaTable {
 	gt := newDexStableMarketQuotaTable()
 	gt.CodeQuota = 16
 	gt.TxDataQuota = 28
+	gt.DexFundTransferQuota = 10500
+	gt.DexFundAgentDepositQuota = 10500
+	gt.DexFundAssignedWithdrawQuota = 10500
 	return gt
 }

@@ -337,30 +337,31 @@ type NewRpcVxMineInfo struct {
 }
 
 type RpcOrder struct {
-	Id                   string `json:"Id"`
-	Address              string `json:"Address"`
-	MarketId             int32  `json:"MarketId"`
-	Side                 bool   `json:"Side"`
-	Type                 int32  `json:"Type"`
-	Price                string `json:"Price"`
-	TakerFeeRate         int32  `json:"TakerFeeRate"`
-	MakerFeeRate         int32  `json:"MakerFeeRate"`
-	TakerOperatorFeeRate int32  `json:"TakerOperatorFeeRate"`
-	MakerOperatorFeeRate int32  `json:"MakerOperatorFeeRate"`
-	Quantity             string `json:"Quantity"`
-	Amount               string `json:"Amount"`
-	LockedBuyFee         string `json:"LockedBuyFee,omitempty"`
-	Status               int32  `json:"Status"`
-	CancelReason         int32  `json:"CancelReason,omitempty"`
-	ExecutedQuantity     string `json:"ExecutedQuantity,omitempty"`
-	ExecutedAmount       string `json:"ExecutedAmount,omitempty"`
-	ExecutedBaseFee      string `json:"ExecutedBaseFee,omitempty"`
-	ExecutedOperatorFee  string `json:"ExecutedOperatorFee,omitempty"`
-	RefundToken          string `json:"RefundToken,omitempty"`
-	RefundQuantity       string `json:"RefundQuantity,omitempty"`
-	Timestamp            int64  `json:"Timestamp"`
-	Agent                string `json:"Agent,omitempty"`
-	SendHash             string `json:"SendHash,omitempty"`
+	Id                      string `json:"Id"`
+	Address                 string `json:"Address"`
+	MarketId                int32  `json:"MarketId"`
+	Side                    bool   `json:"Side"`
+	Type                    int32  `json:"Type"`
+	Price                   string `json:"Price"`
+	TakerFeeRate            int32  `json:"TakerFeeRate"`
+	MakerFeeRate            int32  `json:"MakerFeeRate"`
+	TakerOperatorFeeRate    int32  `json:"TakerOperatorFeeRate"`
+	MakerOperatorFeeRate    int32  `json:"MakerOperatorFeeRate"`
+	Quantity                string `json:"Quantity"`
+	Amount                  string `json:"Amount"`
+	LockedBuyFee            string `json:"LockedBuyFee,omitempty"`
+	Status                  int32  `json:"Status"`
+	CancelReason            int32  `json:"CancelReason,omitempty"`
+	ExecutedQuantity        string `json:"ExecutedQuantity,omitempty"`
+	ExecutedAmount          string `json:"ExecutedAmount,omitempty"`
+	ExecutedBaseFee         string `json:"ExecutedBaseFee,omitempty"`
+	ExecutedOperatorFee     string `json:"ExecutedOperatorFee,omitempty"`
+	RefundToken             string `json:"RefundToken,omitempty"`
+	RefundQuantity          string `json:"RefundQuantity,omitempty"`
+	Timestamp               int64  `json:"Timestamp"`
+	Agent                   string `json:"Agent,omitempty"`
+	SendHash                string `json:"SendHash,omitempty"`
+	MarketOrderAmtThreshold string `json:"MarketOrderAmtThreshold,omitempty"`
 }
 
 type OrdersRes struct {
@@ -417,6 +418,9 @@ func OrderToRpc(order *dex.Order) *RpcOrder {
 	if len(order.SendHash) > 0 {
 		sendHash, _ := types.BytesToHash(order.SendHash)
 		rpcOrder.SendHash = sendHash.String()
+	}
+	if len(order.MarketOrderAmtThreshold) > 0 {
+		rpcOrder.MarketOrderAmtThreshold = AmountBytesToString(order.MarketOrderAmtThreshold)
 	}
 	rpcOrder.Timestamp = order.Timestamp
 	return rpcOrder

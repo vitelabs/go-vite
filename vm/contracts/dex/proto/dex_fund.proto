@@ -238,3 +238,13 @@ message BurnVite {
     int32 BizType = 1; // 1 BurnForDexViteFee
     bytes Amount = 2;
 }
+
+//event
+message TransferAsset {
+    int32 BizType = 1; // 1 deposit, 2 agentDeposit, 3 withdraw, 4 assignedWithdraw, 5 transfer
+    bytes From = 2;
+    bytes To = 3;
+    bytes Token = 4;
+    bytes Amount = 5;
+    bytes Extra = 6;
+}
