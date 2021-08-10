@@ -3,9 +3,9 @@ package quota
 import (
 	"math/big"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/util"
 )
@@ -349,7 +349,7 @@ func calcStakeParam(qc *big.Int, isCongestion bool, param *big.Int) *big.Int {
 
 // CalcQc calculate quota congestion ratio
 func CalcQc(db quotaDb, sbHeight uint64) (*big.Int, uint64, bool) {
-	if !fork.IsDexFork(sbHeight) {
+	if !upgrade.IsDexUpgrade(sbHeight) {
 		return big.NewInt(0), 0, false
 	}
 	globalQuota := db.GetGlobalQuota().QuotaUsedTotal

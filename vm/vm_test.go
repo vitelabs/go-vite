@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
@@ -26,19 +26,19 @@ func init() {
 }
 
 func initFork() {
-	fork.SetForkPoints(&fork.ForkPoints{
-		SeedFork:            &fork.ForkPoint{Height: 100, Version: 1},
-		DexFork:             &fork.ForkPoint{Height: 200, Version: 2},
-		DexFeeFork:          &fork.ForkPoint{Height: 250, Version: 3},
-		StemFork:            &fork.ForkPoint{Height: 300, Version: 4},
-		LeafFork:            &fork.ForkPoint{Height: 400, Version: 5},
-		EarthFork:           &fork.ForkPoint{Height: 500, Version: 6},
-		DexMiningFork:       &fork.ForkPoint{Height: 600, Version: 7},
-		DexRobotFork:        &fork.ForkPoint{Height: 600, Version: 8},
-		DexStableMarketFork: &fork.ForkPoint{Height: 600, Version: 9},
-		Version10:           &fork.ForkPoint{Height: 600, Version: 10},
-	})
-	fork.SetActiveChecker(mockActiveChecker{})
+	upgrade.InitUpgradeBox(upgrade.NewCustomUpgradeBox(
+		map[string]*upgrade.UpgradePoint{
+			"SeedFork":            &upgrade.UpgradePoint{Height: 100, Version: 1},
+			"DexFork":             &upgrade.UpgradePoint{Height: 200, Version: 2},
+			"DexFeeFork":          &upgrade.UpgradePoint{Height: 250, Version: 3},
+			"StemFork":            &upgrade.UpgradePoint{Height: 300, Version: 4},
+			"LeafFork":            &upgrade.UpgradePoint{Height: 400, Version: 5},
+			"EarthFork":           &upgrade.UpgradePoint{Height: 500, Version: 6},
+			"DexMiningFork":       &upgrade.UpgradePoint{Height: 600, Version: 7},
+			"DexRobotFork":        &upgrade.UpgradePoint{Height: 600, Version: 8},
+			"DexStableMarketFork": &upgrade.UpgradePoint{Height: 600, Version: 9},
+		},
+	))
 }
 
 var (
@@ -57,13 +57,6 @@ var (
 		500: {Height: 500, Timestamp: &forkTimestamp500},
 	}
 )
-
-type mockActiveChecker struct {
-}
-
-func (m mockActiveChecker) IsForkActive(point fork.ForkPointItem) bool {
-	return true
-}
 
 func TestVmRun(t *testing.T) {
 	// prepare db

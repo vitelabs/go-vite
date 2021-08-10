@@ -6,19 +6,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 )
 
 func TestVmLogList_Hash(t *testing.T) {
 	var vmLogList VmLogList
 
-	fork.SetForkPoints(&fork.ForkPoints{
-		SeedFork: &fork.ForkPoint{
-			Height:  90,
-			Version: 1,
-		},
-	})
+	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 90))
 
 	hash1, err1 := types.HexToHash("0dede580455f970517210ae2b9c0fbba74d5b7eea07eb0c62725e06c45061711")
 	if err1 != nil {
@@ -54,12 +49,7 @@ func TestVmLogList_Hash(t *testing.T) {
 	if *vmLogHash100 == *vmLogHash1 {
 		t.Fatal(fmt.Sprintf("vmloghash1 should not be equal with vmloghash100 , %+v, %+v", vmLogHash100, vmLogHash1))
 	}
-	fork.SetForkPoints(&fork.ForkPoints{
-		SeedFork: &fork.ForkPoint{
-			Height:  101,
-			Version: 1,
-		},
-	})
+	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 101))
 
 	vmLogHash95 := vmLogList.Hash(95, address, prehash)
 

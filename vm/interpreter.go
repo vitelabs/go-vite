@@ -4,8 +4,8 @@ import (
 	"encoding/hex"
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/vm/util"
 )
 
@@ -23,13 +23,13 @@ var (
 )
 
 func newInterpreter(blockHeight uint64, offChain bool) *interpreter {
-	if fork.IsEarthFork(blockHeight) {
+	if upgrade.IsEarthUpgrade(blockHeight) {
 		if offChain {
 			return offchainEarthInterpreter
 		}
 		return earthInterpreter
 	}
-	if fork.IsSeedFork(blockHeight) {
+	if upgrade.IsSeedUpgrade(blockHeight) {
 		if offChain {
 			return offchainRandInterpreter
 		}

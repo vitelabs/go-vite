@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -573,7 +573,7 @@ func IsDexFeeFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsDexFeeFork(latestSb.Height)
+		return upgrade.IsDexFeeUpgrade(latestSb.Height)
 	}
 }
 
@@ -581,7 +581,7 @@ func IsStemFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsStemFork(latestSb.Height)
+		return upgrade.IsStemUpgrade(latestSb.Height)
 	}
 }
 
@@ -589,7 +589,7 @@ func IsLeafFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsLeafFork(latestSb.Height)
+		return upgrade.IsLeafUpgrade(latestSb.Height)
 	}
 }
 
@@ -597,7 +597,7 @@ func IsEarthFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsEarthFork(latestSb.Height)
+		return upgrade.IsEarthUpgrade(latestSb.Height)
 	}
 }
 
@@ -605,7 +605,7 @@ func IsDexMiningFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsDexMiningFork(latestSb.Height)
+		return upgrade.IsDexMiningUpgrade(latestSb.Height)
 	}
 }
 
@@ -613,7 +613,7 @@ func IsDexRobotFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsDexRobotFork(latestSb.Height)
+		return upgrade.IsDexRobotUpgrade(latestSb.Height)
 	}
 }
 
@@ -621,7 +621,7 @@ func IsDexStableMarketFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsDexStableMarketFork(latestSb.Height)
+		return upgrade.IsDexStableMarketUpgrade(latestSb.Height)
 	}
 }
 
@@ -629,7 +629,7 @@ func IsDexEnrichOrderFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsVersion10Fork(latestSb.Height)
+		return upgrade.IsVersion10Upgrade(latestSb.Height)
 	}
 }
 

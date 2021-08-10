@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
@@ -240,7 +240,7 @@ func (vm *VM) RunV2(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *l
 		} else if sendBlock.BlockType == ledger.BlockTypeSendCall {
 			return vm.receiveCall(db, blockCopy, sendBlock, contractMeta)
 		} else if sendBlock.BlockType == ledger.BlockTypeSendReward {
-			if !fork.IsSeedFork(sb.Height) {
+			if !upgrade.IsSeedUpgrade(sb.Height) {
 				return vm.receiveCall(db, blockCopy, sendBlock, contractMeta)
 			}
 			return vm.receiveReward(db, blockCopy, sendBlock, contractMeta)
@@ -286,7 +286,7 @@ func (vm *VM) sendCreate(db interfaces.VmDb, block *ledger.AccountBlock, useQuot
 	}
 
 	// Check params.
-	isSeedFork := fork.IsSeedFork(vm.latestSnapshotHeight)
+	isSeedFork := upgrade.IsSeedUpgrade(vm.latestSnapshotHeight)
 	if !isSeedFork {
 		if len(block.Data) < util.CreateContractDataLengthMin {
 			return nil, util.ErrInvalidMethodParam
@@ -411,7 +411,7 @@ func (vm *VM) receiveCreate(db interfaces.VmDb, block *ledger.AccountBlock, send
 			}
 		}
 	}
-	if err == nil && len(code) > maxCodeSize && fork.IsEarthFork(vm.latestSnapshotHeight) {
+	if err == nil && len(code) > maxCodeSize && upgrade.IsEarthUpgrade(vm.latestSnapshotHeight) {
 		err = util.ErrInvalidCodeLength
 	}
 	vm.revert(db)

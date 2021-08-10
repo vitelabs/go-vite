@@ -187,11 +187,16 @@ func (c *Config) makeSubscribeConfig() *config.Subscribe {
 	}
 }
 func (c *Config) makeMinerConfig() *config.Producer {
-	return &config.Producer{
+	cfg := &config.Producer{
 		Producer:         c.MinerEnabled,
 		Coinbase:         c.CoinBase,
 		EntropyStorePath: c.EntropyStorePath,
 	}
+	err := cfg.Parse()
+	if err != nil {
+		panic(err)
+	}
+	return cfg
 }
 
 func (c *Config) makeChainConfig() *config.Chain {

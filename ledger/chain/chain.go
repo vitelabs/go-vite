@@ -11,8 +11,8 @@ import (
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	chain_block "github.com/vitelabs/go-vite/ledger/chain/block"
@@ -76,11 +76,6 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 	if chainCfg == nil {
 		chainCfg = defaultConfig()
 	}
-
-	if !fork.IsInitForkPoint() {
-		fork.SetForkPoints(genesisCfg.ForkPoints)
-	}
-
 	c := &chain{
 		genesisCfg: genesisCfg,
 		dataDir:    dir,
@@ -339,12 +334,13 @@ func (c *chain) checkAndInitData() (byte, error) {
 }
 
 func (c *chain) checkForkPoints() error {
-	forkPointList := fork.GetActiveForkPointList()
+	latest := c.GetLatestSnapshotBlock()
+	activePoints := upgrade.GetActivePoints(latest.Height)
 
 	// check
-	var rollbackForkPoint *fork.ForkPointItem
-	for i := len(forkPointList) - 1; i >= 0; i-- {
-		forkPoint := forkPointList[i]
+	var rollbackForkPoint *upgrade.UpgradePoint
+	for i := len(activePoints) - 1; i >= 0; i-- {
+		forkPoint := activePoints[i]
 		sb, err := c.GetSnapshotBlockByHeight(forkPoint.Height)
 		if err != nil {
 			return err

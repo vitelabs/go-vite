@@ -3,8 +3,8 @@ package contracts
 import (
 	"math/big"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -246,19 +246,19 @@ func newDexEnrichOrderContracts() map[types.Address]*builtinContract {
 // GetBuiltinContractMethod finds method instance of built-in contract method by address and method id
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if fork.IsVersion10Fork(sbHeight) {
+	if upgrade.IsVersion10Upgrade(sbHeight) {
 		contractsMap = dexEnrichOrderContracts
-	} else if fork.IsDexStableMarketFork(sbHeight) {
+	} else if upgrade.IsDexStableMarketUpgrade(sbHeight) {
 		contractsMap = dexStableMarketContracts
-	} else if fork.IsDexRobotFork(sbHeight) {
+	} else if upgrade.IsDexRobotUpgrade(sbHeight) {
 		contractsMap = dexRobotContracts
-	} else if fork.IsEarthFork(sbHeight) {
+	} else if upgrade.IsEarthUpgrade(sbHeight) {
 		contractsMap = earthContracts
-	} else if fork.IsLeafFork(sbHeight) {
+	} else if upgrade.IsLeafUpgrade(sbHeight) {
 		contractsMap = leafContracts
-	} else if fork.IsStemFork(sbHeight) {
+	} else if upgrade.IsStemUpgrade(sbHeight) {
 		contractsMap = dexAgentContracts
-	} else if fork.IsDexFork(sbHeight) {
+	} else if upgrade.IsDexUpgrade(sbHeight) {
 		contractsMap = dexContracts
 	} else {
 		contractsMap = simpleContracts

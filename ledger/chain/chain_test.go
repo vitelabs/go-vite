@@ -19,8 +19,8 @@ import (
 	"github.com/docker/docker/pkg/reexec"
 
 	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
 	"github.com/vitelabs/go-vite/vm/quota"
@@ -199,15 +199,7 @@ func Clear(c *chain) error {
 
 func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
 	// set fork point
-
-	if len(fork.GetActiveForkPointList()) <= 0 {
-		fork.SetForkPoints(&fork.ForkPoints{
-			SeedFork: &fork.ForkPoint{
-				Version: 1,
-				Height:  10000000,
-			},
-		})
-	}
+	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 10000000))
 
 	// test quota
 	quota.InitQuotaConfig(true, true)
@@ -557,12 +549,7 @@ func TestChainForkRollBack(t *testing.T) {
 
 	// height
 	height := uint64(30)
-	fork.SetForkPoints(&fork.ForkPoints{
-		SeedFork: &fork.ForkPoint{
-			Height:  height,
-			Version: 1,
-		},
-	})
+	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, height))
 
 	c, accountMap, _ = SetUp(10, 0, 0)
 

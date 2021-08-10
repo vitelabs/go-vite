@@ -8,29 +8,24 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/util"
 )
 
 func initForkPointsForQuotaTest() {
-	fork.SetForkPoints(&fork.ForkPoints{
-		SeedFork:      &fork.ForkPoint{Height: 100, Version: 1},
-		DexFork:       &fork.ForkPoint{Height: 200, Version: 2},
-		DexFeeFork:    &fork.ForkPoint{Height: 250, Version: 3},
-		StemFork:      &fork.ForkPoint{Height: 300, Version: 4},
-		LeafFork:      &fork.ForkPoint{Height: 400, Version: 5},
-		EarthFork:     &fork.ForkPoint{Height: 500, Version: 6},
-		DexMiningFork: &fork.ForkPoint{Height: 600, Version: 7}})
-}
-
-type mockActiveChecker struct {
-}
-
-func (m mockActiveChecker) IsForkActive(point fork.ForkPointItem) bool {
-	return true
+	upgrade.InitUpgradeBox(
+		upgrade.NewEmptyUpgradeBox().
+			AddPoint(1, 100).
+			AddPoint(2, 200).
+			AddPoint(3, 250).
+			AddPoint(4, 300).
+			AddPoint(5, 400).
+			AddPoint(6, 500).
+			AddPoint(7, 600),
+	)
 }
 
 type testQuotaDb struct {

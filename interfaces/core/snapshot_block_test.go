@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
 )
@@ -215,12 +215,7 @@ func TestForkComputeHash(t *testing.T) {
 
 	snapshotBlock := createSnapshotBlock(1, 10000000000000)
 	hashold := snapshotBlock.Hash
-	fork.SetForkPoints(&fork.ForkPoints{
-		SeedFork: &fork.ForkPoint{
-			Height:  90,
-			Version: 1,
-		},
-	})
+	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 90))
 
 	hashnew := snapshotBlock.ComputeHash()
 

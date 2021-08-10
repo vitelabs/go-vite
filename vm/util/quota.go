@@ -1,8 +1,8 @@
 package util
 
 import (
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
@@ -247,17 +247,17 @@ type QuotaTable struct {
 
 // QuotaTableByHeight returns different quota table by hard fork version
 func QuotaTableByHeight(sbHeight uint64) *QuotaTable {
-	if fork.IsVersion10Fork(sbHeight) {
+	if upgrade.IsVersion10Upgrade(sbHeight) {
 		return &version10QuotaTable
-	} else if fork.IsDexStableMarketFork(sbHeight) {
+	} else if upgrade.IsDexStableMarketUpgrade(sbHeight) {
 		return &dexStableMarketQuotaTable
-	} else if fork.IsDexRobotFork(sbHeight) {
+	} else if upgrade.IsDexRobotUpgrade(sbHeight) {
 		return &dexRobotQuotaTable
-	} else if fork.IsEarthFork(sbHeight) {
+	} else if upgrade.IsEarthUpgrade(sbHeight) {
 		return &earthQuotaTable
-	} else if fork.IsStemFork(sbHeight) {
+	} else if upgrade.IsStemUpgrade(sbHeight) {
 		return &dexAgentQuotaTable
-	} else if fork.IsDexFork(sbHeight) {
+	} else if upgrade.IsDexUpgrade(sbHeight) {
 		return &viteQuotaTable
 	}
 	return &initQuotaTable

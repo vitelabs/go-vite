@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
 	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/log15"
@@ -19,7 +20,6 @@ import (
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/rpcapi/api/filters"
-	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
