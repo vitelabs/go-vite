@@ -48,6 +48,6 @@ chmod a+x *.sh
 
 #### Config Humming Bot
 
-Documentation: [Humming bot configure](https://docs.hummingbot.io/operation/client/#create-a-secure-password)
+Documentation: [Humming bot configure](https://docs.hummingbot.io/operation/password)
 
 
