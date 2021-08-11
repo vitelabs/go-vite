@@ -128,8 +128,8 @@ func init() {
 	app.Compiled = time.Now()
 	app.Authors = []cli.Author{
 		cli.Author{
-			Name:  "viteLabs",
-			Email: "XXX@vite.org",
+			Name:  "Vite Labs",
+			Email: "info@vite.org",
 		},
 	}
 	app.Copyright = "Copyright 2018-2024 The go-vite Authors"
@@ -139,12 +139,10 @@ func init() {
 	app.Commands = []cli.Command{
 		versionCommand,
 		licenseCommand,
-		consoleCommand,
 		attachCommand,
 		ledgerRecoverCommand,
 		exportCommand,
 		pluginDataCommand,
-		checkChainCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
