@@ -102,7 +102,10 @@ func NewMainnetUpgradeBox() *upgradeBox {
 
 func NewCustomUpgradeBox(points map[string]*UpgradePoint) *upgradeBox {
 	result := []*UpgradePoint{}
-	for _, value := range points {
+	for key, value := range points {
+		if value.Name == "" {
+			value.Name = key
+		}
 		result = append(result, value)
 	}
 	return newUpgradeBox(result)
