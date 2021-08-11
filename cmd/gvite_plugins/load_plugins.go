@@ -62,8 +62,9 @@ func init() {
 
 	//Import: Please add the New Flags here
 	for _, element := range app.Commands {
-		app.Flags = utils.MergeFlags(element.Flags)
+		app.Flags = utils.MergeFlags(app.Flags, element.Flags)
 	}
+	app.Flags = utils.MergeFlags(app.Flags, utils.StatFlags)
 
 	app.Before = beforeAction
 	app.Action = action

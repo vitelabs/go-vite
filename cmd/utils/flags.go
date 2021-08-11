@@ -226,14 +226,18 @@ func MigrateFlags(action func(ctx *cli.Context) error) func(*cli.Context) error 
 
 // merge flags
 func MergeFlags(flagsSet ...[]cli.Flag) []cli.Flag {
-
-	mergeFlags := []cli.Flag{}
-
+	flagMap := make(map[string]cli.Flag)
 	for _, flags := range flagsSet {
-
-		mergeFlags = append(mergeFlags, flags...)
+		for _, flag := range flags {
+			flagMap[flag.GetName()] = flag
+		}
 	}
-	return mergeFlags
+
+	var flags []cli.Flag
+	for _, flag := range flagMap {
+		flags = append(flags, flag)
+	}
+	return flags
 }
 
 var (
