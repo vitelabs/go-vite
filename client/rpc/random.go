@@ -13,6 +13,7 @@ import (
 type RandomApi interface {
 	GetRewardByIndex(index uint64) (reward *api.RewardInfo, err error)
 	GetVoteDetailsByIndex(index uint64) (details []*consensus.VoteDetails, err error)
+	RawCall(method string, params ...interface{}) (interface{}, error)
 }
 
 type randomApi struct {
@@ -42,5 +43,10 @@ func (c *randomApi) GetRewardByIndex(index uint64) (reward *api.RewardInfo, err 
 //}
 func (c *randomApi) GetVoteDetailsByIndex(index uint64) (details []*consensus.VoteDetails, err error) {
 	err = c.cc.Call(&details, "vote_getVoteDetails", index)
+	return
+}
+
+func (c *randomApi) RawCall(method string, params ...interface{}) (result interface{}, err error) {
+	err = c.cc.Call(&result, method, params...)
 	return
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/vitelabs/go-vite/cmd/subcmd_export"
 	"github.com/vitelabs/go-vite/cmd/subcmd_plugin_data"
 	"github.com/vitelabs/go-vite/cmd/subcmd_recover"
+	"github.com/vitelabs/go-vite/cmd/subcmd_rpc"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/version"
@@ -55,6 +56,7 @@ func init() {
 		subcmd_recover.LedgerRecoverCommand,
 		subcmd_export.ExportCommand,
 		subcmd_plugin_data.PluginDataCommand,
+		subcmd_rpc.RpcCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
