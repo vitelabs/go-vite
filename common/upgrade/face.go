@@ -19,6 +19,10 @@ func assertUpgradeNotNil() {
 	}
 }
 
+func cleanupUpgradeBox() {
+	upgrade = nil
+}
+
 func InitUpgradeBox(box UpgradeBox) error {
 	if upgrade != nil {
 		panic("init upgrade twice")
