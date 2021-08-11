@@ -1,4 +1,4 @@
-package gvite_plugins
+package subcmd_attach
 
 import (
 	"fmt"
@@ -9,19 +9,19 @@ import (
 
 	"github.com/vitelabs/go-vite/cmd/console"
 	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 	"github.com/vitelabs/go-vite/rpc"
 )
 
 var (
-	jsFlags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags)
 	//remote
-	attachCommand = cli.Command{
+	AttachCommand = cli.Command{
 		Action:    utils.MigrateFlags(remoteConsoleAction),
 		Name:      "attach",
 		Usage:     "Start an interactive JavaScript environment (connect to node)",
 		ArgsUsage: "[endpoint]",
-		Flags:     append(consoleFlags, utils.DataDirFlag),
+		Flags:     append(utils.ConsoleFlags, utils.DataDirFlag),
 		Category:  "CONSOLE COMMANDS",
 		Description: `
 The GVite console is an interactive shell for the JavaScript runtime environment
@@ -29,6 +29,7 @@ which exposes a node admin interface as well as the Ðapp JavaScript API.
 See https://github.com/vitelabs/go-vite/wiki/JavaScript-Console.
 This command allows to open a console on a running gvite node.`,
 	}
+	log = log15.New("module", "gvite/attach")
 )
 
 // remoteConsole will connect to a remote gvite instance, attaching a JavaScript console to it.

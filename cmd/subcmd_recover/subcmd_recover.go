@@ -1,4 +1,4 @@
-package gvite_plugins
+package subcmd_recover
 
 import (
 	"fmt"
@@ -8,20 +8,22 @@ import (
 
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 var (
-	ledgerRecoverCommand = cli.Command{
+	LedgerRecoverCommand = cli.Command{
 		Action:    utils.MigrateFlags(recoverLedgerAction),
 		Name:      "recover",
 		Usage:     "recover --del=500000",
 		ArgsUsage: "--del=500000",
-		Flags:     append(ledgerFlags, configFlags...),
+		Flags:     append(utils.LedgerFlags, utils.ConfigFlags...),
 		Category:  "RECOVER COMMANDS",
 		Description: `
 Recover ledger.
 `,
 	}
+	log = log15.New("module", "gvite/recover")
 )
 
 func recoverLedgerAction(ctx *cli.Context) error {

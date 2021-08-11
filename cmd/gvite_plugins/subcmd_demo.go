@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	demoFlags = utils.MergeFlags(configFlags, generalFlags, p2pFlags, ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags, vmFlags, netFlags, statFlags)
+	demoFlags = utils.MergeFlags(utils.ConfigFlags, utils.GeneralFlags)
 
 	//demo,please add this `demoCommand` to main.go
 	/**

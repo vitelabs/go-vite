@@ -1,4 +1,4 @@
-package gvite_plugins
+package subcmd_plugin_data
 
 import (
 	"fmt"
@@ -8,19 +8,21 @@ import (
 
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 var (
-	pluginDataCommand = cli.Command{
+	PluginDataCommand = cli.Command{
 		Action:   utils.MigrateFlags(pluginDataAction),
 		Name:     "pluginData",
 		Usage:    "pluginData",
 		Category: "PLUGIN DATA COMMANDS",
-		Flags:    configFlags,
+		Flags:    utils.ConfigFlags,
 		Description: `
 recreate plugin data.
 `,
 	}
+	log = log15.New("module", "gvite/plugin_data")
 )
 
 func pluginDataAction(ctx *cli.Context) error {

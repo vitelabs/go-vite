@@ -63,7 +63,6 @@ func StartNode(node *node.Node) error {
 
 // wait the node to stop
 func WaitNode(node *node.Node) {
-
 	node.Wait()
 }
 

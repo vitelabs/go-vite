@@ -1,4 +1,4 @@
-package gvite_plugins
+package subcmd_check_chain
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 var (
@@ -16,11 +17,12 @@ var (
 		Name:     "checkChain",
 		Usage:    "checkChain",
 		Category: "CHECK CHAIN COMMANDS",
-		Flags:    configFlags,
+		Flags:    utils.ConfigFlags,
 		Description: `
 check chain
 `,
 	}
+	log = log15.New("module", "gvite/export")
 )
 
 func checkChainAction(ctx *cli.Context) error {

@@ -1,4 +1,4 @@
-package gvite_plugins
+package subcmd_export
 
 import (
 	"fmt"
@@ -8,19 +8,21 @@ import (
 
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/log15"
 )
 
 var (
-	exportCommand = cli.Command{
+	ExportCommand = cli.Command{
 		Action:   utils.MigrateFlags(exportLedgerAction),
 		Name:     "export",
 		Usage:    "export --sbHeight=5000000",
-		Flags:    append(exportFlags, configFlags...),
+		Flags:    append(utils.ExportFlags, utils.ConfigFlags...),
 		Category: "EXPORT COMMANDS",
 		Description: `
 Export ledger.
 `,
 	}
+	log = log15.New("module", "gvite/export")
 )
 
 func exportLedgerAction(ctx *cli.Context) error {
