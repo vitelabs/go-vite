@@ -2,7 +2,9 @@ package node
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -299,4 +301,15 @@ func (c *Config) DataDirPathAbs() error {
 		c.KeyStoreDir = absKeyStoreDir
 	}
 	return nil
+}
+
+func (c *Config) ParseFromFile(filename string) error {
+	if jsonConf, err := ioutil.ReadFile(filename); err == nil {
+		err = json.Unmarshal(jsonConf, &c)
+		if err == nil {
+			return nil
+		}
+		return err
+	}
+	return fmt.Errorf("read config file %s error", filename)
 }

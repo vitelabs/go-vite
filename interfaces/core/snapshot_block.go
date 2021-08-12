@@ -159,6 +159,12 @@ func ComputeSeedHash(seed uint64, prevHash types.Hash, timestamp *time.Time) typ
 	return hash
 }
 
+func (sb *SnapshotBlock) Mock(height uint64) {
+	sb.Height = height
+	now := time.Now()
+	sb.Timestamp = &now
+}
+
 func (sb *SnapshotBlock) hashSourceLength() int {
 	// 1 , 2, 3, 4, 5
 	size := types.HashSize + 8 + 8 + 8 + types.HashSize

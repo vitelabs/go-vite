@@ -331,4 +331,13 @@ var (
 	ExportFlags = []cli.Flag{
 		ExportSbHeightFlags,
 	}
+
+	// Load
+	LoadLedgerFlags = []cli.Flag{
+		// Load From Directory
+		cli.StringFlag{
+			Name:  "fromDir",
+			Usage: "from directory",
+		},
+	}
 )
