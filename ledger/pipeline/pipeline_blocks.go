@@ -54,7 +54,7 @@ func newBlocksPipelineWithRun(fromDir string, height uint64, fileSize int64) (*b
 		for {
 			chunk, next, err := p.fromBlocks.blockDb.ReadChunk(location)
 			if err != nil {
-				log.Error("pipeline end", err)
+				log.Error("msg", "pipeline end", err)
 				return
 			}
 			log.Debug(fmt.Sprintf("pipeline chunk to %d", chunk.SnapshotBlock.Height))
