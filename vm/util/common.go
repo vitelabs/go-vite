@@ -6,9 +6,9 @@ import (
 	"sort"
 	"unicode"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
@@ -94,7 +94,7 @@ func GetSnapshotWithSeedCountCountFromCreateContractData(data []byte) uint8 {
 
 // GetQuotaMultiplierFromCreateContractData decode quota multiplier from create contract request block data
 func GetQuotaMultiplierFromCreateContractData(data []byte, snapshotHeight uint64) uint8 {
-	if !fork.IsSeedFork(snapshotHeight) {
+	if !upgrade.IsSeedUpgrade(snapshotHeight) {
 		return uint8(data[types.GidSize+contractTypeSize+snapshotCountSize])
 	}
 	return uint8(data[types.GidSize+contractTypeSize+snapshotCountSize+snapshotWithSeedCountSize])
@@ -102,7 +102,7 @@ func GetQuotaMultiplierFromCreateContractData(data []byte, snapshotHeight uint64
 
 // GetCodeFromCreateContractData decode code and constructor params from create contract request block data
 func GetCodeFromCreateContractData(data []byte, snapshotHeight uint64) []byte {
-	if !fork.IsSeedFork(snapshotHeight) {
+	if !upgrade.IsSeedUpgrade(snapshotHeight) {
 		return data[types.GidSize+contractTypeSize+snapshotCountSize+quotaMultiplierSize:]
 	}
 	return data[types.GidSize+contractTypeSize+snapshotCountSize+snapshotWithSeedCountSize+quotaMultiplierSize:]

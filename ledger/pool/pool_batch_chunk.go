@@ -20,7 +20,7 @@ const (
 	FORKED = 3
 )
 
-func (pl *pool) insertChunks(chunks *net.Chunk) bool {
+func (pl *pool) insertChunks(reader net.ChunkReader, chunks *net.Chunk) bool {
 	source := chunks.Source
 	hashes := chunks.HashMap
 	snapshot := chunks.SnapshotRange
@@ -30,7 +30,7 @@ func (pl *pool) insertChunks(chunks *net.Chunk) bool {
 	state := pl.checkSnapshotInsert(head, tail, hashes)
 	if state == FORKED {
 		pl.insertChunksToPool(chunks.SnapshotChunks, source)
-		pl.PopDownloadedChunks(head)
+		reader.Pop(head.Hash)
 		return false
 	}
 	if state == DISCONNECT {
@@ -41,7 +41,7 @@ func (pl *pool) insertChunks(chunks *net.Chunk) bool {
 	state = pl.checkAccountsInsert(accountRange, hashes)
 	if state == FORKED {
 		pl.insertChunksToPool(chunks.SnapshotChunks, source)
-		pl.PopDownloadedChunks(head)
+		reader.Pop(head.Hash)
 		return false
 	}
 	if state == DISCONNECT {
@@ -65,11 +65,11 @@ func (pl *pool) insertChunks(chunks *net.Chunk) bool {
 	err := pl.insertChunksToChain(chunks.SnapshotChunks, source)
 	if err != nil {
 		pl.log.Error("insert chunks fail.", "err", err)
-		pl.PopDownloadedChunks(head)
+		reader.Pop(head.Hash)
 		return false
 	}
 	pl.log.Info("insert chunks success.", "headHeight", head.Height, "headHash", head.Hash, "tailHeight", tail.Height, "tailHash", tail.Hash)
-	pl.PopDownloadedChunks(head)
+	reader.Pop(head.Hash)
 	return true
 }
 

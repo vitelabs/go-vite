@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -256,11 +256,10 @@ func PreCheckOrderParam(orderParam *ParamPlaceOrder, isStemFork bool) error {
 	if orderParam.Quantity.Sign() <= 0 {
 		return InvalidOrderQuantityErr
 	}
-	// TODO add market order support
-	if orderParam.OrderType != Limited {
+	if orderParam.OrderType < Limited || orderParam.OrderType > ImmediateOrCancel {
 		return InvalidOrderTypeErr
 	}
-	if orderParam.OrderType == Limited {
+	if orderParam.OrderType == Limited || orderParam.OrderType == PostOnly || orderParam.OrderType == FillOrKill || orderParam.OrderType == ImmediateOrCancel {
 		if !ValidPrice(orderParam.Price, isStemFork) {
 			return InvalidOrderPriceErr
 		}
@@ -270,24 +269,37 @@ func PreCheckOrderParam(orderParam *ParamPlaceOrder, isStemFork bool) error {
 
 func DoPlaceOrder(db interfaces.VmDb, param *ParamPlaceOrder, accountAddress, agent *types.Address, sendHash types.Hash) ([]*ledger.AccountBlock, error) {
 	var (
-		dexFund        *Fund
-		tradeBlockData []byte
-		err            error
-		orderInfoBytes []byte
-		marketInfo     *MarketInfo
-		ok             bool
+		dexFund         *Fund
+		tradeBlockData  []byte
+		err             error
+		orderInfoBytes  []byte
+		marketInfo      *MarketInfo
+		ok              bool
+		enrichOrderFork bool
 	)
 	order := &Order{}
-	if marketInfo, err = RenderOrder(order, param, db, accountAddress, agent, sendHash); err != nil {
+	if param.OrderType != Limited {
+		enrichOrderFork = IsDexEnrichOrderFork(db)
+		if !enrichOrderFork {
+			return nil, InvalidOrderTypeErr
+		}
+	}
+	if order.Type == Market {
+		param.Price = "0"
+	}
+	if marketInfo, err = RenderOrder(order, param, db, accountAddress, agent, sendHash, enrichOrderFork); err != nil {
 		return nil, err
 	}
 	if dexFund, ok = GetFund(db, *accountAddress); !ok {
 		return nil, ExceedFundAvailableErr
 	}
-	if err = CheckAndLockFundForNewOrder(dexFund, order, marketInfo); err != nil {
+	if err = CheckAndLockFundForNewOrder(db, dexFund, order, marketInfo, enrichOrderFork); err != nil {
 		return nil, err
 	}
 	SaveFund(db, *accountAddress, dexFund)
+	if order.Side == false && IsMarketOrder(order, enrichOrderFork) {
+		RenderMarketBuyOrderAmountAndFee(order)
+	}
 	if orderInfoBytes, err = order.Serialize(); err != nil {
 		panic(err)
 	}
@@ -310,7 +322,7 @@ func DoPlaceOrder(db interfaces.VmDb, param *ParamPlaceOrder, accountAddress, ag
 	}, nil
 }
 
-func RenderOrder(order *Order, param *ParamPlaceOrder, db interfaces.VmDb, accountAddress, agent *types.Address, sendHash types.Hash) (*MarketInfo, error) {
+func RenderOrder(order *Order, param *ParamPlaceOrder, db interfaces.VmDb, accountAddress, agent *types.Address, sendHash types.Hash, enrichOrderFork bool) (*MarketInfo, error) {
 	var (
 		marketInfo *MarketInfo
 		ok         bool
@@ -333,7 +345,7 @@ func RenderOrder(order *Order, param *ParamPlaceOrder, db interfaces.VmDb, accou
 	order.Price = PriceToBytes(param.Price)
 	order.Quantity = param.Quantity.Bytes()
 	RenderFeeRate(*accountAddress, order, marketInfo, db)
-	if order.Type == Limited {
+	if order.Type == Limited || IsAdvancedLimitOrder(order, enrichOrderFork) {
 		order.Amount = CalculateRawAmount(order.Quantity, order.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 		if !order.Side { //buy
 			order.LockedBuyFee = CalculateAmountForRate(order.Amount, MaxTotalFeeRate(*order))
@@ -405,7 +417,7 @@ func CheckSettleActions(actions *dexproto.SettleActions) error {
 	return nil
 }
 
-func CheckAndLockFundForNewOrder(dexFund *Fund, order *Order, marketInfo *MarketInfo) (err error) {
+func CheckAndLockFundForNewOrder(db interfaces.VmDb, dexFund *Fund, order *Order, marketInfo *MarketInfo, enrichOrderFork bool) (err error) {
 	var (
 		lockToken, lockAmount []byte
 		lockTokenId           types.TokenTypeId
@@ -415,7 +427,7 @@ func CheckAndLockFundForNewOrder(dexFund *Fund, order *Order, marketInfo *Market
 	switch order.Side {
 	case false: //buy
 		lockToken = marketInfo.QuoteToken
-		if order.Type == Limited {
+		if order.Type == Limited || IsAdvancedLimitOrder(order, enrichOrderFork) {
 			lockAmount = AddBigInt(order.Amount, order.LockedBuyFee)
 		}
 	case true: // sell
@@ -429,14 +441,38 @@ func CheckAndLockFundForNewOrder(dexFund *Fund, order *Order, marketInfo *Market
 		return ExceedFundAvailableErr
 	}
 	available := new(big.Int).SetBytes(account.Available)
-	lockAmountToInc := new(big.Int).SetBytes(lockAmount)
+	var lockAmountToInc *big.Int
+	if order.Side == true || order.Type == Limited || IsAdvancedLimitOrder(order, enrichOrderFork) {
+		lockAmountToInc = new(big.Int).SetBytes(lockAmount)
+	} else { //market buy order (order.Side == false && IsMarketOrder(order, enrichOrderFork))
+		lockAmountToInc = new(big.Int).SetBytes(available.Bytes())
+		if isAmountTooSmall(db, lockAmountToInc.Bytes(), marketInfo) {
+			return OrderAmountTooSmallErr
+		}
+		order.Amount = lockAmountToInc.Bytes()
+	}
 	available = available.Sub(available, lockAmountToInc)
 	if available.Sign() < 0 {
 		return ExceedFundAvailableErr
 	}
+	if order.Type == Market {
+		marketOrderAmtThreshold := GetMarketOrderAmtThreshold(db, marketInfo.QuoteTokenType)
+		quoteTokenAdjustedAmt := AdjustAmountForDecimalsDiff(marketOrderAmtThreshold.Bytes(), QuoteTokenTypeInfos[marketInfo.QuoteTokenType].Decimals-marketInfo.QuoteTokenDecimals)
+		order.MarketOrderAmtThreshold = quoteTokenAdjustedAmt.Bytes()
+	}
 	account.Available = available.Bytes()
 	account.Locked = AddBigInt(account.Locked, lockAmountToInc.Bytes())
 	return
+}
+
+//marketOrder lockByFee will be simply set to maxFeeRate, regardless sell or buy feeRate difference, this will simplify the matcher logic
+func RenderMarketBuyOrderAmountAndFee(order *Order) { //divide buy amount to amount + feeAmount
+	var feeRate = MaxTotalFeeRate(*order)
+	if feeRate > 0 {
+		adjustedFeeRate := int32(float32(feeRate)/(float32(RateCardinalNum)+float32(feeRate))*float32(RateCardinalNum)) + 1 // add 1 for ceil feeRate
+		order.LockedBuyFee = CalculateAmountForRate(order.Amount, adjustedFeeRate)
+		order.Amount = SubBigIntAbs(order.Amount, order.LockedBuyFee)
+	}
 }
 
 func newTokenInfoFromCallback(db interfaces.VmDb, param *ParamGetTokenInfoCallback) *TokenInfo {
@@ -515,7 +551,7 @@ func VerifyNewOrderPriceForRpc(data []byte) (valid bool) {
 	if bytes.Equal(data[:4], newOrderMethodId) {
 		param := new(ParamPlaceOrder)
 		if err := abi.ABIDexFund.UnpackMethod(param, cabi.MethodNameDexFundNewOrder, data); err == nil {
-			return ValidPrice(param.Price, true)
+			return ValidPrice(param.Price, true) || param.OrderType == Market && len(param.Price) <= 25
 		} else {
 			valid = false
 		}
@@ -537,7 +573,7 @@ func IsDexFeeFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsDexFeeFork(latestSb.Height)
+		return upgrade.IsDexFeeUpgrade(latestSb.Height)
 	}
 }
 
@@ -545,7 +581,7 @@ func IsStemFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsStemFork(latestSb.Height)
+		return upgrade.IsStemUpgrade(latestSb.Height)
 	}
 }
 
@@ -553,7 +589,7 @@ func IsLeafFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsLeafFork(latestSb.Height)
+		return upgrade.IsLeafUpgrade(latestSb.Height)
 	}
 }
 
@@ -561,7 +597,7 @@ func IsEarthFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsEarthFork(latestSb.Height)
+		return upgrade.IsEarthUpgrade(latestSb.Height)
 	}
 }
 
@@ -569,7 +605,7 @@ func IsDexMiningFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsDexMiningFork(latestSb.Height)
+		return upgrade.IsDexMiningUpgrade(latestSb.Height)
 	}
 }
 
@@ -577,7 +613,7 @@ func IsDexRobotFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsDexRobotFork(latestSb.Height)
+		return upgrade.IsDexRobotUpgrade(latestSb.Height)
 	}
 }
 
@@ -585,7 +621,15 @@ func IsDexStableMarketFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return fork.IsDexStableMarketFork(latestSb.Height)
+		return upgrade.IsDexStableMarketUpgrade(latestSb.Height)
+	}
+}
+
+func IsDexEnrichOrderFork(db interfaces.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return upgrade.IsVersion10Upgrade(latestSb.Height)
 	}
 }
 
@@ -612,6 +656,14 @@ func getDexTokenSymbol(tokenInfo *TokenInfo) string {
 		}
 		return fmt.Sprintf("%s-%s", tokenInfo.Symbol, indexStr)
 	}
+}
+
+func IsAdvancedLimitOrder(order *Order, enrichOrderFork bool) bool {
+	return enrichOrderFork && (order.Type == PostOnly || order.Type == FillOrKill || order.Type == ImmediateOrCancel)
+}
+
+func IsMarketOrder(order *Order, enrichOrderFork bool) bool {
+	return enrichOrderFork && order.Type == Market
 }
 
 type AmountWithToken struct {

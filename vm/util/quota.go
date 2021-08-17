@@ -1,8 +1,8 @@
 package util
 
 import (
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
 
@@ -240,21 +240,24 @@ type QuotaTable struct {
 	DexFundDelegateCancelStakeCallbackV2Quota uint64
 	DexFundCancelOrderBySendHashQuota         uint64
 	DexFundCommonAdminConfigQuota             uint64
+	DexFundTransferQuota                      uint64
+	DexFundAgentDepositQuota                  uint64
+	DexFundAssignedWithdrawQuota              uint64
 }
 
 // QuotaTableByHeight returns different quota table by hard fork version
 func QuotaTableByHeight(sbHeight uint64) *QuotaTable {
-	if fork.IsVersion10Fork(sbHeight) {
-		return &trustlessBridgeQuotaTable
-	} else if fork.IsDexStableMarketFork(sbHeight) {
+	if upgrade.IsVersion10Upgrade(sbHeight) {
+		return &version10QuotaTable
+	} else if upgrade.IsDexStableMarketUpgrade(sbHeight) {
 		return &dexStableMarketQuotaTable
-	} else if fork.IsDexRobotFork(sbHeight) {
+	} else if upgrade.IsDexRobotUpgrade(sbHeight) {
 		return &dexRobotQuotaTable
-	} else if fork.IsEarthFork(sbHeight) {
+	} else if upgrade.IsEarthUpgrade(sbHeight) {
 		return &earthQuotaTable
-	} else if fork.IsStemFork(sbHeight) {
+	} else if upgrade.IsStemUpgrade(sbHeight) {
 		return &dexAgentQuotaTable
-	} else if fork.IsDexFork(sbHeight) {
+	} else if upgrade.IsDexUpgrade(sbHeight) {
 		return &viteQuotaTable
 	}
 	return &initQuotaTable
@@ -363,7 +366,7 @@ var (
 	earthQuotaTable           = newEarthQuotaTable()
 	dexRobotQuotaTable        = newDexRobotQuotaTable()
 	dexStableMarketQuotaTable = newDexStableMarketQuotaTable()
-	trustlessBridgeQuotaTable = newTrustlessBridgeQuotaTable()
+	version10QuotaTable       = newVersion10QuotaTable()
 )
 
 func newViteQuotaTable() QuotaTable {
@@ -519,9 +522,12 @@ func newDexStableMarketQuotaTable() QuotaTable {
 	return gt
 }
 
-func newTrustlessBridgeQuotaTable() QuotaTable {
+func newVersion10QuotaTable() QuotaTable {
 	gt := newDexStableMarketQuotaTable()
 	gt.CodeQuota = 16
 	gt.TxDataQuota = 28
+	gt.DexFundTransferQuota = 10500
+	gt.DexFundAgentDepositQuota = 10500
+	gt.DexFundAssignedWithdrawQuota = 10500
 	return gt
 }

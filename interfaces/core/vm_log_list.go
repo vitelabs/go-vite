@@ -5,8 +5,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/common/vitepb"
 	"github.com/vitelabs/go-vite/crypto"
 )
@@ -48,7 +48,7 @@ func (vll VmLogList) Hash(snapshotHeight uint64, address types.Address, prevHash
 		source = append(source, vmLog.Data...)
 	}
 
-	if fork.IsSeedFork(snapshotHeight) {
+	if upgrade.IsSeedUpgrade(snapshotHeight) {
 		// append address bytes
 		source = append(source, address.Bytes()...)
 		source = append(source, prevHash.Bytes()...)

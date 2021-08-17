@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/net"
 )
 
 type poolEventBus struct {
@@ -88,12 +89,15 @@ func (w *worker) work() {
 		default:
 		}
 
-		chunks := w.p.ReadDownloadedChunks()
-		if chunks != nil {
-			result := w.p.insertChunks(chunks)
+		result := false
+		for _, pipeline := range w.p.pipelines {
+			result := w.insertFromChunksReader(pipeline)
 			if result {
-				continue
+				break
 			}
+		}
+		if result {
+			continue
 		}
 
 		if sum > 0 || rand.Intn(10) > 6 {
@@ -105,6 +109,13 @@ func (w *worker) work() {
 		}
 		bus.wait.Wait()
 	}
+}
+
+func (w *worker) insertFromChunksReader(reader net.ChunkReader) bool {
+	if chunks := reader.Peek(); chunks != nil {
+		return w.p.insertChunks(reader, chunks)
+	}
+	return false
 }
 
 func (w *worker) init() {

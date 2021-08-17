@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
@@ -132,7 +132,7 @@ func (gen *generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 		if err != nil {
 			return nil, fmt.Errorf("GetSnapshotBlockByContractMeta failed", "err", err)
 		}
-		if fork.IsSeedFork(latestSb.Height) {
+		if upgrade.IsSeedUpgrade(latestSb.Height) {
 			limitSeedSb, err := gen.chain.GetSeedConfirmedSnapshotBlock(block.AccountAddress, fromBlock.Hash)
 			if err != nil {
 				return nil, fmt.Errorf("GetSeedConfirmedSnapshotBlock failed", "err", err)

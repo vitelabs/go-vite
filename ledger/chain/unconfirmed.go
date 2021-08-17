@@ -3,8 +3,8 @@ package chain
 import (
 	"fmt"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/quota"
 )
@@ -69,7 +69,7 @@ func (c *chain) filterUnconfirmedBlocks(snapshotBlock *ledger.SnapshotBlock, che
 		return nil
 	}
 	// check is active fork point
-	if fork.IsActiveForkPoint(snapshotBlock.Height) {
+	if upgrade.IsUpgradePoint(snapshotBlock.Height) {
 		return blocks
 	}
 

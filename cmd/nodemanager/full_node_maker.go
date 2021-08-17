@@ -1,9 +1,7 @@
 package nodemanager
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -21,7 +19,6 @@ type FullNodeMaker struct {
 }
 
 func (maker FullNodeMaker) MakeNode(ctx *cli.Context) (*node.Node, error) {
-
 	// 1: Make Node.Config
 	nodeConfig, err := maker.MakeNodeConfig(ctx)
 	if err != nil {
@@ -30,8 +27,6 @@ func (maker FullNodeMaker) MakeNode(ctx *cli.Context) (*node.Node, error) {
 	log.Info(fmt.Sprintf("NodeConfig info: %v", nodeConfig))
 	// 2: New Node
 	node, err := node.New(nodeConfig)
-	log.Info(fmt.Sprintf("Node info: %v", node))
-
 	if err != nil {
 		log.Error("Failed to create the node: %v", err)
 		return nil, err
@@ -40,7 +35,6 @@ func (maker FullNodeMaker) MakeNode(ctx *cli.Context) (*node.Node, error) {
 }
 
 func (maker FullNodeMaker) MakeNodeConfig(ctx *cli.Context) (*node.Config, error) {
-
 	cfg := node.DefaultNodeConfig
 	log.Info(fmt.Sprintf("DefaultNodeconfig: %v", cfg))
 
@@ -228,33 +222,16 @@ func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
 
 func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) error {
 
-	// first read use settings
-	if file := ctx.GlobalString(utils.ConfigFileFlag.Name); file != "" {
-
-		if jsonConf, err := ioutil.ReadFile(file); err == nil {
-			err = json.Unmarshal(jsonConf, &cfg)
-			if err == nil {
-				return nil
-			}
-
-			log.Error("Cannot unmarshal the config file content", "error", err)
-			return err
-		}
+	configFile := ctx.GlobalString(utils.ConfigFileFlag.Name)
+	if configFile == "" {
+		configFile = defaultNodeConfigFileName
 	}
 
-	// second read default settings
-	log.Info(fmt.Sprintf("Will use the default config %v", defaultNodeConfigFileName))
-
-	if jsonConf, err := ioutil.ReadFile(defaultNodeConfigFileName); err == nil {
-		err = json.Unmarshal(jsonConf, &cfg)
-		if err == nil {
-			return nil
-		}
-		log.Error("Cannot unmarshal the default config file content", "error", err)
-		return err
+	err := cfg.ParseFromFile(configFile)
+	if err != nil {
+		log.Error("load node config fail, file: %s", configFile)
+		log.Crit("%v", err)
 	}
-
-	log.Crit(fmt.Sprintf("Read the default config file `%v `content error, The reason may be that the file does not exist or the content is incorrect.", defaultNodeConfigFileName))
 	return nil
 }
 

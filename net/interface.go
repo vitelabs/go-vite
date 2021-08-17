@@ -99,6 +99,48 @@ type Chunk struct {
 	size           int64
 }
 
+func NewChunk(chunks []ledger.SnapshotChunk, source types.BlockSource) *Chunk {
+	if len(chunks) == 0 {
+		return nil
+	}
+	c := &Chunk{
+		SnapshotChunks: chunks,
+		SnapshotRange: [2]*ledger.HashHeight{
+			{
+				Hash:   chunks[0].SnapshotBlock.PrevHash,
+				Height: chunks[0].SnapshotBlock.Height - 1,
+			},
+			{
+				Hash:   chunks[len(chunks)-1].SnapshotBlock.Hash,
+				Height: chunks[len(chunks)-1].SnapshotBlock.Height,
+			},
+		},
+		AccountRange: make(map[types.Address][2]*ledger.HashHeight),
+		HashMap:      make(map[types.Hash]struct{}),
+		Source:       source,
+		size:         int64(len(chunks)),
+	}
+
+	for _, snapshotChunk := range chunks {
+		c.HashMap[snapshotChunk.SnapshotBlock.Hash] = struct{}{}
+		for _, block := range snapshotChunk.AccountBlocks {
+			c.HashMap[block.Hash] = struct{}{}
+
+			addr := block.AccountAddress
+			if rng, ok := c.AccountRange[addr]; ok {
+				rng[1].Height = block.Height
+				rng[1].Hash = block.Hash
+			} else {
+				c.AccountRange[addr] = [2]*ledger.HashHeight{
+					{Height: block.Height - 1, Hash: block.PrevHash},
+					{Height: block.Height, Hash: block.Hash},
+				}
+			}
+		}
+	}
+	return c
+}
+
 func newChunk(prevHash types.Hash, prevHeight uint64, endHash types.Hash, endHeight uint64, source types.BlockSource) (c *Chunk) {
 	c = &Chunk{
 		// chunk will add account block first, then the snapshot block

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/golang/snappy"
+	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto"
@@ -15,6 +16,10 @@ import (
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
 	"github.com/vitelabs/go-vite/log15"
+)
+
+var (
+	FixFileSize = int64(10 * 1024 * 1024)
 )
 
 // BlockDB append all blocks to file
@@ -36,9 +41,13 @@ type BlockDB struct {
 
 // NewBlockDB instance for BlocksDB
 func NewBlockDB(chainDir string) (*BlockDB, error) {
+	return NewBlockDBFixedSize(chainDir, FixFileSize) // 10M
+}
+
+// NewBlockDB instance for BlocksDB
+func NewBlockDBFixedSize(chainDir string, fileSize int64) (*BlockDB, error) {
 	id, _ := types.BytesToHash(crypto.Hash256([]byte("blockDb")))
 
-	fileSize := int64(10 * 1024 * 1024) // 10M
 	fm, err := chain_file_manager.NewFileManager(path.Join(chainDir, "blocks"), fileSize, 10)
 	if err != nil {
 		return nil, err
@@ -162,6 +171,31 @@ func (bDB *BlockDB) ReadUnit(location *chain_file_manager.Location) (*ledger.Sna
 		return nil, ab, nextLocation, nil
 	}
 	return nil, nil, nextLocation, nil
+}
+
+func (bDB *BlockDB) ReadChunk(location *chain_file_manager.Location) (*ledger.SnapshotChunk, *chain_file_manager.Location, error) {
+	var accBlocks []*ledger.AccountBlock
+
+	for {
+		sb, ab, next, err := bDB.ReadUnit(location)
+		if err != nil {
+			return nil, nil, err
+		}
+		location = next
+
+		if ab != nil {
+			accBlocks = append(accBlocks, ab)
+			continue
+		}
+		if sb != nil {
+			return &ledger.SnapshotChunk{
+				SnapshotBlock: sb,
+				AccountBlocks: accBlocks,
+			}, next, nil
+		}
+		break
+	}
+	return nil, nil, errors.New("not a chunk")
 }
 
 func (bDB *BlockDB) ReadRange(startLocation *chain_file_manager.Location, endLocation *chain_file_manager.Location) ([]*ledger.SnapshotChunk, error) {

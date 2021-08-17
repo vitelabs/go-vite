@@ -2,7 +2,9 @@ package node
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -187,11 +189,16 @@ func (c *Config) makeSubscribeConfig() *config.Subscribe {
 	}
 }
 func (c *Config) makeMinerConfig() *config.Producer {
-	return &config.Producer{
+	cfg := &config.Producer{
 		Producer:         c.MinerEnabled,
 		Coinbase:         c.CoinBase,
 		EntropyStorePath: c.EntropyStorePath,
 	}
+	err := cfg.Parse()
+	if err != nil {
+		panic(err)
+	}
+	return cfg
 }
 
 func (c *Config) makeChainConfig() *config.Chain {
@@ -294,4 +301,15 @@ func (c *Config) DataDirPathAbs() error {
 		c.KeyStoreDir = absKeyStoreDir
 	}
 	return nil
+}
+
+func (c *Config) ParseFromFile(filename string) error {
+	if jsonConf, err := ioutil.ReadFile(filename); err == nil {
+		err = json.Unmarshal(jsonConf, &c)
+		if err == nil {
+			return nil
+		}
+		return err
+	}
+	return fmt.Errorf("read config file %s error", filename)
 }

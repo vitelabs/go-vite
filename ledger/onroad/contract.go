@@ -11,9 +11,9 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/producer/producerevent"
@@ -471,7 +471,7 @@ func (w *ContractWorker) verifyConfirmedTimes(contractAddr *types.Address, fromH
 		return errors.New("sendBlock confirmedTimes is not ready")
 	}
 
-	if fork.IsSeedFork(sbHeight) && meta.SeedConfirmedTimes > 0 {
+	if upgrade.IsSeedUpgrade(sbHeight) && meta.SeedConfirmedTimes > 0 {
 		isSeedCountOk, err := w.manager.Chain().IsSeedConfirmedNTimes(*fromHash, uint64(meta.SeedConfirmedTimes))
 		if err != nil {
 			return err
