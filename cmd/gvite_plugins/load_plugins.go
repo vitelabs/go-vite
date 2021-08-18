@@ -16,6 +16,7 @@ import (
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/subcmd_attach"
 	"github.com/vitelabs/go-vite/cmd/subcmd_export"
+	"github.com/vitelabs/go-vite/cmd/subcmd_ledger"
 	"github.com/vitelabs/go-vite/cmd/subcmd_loadledger"
 	"github.com/vitelabs/go-vite/cmd/subcmd_plugin_data"
 	"github.com/vitelabs/go-vite/cmd/subcmd_recover"
@@ -59,6 +60,7 @@ func init() {
 		subcmd_plugin_data.PluginDataCommand,
 		subcmd_rpc.RpcCommand,
 		subcmd_loadledger.LoadLedgerCommand,
+		subcmd_ledger.QueryLedgerCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
