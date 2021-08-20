@@ -1,7 +1,7 @@
 # Troubleshooting & FAQ - Development
 
 ## Dev Node
-See [Run a Local Dev Node](../contract/testnode.html)
+See [Run a Local Dev Node](../dappguide/testnode.html)
 
 You can also set up a dev node by installing the VSCode Soliditypp extension. The extension will install a local dev node automatically.
 
