@@ -3,7 +3,6 @@ package common
 import (
 	"io"
 	"path/filepath"
-	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -21,14 +20,12 @@ func makeDefaultLogger(absFilePath string) io.Writer {
 	}
 }
 
-func LogHandler(baseDir string, subDir string, filename string, lvl string) log15.Handler {
+func LogHandler(path, subDir, filename, lvl string) log15.Handler {
 	logLevel, err := log15.LvlFromString(lvl)
 	if err != nil {
 		logLevel = log15.LvlInfo
 	}
-	path := filepath.Join(baseDir, subDir, time.Now().Format("2006-01-02T15-04"))
-
-	absFilename := filepath.Join(path, filename)
+	absFilename := filepath.Join(path, subDir, filename)
 	out := makeDefaultLogger(absFilename)
 	return log15.LvlFilterHandler(logLevel, log15.StreamHandler(out, log15.LogfmtFormat()))
 }
