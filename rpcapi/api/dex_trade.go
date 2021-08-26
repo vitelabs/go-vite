@@ -5,6 +5,7 @@ import (
 
 	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/log15"
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
@@ -57,6 +58,11 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
+		latest, err := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+		if err != nil {
+			return nil, err
+		}
+		latestHashHeight := core.HashHeight{Hash: latest.Hash, Height: latest.Height}
 		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
 			return nil, dex.TradeMarketNotExistsErr
 		} else {
@@ -65,11 +71,44 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 			} else {
 				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
 				if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
-					ordersRes = &apidex.OrdersRes{apidex.OrdersToRpc(ods), size}
+					ordersRes = &apidex.OrdersRes{apidex.OrdersToRpc(ods), size, latestHashHeight}
 					return ordersRes, err
 				} else {
-					return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size}, err
+					return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size, latestHashHeight}, err
 				}
+			}
+		}
+	}
+}
+
+func (f DexTradeApi) GetAllOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, begin, end int) (ordersRes *apidex.OrdersRes, err error) {
+	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
+		return nil, err
+	} else {
+		latest, err := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+		if err != nil {
+			return nil, err
+		}
+		latestHashHeight := core.HashHeight{Hash: latest.Hash, Height: latest.Height}
+		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
+			return nil, dex.TradeMarketNotExistsErr
+		} else {
+			if tradeDb, err := getVmDb(f.chain, types.AddressDexTrade); err != nil {
+				return nil, err
+			} else {
+				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
+				sellOds, sellSize, err := matcher.GetOrdersFromMarket(true, begin, end)
+				if err != nil {
+					return nil, err
+				}
+				buyOds, buySize, err := matcher.GetOrdersFromMarket(false, begin, end)
+				if err != nil {
+					return nil, err
+				}
+				var obs []*apidex.RpcOrder
+				obs = append(obs, apidex.OrdersToRpc(sellOds)...)
+				obs = append(obs, apidex.OrdersToRpc(buyOds)...)
+				return &apidex.OrdersRes{obs, buySize + sellSize, latestHashHeight}, err
 			}
 		}
 	}

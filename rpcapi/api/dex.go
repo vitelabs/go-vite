@@ -201,6 +201,26 @@ func (f DexApi) GetInviteCodeBinding(address types.Address) (uint32, error) {
 	}
 }
 
+func (f DexApi) GetInviter(addresses []types.Address) (map[types.Address]types.Address, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[types.Address]types.Address)
+	for _, addr := range addresses {
+		if inviter, err := dex.GetInviterByInvitee(db, addr); err != nil {
+			if err == dex.NotBindInviterErr {
+				continue
+			} else {
+				return nil, err
+			}
+		} else {
+			result[addr] = *inviter
+		}
+	}
+	return result, nil
+}
+
 func (f DexApi) IsInviteCodeValid(code uint32) (bool, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
