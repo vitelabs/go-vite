@@ -34,7 +34,6 @@ func updateAccountBalanceMap(cfg *config.Genesis, addr types.Address, vmdb inter
 		dealWithError(err)
 		vmdb.SetBalance(&tokenId, balance)
 	}
-	dex.SetOwner(vmdb, addr)
 }
 func UpdateDexFundOwner(cfg *config.Genesis) {
 	if cfg.DexFundInfo != nil && cfg.DexFundInfo.Owner != nil {
