@@ -19,11 +19,12 @@ import (
 )
 
 var (
-	ownerKey                = []byte("own:")
-	dexStoppedKey           = []byte("dexStp:")
-	fundKeyPrefix           = []byte("fd:") // fund:types.Address
-	minTradeAmountKeyPrefix = []byte("mTrAt:")
-	mineThresholdKeyPrefix  = []byte("mTh:")
+	ownerKey                         = []byte("own:")
+	dexStoppedKey                    = []byte("dexStp:")
+	fundKeyPrefix                    = []byte("fd:") // fund:types.Address
+	minTradeAmountKeyPrefix          = []byte("mTrAt:")
+	mineThresholdKeyPrefix           = []byte("mTh:")
+	marketOrderAmtThresholdKeyPrefix = []byte("moaTh:")
 
 	dexTimestampKey = []byte("tts:") // dexTimestamp
 
@@ -119,6 +120,11 @@ var (
 	bitcoinMineThreshold = big.NewInt(1000)                                   // 0.00001 BTC
 	usdMineThreshold     = big.NewInt(20000)                                  // 0.02USD
 
+	viteMarketOrderAmtThreshold    = new(big.Int).Mul(commonTokenPow, big.NewInt(8e6)) // 8,000,000 VITE
+	ethMarketOrderAmtThreshold     = new(big.Int).Mul(commonTokenPow, big.NewInt(200)) // 200 ETH
+	bitcoinMarketOrderAmtThreshold = big.NewInt(10e8)                                  // 10 BTC
+	usdMarketOrderAmtThreshold     = big.NewInt(100000e6)                              // 100,000 USD
+
 	RateSumForFeeMine                = "0.6"                                             // 15% * 4
 	RateForStakingMine               = "0.2"                                             // 20%
 	RateSumForMakerAndMaintainerMine = "0.2"                                             // 10% + 10%
@@ -127,10 +133,10 @@ var (
 	ViteTokenDecimals int32 = 18
 
 	QuoteTokenTypeInfos = map[int32]*QuoteTokenTypeInfo{
-		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, DefaultTradeThreshold: viteMinAmount, DefaultMineThreshold: viteMineThreshold},
-		EthTokenType:  &QuoteTokenTypeInfo{Decimals: 18, DefaultTradeThreshold: ethMinAmount, DefaultMineThreshold: ethMineThreshold},
-		BtcTokenType:  &QuoteTokenTypeInfo{Decimals: 8, DefaultTradeThreshold: bitcoinMinAmount, DefaultMineThreshold: bitcoinMineThreshold},
-		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 6, DefaultTradeThreshold: usdMinAmount, DefaultMineThreshold: usdMineThreshold},
+		ViteTokenType: &QuoteTokenTypeInfo{Decimals: 18, DefaultTradeThreshold: viteMinAmount, DefaultMineThreshold: viteMineThreshold, DefaultMarketOrderAmtThreshold: viteMarketOrderAmtThreshold},
+		EthTokenType:  &QuoteTokenTypeInfo{Decimals: 18, DefaultTradeThreshold: ethMinAmount, DefaultMineThreshold: ethMineThreshold, DefaultMarketOrderAmtThreshold: ethMarketOrderAmtThreshold},
+		BtcTokenType:  &QuoteTokenTypeInfo{Decimals: 8, DefaultTradeThreshold: bitcoinMinAmount, DefaultMineThreshold: bitcoinMineThreshold, DefaultMarketOrderAmtThreshold: bitcoinMarketOrderAmtThreshold},
+		UsdTokenType:  &QuoteTokenTypeInfo{Decimals: 6, DefaultTradeThreshold: usdMinAmount, DefaultMineThreshold: usdMineThreshold, DefaultMarketOrderAmtThreshold: usdMarketOrderAmtThreshold},
 	}
 	initOwner, _          = types.HexToAddress("vite_a8a00b3a2f60f5defb221c68f79b65f3620ee874f951a825db")
 	initViteTokenOwner, _ = types.HexToAddress("vite_050697d3810c30816b005a03511c734c1159f50907662b046f")
@@ -185,7 +191,8 @@ const (
 	MarketOwnerStopMarket      = 8
 )
 const (
-	CommonAdminConfigStableMarket = 1
+	CommonAdminConfigStableMarket            = 1
+	CommonAdminConfigMarketOrderAmtThreshold = 2
 )
 
 const (
@@ -239,10 +246,19 @@ const (
 	StakeConfirmed
 )
 
+const (
+	TransferAssetDeposit = iota + 1
+	TransferAssetAgentDeposit
+	TransferAssetWithdraw
+	TransferAssetAssignedWithdraw
+	TransferAssetTransfer
+)
+
 type QuoteTokenTypeInfo struct {
-	Decimals              int32
-	DefaultTradeThreshold *big.Int
-	DefaultMineThreshold  *big.Int
+	Decimals                       int32
+	DefaultTradeThreshold          *big.Int
+	DefaultMineThreshold           *big.Int
+	DefaultMarketOrderAmtThreshold *big.Int
 }
 
 type ParamWithdraw struct {
@@ -381,13 +397,26 @@ type ParamCancelOrderByHash struct {
 }
 
 type ParamCommonAdminConfig struct {
-	OperationCode uint8             // 1 stableMarket
+	OperationCode uint8             // 1 stableMarket, 2 marketOrderAmtThreshold
 	TradeToken    types.TokenTypeId // 1 stableMarket
-	QuoteToken    types.TokenTypeId // 1 stableMarket
+	QuoteToken    types.TokenTypeId // 1 stableMarket, 2 marketOrderAmtThreshold
 	Enable        bool              // 1 stableMarket
 	Value         int32
-	Amount        *big.Int
+	Amount        *big.Int // 2 marketOrderAmtThreshold
 	Address       types.Address
+}
+
+type ParamTransferConfig struct {
+	Target types.Address
+	Token  types.TokenTypeId
+	Amount *big.Int
+}
+
+type ParamAssignedWithdraw struct {
+	Target types.Address
+	Token  types.TokenTypeId
+	Amount *big.Int
+	Label  []byte
 }
 
 type Fund struct {
@@ -1643,6 +1672,22 @@ func SaveMineThreshold(db interfaces.VmDb, quoteTokenType uint8, amount *big.Int
 
 func GetMineThresholdKey(quoteTokenType uint8) []byte {
 	return append(mineThresholdKeyPrefix, quoteTokenType)
+}
+
+func GetMarketOrderAmtThreshold(db interfaces.VmDb, quoteTokenType int32) *big.Int {
+	if val := getValueFromDb(db, GetMarketOrderAmtThresholdKey(uint8(quoteTokenType))); len(val) > 0 {
+		return new(big.Int).SetBytes(val)
+	} else {
+		return QuoteTokenTypeInfos[quoteTokenType].DefaultMarketOrderAmtThreshold
+	}
+}
+
+func SaveMarketOrderAmtThreshold(db interfaces.VmDb, quoteTokenType uint8, amount *big.Int) {
+	setValueToDb(db, GetMarketOrderAmtThresholdKey(quoteTokenType), amount.Bytes())
+}
+
+func GetMarketOrderAmtThresholdKey(quoteTokenType uint8) []byte {
+	return append(marketOrderAmtThresholdKeyPrefix, quoteTokenType)
 }
 
 func GetMakerMiningAdmin(db interfaces.VmDb) *types.Address {

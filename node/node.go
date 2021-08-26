@@ -6,10 +6,13 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"sync"
+	"syscall"
 
+	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/cmd/utils/flock"
 	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/log15"
@@ -19,7 +22,6 @@ import (
 	"github.com/vitelabs/go-vite/rpc"
 	"github.com/vitelabs/go-vite/rpcapi"
 	"github.com/vitelabs/go-vite/rpcapi/api/filters"
-	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
@@ -151,10 +153,20 @@ func (node *Node) Start() error {
 }
 
 func (node *Node) Stop() error {
+	fmt.Println("Preparing node shutdown...")
 	node.lock.Lock()
 	defer node.lock.Unlock()
 	// unblock n.Wait
-	defer close(node.stop)
+	defer func() {
+		select {
+		case _, ok := <-node.stop:
+			if ok {
+				close(node.stop)
+			}
+		default:
+			return
+		}
+	}()
 
 	//wallet
 	log.Info(fmt.Sprintf("Begin Stop Wallet... "))
@@ -189,7 +201,23 @@ func (node *Node) Stop() error {
 }
 
 func (node *Node) Wait() {
-	<-node.stop
+	// Listening event closes the node
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(c)
+	select {
+	case <-c:
+		break
+	case _, ok := <-node.stop:
+		if !ok {
+			return
+		}
+	}
+
+	go func() {
+		node.Stop()
+	}()
 }
 
 func (node *Node) Vite() *vite.Vite {

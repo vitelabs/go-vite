@@ -1,0 +1,338 @@
+{
+  "dex fund assert": {
+    "Name": "asset check",
+    "GlobalEnv": {
+      "sBHeight": 100,
+      "SbTime": 1600663514,
+      "SbHash": "15dcf1c82ee56d91fb8605a39f26a2887fa4796aac2793d01b022540c629cbc8",
+      "Quotas": [
+        {
+          "Address": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_0000000000000000000000000000000000000006e82b8ba657",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_000000000000000000000000000000000000000595292d996d",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_a8a00b3a2f60f5defb221c68f79b65f3620ee874f951a825db",
+          "Quota": 220000000000000
+        },
+        {
+          "Address": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
+          "Quota": 220000000000000
+        }
+      ],
+      "Balances": [
+        {
+          "Address": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
+          "Balances": [
+            {
+              "TokenId": "tti_2736f320d7ed1c2871af1d9d",
+              "Amount": 20000000000000000000000000
+            }
+          ]
+        },
+        {
+          "Address": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
+          "Balances": [
+            {
+              "TokenId": "tti_2736f320d7ed1c2871af1d9d",
+              "Amount": 20000000000000000000000000
+            }
+          ]
+        },
+        {
+          "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "Balances": [
+            {
+              "TokenId": "tti_2736f320d7ed1c2871af1d9d",
+              "Amount": 5000000000000000000000000
+            },
+            {
+              "TokenId": "tti_5649544520544f4b454e6e40",
+              "Amount": 50000000000000000000000
+            }
+          ]
+        },
+        {
+          "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+          "Balances": [
+            {
+              "TokenId": "tti_5649544520544f4b454e6e40",
+              "Amount": 20000000000000000000000
+            }
+          ]
+        }
+      ]
+    },
+    "DexFundStorage": {
+      "Timestamp": 1614571200
+    },
+    "AssetActions": [
+      {
+        "ActionTye": 1,
+        "Address": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
+        "Token": "tti_2736f320d7ed1c2871af1d9d",
+        "Amount": 200000000000000000000000
+      },
+      {
+        "ActionTye": 1,
+        "Address": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
+        "Token": "tti_2736f320d7ed1c2871af1d9d",
+        "Amount": 200000000000000000000000
+      },
+      {
+        "ActionTye": 3,
+        "Address": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
+        "Token": "tti_2736f320d7ed1c2871af1d9d",
+        "Amount": 100000000000000000000000
+      },
+      {
+        "ActionTye": 5,
+        "Address": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
+        "Target": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+        "Token": "tti_2736f320d7ed1c2871af1d9d",
+        "Amount": 50000000000000000000000
+      },
+      {
+        "ActionTye": 1,
+        "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+        "Token": "tti_5649544520544f4b454e6e40",
+        "Amount": 20000000000000000000000
+      },
+      {
+        "ActionTye": 1,
+        "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+        "Token": "tti_5649544520544f4b454e6e40",
+        "Amount": 20000000000000000000000
+      }
+    ],
+    "InitContract": {
+      "InitOwner": "vite_a8a00b3a2f60f5defb221c68f79b65f3620ee874f951a825db",
+      "Owner": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
+      "Timer": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+      "Trigger": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+      "MineProxy": "vite_1bceb575f7969c4aeb92795252ec77f8f911fca91bd5286c2e",
+      "MaintainerProxy": "vite_f6de9301a702bbf513b3c7eb88d837214601ce7c8d9c0178a6"
+    },
+    "SetQuoteTokens": [
+      {
+        "TokenId": "tti_5649544520544f4b454e6e40",
+        "Bid": 2,
+        "Exist": true,
+        "Decimals": 18,
+        "TokenSymbol": "VITE",
+        "Index": 0,
+        "DexOwner": "vite_7318d099aa0cd15b2c372f05209e5a61c61732dbcb22f1e119",
+        "Owner": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880"
+      }
+    ],
+    "NewMarkets": [
+      {
+        "Owner": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+        "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+        "QuoteToken": "tti_5649544520544f4b454e6e40"
+      }
+    ],
+    "NewMarketTokens": [
+      {
+        "TokenId": "tti_2736f320d7ed1c2871af1d9d",
+        "Bid": 1,
+        "Exist": true,
+        "Decimals": 18,
+        "TokenSymbol": "VTT",
+        "Index": 0,
+        "Owner": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880"
+      }
+    ],
+    "PlaceOrders": [
+      {
+        "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+        "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+        "QuoteToken": "tti_5649544520544f4b454e6e40",
+        "Side": false,
+        "OrderType": 0,
+        "Price": "1",
+        "Quantity": 200000000000000000000
+      },
+      {
+        "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+        "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+        "QuoteToken": "tti_5649544520544f4b454e6e40",
+        "Side": true,
+        "OrderType": 0,
+        "Price": "2",
+        "Quantity": 200000000000000000000
+      }
+    ],
+    "CheckBalances": [
+      {
+        "Address": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
+        "Balances": [
+          {
+            "Token": "tti_2736f320d7ed1c2871af1d9d",
+            "Available": 150000000000000000000000,
+            "Locked": 0,
+            "VxUnlocking": 0,
+            "CancellingStake": 0
+          }
+        ]
+      },
+      {
+        "Address": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
+        "Balances": [
+          {
+            "Token": "tti_2736f320d7ed1c2871af1d9d",
+            "Available": 100000000000000000000000,
+            "Locked": 0,
+            "VxUnlocking": 0,
+            "CancellingStake": 0
+          }
+        ]
+      },
+      {
+        "Address": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+        "Balances": [
+          {
+            "Token": "tti_2736f320d7ed1c2871af1d9d",
+            "Available": 49800000000000000000000,
+            "Locked": 200000000000000000000,
+            "VxUnlocking": 0,
+            "CancellingStake": 0
+          },
+          {
+            "Token": "tti_5649544520544f4b454e6e40",
+            "Available": 10000000000000000000000,
+            "Locked": 0,
+            "VxUnlocking": 0,
+            "CancellingStake": 0
+          }
+        ]
+      },
+      {
+        "Address": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+        "Balances": [
+          {
+            "Token": "tti_5649544520544f4b454e6e40",
+            "Available": 19799600000000000000000,
+            "Locked": 200400000000000000000,
+            "VxUnlocking": 0,
+            "CancellingStake": 0
+          }
+        ]
+      }
+    ],
+    "CheckMarkets": [
+      {
+        "MarketId": 1,
+        "MarketSymbol": "VTT-000_VITE",
+        "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+        "QuoteToken": "tti_5649544520544f4b454e6e40",
+        "QuoteTokenType": 1,
+        "TradeTokenDecimals": 18,
+        "QuoteTokenDecimals": 18,
+        "Owner": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+        "Creator": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880"
+      }
+    ],
+    "CheckEvents": [
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 1,
+          "From": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
+          "To":"vite_0000000000000000000000000000000000000006e82b8ba657",
+          "Token": "tti_2736f320d7ed1c2871af1d9d",
+          "Amount": 200000000000000000000000
+        }
+      },
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 1,
+          "From": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
+          "To":"vite_0000000000000000000000000000000000000006e82b8ba657",
+          "Token": "tti_2736f320d7ed1c2871af1d9d",
+          "Amount": 200000000000000000000000
+        }
+      },
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 3,
+          "From":"vite_0000000000000000000000000000000000000006e82b8ba657",
+          "To": "vite_99bf4a247462870dd2f777ff3fc16b0938ab6a38e7129565b2",
+          "Token": "tti_2736f320d7ed1c2871af1d9d",
+          "Amount": 100000000000000000000000
+        }
+      },
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 5,
+          "From": "vite_884241abb1fb2b6eb390ba53586fe393ed0b6b3949f4cbaeec",
+          "To": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "Token": "tti_2736f320d7ed1c2871af1d9d",
+          "Amount": 50000000000000000000000
+        }
+      },
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 1,
+          "From": "vite_ab9c2cdeec94bc188a58efbd0dabd1ed9bd1e87563da4c9174",
+          "To":"vite_0000000000000000000000000000000000000006e82b8ba657",
+          "Token": "tti_5649544520544f4b454e6e40",
+          "Amount": 20000000000000000000000
+        }
+      },
+      {
+        "TopicName": "transferAssetEvent",
+        "Transfer": {
+          "BizType": 1,
+          "From": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "To":"vite_0000000000000000000000000000000000000006e82b8ba657",
+          "Token": "tti_5649544520544f4b454e6e40",
+          "Amount": 20000000000000000000000
+        }
+      },
+      {
+        "TopicName": "tokenEvent",
+        "NewToken": {
+          "TokenId": "tti_5649544520544f4b454e6e40"
+        }
+      },
+      {
+        "TopicName": "tokenEvent",
+        "NewToken": {
+          "TokenId": "tti_2736f320d7ed1c2871af1d9d"
+        }
+      },
+      {
+        "TopicName": "marketEvent",
+        "NewMarket": {
+          "Owner": "vite_272c94c456e72e698616500acd73b7ffd130708d99f05e4880",
+          "TradeToken": "tti_2736f320d7ed1c2871af1d9d",
+          "QuoteToken": "tti_5649544520544f4b454e6e40"
+        }
+      }
+    ]
+  }
+}

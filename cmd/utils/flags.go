@@ -226,12 +226,118 @@ func MigrateFlags(action func(ctx *cli.Context) error) func(*cli.Context) error 
 
 // merge flags
 func MergeFlags(flagsSet ...[]cli.Flag) []cli.Flag {
-
-	mergeFlags := []cli.Flag{}
-
+	flagMap := make(map[string]cli.Flag)
 	for _, flags := range flagsSet {
-
-		mergeFlags = append(mergeFlags, flags...)
+		for _, flag := range flags {
+			flagMap[flag.GetName()] = flag
+		}
 	}
-	return mergeFlags
+
+	var flags []cli.Flag
+	for _, flag := range flagMap {
+		flags = append(flags, flag)
+	}
+	return flags
 }
+
+var (
+	ConfigFlags = []cli.Flag{
+		ConfigFileFlag,
+	}
+	//general
+	GeneralFlags = []cli.Flag{
+		DataDirFlag,
+		KeyStoreDirFlag,
+	}
+
+	//p2p
+	P2pFlags = []cli.Flag{
+		DevNetFlag,
+		TestNetFlag,
+		MainNetFlag,
+		IdentityFlag,
+		NetworkIdFlag,
+		MaxPeersFlag,
+		MaxPendingPeersFlag,
+		ListenPortFlag,
+		NodeKeyHexFlag,
+		DiscoveryFlag,
+	}
+
+	//IPC
+	IpcFlags = []cli.Flag{
+		IPCEnabledFlag,
+		IPCPathFlag,
+	}
+
+	//HTTP RPC
+	HttpFlags = []cli.Flag{
+		RPCEnabledFlag,
+		RPCListenAddrFlag,
+		RPCPortFlag,
+	}
+
+	//WS
+	WsFlags = []cli.Flag{
+		WSEnabledFlag,
+		WSListenAddrFlag,
+		WSPortFlag,
+	}
+
+	//Console
+	ConsoleFlags = []cli.Flag{
+		JSPathFlag,
+		ExecFlag,
+		PreloadJSFlag,
+	}
+
+	//Producer
+	ProducerFlags = []cli.Flag{
+		MinerFlag,
+		CoinBaseFlag,
+		MinerIntervalFlag,
+	}
+
+	//Log
+	LogFlags = []cli.Flag{
+		LogLvlFlag,
+	}
+
+	//VM
+	VmFlags = []cli.Flag{
+		VMTestFlag,
+		VMTestParamFlag,
+	}
+
+	//Net
+	NetFlags = []cli.Flag{
+		SingleFlag,
+		FilePortFlag,
+	}
+
+	//Stat
+	StatFlags = []cli.Flag{
+		PProfEnabledFlag,
+		PProfPortFlag,
+	}
+
+	// Ledger
+	LedgerFlags = []cli.Flag{
+		LedgerDeleteToHeight,
+		RecoverTrieFlag,
+	}
+
+	// Export
+	ExportFlags = []cli.Flag{
+		ExportSbHeightFlags,
+	}
+
+	// Load
+	LoadLedgerFlags = []cli.Flag{
+		// Load From Directory
+		cli.StringFlag{
+			Name:  "fromDir",
+			Usage: "from directory",
+		},
+	}
+)

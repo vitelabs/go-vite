@@ -14,6 +14,13 @@ import (
 
 	"github.com/vitelabs/go-vite/cmd/console"
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
+	"github.com/vitelabs/go-vite/cmd/subcmd_attach"
+	"github.com/vitelabs/go-vite/cmd/subcmd_export"
+	"github.com/vitelabs/go-vite/cmd/subcmd_ledger"
+	"github.com/vitelabs/go-vite/cmd/subcmd_loadledger"
+	"github.com/vitelabs/go-vite/cmd/subcmd_plugin_data"
+	"github.com/vitelabs/go-vite/cmd/subcmd_recover"
+	"github.com/vitelabs/go-vite/cmd/subcmd_rpc"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/version"
@@ -25,98 +32,6 @@ var (
 	log = log15.New("module", "gvite/main")
 
 	app = cli.NewApp()
-
-	//config
-	configFlags = []cli.Flag{
-		utils.ConfigFileFlag,
-	}
-	//general
-	generalFlags = []cli.Flag{
-		utils.DataDirFlag,
-		utils.KeyStoreDirFlag,
-	}
-
-	//p2p
-	p2pFlags = []cli.Flag{
-		utils.DevNetFlag,
-		utils.TestNetFlag,
-		utils.MainNetFlag,
-		utils.IdentityFlag,
-		utils.NetworkIdFlag,
-		utils.MaxPeersFlag,
-		utils.MaxPendingPeersFlag,
-		utils.ListenPortFlag,
-		utils.NodeKeyHexFlag,
-		utils.DiscoveryFlag,
-	}
-
-	//IPC
-	ipcFlags = []cli.Flag{
-		utils.IPCEnabledFlag,
-		utils.IPCPathFlag,
-	}
-
-	//HTTP RPC
-	httpFlags = []cli.Flag{
-		utils.RPCEnabledFlag,
-		utils.RPCListenAddrFlag,
-		utils.RPCPortFlag,
-	}
-
-	//WS
-	wsFlags = []cli.Flag{
-		utils.WSEnabledFlag,
-		utils.WSListenAddrFlag,
-		utils.WSPortFlag,
-	}
-
-	//Console
-	consoleFlags = []cli.Flag{
-		utils.JSPathFlag,
-		utils.ExecFlag,
-		utils.PreloadJSFlag,
-	}
-
-	//Producer
-	producerFlags = []cli.Flag{
-		utils.MinerFlag,
-		utils.CoinBaseFlag,
-		utils.MinerIntervalFlag,
-	}
-
-	//Log
-	logFlags = []cli.Flag{
-		utils.LogLvlFlag,
-	}
-
-	//VM
-	vmFlags = []cli.Flag{
-		utils.VMTestFlag,
-		utils.VMTestParamFlag,
-	}
-
-	//Net
-	netFlags = []cli.Flag{
-		utils.SingleFlag,
-		utils.FilePortFlag,
-	}
-
-	//Stat
-	statFlags = []cli.Flag{
-		utils.PProfEnabledFlag,
-		utils.PProfPortFlag,
-	}
-
-	// Ledger
-	ledgerFlags = []cli.Flag{
-		utils.LedgerDeleteToHeight,
-		utils.RecoverTrieFlag,
-	}
-
-	// Export
-	exportFlags = []cli.Flag{
-		utils.ExportSbHeightFlags,
-	}
 )
 
 func init() {
@@ -128,8 +43,8 @@ func init() {
 	app.Compiled = time.Now()
 	app.Authors = []cli.Author{
 		cli.Author{
-			Name:  "viteLabs",
-			Email: "XXX@vite.org",
+			Name:  "Vite Labs",
+			Email: "info@vite.org",
 		},
 	}
 	app.Copyright = "Copyright 2018-2024 The go-vite Authors"
@@ -139,19 +54,21 @@ func init() {
 	app.Commands = []cli.Command{
 		versionCommand,
 		licenseCommand,
-		consoleCommand,
-		attachCommand,
-		ledgerRecoverCommand,
-		exportCommand,
-		pluginDataCommand,
-		checkChainCommand,
+		subcmd_attach.AttachCommand,
+		subcmd_recover.LedgerRecoverCommand,
+		subcmd_export.ExportCommand,
+		subcmd_plugin_data.PluginDataCommand,
+		subcmd_rpc.RpcCommand,
+		subcmd_loadledger.LoadLedgerCommand,
+		subcmd_ledger.QueryLedgerCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	//Import: Please add the New Flags here
-	app.Flags = utils.MergeFlags(configFlags, generalFlags, p2pFlags,
-		ipcFlags, httpFlags, wsFlags, consoleFlags, producerFlags, logFlags,
-		vmFlags, netFlags, statFlags, ledgerFlags, exportFlags)
+	for _, element := range app.Commands {
+		app.Flags = utils.MergeFlags(app.Flags, element.Flags)
+	}
+	app.Flags = utils.MergeFlags(app.Flags, utils.StatFlags)
 
 	app.Before = beforeAction
 	app.Action = action

@@ -24,11 +24,17 @@ const (
 	partialExecutedCancelledByMarket
 	partialExecutedCancelledOnTimeout
 	unknownCancelledOnTimeout
+	cancelledByPostOnlyMatched
+	cancelledByFillOrKillNotFilled
+	cancelledByExceedMarketOrderAmtThreshold
 )
 
 const (
 	Limited = iota
 	Market
+	PostOnly
+	FillOrKill
+	ImmediateOrCancel
 )
 
 const OrderIdBytesLength = 22

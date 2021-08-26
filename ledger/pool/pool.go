@@ -34,6 +34,10 @@ type Writer interface {
 	//AddDirectAccountBlocks(address types.Address, received *interfaces.VmAccountBlock, sendBlocks []*interfaces.VmAccountBlock) error
 }
 
+type Pipeline interface {
+	AddPipeline(reader net.ChunkReader)
+}
+
 // SnapshotProducerWriter is a writer for snapshot producer
 type SnapshotProducerWriter interface {
 	lock.ChainInsert
@@ -65,6 +69,7 @@ type BlockPool interface {
 	Reader
 	SnapshotProducerWriter
 	Debug
+	Pipeline
 
 	Start()
 	Stop()
@@ -134,8 +139,9 @@ type pool struct {
 	pendingSc *snapshotPool
 	pendingAc sync.Map // key:address v:*accountPool
 
-	sync syncer
-	bc   chainDb
+	sync      syncer
+	pipelines []net.ChunkReader
+	bc        chainDb
 
 	snapshotVerifier *verifier.SnapshotVerifier
 	accountVerifier  verifier.Verifier
@@ -215,6 +221,7 @@ func (pl *pool) Init(s syncer,
 	accountV verifier.Verifier,
 	cs consensus.Consensus) {
 	pl.sync = s
+	pl.pipelines = append(pl.pipelines, s)
 	rw := &snapshotCh{version: pl.version, bc: pl.bc, log: pl.log}
 	fe := &snapshotSyncer{fetcher: s, log: pl.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: snapshotV}
@@ -515,16 +522,6 @@ func (pl *pool) selfPendingAc(addr types.Address) *accountPool {
 
 func (pl *pool) destroyPendingAc(addr types.Address) {
 	pl.pendingAc.Delete(addr)
-}
-
-func (pl *pool) ReadDownloadedChunks() *net.Chunk {
-	chunk := pl.sync.Peek()
-	return chunk
-}
-
-func (pl *pool) PopDownloadedChunks(hashH ledger.HashHeight) {
-	pl.log.Info(fmt.Sprintf("pop chunks[%d-%s]", hashH.Height, hashH.Hash))
-	pl.sync.Pop(hashH.Hash)
 }
 
 func (pl *pool) broadcastUnConfirmedBlocks() {

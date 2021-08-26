@@ -26,13 +26,13 @@ func innerTestCalculateFeeAndExecutedFee(t *testing.T, isDexFeeFork bool) {
 	executeQuantity := big.NewInt(988500000).Bytes()
 	executeAmount := big.NewInt(9885).Bytes()
 	_, makerExecutedFee, _, makerExecutedOperatorFee := CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, isDexFeeFork)
-	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, 0)
+	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, 0, maker.Price)
 	assert.Equal(t, "5", new(big.Int).SetBytes(maker.ExecutedOperatorFee).String())
 
 	executeQuantity = big.NewInt(11500000).Bytes()
 	executeAmount = big.NewInt(115).Bytes()
 	_, makerExecutedFee, _, makerExecutedOperatorFee = CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, isDexFeeFork)
-	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, 0)
+	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, 0, maker.Price)
 	if isDexFeeFork {
 		assert.Equal(t, "5", new(big.Int).SetBytes(maker.ExecutedOperatorFee).String())
 	} else {

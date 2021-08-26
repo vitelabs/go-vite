@@ -10,8 +10,8 @@ import (
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/ledger/chain"
 )
 
@@ -30,14 +30,7 @@ func NewChainInstance(dirName string, clear bool) (chain.Chain, error) {
 	if clear {
 		os.RemoveAll(dataDir)
 	}
-	if len(fork.GetActiveForkPointList()) <= 0 {
-		fork.SetForkPoints(&fork.ForkPoints{
-			SeedFork: &fork.ForkPoint{
-				Version: 1,
-				Height:  10000000,
-			},
-		})
-	}
+	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 10000000))
 	genesisConfig := &config.Genesis{}
 	json.Unmarshal([]byte(genesisConfigJSON), genesisConfig)
 	chainInstance := chain.NewChain(dataDir, &config.Chain{}, genesisConfig)

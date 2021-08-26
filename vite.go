@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/ledger/consensus"
 	"github.com/vitelabs/go-vite/ledger/onroad"
@@ -39,17 +39,12 @@ type Vite struct {
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
-	var account *wallet.Account
-	if cfg.Producer.Producer && cfg.Producer.Coinbase != "" {
-		var coinbase *types.Address
-		var index uint32
-		coinbase, index, err = parseCoinbase(cfg.Producer.Coinbase)
-		if err != nil {
-			log.Error(fmt.Sprintf("coinBase parse fail. %v", cfg.Producer.Coinbase), "err", err)
-			return nil, err
-		}
-		account, err = walletManager.AccountAtIndex(cfg.EntropyStorePath, *coinbase, index)
+	// set upgrade
+	upgrade.InitUpgradeBox(cfg.UpgradeCfg.MakeUpgradeBox())
 
+	var account *wallet.Account
+	if cfg.Producer.IsMine() {
+		account, err = walletManager.AccountAtIndex(cfg.EntropyStorePath, cfg.Producer.GetCoinbase(), cfg.Producer.GetIndex())
 		if err != nil {
 			log.Error(fmt.Sprintf("coinBase is not child of entropyStore, coinBase is : %v", cfg.Producer.Coinbase), "err", err)
 			return nil, err
@@ -60,9 +55,6 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 			return
 		}
 	}
-
-	// set fork points
-	fork.SetForkPoints(cfg.ForkPoints)
 
 	// chain
 	chain := chain.NewChain(cfg.DataDir, cfg.Chain, cfg.Genesis)

@@ -4,9 +4,9 @@ import (
 	"math/big"
 	"regexp"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
@@ -62,11 +62,12 @@ func checkToken(param abi.ParamIssue, sbHeight uint64) error {
 		len(param.TokenSymbol) == 0 || len(param.TokenSymbol) > tokenSymbolLengthMax {
 		return util.ErrInvalidMethodParam
 	}
-	if !fork.IsEarthFork(sbHeight) && (param.TotalSupply.Sign() <= 0 ||
+
+	if !upgrade.IsEarthUpgrade(sbHeight) && (param.TotalSupply.Sign() <= 0 ||
 		param.TotalSupply.Cmp(new(big.Int).Exp(helper.Big10, new(big.Int).SetUint64(uint64(param.Decimals)), nil)) < 0) {
 		return util.ErrInvalidMethodParam
 	}
-	if fork.IsEarthFork(sbHeight) && !param.IsReIssuable && param.TotalSupply.Sign() <= 0 {
+	if upgrade.IsEarthUpgrade(sbHeight) && !param.IsReIssuable && param.TotalSupply.Sign() <= 0 {
 		return util.ErrInvalidMethodParam
 	}
 	if ok, _ := regexp.MatchString("^([a-zA-Z_]+[ ]?)*[a-zA-Z_]$", param.TokenName); !ok {
@@ -238,7 +239,7 @@ func (p *MethodBurn) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) erro
 func (p *MethodBurn) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
 	oldTokenInfo, err := abi.GetTokenByID(db, sendBlock.TokenId)
 	util.DealWithErr(err)
-	if oldTokenInfo == nil || (!util.CheckFork(db, fork.IsEarthFork) && !oldTokenInfo.IsReIssuable) ||
+	if oldTokenInfo == nil || (!util.CheckFork(db, upgrade.IsEarthUpgrade) && !oldTokenInfo.IsReIssuable) ||
 		(oldTokenInfo.OwnerBurnOnly && oldTokenInfo.Owner != sendBlock.AccountAddress) {
 		return nil, util.ErrInvalidMethodParam
 	}
@@ -282,7 +283,7 @@ func (p MethodBurn2) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) erro
 	if block.Amount.Sign() <= 0 {
 		return util.ErrInvalidMethodParam
 	}
-	if !util.CheckFork(db, fork.IsVersion10Fork) {
+	if !util.CheckFork(db, upgrade.IsVersion10Upgrade) {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamBurn2)
@@ -303,7 +304,7 @@ func (p *MethodBurn2) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, 
 	{ // copy from MethodBurn.DoReceive
 		oldTokenInfo, err := abi.GetTokenByID(db, sendBlock.TokenId)
 		util.DealWithErr(err)
-		if oldTokenInfo == nil || (!util.CheckFork(db, fork.IsEarthFork) && !oldTokenInfo.IsReIssuable) ||
+		if oldTokenInfo == nil || (!util.CheckFork(db, upgrade.IsEarthUpgrade) && !oldTokenInfo.IsReIssuable) ||
 			(oldTokenInfo.OwnerBurnOnly && oldTokenInfo.Owner != sendBlock.AccountAddress) {
 			return nil, util.ErrInvalidMethodParam
 		}

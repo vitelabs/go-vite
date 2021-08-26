@@ -4,11 +4,11 @@ A brand new Full Node Rewards Program is launched on April 3, 2021 to encourage 
 
 ## Full Node
 
-Please visit [What is gvite node](../node/install.md#What-is-gvite-node) for full node introduction.
+Please visit [What is gvite node](../tutorial/node/install.md#What-is-gvite-node) for full node introduction.
 
 ## Instructions for Running a Full Node
 
-Configuration details can be found at [Installation](../node/install.md#full-node-reward).
+Configuration details can be found at [Installation](../tutorial/node/install.md#full-node-reward).
 
 ## Reward Program Details
 

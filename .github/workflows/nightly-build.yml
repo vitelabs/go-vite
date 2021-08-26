@@ -1,0 +1,41 @@
+name: gvite-nightly-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'nightly build from'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: '${{ github.event.inputs.branch }}'
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+ 
+    - name: Test
+      run: make test
+       
+    - name: Get Build Version
+      id: version
+      run: echo "::set-output name=version::$(date +%Y%m%d%H%M)"
+      
+    - name: Build
+      run:  echo "${{ steps.version.outputs.version }}" > version/buildversion ; make all
+      
+    - name: Release 
+      run: cd build/cmd/gvite ;ls | grep -v ".tar.gz" | while read line; do tar zcvf $line.tar.gz $line ; openssl dgst -sha256 $line.tar.gz >> release.sha256.log ;done ; cd ../../../ 
+      
+    - uses: actions/upload-artifact@v2
+      with:
+        name: "nightly-${{ steps.version.outputs.version }}"
+        path: | 
+            build/cmd/gvite/*.tar.gz
+            build/cmd/gvite/release.sha256.log

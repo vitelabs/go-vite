@@ -6,9 +6,9 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/consensus/core"
@@ -76,7 +76,7 @@ func (p *MethodRegister) DoReceive(db interfaces.VmDb, block *ledger.AccountBloc
 
 	snapshotBlock := vm.GlobalStatus().SnapshotBlock()
 	sb, err := db.LatestSnapshotBlock()
-	if isLeafFork := fork.IsLeafFork(sb.Height); (!isLeafFork && sendBlock.Amount.Cmp(SbpStakeAmountPreMainnet) != 0) ||
+	if isLeafFork := upgrade.IsLeafUpgrade(sb.Height); (!isLeafFork && sendBlock.Amount.Cmp(SbpStakeAmountPreMainnet) != 0) ||
 		(isLeafFork && sendBlock.Amount.Cmp(SbpStakeAmountMainnet) != 0) ||
 		sendBlock.TokenId != ledger.ViteTokenId {
 		return nil, util.ErrInvalidMethodParam
@@ -130,7 +130,7 @@ func (p *MethodRegister) DoReceive(db interfaces.VmDb, block *ledger.AccountBloc
 	stakeParam, _ := abi.GetRegisterStakeParamOfConsensusGroup(groupInfo.RegisterConditionParam)
 
 	var registerInfo []byte
-	if fork.IsEarthFork(sb.Height) {
+	if upgrade.IsEarthUpgrade(sb.Height) {
 		// save withdraw reward address -> sbp name
 		saveWithdrawRewardAddress(db, oldWithdrawRewardAddress, param.RewardWithdrawAddress, sendBlock.AccountAddress, param.SbpName)
 		registerInfo, _ = abi.ABIGovernance.PackVariable(
@@ -266,7 +266,7 @@ func (p *MethodRevoke) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock,
 		rewardTime = -1
 	}
 	var registerInfo []byte
-	if fork.IsEarthFork(snapshotBlock.Height) {
+	if upgrade.IsEarthUpgrade(snapshotBlock.Height) {
 		registerInfo, _ = abi.ABIGovernance.PackVariable(
 			abi.VariableNameRegistrationInfoV2,
 			old.Name,
@@ -366,7 +366,7 @@ func (p *MethodWithdrawReward) DoReceive(db interfaces.VmDb, block *ledger.Accou
 	}
 	if endTime != old.RewardTime {
 		var registerInfo []byte
-		if fork.IsEarthFork(sb.Height) {
+		if upgrade.IsEarthUpgrade(sb.Height) {
 			registerInfo, _ = abi.ABIGovernance.PackVariable(
 				abi.VariableNameRegistrationInfoV2,
 				old.Name,
@@ -395,7 +395,7 @@ func (p *MethodWithdrawReward) DoReceive(db interfaces.VmDb, block *ledger.Accou
 		if reward != nil && reward.TotalReward.Sign() > 0 {
 			// send reward by reIssue vite token
 			var methodName string
-			if !util.CheckFork(db, fork.IsLeafFork) {
+			if !util.CheckFork(db, upgrade.IsLeafUpgrade) {
 				methodName = abi.MethodNameReIssue
 			} else {
 				methodName = abi.MethodNameReIssueV2
@@ -515,11 +515,11 @@ func getSnapshotGroupStakeAmount(db interfaces.VmDb, reader util.ConsensusReader
 	if err != nil {
 		return nil, forkIndex, err
 	}
-	if !fork.IsLeafFork(sb.Height) {
+	if !upgrade.IsLeafUpgrade(sb.Height) {
 		return SbpStakeAmountPreMainnet, 0, nil
 	}
 	if forkIndex == 0 {
-		forkSb, err := db.GetSnapshotBlockByHeight(fork.GetLeafForkPoint().Height)
+		forkSb, err := db.GetSnapshotBlockByHeight(upgrade.GetLeafUpgradePoint().Height)
 		if err != nil {
 			return nil, forkIndex, err
 		}
@@ -712,7 +712,7 @@ func (p *MethodUpdateBlockProducingAddress) DoReceive(db interfaces.VmDb, block 
 		}
 	}
 	var registerInfo []byte
-	if util.CheckFork(db, fork.IsEarthFork) {
+	if util.CheckFork(db, upgrade.IsEarthUpgrade) {
 		registerInfo, _ = abi.ABIGovernance.PackVariable(
 			abi.VariableNameRegistrationInfoV2,
 			old.Name,
@@ -821,7 +821,7 @@ func (p *MethodVote) GetReceiveQuota(gasTable *util.QuotaTable) uint64 {
 func (p *MethodVote) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) error {
 	latestSb, err := db.LatestSnapshotBlock()
 	util.DealWithErr(err)
-	if block.Amount.Sign() != 0 || (types.IsContractAddr(block.AccountAddress) && !fork.IsStemFork(latestSb.Height)) {
+	if block.Amount.Sign() != 0 || (types.IsContractAddr(block.AccountAddress) && !upgrade.IsStemUpgrade(latestSb.Height)) {
 		return util.ErrInvalidMethodParam
 	}
 	param := new(abi.ParamVote)
@@ -886,7 +886,7 @@ func (p *MethodCancelVote) DoSend(db interfaces.VmDb, block *ledger.AccountBlock
 	latestSb, err := db.LatestSnapshotBlock()
 	util.DealWithErr(err)
 	if block.Amount.Sign() != 0 ||
-		(types.IsContractAddr(block.AccountAddress) && !fork.IsStemFork(latestSb.Height)) {
+		(types.IsContractAddr(block.AccountAddress) && !upgrade.IsStemUpgrade(latestSb.Height)) {
 		return util.ErrInvalidMethodParam
 	}
 	if p.MethodName == abi.MethodNameCancelVoteV3 {

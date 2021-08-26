@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
@@ -52,8 +52,8 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase interfaces.Acco
 	}
 
 	// add version
-	if fork.IsLeafFork(block.Height) {
-		block.Version = fork.GetLastForkPoint().Version
+	if upgrade.IsLeafUpgrade(block.Height) {
+		block.Version = upgrade.GetCurPoint(block.Height).Version
 	}
 
 	block.Hash = block.ComputeHash()

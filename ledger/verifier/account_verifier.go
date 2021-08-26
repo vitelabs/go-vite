@@ -7,10 +7,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/math"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
@@ -80,7 +80,7 @@ func (v *AccountVerifier) verifyConfirmedTimes(recvBlock *ledger.AccountBlock, s
 	if sendConfirmedTimes < uint64(meta.SendConfirmedTimes) {
 		return ErrVerifyConfirmedTimesNotEnough
 	}
-	if fork.IsSeedFork(sbHeight) && meta.SeedConfirmedTimes > 0 {
+	if upgrade.IsSeedUpgrade(sbHeight) && meta.SeedConfirmedTimes > 0 {
 		isSeedCountOk, err := v.chain.IsSeedConfirmedNTimes(recvBlock.FromBlockHash, uint64(meta.SeedConfirmedTimes))
 		if err != nil {
 			return err

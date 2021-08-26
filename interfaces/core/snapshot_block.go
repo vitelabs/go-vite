@@ -9,8 +9,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/vitelabs/go-vite/common/fork"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/common/vitepb"
 	"github.com/vitelabs/go-vite/crypto"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
@@ -159,6 +159,12 @@ func ComputeSeedHash(seed uint64, prevHash types.Hash, timestamp *time.Time) typ
 	return hash
 }
 
+func (sb *SnapshotBlock) Mock(height uint64) {
+	sb.Height = height
+	now := time.Now()
+	sb.Timestamp = &now
+}
+
 func (sb *SnapshotBlock) hashSourceLength() int {
 	// 1 , 2, 3, 4, 5
 	size := types.HashSize + 8 + 8 + 8 + types.HashSize
@@ -167,12 +173,12 @@ func (sb *SnapshotBlock) hashSourceLength() int {
 	size += len(sb.SnapshotContent) * ScItemBytesLen
 
 	// forkName
-	forkPoint := fork.GetRecentActiveFork(sb.Height)
+	forkPoint := upgrade.GetCurPoint(sb.Height)
 	if forkPoint != nil {
-		size += len(forkPoint.ForkName)
+		size += len(forkPoint.Name)
 	}
 	// Add version
-	if fork.IsLeafFork(sb.Height) {
+	if upgrade.IsLeafUpgrade(sb.Height) {
 		// append version
 		size += 4
 	}
@@ -215,14 +221,14 @@ func (sb *SnapshotBlock) ComputeHash() types.Hash {
 	}
 
 	// Add fork name
-	forkPoint := fork.GetRecentActiveFork(sb.Height)
+	forkPoint := upgrade.GetCurPoint(sb.Height)
 
 	if forkPoint != nil {
-		source = append(source, []byte(forkPoint.ForkName)...)
+		source = append(source, []byte(forkPoint.Name)...)
 	}
 
 	// Add version
-	if fork.IsLeafFork(sb.Height) {
+	if upgrade.IsLeafUpgrade(sb.Height) {
 		// append version
 		versionBytes := make([]byte, 4)
 		binary.BigEndian.PutUint32(versionBytes, sb.Version)

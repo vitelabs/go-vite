@@ -7,7 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/common/fork"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/node"
 )
@@ -51,8 +51,8 @@ func (nodeManager *RecoverNodeManager) Start() error {
 	dataDir := viteConfig.DataDir
 	chainCfg := viteConfig.Chain
 	genesisCfg := viteConfig.Genesis
-	// set fork points
-	fork.SetForkPoints(viteConfig.ForkPoints)
+	// set upgrade
+	upgrade.InitUpgradeBox(genesisCfg.UpgradeCfg.MakeUpgradeBox())
 
 	c := chain.NewChain(dataDir, chainCfg, genesisCfg)
 

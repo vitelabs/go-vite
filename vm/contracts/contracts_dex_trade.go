@@ -168,6 +168,9 @@ func (md *MethodDexTradeClearExpiredOrders) DoSend(db interfaces.VmDb, block *le
 }
 
 func (md MethodDexTradeClearExpiredOrders) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
+	if dex.IsDexEnrichOrderFork(db) {
+		return nil, dex.InvalidOperationErr
+	}
 	param := new(dex.ParamSerializedData)
 	cabi.ABIDexTrade.UnpackMethod(param, md.MethodName, sendBlock.Data)
 	if len(param.Data) == 0 || len(param.Data)%dex.OrderIdBytesLength != 0 || len(param.Data)/dex.OrderIdBytesLength > dex.CleanExpireOrdersMaxCount {

@@ -45,7 +45,7 @@ func TestRun(t *testing.T) {
 			ToAddress:      types.Address{},
 			BlockType:      ledger.BlockTypeReceive,
 		}
-		db := newNoDatabase()
+		db := NewNoDatabase()
 		c := newContract(
 			receiveCallBlock,
 			db,
