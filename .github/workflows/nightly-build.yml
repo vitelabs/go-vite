@@ -35,7 +35,7 @@ jobs:
       
     - uses: actions/upload-artifact@v2
       with:
-        name: "nightly-${{ steps.version.outputs.version }}"
+        name: "nightly-${{ github.event.inputs.branch }}-${{ steps.version.outputs.version }}"
         path: | 
             build/cmd/gvite/*.tar.gz
             build/cmd/gvite/release.sha256.log
