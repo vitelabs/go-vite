@@ -368,7 +368,8 @@ type RpcOrder struct {
 type OrdersRes struct {
 	Orders     []*RpcOrder     `json:"orders,omitempty"`
 	Size       int             `json:"size"`
-	HashHeight core.HashHeight `json:"hashHeight,omitempty"`
+	QueryStart core.HashHeight `json:"queryStart,omitempty"`
+	QueryEnd   core.HashHeight `json:"queryEnd,omitempty"`
 }
 
 func OrderToRpc(order *dex.Order) *RpcOrder {

@@ -5,7 +5,6 @@ import (
 
 	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/log15"
 	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
@@ -62,7 +61,6 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 		if err != nil {
 			return nil, err
 		}
-		latestHashHeight := core.HashHeight{Hash: latest.Hash, Height: latest.Height}
 		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
 			return nil, dex.TradeMarketNotExistsErr
 		} else {
@@ -70,12 +68,9 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 				return nil, err
 			} else {
 				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
-				if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
-					ordersRes = &apidex.OrdersRes{apidex.OrdersToRpc(ods), size, latestHashHeight}
-					return ordersRes, err
-				} else {
-					return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size, latestHashHeight}, err
-				}
+				ods, size, err := matcher.GetOrdersFromMarket(side, begin, end)
+				latest2, _ := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+				return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size, latest.HashHeight(), latest2.HashHeight()}, err
 			}
 		}
 	}
@@ -89,7 +84,6 @@ func (f DexTradeApi) GetAllOrdersFromMarket(tradeToken, quoteToken types.TokenTy
 		if err != nil {
 			return nil, err
 		}
-		latestHashHeight := core.HashHeight{Hash: latest.Hash, Height: latest.Height}
 		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
 			return nil, dex.TradeMarketNotExistsErr
 		} else {
@@ -108,7 +102,11 @@ func (f DexTradeApi) GetAllOrdersFromMarket(tradeToken, quoteToken types.TokenTy
 				var obs []*apidex.RpcOrder
 				obs = append(obs, apidex.OrdersToRpc(sellOds)...)
 				obs = append(obs, apidex.OrdersToRpc(buyOds)...)
-				return &apidex.OrdersRes{obs, buySize + sellSize, latestHashHeight}, err
+				latest2, err := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+				if err != nil {
+					return nil, err
+				}
+				return &apidex.OrdersRes{obs, buySize + sellSize, latest.HashHeight(), latest2.HashHeight()}, nil
 			}
 		}
 	}

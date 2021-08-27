@@ -230,6 +230,13 @@ func (ab *AccountBlock) Producer() types.Address {
 	return *ab.producer
 }
 
+func (ab AccountBlock) HashHeight() HashHeight {
+	return HashHeight{
+		Height: ab.Height,
+		Hash:   ab.Hash,
+	}
+}
+
 func (ab *AccountBlock) VerifySignature() bool {
 	isVerified, verifyErr := crypto.VerifySig(ab.PublicKey, ab.Hash.Bytes(), ab.Signature)
 	if verifyErr != nil {
