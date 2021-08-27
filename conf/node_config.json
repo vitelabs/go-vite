@@ -34,6 +34,10 @@
   "EntropyStorePath": "",
   "EntropyStorePassword": "",
   "LogLevel": "info",
+  "OpenPlugins": true,
+  "SubscribeEnabled": true,
+  "TxDexEnable": true,
+  "VmLogAll": true,
   "DashboardTargetURL": "wss://stats.vite.net",
   "RewardAddr": "vite_xxxxxxxxxxxxxxxxxx"
 }
