@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/interfaces/core"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/log15"
@@ -353,6 +354,11 @@ func (f DexApi) GetOrdersForMarket(tradeToken, quoteToken types.TokenTypeId, sid
 	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
+		latest, err := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+		if err != nil {
+			return nil, err
+		}
+		latestHashHeight := core.HashHeight{Hash: latest.Hash, Height: latest.Height}
 		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
 			return nil, dex.TradeMarketNotExistsErr
 		} else {
@@ -361,10 +367,10 @@ func (f DexApi) GetOrdersForMarket(tradeToken, quoteToken types.TokenTypeId, sid
 			} else {
 				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
 				if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
-					ordersRes = &apidex.OrdersRes{apidex.OrdersToRpc(ods), size}
+					ordersRes = &apidex.OrdersRes{apidex.OrdersToRpc(ods), size, latestHashHeight}
 					return ordersRes, err
 				} else {
-					return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size}, err
+					return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size, latestHashHeight}, err
 				}
 			}
 		}
