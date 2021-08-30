@@ -7,7 +7,7 @@ Built from the files in this (`/docs`) directory for
 
 ### How It Works
 
-We use github action for docs deploy. Every time you push code to github, if some changes is happen on `docs/**`. It will auto deploy to https://docs.vite.org/go-vite/
+We use github action for docs deploy. Every time you push code to github, if some changes is happen on `docs/**`. It will automatically deploy to https://docs.vite.org/go-vite/
 
 ## README
 
@@ -19,7 +19,7 @@ on the website.
 The [config.js](./.vuepress/config.js) generates the sidebar and Table of Contents
 on the website docs. 
 
-We have enable auto generate sidebar. So you don't need to setup sidebar manual. 
+We have enabled auto generated sidebar. So you don't need to setup sidebar manually. 
 
 ## Markdown configuration
 
