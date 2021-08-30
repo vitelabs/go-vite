@@ -7,18 +7,18 @@ parent:
 # Introduction
 
 Vite is a high-performance decentralized application platform built on asynchronous message-driven architecture. 
-The smart contracts in Vite are written in Solidity++, a programming language that extends Ethereum Solidity by adding asynchronous semantics while maintains major compatibility.
-Smart contracts in Vite won't share states but communicate with each other via messaging.
-User is able to write, compile smart contracts and deploy in Vite network now.
+The smart contracts in Vite are written in Solidity++, a programming language that extends Solidity by adding asynchronous semantics while maintains major compatibility.
+Smart contracts in Vite won't share states but communicate with each other via sending messages.
 
 ## What is Asynchronous Smart Contract
 
-Cross-contract calls in Ethereum are represented as function calls, or internal transactions. This set of calls are either completed at the same time or all fail. Obviously, this kind of atomic ACID semantic could become a performance bottleneck in system. 
-To tackle the issue, Vite adopts an asynchronous, message-driven architecture on the basis of known solution of centralized Internet technology.  Smart contracts in Vite communicate with each other via sending messages instead of sharing states.
+Inter-contract calls in Ethereum are represented as sychronous function calls. This set of calls are either completed at the same time or all fail. Obviously, this kind of atomic semantics could become a performance bottleneck in system. 
 
-Similar to common transfer, a contract call is separated into a contract request transaction and a contract response, representing as transaction blocks appended into the account chains of requester and responder of a contract call respectively.
+To tackle the issue, Vite adopts an asynchronous, message-driven architecture. Smart contracts in Vite communicate with each other via sending messages instead of sharing their states.
 
-The manner how these transactions are written to the ledger and how they are confirmed are also asynchronous. A "snapshotted" contract request transaction means the contract call is successfully initiated. A "snapshotted" contract response transaction indicates the contract call is complete.
+Similar to token transfer, a contract call is separated into a *contract request transaction* and a *contract response transaction*, representing as transaction blocks appended into the account chains of requester and responder of a contract call respectively.
+
+The manner how these transactions are written to the ledger and how they are confirmed are also asynchronous. A ***snapshotted*** contract request transaction means the contract call is successfully initiated. A ***snapshotted*** contract response transaction indicates the contract call is completed.
 
 There is no return value in asynchronous contract. Execution result should be returned to the caller by callback, which actually yields a new transaction after current execution process has completed.
 
@@ -59,7 +59,17 @@ For complex contract, the quota of contract account may be insufficient for gene
 
 Ethereum provides Solidity, a Turing-complete programming language for developing smart contracts. To support asynchronous semantics, Vite extends Solidity and defines a set of syntax for message communication. The extended Solidity in Vite is called Solidity++.
 
-Solidity++ supports most of Solidity's syntax, but will no longer support synchronous function calls between contracts. Developers can define messages through `message` keyword and define message handlers via `onMessage` keyword to enable cross-contract communication. Messages in Solidity++ are compiled into `CALL` instructions. As a result, a request transaction is generated and appended to Vite's ledger, which plays a key role as message middleware for asynchronous communication between contracts, ensuring reliable storage of messages and preventing duplication.
+## How to Call a Contract Asynchronously
+### Callback
+In previous versions of Solidity++, such as Solidity++ 0.4.3, developers can define *messages* through `message` keyword and define *callbacks* via `onMessage` keyword to enable cross-contract communication. 
+
+In a `onMessage` declaration, one contract can call another contract by using `send` statement. A `send` statement in Solidity++ are compiled into a `CALL` instruction.
+
+ As a result, a request transaction is generated and appended to Vite's DAG ledger, which plays a key role as message middleware for asynchronous communication between contracts, ensuring reliable storage of messages and preventing duplication.
+### Async/Await
+Since Solidity++ 0.8.0, we introduce a modern approach to asynchronous functions using async/await syntactic sugar.
+
+To those familiar with mordern programming languages, the async/await provides a more elegant and readable way to organise asynchronous function calls, and implement more reliable and concise control flows.
 
 ## Virtual Machine
 

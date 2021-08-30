@@ -1,8 +1,8 @@
 ---
-order: 2
+order: 1
 ---
 
-# Solidity++
+# Introduction to Solidity++ 0.4
 
 Solidity++ retains most syntax of Solidity. However, Solidity++ is still a different language. The difference mainly lies in asynchronous design.
 
