@@ -1,0 +1,51 @@
+name: gvite-release-build
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'release from'
+        required: true
+      tag:
+        description: 'release tag'
+        required: true
+
+jobs:
+
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: '${{ github.event.inputs.branch }}'
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+    
+    - name: Release Version && Commit
+      run:  echo "${{ github.event.inputs.tag }}" > version/buildversion ; make build_version
+      
+    - name: Commit changes
+      uses: EndBug/add-and-commit@v7
+      with:
+        message: 'release ${{ github.event.inputs.tag }}'
+        add: 'version'
+
+    - name: Build
+      run:  echo "${{ github.event.inputs.tag }}" > version/buildversion ; make all
+      
+    - name: Release Log
+      run: cd build/cmd/gvite ;ls | grep -v ".tar.gz" | while read line; do tar zcvf $line.tar.gz $line ; openssl dgst -sha256 $line.tar.gz >> release.sha256.log ;done ; cd ../../../ 
+      
+    - name: Release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: "${{ github.event.inputs.tag }}"
+        commit: "${{ github.event.inputs.branch }}"
+        artifacts: "build/cmd/gvite/*.tar.gz"
+        bodyFile: "build/cmd/gvite/release.sha256.log"
+        prerelease: true
+        token: ${{ secrets.GITHUB_TOKEN }}
+      
