@@ -2,10 +2,12 @@ package pool
 
 import (
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces/core"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/pool/batch"
 	"github.com/vitelabs/go-vite/ledger/pool/tree"
 	"github.com/vitelabs/go-vite/net"
+	"github.com/vitelabs/go-vite/tools/toposort"
 )
 
 // ChainState represents the relationship between the two branches
@@ -98,7 +100,16 @@ func (pl *pool) insertChunksToChain(chunks []ledger.SnapshotChunk, source types.
 			if v.SnapshotBlock != nil {
 				sHash = &v.SnapshotBlock.Hash
 			}
-			for _, vv := range v.AccountBlocks {
+
+			accBlocks := make([]*core.AccountBlock, len(v.AccountBlocks))
+			copy(accBlocks, v.AccountBlocks)
+			err := toposort.TopoSort(accBlocksSort(accBlocks))
+			if err != nil {
+				pl.log.Warn("account block sort failed", "sHeight", v.SnapshotBlock.Height)
+				accBlocks = v.AccountBlocks
+			}
+
+			for _, vv := range accBlocks {
 				if err := pl.accountHHExists(vv.AccountAddress, vv.Height, vv.Hash); err == nil {
 					pl.log.Info("[A]block exist, ignore.", "block", vv.Hash)
 					continue
