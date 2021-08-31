@@ -57,6 +57,10 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
+		latest, err := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+		if err != nil {
+			return nil, err
+		}
 		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
 			return nil, dex.TradeMarketNotExistsErr
 		} else {
@@ -64,12 +68,45 @@ func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeI
 				return nil, err
 			} else {
 				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
-				if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
-					ordersRes = &apidex.OrdersRes{apidex.OrdersToRpc(ods), size}
-					return ordersRes, err
-				} else {
-					return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size}, err
+				ods, size, err := matcher.GetOrdersFromMarket(side, begin, end)
+				latest2, _ := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+				return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size, latest.HashHeight(), latest2.HashHeight()}, err
+			}
+		}
+	}
+}
+
+func (f DexTradeApi) GetAllOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, begin, end int) (ordersRes *apidex.OrdersRes, err error) {
+	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
+		return nil, err
+	} else {
+		latest, err := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+		if err != nil {
+			return nil, err
+		}
+		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
+			return nil, dex.TradeMarketNotExistsErr
+		} else {
+			if tradeDb, err := getVmDb(f.chain, types.AddressDexTrade); err != nil {
+				return nil, err
+			} else {
+				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
+				sellOds, sellSize, err := matcher.GetOrdersFromMarket(true, begin, end)
+				if err != nil {
+					return nil, err
 				}
+				buyOds, buySize, err := matcher.GetOrdersFromMarket(false, begin, end)
+				if err != nil {
+					return nil, err
+				}
+				var obs []*apidex.RpcOrder
+				obs = append(obs, apidex.OrdersToRpc(sellOds)...)
+				obs = append(obs, apidex.OrdersToRpc(buyOds)...)
+				latest2, err := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+				if err != nil {
+					return nil, err
+				}
+				return &apidex.OrdersRes{obs, buySize + sellSize, latest.HashHeight(), latest2.HashHeight()}, nil
 			}
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 )
@@ -365,8 +366,10 @@ type RpcOrder struct {
 }
 
 type OrdersRes struct {
-	Orders []*RpcOrder `json:"orders,omitempty"`
-	Size   int         `json:"size"`
+	Orders     []*RpcOrder     `json:"orders,omitempty"`
+	Size       int             `json:"size"`
+	QueryStart core.HashHeight `json:"queryStart,omitempty"`
+	QueryEnd   core.HashHeight `json:"queryEnd,omitempty"`
 }
 
 func OrderToRpc(order *dex.Order) *RpcOrder {

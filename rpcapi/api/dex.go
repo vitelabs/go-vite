@@ -201,6 +201,26 @@ func (f DexApi) GetInviteCodeBinding(address types.Address) (uint32, error) {
 	}
 }
 
+func (f DexApi) GetInviter(addresses []types.Address) (map[types.Address]types.Address, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[types.Address]types.Address)
+	for _, addr := range addresses {
+		if inviter, err := dex.GetInviterByInvitee(db, addr); err != nil {
+			if err == dex.NotBindInviterErr {
+				continue
+			} else {
+				return nil, err
+			}
+		} else {
+			result[addr] = *inviter
+		}
+	}
+	return result, nil
+}
+
 func (f DexApi) IsInviteCodeValid(code uint32) (bool, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
@@ -333,6 +353,10 @@ func (f DexApi) GetOrdersForMarket(tradeToken, quoteToken types.TokenTypeId, sid
 	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
+		latest, err := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+		if err != nil {
+			return nil, err
+		}
 		if marketInfo, ok := dex.GetMarketInfo(fundDb, tradeToken, quoteToken); !ok {
 			return nil, dex.TradeMarketNotExistsErr
 		} else {
@@ -340,12 +364,9 @@ func (f DexApi) GetOrdersForMarket(tradeToken, quoteToken types.TokenTypeId, sid
 				return nil, err
 			} else {
 				matcher := dex.NewMatcherWithMarketInfo(tradeDb, marketInfo)
-				if ods, size, err := matcher.GetOrdersFromMarket(side, begin, end); err == nil {
-					ordersRes = &apidex.OrdersRes{apidex.OrdersToRpc(ods), size}
-					return ordersRes, err
-				} else {
-					return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size}, err
-				}
+				ods, size, err := matcher.GetOrdersFromMarket(side, begin, end)
+				latest2, _ := f.chain.GetLatestAccountBlock(types.AddressDexTrade)
+				return &apidex.OrdersRes{apidex.OrdersToRpc(ods), size, latest.HashHeight(), latest2.HashHeight()}, err
 			}
 		}
 	}
