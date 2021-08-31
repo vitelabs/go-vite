@@ -32,6 +32,7 @@ gvite:
 test:
 	GO111MODULE=on go test github.com/vitelabs/go-vite/common/upgrade
 	GO111MODULE=on go test github.com/vitelabs/go-vite/ledger/pipeline
+	GO111MODULE=on go test github.com/vitelabs/go-vite/tools/toposort
 
 build_linux_amd64:
 	env GOOS=linux GO111MODULE=on GOARCH=amd64 go build -i -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/gvite $(MAIN)
