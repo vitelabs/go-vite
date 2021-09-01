@@ -14,7 +14,7 @@ func (a accBlocksSort) Ids(i int) []string {
 	var ids []string
 
 	ids = append(ids, a[i].Hash.Hex())
-	if blocks := a[i].SendBlockList; blocks != nil {
+	if blocks := a[i].SendBlockList; len(blocks) > 0 {
 		for _, block := range blocks {
 			ids = append(ids, block.Hash.Hex())
 		}
@@ -32,7 +32,7 @@ func (a accBlocksSort) Inputs(i int) []string {
 	if block.Height > types.GenesisHeight {
 		inputs = append(inputs, a[i].PrevHash.Hex())
 	}
-	if block.Height > types.GenesisHeight && block.IsReceiveBlock() {
+	if block.IsReceiveBlock() && !block.IsGenesisBlock() {
 		inputs = append(inputs, block.FromBlockHash.Hex())
 	}
 	return inputs
