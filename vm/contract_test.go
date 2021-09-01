@@ -12,6 +12,8 @@ import (
 )
 
 func TestRun(t *testing.T) {
+	initEmptyFork(t)
+
 	tests := []struct {
 		input, result []byte
 		err           error

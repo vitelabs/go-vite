@@ -22,10 +22,31 @@ import (
 
 func init() {
 	InitVMConfig(false, false, false, false, common.HomeDir())
-	initFork()
+	// initFork()
 }
 
 func initFork() {
+	upgrade.InitUpgradeBox(upgrade.NewCustomUpgradeBox(
+		map[string]*upgrade.UpgradePoint{
+			"SeedFork":            &upgrade.UpgradePoint{Height: 100, Version: 1},
+			"DexFork":             &upgrade.UpgradePoint{Height: 200, Version: 2},
+			"DexFeeFork":          &upgrade.UpgradePoint{Height: 250, Version: 3},
+			"StemFork":            &upgrade.UpgradePoint{Height: 300, Version: 4},
+			"LeafFork":            &upgrade.UpgradePoint{Height: 400, Version: 5},
+			"EarthFork":           &upgrade.UpgradePoint{Height: 500, Version: 6},
+			"DexMiningFork":       &upgrade.UpgradePoint{Height: 600, Version: 7},
+			"DexRobotFork":        &upgrade.UpgradePoint{Height: 600, Version: 8},
+			"DexStableMarketFork": &upgrade.UpgradePoint{Height: 600, Version: 9},
+		},
+	))
+}
+
+func initEmptyFork(t *testing.T) {
+	upgrade.CleanupUpgradeBox(t)
+	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox())
+}
+func initCustomFork(t *testing.T) {
+	upgrade.CleanupUpgradeBox(t)
 	upgrade.InitUpgradeBox(upgrade.NewCustomUpgradeBox(
 		map[string]*upgrade.UpgradePoint{
 			"SeedFork":            &upgrade.UpgradePoint{Height: 100, Version: 1},
@@ -59,6 +80,7 @@ var (
 )
 
 func TestVmRun(t *testing.T) {
+	initCustomFork(t)
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), util.AttovPerVite)
 	db, addr1, _, hash12, snapshot, _ := prepareDb(viteTotalSupply)
@@ -307,6 +329,7 @@ func TestVmRun(t *testing.T) {
 }*/
 
 func TestCall(t *testing.T) {
+	initCustomFork(t)
 	// prepare db, add account1, add account2 with code, add account3 with code
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), util.AttovPerVite)
 	db, addr1, _, hash12, _, _ := prepareDb(viteTotalSupply)
@@ -460,6 +483,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 
 func TestVmForTest(t *testing.T) {
 	InitVMConfig(true, true, true, false, "")
+	initCustomFork(t)
 	db, _, _, _, _, _ := prepareDb(big.NewInt(0))
 
 	addr1, _, _ := types.CreateAddress()
@@ -479,6 +503,7 @@ func TestVmForTest(t *testing.T) {
 		len(sendCallBlock.AccountBlock.SendBlockList) != 0 || isRetry || err != nil {
 		t.Fatalf("init test vm config failed")
 	}
+
 }
 
 type TestCaseMap map[string]TestCase
@@ -516,6 +541,7 @@ type TestCase struct {
 }
 
 func TestVmInterpreter(t *testing.T) {
+	initCustomFork(t)
 	testDir := "./test/interpreter_test/"
 	testFiles, ok := ioutil.ReadDir(testDir)
 	if ok != nil {
@@ -687,6 +713,7 @@ type OffchainTestCase struct {
 }
 
 func TestOffChainReader(t *testing.T) {
+	initCustomFork(t)
 	testCaseMap := new(OffchainTestCaseMap)
 	file, ok := os.Open("./test/offchaintest/offchain.json")
 	if ok != nil {

@@ -12,14 +12,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
+	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/vm/contracts/abi"
 	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/vm/contracts/dex"
 	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
 	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
 )
 
 type DexFundCase struct {
@@ -226,6 +228,9 @@ type CheckEvent struct {
 }
 
 func TestDexFund(t *testing.T) {
+	upgrade.CleanupUpgradeBox(t)
+	upgrade.InitUpgradeBox(upgrade.NewLatestUpgradeBox())
+
 	testDir := "./contracts/dex/test/fund/"
 	testFiles, ok := ioutil.ReadDir(testDir)
 	if ok != nil {
@@ -259,30 +264,31 @@ func executeActions(testCase *DexFundCase, vm *VM, db *testDatabase, t *testing.
 		for _, action := range testCase.AssetActions {
 			sendBlock := newSendBlock(action.Address, types.AddressDexFund)
 			db.addr = action.Address
+
 			var (
-				vmSendBlock *vm_db.VmAccountBlock
+				vmSendBlock *interfaces.VmAccountBlock
 				err         error
 			)
 			if action.ActionTye == dex.TransferAssetDeposit { // deposit
 				sendBlock.TokenId = action.Token
 				sendBlock.Amount = action.Amount
-				sendBlock.Data, _ = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundDeposit)
+				sendBlock.Data, err = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundDeposit)
+				helper.ErrFailf(t, err, "ABI pack err %v", err)
 				vmSendBlock, _, err = vm.RunV2(db, sendBlock, nil, nil)
 			} else if action.ActionTye == dex.TransferAssetWithdraw {
 				sendBlock.Data, err = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundWithdraw, action.Token, action.Amount)
+				helper.ErrFailf(t, err, "ABI pack err %v", err)
 				vmSendBlock, _, err = vm.RunV2(db, sendBlock, nil, nil)
 			} else { // transfer\
 				sendBlock.Data, err = cabi.ABIDexFund.PackMethod(cabi.MethodNameDexFundTransfer, action.Target, action.Token, action.Amount)
+				helper.ErrFailf(t, err, "ABI pack err %v", err)
 				vmSendBlock, _, err = vm.RunV2(db, sendBlock, nil, nil)
 			}
-			if err != nil {
-				fmt.Printf("executeActions send runVm err %v\n", err)
-			}
-			assert.True(t, err == nil, "vm.RunV2 handle send result err not nil")
+			helper.ErrFailf(t, err, "vm.RunV2 handle send result err %v", err)
 			db.addr = types.AddressDexFund
-			vmSendBlock, _, err = vm.RunV2(db, newRecBlock(types.AddressDexFund), vmSendBlock.AccountBlock, nil)
+			_, _, err = vm.RunV2(db, newRecBlock(types.AddressDexFund), vmSendBlock.AccountBlock, nil)
 			//fmt.Printf("handle receive runVm err %v\n", err)
-			assert.True(t, err == nil, "vm.RunV2 handle receive result err not nil")
+			helper.ErrFailf(t, err, "vm.RunV2 handle receive result err %v", err)
 		}
 	}
 	if testCase.InitContract != nil {
@@ -354,7 +360,7 @@ func doAction(name string, db *testDatabase, vm *VM, from, to types.Address, dat
 	sendBlock := newSendBlock(from, to)
 	db.addr = from
 	var (
-		vmSendBlock, sendCreateBlock *vm_db.VmAccountBlock
+		vmSendBlock, sendCreateBlock *interfaces.VmAccountBlock
 		err                          error
 	)
 	sendBlock.Data = data

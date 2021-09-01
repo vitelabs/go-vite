@@ -10,6 +10,8 @@ import (
 )
 
 func TestMemory(t *testing.T) {
+	initEmptyFork(t)
+
 	mem := newMemory()
 	size := uint64(64)
 	mem.resize(size)

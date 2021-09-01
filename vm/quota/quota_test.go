@@ -15,7 +15,8 @@ import (
 	"github.com/vitelabs/go-vite/vm/util"
 )
 
-func initForkPointsForQuotaTest() {
+func initForkPointsForQuotaTest(t *testing.T) {
+	upgrade.CleanupUpgradeBox(t)
 	upgrade.InitUpgradeBox(
 		upgrade.NewEmptyUpgradeBox().
 			AddPoint(1, 100).
@@ -59,7 +60,7 @@ func (db *testQuotaDb) GetLatestAccountBlock(addr types.Address) (*ledger.Accoun
 
 func TestCalcPoWDifficulty(t *testing.T) {
 	InitQuotaConfig(false, false)
-	initForkPointsForQuotaTest()
+	initForkPointsForQuotaTest(t)
 	testCases := []struct {
 		sbHeight      uint64
 		globalTotal   uint64
@@ -912,7 +913,7 @@ func TestCalcQuotaV3(t *testing.T) {
 		},
 	}
 	InitQuotaConfig(false, false)
-	initForkPointsForQuotaTest()
+	initForkPointsForQuotaTest(t)
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, updateUnconfirmedQuotaInfo(testCase.quotaInfoList, testCase.unconfirmedList), testCase.unconfirmedList, types.QuotaInfo{QuotaUsedTotal: testCase.globalQuota}}
 		quotaTotal, stakeQuota, quotaAddition, snapshotCurrentQuota, quotaAvg, _, _, err := calcQuotaV3(db, testCase.addr, getStakeAmount(testCase.stakeAmount), testCase.difficulty, testCase.sbHeight)
@@ -1276,7 +1277,7 @@ func TestCalcQuotaForBlock(t *testing.T) {
 		},
 	}
 	InitQuotaConfig(false, false)
-	initForkPointsForQuotaTest()
+	initForkPointsForQuotaTest(t)
 	for _, testCase := range testCases {
 		db := &testQuotaDb{testCase.addr, updateUnconfirmedQuotaInfo(testCase.quotaInfoList, testCase.unconfirmedList), testCase.unconfirmedList, types.QuotaInfo{QuotaUsedTotal: testCase.globalQuota}}
 		quotaTotal, quotaAddition, err := GetQuotaForBlock(db, testCase.addr, getStakeAmount(testCase.stakeAmount), testCase.difficulty, testCase.sbHeight)
