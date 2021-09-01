@@ -44,7 +44,6 @@ genesis_*.json
 **/net/**/simular/**
 !**/net/**/simular/**/*.go
 
-
 # node.js
 node_modules
 docs/.vuepress/dist
@@ -53,3 +52,5 @@ package-lock.json
 sw.*
 workbox-*
 
+# bin/dump_branch_diff
+commits-logs/
