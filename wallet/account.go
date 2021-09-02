@@ -40,6 +40,17 @@ func NewAccountFromHexKey(hexPriv string) (*Account, error) {
 	}, nil
 }
 
+func RandomAccount() (*Account, error) {
+	addr, priv, _, err := RandomMnemonic24()
+	if err != nil {
+		return nil, err
+	}
+	return &Account{
+		address: addr,
+		priv:    priv,
+	}, nil
+}
+
 func (acct Account) Address() types.Address {
 	return acct.address
 }
