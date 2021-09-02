@@ -76,6 +76,9 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 	if chainCfg == nil {
 		chainCfg = defaultConfig()
 	}
+	if genesisCfg == nil {
+		genesisCfg = config.MainnetGenesis()
+	}
 	c := &chain{
 		genesisCfg: genesisCfg,
 		dataDir:    dir,

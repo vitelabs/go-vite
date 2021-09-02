@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
@@ -117,7 +117,6 @@ func (w *worker) getSeedByHash(hash *types.Hash) uint64 {
 		// default-> zero
 		return 0
 	}
-	fmt.Printf("query seed, hash:%s\n", hash)
 	value, ok := w.seedCache.Get(*hash)
 	if ok {
 		w.log.Info(fmt.Sprintf("query seed, hash:%s, seed:%d\n", hash, value.(uint64)))

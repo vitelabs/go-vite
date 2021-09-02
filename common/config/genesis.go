@@ -124,7 +124,7 @@ func MakeGenesisConfig(genesisFile string) *Genesis {
 	if len(genesisFile) > 0 {
 		return loadFromGenesisFile(genesisFile)
 	} else {
-		return makeMainnetGenesisCfg()
+		return MainnetGenesis()
 	}
 }
 
@@ -146,7 +146,15 @@ func loadFromGenesisFile(filename string) *Genesis {
 	return genesisConfig
 }
 
-func makeMainnetGenesisCfg() *Genesis {
+func GenesisJson() string {
+	return genesisJson
+}
+
+func MockGenesisJson() string {
+	return mockGenesisJson
+}
+
+func MainnetGenesis() *Genesis {
 	g := new(Genesis)
 	err := json.Unmarshal([]byte(GenesisJson()), g)
 	if err != nil {
@@ -155,6 +163,11 @@ func makeMainnetGenesisCfg() *Genesis {
 	return g
 }
 
-func GenesisJson() string {
-	return genesisJson
+func MockGenesis() *Genesis {
+	g := new(Genesis)
+	err := json.Unmarshal([]byte(MockGenesisJson()), g)
+	if err != nil {
+		panic(err)
+	}
+	return g
 }
