@@ -294,7 +294,7 @@ func (pl *pool) Start() {
 	pl.newSnapshotBlockCond.Start(time.Millisecond * 30)
 	pl.newAccBlockCond.Start(time.Millisecond * 40)
 	pl.worker.closed = pl.closed
-	pl.printer = newSnapshotPrinter(pl.closed)
+	pl.printer = newSnapshotPrinter(pl.closed, pl.sync)
 	pl.bc.Register(pl.printer)
 	common.Go(func() {
 		pl.wg.Add(1)
