@@ -4,10 +4,12 @@ import (
 	"github.com/vitelabs/go-vite/common/errors"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/interfaces"
 	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
 )
 
 type Account struct {
+	interfaces.Account
 	address types.Address
 	priv    ed25519.PrivateKey
 }
@@ -42,8 +44,12 @@ func (acct Account) Address() types.Address {
 	return acct.address
 }
 
-func (acct Account) Sign(hash types.Hash) (signData []byte, pub ed25519.PublicKey, err error) {
-	return ed25519.Sign(acct.priv, hash.Bytes()), acct.priv.PubByte(), nil
+func (acct Account) Sign(msg []byte) (signData []byte, pub ed25519.PublicKey, err error) {
+	return ed25519.Sign(acct.priv, msg), acct.priv.PubByte(), nil
+}
+
+func (acct Account) Verify(pub ed25519.PublicKey, message, signdata []byte) error {
+	return ed25519.VerifySig(pub, message, signdata)
 }
 
 func (acct Account) PrivateKey() (ed25519.PrivateKey, error) {
