@@ -47,6 +47,7 @@ type Subscriber interface {
 	Subscribe(gid types.Gid, id string, addr *types.Address, fn func(Event))
 	UnSubscribe(gid types.Gid, id string)
 	SubscribeProducers(gid types.Gid, id string, fn func(event ProducersEvent))
+	TriggerMineEvent(addr types.Address) error
 }
 
 // Reader can read consensus result

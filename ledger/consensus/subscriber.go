@@ -3,6 +3,7 @@ package consensus
 import (
 	"sync"
 
+	"github.com/pkg/errors"
 	"github.com/vitelabs/go-vite/common/types"
 )
 
@@ -60,4 +61,8 @@ func (cs consensusSubscriber) triggerProducerEvent(gid types.Gid, fn func(*produ
 		}
 		return true
 	})
+}
+
+func (cs consensusSubscriber) TriggerMineEvent(addr types.Address) error {
+	return errors.New("not supported")
 }

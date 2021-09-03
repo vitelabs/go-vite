@@ -27,7 +27,7 @@ func (cs subscriber_puppet) triggerEvent(gid types.Gid, fn func(*subscribeEvent)
 	cs.consensusSubscriber.triggerEvent(gid, fn)
 }
 
-func (cs subscriber_puppet) TriggerMineEvent(addr types.Address) {
+func (cs subscriber_puppet) TriggerMineEvent(addr types.Address) error {
 	sTime := time.Now()
 	eTime := sTime.Add(time.Duration(cs.snapshot.GetInfo().Interval))
 	index := cs.snapshot.Time2Index(sTime)
@@ -49,4 +49,5 @@ func (cs subscriber_puppet) TriggerMineEvent(addr types.Address) {
 		})
 
 	})
+	return nil
 }
