@@ -22,7 +22,7 @@ var log = log15.New("module", "producerTest")
 
 func genConsensus(c chain.Chain, pool pool.BlockPool, t *testing.T) consensus.Consensus {
 	cs := consensus.NewConsensus(c, pool)
-	err := cs.Init()
+	err := cs.Init(nil)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()

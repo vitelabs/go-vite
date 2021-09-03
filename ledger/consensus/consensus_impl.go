@@ -98,18 +98,30 @@ func (cs *consensus) VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time
 	return &st, &et, nil
 }
 
-func (cs *consensus) Init() error {
+func (cs *consensus) Init(cfg *ConsensusCfg) error {
 	if !cs.PreInit() {
 		panic("pre init fail.")
 	}
 	defer cs.PostInit()
+	if cfg == nil {
+		cfg = DefaultCfg()
+	}
 
 	snapshot := newSnapshotCs(cs.rw, cs.mLog)
 	cs.snapshot = snapshot
 	cs.rw.init(snapshot)
 
 	cs.tg = &trigger{}
-	cs.consensusSubscriber = newConsensusSubscriber()
+	if cfg.enablePuppet {
+		sub := newSubscriberPuppet(cs.snapshot)
+		cs.Subscriber = sub
+		cs.subscribeTrigger = sub
+	} else {
+		sub := newConsensusSubscriber()
+		cs.Subscriber = sub
+		cs.subscribeTrigger = sub
+	}
+
 	cs.contracts = newContractCs(cs.rw, cs.mLog)
 	err := cs.contracts.LoadGid(types.DELEGATE_GID)
 
@@ -130,7 +142,7 @@ func (cs *consensus) Start() {
 	common.Go(func() {
 		cs.wg.Add(1)
 		defer cs.wg.Done()
-		cs.tg.update(cs.ctx, types.SNAPSHOT_GID, cs.snapshot, cs.consensusSubscriber)
+		cs.tg.update(cs.ctx, types.SNAPSHOT_GID, cs.snapshot, cs.subscribeTrigger)
 	})
 
 	reader, err := cs.dposWrapper.getDposConsensus(types.DELEGATE_GID)
@@ -141,7 +153,7 @@ func (cs *consensus) Start() {
 	common.Go(func() {
 		cs.wg.Add(1)
 		defer cs.wg.Done()
-		cs.tg.update(cs.ctx, types.DELEGATE_GID, reader, cs.consensusSubscriber)
+		cs.tg.update(cs.ctx, types.DELEGATE_GID, reader, cs.subscribeTrigger)
 	})
 
 	cs.rw.Start()

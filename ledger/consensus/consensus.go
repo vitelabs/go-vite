@@ -28,8 +28,7 @@ type Event struct {
 	Stime   time.Time
 	Etime   time.Time
 
-	Timestamp         time.Time // add to block
-	SnapshotTimeStamp time.Time // add to block
+	Timestamp time.Time // add to block
 
 	VoteTime    time.Time // voteTime
 	PeriodStime time.Time // start time for period
@@ -66,7 +65,7 @@ type APIReader interface {
 // Life define the life cycle for consensus component
 type Life interface {
 	Start()
-	Init() error
+	Init(cfg *ConsensusCfg) error
 	Stop()
 }
 
@@ -82,7 +81,8 @@ type Consensus interface {
 
 // update committee result
 type consensus struct {
-	*consensusSubscriber
+	Subscriber
+	subscribeTrigger
 
 	common.LifecycleStatus
 

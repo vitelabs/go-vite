@@ -121,7 +121,7 @@ func (v *Vite) Start() (err error) {
 
 	v.chain.Start()
 
-	err = v.consensus.Init()
+	err = v.consensus.Init(nil)
 	if err != nil {
 		return err
 	}

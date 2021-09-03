@@ -6,6 +6,11 @@ import (
 	"github.com/vitelabs/go-vite/common/types"
 )
 
+type subscribeTrigger interface {
+	triggerEvent(gid types.Gid, fn func(*subscribeEvent))
+	triggerProducerEvent(gid types.Gid, fn func(*producerSubscribeEvent))
+}
+
 type consensusSubscriber struct {
 	firstSub  *sync.Map
 	secondSub *sync.Map
