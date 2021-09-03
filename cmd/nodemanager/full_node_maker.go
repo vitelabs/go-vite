@@ -135,10 +135,6 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.MinerEnabled = ctx.GlobalBool(utils.MinerFlag.Name)
 	}
 
-	if ctx.GlobalIsSet(utils.MinerIntervalFlag.Name) {
-		cfg.MinerInterval = ctx.GlobalInt(utils.MinerIntervalFlag.Name)
-	}
-
 	//Log Level Config
 	if logLevel := ctx.GlobalString(utils.LogLvlFlag.Name); len(logLevel) > 0 {
 		cfg.LogLevel = logLevel

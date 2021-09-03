@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/deckarep/golang-set"
+	mapset "github.com/deckarep/golang-set"
 )
 
 // API describes the set of methods offered over the RPC interface
