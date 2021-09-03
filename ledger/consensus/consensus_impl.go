@@ -1,8 +1,7 @@
 package consensus
 
 import (
-	"strconv"
-	"sync"
+	"context"
 	"time"
 
 	"github.com/pkg/errors"
@@ -10,18 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
 )
-
-type subscribeEvent struct {
-	addr *types.Address
-	gid  types.Gid
-	fn   func(Event)
-}
-type producerSubscribeEvent struct {
-	gid types.Gid
-	fn  func(ProducersEvent)
-}
 
 func (cs *consensus) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
 	cs.snapshot.verifyProducerAndSeed(header)
@@ -35,9 +23,7 @@ func (cs *consensus) VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock)
 		if err != nil {
 			return nil, err
 		}
-		for _, b := range blocks {
-			result = append(result, b)
-		}
+		result = append(result, blocks...)
 	}
 	return result, nil
 }
@@ -122,6 +108,8 @@ func (cs *consensus) Init() error {
 	cs.snapshot = snapshot
 	cs.rw.init(snapshot)
 
+	cs.tg = &trigger{}
+	cs.consensusSubscriber = newConsensusSubscriber()
 	cs.contracts = newContractCs(cs.rw, cs.mLog)
 	err := cs.contracts.LoadGid(types.DELEGATE_GID)
 
@@ -137,16 +125,14 @@ func (cs *consensus) Start() {
 	cs.PreStart()
 	defer cs.PostStart()
 	cs.closed = make(chan struct{})
-
-	snapshotSubs, _ := cs.subscribes.LoadOrStore(types.SNAPSHOT_GID, &sync.Map{})
+	cs.ctx, cs.cancelFn = context.WithCancel(context.Background())
 
 	common.Go(func() {
 		cs.wg.Add(1)
 		defer cs.wg.Done()
-		cs.update(types.SNAPSHOT_GID, cs.snapshot, snapshotSubs.(*sync.Map))
+		cs.tg.update(cs.ctx, types.SNAPSHOT_GID, cs.snapshot, cs.consensusSubscriber)
 	})
 
-	contractSubs, _ := cs.subscribes.LoadOrStore(types.DELEGATE_GID, &sync.Map{})
 	reader, err := cs.dposWrapper.getDposConsensus(types.DELEGATE_GID)
 	if err != nil {
 		panic(err)
@@ -155,7 +141,7 @@ func (cs *consensus) Start() {
 	common.Go(func() {
 		cs.wg.Add(1)
 		defer cs.wg.Done()
-		cs.update(types.DELEGATE_GID, reader, contractSubs.(*sync.Map))
+		cs.tg.update(cs.ctx, types.DELEGATE_GID, reader, cs.consensusSubscriber)
 	})
 
 	cs.rw.Start()
@@ -167,179 +153,7 @@ func (cs *consensus) Stop() {
 	defer cs.PostStop()
 	//cs.rw.rw.UnRegister(cs)
 	cs.rw.Stop()
+	cs.cancelFn()
 	close(cs.closed)
 	cs.wg.Wait()
-}
-
-func (cs *consensus) Subscribe(gid types.Gid, id string, addr *types.Address, fn func(Event)) {
-	value, ok := cs.subscribes.Load(gid)
-	if !ok {
-		value, _ = cs.subscribes.LoadOrStore(gid, &sync.Map{})
-	}
-	v := value.(*sync.Map)
-	v.Store(id, &subscribeEvent{addr: addr, fn: fn, gid: gid})
-}
-func (cs *consensus) UnSubscribe(gid types.Gid, id string) {
-	value, ok := cs.subscribes.Load(gid)
-	if !ok {
-		return
-	}
-	v := value.(*sync.Map)
-	v.Delete(id)
-}
-
-func (cs *consensus) SubscribeProducers(gid types.Gid, id string, fn func(event ProducersEvent)) {
-	value, ok := cs.subscribes.Load(gid)
-	if !ok {
-		value, _ = cs.subscribes.LoadOrStore(gid, &sync.Map{})
-	}
-	v := value.(*sync.Map)
-	v.Store(id, &producerSubscribeEvent{fn: fn, gid: gid})
-}
-
-func (cs *consensus) update(gid types.Gid, t DposReader, m *sync.Map) {
-	index := t.Time2Index(time.Now())
-	for !cs.Stopped() {
-		//var current *memberPlan = nil
-
-		cs.rw.rollbackLock.RLockRollback()
-		electionResult, err := t.ElectionIndex(index)
-		cs.rw.rollbackLock.RUnLockRollback()
-
-		if err != nil {
-			cs.mLog.Error("can't get election result. time is "+time.Now().Format(time.RFC3339Nano)+"\".", "err", err)
-			select {
-			case <-cs.closed:
-				return
-			case <-time.After(time.Second):
-			}
-			// error handle
-			continue
-		}
-
-		if electionResult.Index != index {
-			cs.mLog.Error("can't get Index election result. Index is " + strconv.FormatInt(int64(index), 10))
-			index = t.Time2Index(time.Now())
-			continue
-		}
-		subs1, subs2 := copyMap(m)
-
-		if len(subs1) == 0 && len(subs2) == 0 {
-			select {
-			case <-time.After(electionResult.ETime.Sub(time.Now())):
-			case <-cs.closed:
-				return
-			}
-			index = index + 1
-			continue
-		}
-
-		for _, v := range subs1 {
-			tmpV := v
-			tmpResult := electionResult
-			common.Go(func() {
-				cs.event(tmpV, tmpResult, t.GenProofTime(index))
-			})
-		}
-
-		for _, v := range subs2 {
-			tmpV := v
-			tmpResult := electionResult
-			common.Go(func() {
-				cs.eventProducer(tmpV, tmpResult, t.GenProofTime(index))
-			})
-		}
-
-		sleepT := electionResult.ETime.Sub(time.Now()) - time.Millisecond*500
-		select {
-		case <-time.After(sleepT):
-		case <-cs.closed:
-			return
-		}
-		index = electionResult.Index + 1
-	}
-}
-func copyMap(m *sync.Map) (map[string]*subscribeEvent, map[string]*producerSubscribeEvent) {
-	r1 := make(map[string]*subscribeEvent)
-	r2 := make(map[string]*producerSubscribeEvent)
-	m.Range(func(k, v interface{}) bool {
-		switch t := v.(type) {
-		case *subscribeEvent:
-			r1[k.(string)] = t
-		case *producerSubscribeEvent:
-			r2[k.(string)] = t
-		}
-		return true
-	})
-	return r1, r2
-}
-func (cs *consensus) eventProducer(e *producerSubscribeEvent, result *electionResult, voteTime time.Time) {
-	cs.wg.Add(1)
-	defer cs.wg.Done()
-	var r []types.Address
-	for _, v := range result.Plans {
-		r = append(r, v.Member)
-	}
-	e.fn(ProducersEvent{Addrs: r, Index: result.Index, Gid: e.gid})
-}
-
-func (cs *consensus) event(e *subscribeEvent, result *electionResult, voteTime time.Time) {
-	cs.wg.Add(1)
-	defer cs.wg.Done()
-	if e.addr == nil {
-		// all
-		cs.eventAll(e, result, voteTime)
-	} else {
-		cs.eventAddr(e, result, voteTime)
-	}
-}
-
-func (cs *consensus) eventAll(e *subscribeEvent, result *electionResult, voteTime time.Time) {
-	for _, p := range result.Plans {
-		now := time.Now()
-		sub := p.STime.Sub(now)
-		if sub+time.Second < 0 {
-			continue
-		}
-		if sub > time.Millisecond*10 {
-			select {
-			case <-cs.closed:
-				return
-			case <-time.After(sub):
-			}
-		}
-		e.fn(newConsensusEvent(result, p, e.gid, voteTime))
-	}
-}
-func (cs *consensus) eventAddr(e *subscribeEvent, result *electionResult, voteTime time.Time) {
-	for _, p := range result.Plans {
-		if p.Member == *e.addr {
-			now := time.Now()
-			sub := p.STime.Sub(now)
-			if sub+time.Second < 0 {
-				continue
-			}
-			if sub > time.Millisecond*10 {
-				select {
-				case <-cs.closed:
-					return
-				case <-time.After(sub):
-				}
-			}
-			e.fn(newConsensusEvent(result, p, e.gid, voteTime))
-		}
-	}
-}
-
-func newConsensusEvent(r *electionResult, p *core.MemberPlan, gid types.Gid, voteTime time.Time) Event {
-	return Event{
-		Gid:         gid,
-		Address:     p.Member,
-		Stime:       p.STime,
-		Etime:       p.ETime,
-		Timestamp:   p.STime,
-		VoteTime:    voteTime,
-		PeriodStime: r.STime,
-		PeriodEtime: r.ETime,
-	}
 }

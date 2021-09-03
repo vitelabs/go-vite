@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -81,6 +82,8 @@ type Consensus interface {
 
 // update committee result
 type consensus struct {
+	*consensusSubscriber
+
 	common.LifecycleStatus
 
 	mLog log15.Logger
@@ -95,13 +98,15 @@ type consensus struct {
 
 	dposWrapper *dposReader
 
-	// subscribes map[types.Gid]map[string]*subscribeEvent
-	subscribes sync.Map
-
 	api APIReader
 
 	wg     sync.WaitGroup
 	closed chan struct{}
+
+	ctx      context.Context
+	cancelFn context.CancelFunc
+
+	tg *trigger
 }
 
 func (cs *consensus) SBPReader() core.SBPStatReader {
@@ -116,6 +121,7 @@ func (cs *consensus) API() APIReader {
 func NewConsensus(ch Chain, rollback lock.ChainRollback) Consensus {
 	log := log15.New("module", "consensus")
 	rw := newChainRw(ch, log, rollback)
+
 	self := &consensus{rw: rw, rollback: rollback}
 	self.mLog = log
 
