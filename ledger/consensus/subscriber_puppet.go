@@ -13,11 +13,15 @@ type subscriber_puppet struct {
 	snapshot DposReader
 }
 
-func newSubscriberPuppet(snapshot DposReader) *subscriber_puppet {
-	return &subscriber_puppet{
-		consensusSubscriber: newConsensusSubscriber(),
-		snapshot:            snapshot,
+func newSubscriberPuppet(sub interface{}, snapshot DposReader) *subscriber_puppet {
+	switch v := sub.(type) {
+	case *consensusSubscriber:
+		return &subscriber_puppet{
+			consensusSubscriber: v,
+			snapshot:            snapshot,
+		}
 	}
+	panic("err sub type")
 }
 
 func (cs subscriber_puppet) triggerEvent(gid types.Gid, fn func(*subscribeEvent)) {
@@ -28,15 +32,15 @@ func (cs subscriber_puppet) triggerEvent(gid types.Gid, fn func(*subscribeEvent)
 }
 
 func (cs subscriber_puppet) TriggerMineEvent(addr types.Address) error {
-	sTime := time.Now()
+	sTime := time.Unix(time.Now().Unix(), 0)
 	eTime := sTime.Add(time.Duration(cs.snapshot.GetInfo().Interval))
 	index := cs.snapshot.Time2Index(sTime)
 	periodStartTime, periodEndTime := cs.snapshot.Index2Time(index)
 	voteTime := cs.snapshot.GenProofTime(index)
 
-	cs.triggerEvent(types.SNAPSHOT_GID, func(e *subscribeEvent) {
+	cs.consensusSubscriber.triggerEvent(types.SNAPSHOT_GID, func(e *subscribeEvent) {
 		common.Go(func() {
-			e.fn(Event{
+			event := Event{
 				Gid:         types.SNAPSHOT_GID,
 				Address:     addr,
 				Stime:       sTime,
@@ -45,7 +49,8 @@ func (cs subscriber_puppet) TriggerMineEvent(addr types.Address) error {
 				VoteTime:    voteTime,
 				PeriodStime: periodStartTime,
 				PeriodEtime: periodEndTime,
-			})
+			}
+			e.fn(event)
 		})
 
 	})

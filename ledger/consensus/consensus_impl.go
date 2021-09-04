@@ -111,13 +111,9 @@ func (cs *consensus) Init(cfg *ConsensusCfg) error {
 	cs.snapshot = snapshot
 	cs.rw.init(snapshot)
 
-	cs.tg = &trigger{}
+	cs.tg = newTrigger(cs.rollback)
 	if cfg.enablePuppet {
-		sub := newSubscriberPuppet(cs.snapshot)
-		cs.Subscriber = sub
-		cs.subscribeTrigger = sub
-	} else {
-		sub := newConsensusSubscriber()
+		sub := newSubscriberPuppet(cs.Subscriber, cs.snapshot)
 		cs.Subscriber = sub
 		cs.subscribeTrigger = sub
 	}

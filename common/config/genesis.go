@@ -30,7 +30,7 @@ func (g *Genesis) UnmarshalJSON(data []byte) error {
 }
 
 func IsCompleteGenesisConfig(genesisConfig *Genesis) bool {
-	if genesisConfig == nil || genesisConfig.GenesisAccountAddress == nil ||
+	if genesisConfig == nil ||
 		genesisConfig.GovernanceInfo == nil || len(genesisConfig.GovernanceInfo.ConsensusGroupInfoMap) == 0 ||
 		len(genesisConfig.GovernanceInfo.RegistrationInfoMap) == 0 ||
 		genesisConfig.AssetInfo == nil || len(genesisConfig.AssetInfo.TokenInfoMap) == 0 ||

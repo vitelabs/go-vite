@@ -123,8 +123,11 @@ func NewConsensus(ch Chain, rollback lock.ChainRollback) Consensus {
 	log := log15.New("module", "consensus")
 	rw := newChainRw(ch, log, rollback)
 
-	self := &consensus{rw: rw, rollback: rollback}
-	self.mLog = log
+	sub := newConsensusSubscriber()
+	cs := &consensus{rw: rw, rollback: rollback}
+	cs.mLog = log
+	cs.Subscriber = sub
+	cs.subscribeTrigger = sub
 
-	return self
+	return cs
 }

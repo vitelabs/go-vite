@@ -16,6 +16,10 @@ type trigger struct {
 	mLog log15.Logger
 }
 
+func newTrigger(lock lock.ChainRollback) *trigger {
+	return &trigger{lock: lock, mLog: log15.New("module", "consensus/trigger")}
+}
+
 func (tg *trigger) update(ctx context.Context, gid types.Gid, t DposReader, sub subscribeTrigger) {
 	index := t.Time2Index(time.Now())
 
