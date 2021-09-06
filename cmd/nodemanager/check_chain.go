@@ -5,6 +5,7 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 )
@@ -54,14 +55,14 @@ func (nodeManager *CheckChainNodeManager) Start() error {
 	// check recent blocks
 	nodeManager.log.Info("start check recent blocks")
 	if err := c.CheckRecentBlocks(); err != nil {
-		nodeManager.log.Crit(err.Error(), "check_chain", "recent_blocks")
+		common.Crit(err.Error(), "check_chain", "recent_blocks")
 	}
 	nodeManager.log.Info("finish checking recent blocks")
 	fmt.Println("check recent blocks success.")
 	// check redo
 	nodeManager.log.Info("start check redo")
 	if err := c.CheckRedo(); err != nil {
-		nodeManager.log.Crit(err.Error(), "check_chain", "redo")
+		common.Crit(err.Error(), "check_chain", "redo")
 	}
 	nodeManager.log.Info("finish checking redo")
 	fmt.Println("check redo success.")
@@ -69,7 +70,7 @@ func (nodeManager *CheckChainNodeManager) Start() error {
 	// check onroad
 	nodeManager.log.Info("start check onroad")
 	if err := c.CheckOnRoad(); err != nil {
-		nodeManager.log.Crit(err.Error(), "check_chain", "onroad")
+		common.Crit(err.Error(), "check_chain", "onroad")
 	}
 	nodeManager.log.Info("finish checking onroad")
 

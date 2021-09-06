@@ -294,7 +294,7 @@ func (sCh *snapshotCh) insertBlock(block commonBlock) error {
 
 func (sCh *snapshotCh) insertSnapshotBlock(b *snapshotPoolBlock) (map[types.Address][]commonBlock, error) {
 	if b.Source() == types.QueryChain {
-		sCh.log.Crit("QueryChain insert to chain.", "Height", b.Height(), "Hash", b.Hash())
+		common.Crit("QueryChain insert to chain.", "Height", b.Height(), "Hash", b.Hash())
 	}
 	monitor.LogEvent("pool", "insertChain")
 	monitor.LogEvent("pool", "snapshotInsertSource_"+strconv.FormatUint(uint64(b.Source()), 10))

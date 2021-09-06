@@ -3,6 +3,7 @@ package nodemanager
 import (
 	"fmt"
 
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/node"
 )
@@ -25,7 +26,7 @@ func StartNode(node *node.Node) error {
 	log.Info(fmt.Sprintf("Starting Node..."))
 	if err := node.Start(); err != nil {
 		fmt.Println(fmt.Sprintf("Failed to start node, %v", err))
-		log.Crit(fmt.Sprintf("Failed to start node, %v", err))
+		common.Crit(fmt.Sprintf("Failed to start node, %v", err))
 	}
 
 	node.Wait()

@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"os"
 
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/log15"
 )
 
 type Genesis struct {
@@ -129,19 +129,18 @@ func MakeGenesisConfig(genesisFile string) *Genesis {
 }
 
 func loadFromGenesisFile(filename string) *Genesis {
-	log := log15.New("module", "gvite/config")
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Crit(fmt.Sprintf("Failed to read genesis file: %v", err), "method", "readGenesis")
+		common.Crit(fmt.Sprintf("Failed to read genesis file: %v", err), "method", "readGenesis")
 	}
 	defer file.Close()
 
 	genesisConfig := new(Genesis)
 	if err := json.NewDecoder(file).Decode(genesisConfig); err != nil {
-		log.Crit(fmt.Sprintf("invalid genesis file: %v", err), "method", "readGenesis")
+		common.Crit(fmt.Sprintf("invalid genesis file: %v", err), "method", "readGenesis")
 	}
 	if !IsCompleteGenesisConfig(genesisConfig) {
-		log.Crit(fmt.Sprintf("invalid genesis file, genesis account info is not complete"), "method", "readGenesis")
+		common.Crit(fmt.Sprintf("invalid genesis file, genesis account info is not complete"), "method", "readGenesis")
 	}
 	return genesisConfig
 }

@@ -24,3 +24,8 @@ func TestGenesisCfg(t *testing.T) {
 	t.Log(hash)
 	assert.Equal(t, "4c56bfcc9a28d902352c3d17fcd9de147538ae9f7f71aff975433b8d403e45df", hash.String())
 }
+
+func TestLoadGenesisCfg(t *testing.T) {
+	loadFromGenesisFile("/Users/jie/go/src/github.com/vitelabs/go-vite/conf/evm/genesis.json")
+	loadFromGenesisFile("~/go/src/github.com/vitelabs/go-vite/conf/evm/genesis.json")
+}

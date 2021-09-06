@@ -193,7 +193,7 @@ func (bcp *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		for _, v := range blocks {
 			bcp.log.Info("block delete", "height", v.Height(), "hash", v.Hash(), "prevHash", v.PrevHash())
 		}
-		bcp.log.Crit("error for db fail.", "headHeight", headHeight, "headHash", headHash, "smallestHeight", smallest.Height(), "err", errors.New(bcp.ID+" disk chain height hash check fail"))
+		common.Crit("error for db fail.", "headHeight", headHeight, "headHash", headHash, "smallestHeight", smallest.Height(), "err", errors.New(bcp.ID+" disk chain height hash check fail"))
 		return errors.New(bcp.ID + " disk chain height hash check fail")
 	}
 
@@ -201,7 +201,7 @@ func (bcp *BCPool) rollbackCurrent(blocks []commonBlock) error {
 		for _, v := range blocks {
 			bcp.log.Info("block delete", "height", v.Height(), "hash", v.Hash(), "prevHash", v.PrevHash())
 		}
-		bcp.log.Crit("error for db fail.", "tailHeight", curTailHeight, "tailHash", curTailHash, "longestHeight", longest.Height(), "err", errors.New(bcp.ID+" current chain height hash check fail"))
+		common.Crit("error for db fail.", "tailHeight", curTailHeight, "tailHash", curTailHash, "longestHeight", longest.Height(), "err", errors.New(bcp.ID+" current chain height hash check fail"))
 		return errors.New(bcp.ID + " current chain height hash check fail")
 	}
 	main := bcp.chainpool.tree.Main()
