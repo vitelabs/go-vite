@@ -6,17 +6,22 @@ import (
 
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/net"
 )
 
 type snapshotPrinter struct {
-	chunks chan *ledger.SnapshotChunk
-	closed chan struct{}
+	chunks    chan *ledger.SnapshotChunk
+	snapshots chan *ledger.SnapshotBlock
+	closed    chan struct{}
+	sync      syncer
 }
 
-func newSnapshotPrinter(closed chan struct{}) *snapshotPrinter {
+func newSnapshotPrinter(closed chan struct{}, sync syncer) *snapshotPrinter {
 	printer := &snapshotPrinter{}
 	printer.chunks = make(chan *ledger.SnapshotChunk, 10000)
+	printer.snapshots = make(chan *ledger.SnapshotBlock, 100)
 	printer.closed = closed
+	printer.sync = sync
 	return printer
 }
 
@@ -29,14 +34,17 @@ func (printer *snapshotPrinter) stop() {
 }
 
 func (printer *snapshotPrinter) run() {
-	ticker := time.NewTicker(time.Second * 10)
-	defer ticker.Stop()
+	statsTicker := time.NewTicker(time.Second * 10)
+	defer statsTicker.Stop()
 
 	for {
 		select {
 		case <-printer.closed:
 			return
-		case <-ticker.C:
+		case sblock := <-printer.snapshots:
+			// every 10s
+			printer.printSnapshot(sblock)
+		case <-statsTicker.C:
 			// every 10s
 			var content []*ledger.SnapshotChunk
 		Read:
@@ -50,12 +58,12 @@ func (printer *snapshotPrinter) run() {
 					break Read
 				}
 			}
-			printer.print(content)
+			printer.printStats(content)
 		}
 	}
 }
 
-func (printer *snapshotPrinter) print(chunks []*ledger.SnapshotChunk) {
+func (printer *snapshotPrinter) printStats(chunks []*ledger.SnapshotChunk) {
 	if len(chunks) == 0 {
 		return
 	}
@@ -65,6 +73,13 @@ func (printer *snapshotPrinter) print(chunks []*ledger.SnapshotChunk) {
 		return
 	}
 	fmt.Printf("[Snapshot Stats] Height:%d, Hash:%s, Timestamp:%s, Producer:%s, Time:%s\n", block.Height, block.Hash, block.Timestamp, block.Producer(), time.Now())
+}
+
+func (printer *snapshotPrinter) printSnapshot(sBlock *ledger.SnapshotBlock) {
+	if sBlock == nil {
+		return
+	}
+	fmt.Printf("[Snapshot Insert] Height:%d, Hash:%s, Timestamp:%s, Producer:%s, Time:%s\n", sBlock.Height, sBlock.Hash, sBlock.Timestamp, sBlock.Producer(), time.Now())
 }
 
 func (printer *snapshotPrinter) PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error {
@@ -83,11 +98,21 @@ func (printer *snapshotPrinter) PrepareInsertSnapshotBlocks(chunks []*ledger.Sna
 }
 
 func (printer *snapshotPrinter) InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error {
-	for _, v := range chunks {
-		select {
-		case printer.chunks <- v:
-		default:
-			return nil
+	if printer.sync.SyncState() == net.SyncDone {
+		for _, v := range chunks {
+			select {
+			case printer.snapshots <- v.SnapshotBlock:
+			default:
+				return nil
+			}
+		}
+	} else {
+		for _, v := range chunks {
+			select {
+			case printer.chunks <- v:
+			default:
+				return nil
+			}
 		}
 	}
 	return nil

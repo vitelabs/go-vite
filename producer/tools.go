@@ -58,7 +58,7 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase interfaces.Acco
 
 	block.Hash = block.ComputeHash()
 
-	signedData, pubkey, err := coinbase.Sign(block.Hash)
+	signedData, pubkey, err := coinbase.Sign(block.Hash.Bytes())
 
 	if err != nil {
 		return nil, err

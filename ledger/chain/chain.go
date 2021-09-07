@@ -76,6 +76,9 @@ func NewChain(dir string, chainCfg *config.Chain, genesisCfg *config.Genesis) *c
 	if chainCfg == nil {
 		chainCfg = defaultConfig()
 	}
+	if genesisCfg == nil {
+		genesisCfg = config.MainnetGenesis()
+	}
 	c := &chain{
 		genesisCfg: genesisCfg,
 		dataDir:    dir,
@@ -232,7 +235,7 @@ func (c *chain) SetConsensus(cs Consensus) {
 	c.consensus = cs
 
 	if err := c.stateDB.SetConsensus(cs); err != nil {
-		c.log.Crit(fmt.Sprintf("c.stateDB.SetConsensus failed. Error: %s", err.Error()), "method", "SetConsensus")
+		common.Crit(fmt.Sprintf("c.stateDB.SetConsensus failed. Error: %s", err.Error()), "method", "SetConsensus")
 	}
 	c.log.Info("set consensus finished", "method", "SetConsensus")
 }

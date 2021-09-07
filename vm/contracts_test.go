@@ -20,6 +20,7 @@ import (
 )
 
 func TestContractsRefund(t *testing.T) {
+	initEmptyFork(t) //
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
@@ -128,6 +129,7 @@ func TestContractsRefund(t *testing.T) {
 }
 
 func TestContractsRegister(t *testing.T) {
+	initCustomFork(t) //
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
@@ -416,6 +418,7 @@ func TestContractsRegister(t *testing.T) {
 }
 
 func TestContractsVote(t *testing.T) {
+	initEmptyFork(t)
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
@@ -590,6 +593,7 @@ func TestContractsVote(t *testing.T) {
 }
 
 func TestContractsStake(t *testing.T) {
+	initEmptyFork(t)
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(2e6), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, timestamp := prepareDb(viteTotalSupply)
@@ -920,6 +924,7 @@ func TestContractsStake(t *testing.T) {
 }
 
 func TestContractsAssetV2(t *testing.T) {
+	initEmptyFork(t)
 	// prepare db
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
 	db, addr1, _, hash12, snapshot2, _ := prepareDb(viteTotalSupply)
@@ -1387,6 +1392,7 @@ func TestContractsAssetV2(t *testing.T) {
 }
 
 func TestCheckTokenName(t *testing.T) {
+	initEmptyFork(t)
 	tests := []struct {
 		data string
 		exp  bool
@@ -1413,6 +1419,7 @@ func TestCheckTokenName(t *testing.T) {
 }
 
 func TestGenesisBlockData(t *testing.T) {
+	initEmptyFork(t)
 	tokenName := "ViteToken"
 	tokenSymbol := "ViteToken"
 	decimals := uint8(18)

@@ -1,5 +1,7 @@
 package upgrade
 
+import "testing"
+
 type UpgradePoint struct {
 	Name    string
 	Height  uint64
@@ -21,6 +23,11 @@ func assertUpgradeNotNil() {
 
 func cleanupUpgradeBox() {
 	upgrade = nil
+}
+
+func CleanupUpgradeBox(t *testing.T) {
+	t.Log("clean up upgrade box")
+	cleanupUpgradeBox()
 }
 
 func InitUpgradeBox(box UpgradeBox) error {

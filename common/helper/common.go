@@ -5,6 +5,9 @@ import (
 	"encoding/hex"
 	"math/big"
 	"reflect"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -141,5 +144,11 @@ func IsNil(i interface{}) bool {
 func AssertNil(i interface{}) {
 	if i != nil {
 		panic(i)
+	}
+}
+
+func ErrFailf(t *testing.T, err error, msg string, args ...interface{}) {
+	if err != nil {
+		assert.FailNowf(t, err.Error(), msg, args)
 	}
 }

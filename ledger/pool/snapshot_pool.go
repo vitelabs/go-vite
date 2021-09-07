@@ -327,7 +327,7 @@ func (sp *snapshotPool) AddDirectBlock(block *snapshotPoolBlock) (map[types.Addr
 		sp.chainpool.insertNotify(block)
 		return abs, nil
 	default:
-		sp.log.Crit("verify unexpected.")
+		common.Crit("verify unexpected.")
 		return nil, errors.New("verify unexpected")
 	}
 }

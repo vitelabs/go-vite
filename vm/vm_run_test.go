@@ -69,6 +69,7 @@ const (
 )
 
 func TestVM_RunV2(t *testing.T) {
+	initCustomFork(t)
 	testDir := "./test/run_test/"
 	testFiles, ok := ioutil.ReadDir(testDir)
 	if ok != nil {

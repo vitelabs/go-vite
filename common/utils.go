@@ -2,7 +2,11 @@ package common
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
+	"time"
+
+	"github.com/vitelabs/go-vite/log15"
 )
 
 func SyncMapLen(m *sync.Map) uint64 {
@@ -23,4 +27,12 @@ func ToJson(item interface{}) string {
 		return "err: " + err.Error()
 	}
 	return string(byt)
+}
+
+func Crit(msg string, ctx ...interface{}) {
+	log := log15.New("moduble", "crit")
+	log.Error(msg, ctx...)
+	fmt.Printf("%s\n", msg)
+	time.Sleep(time.Second * 2)
+	log.Crit(msg, ctx...)
 }

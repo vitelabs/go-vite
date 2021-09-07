@@ -1,0 +1,10 @@
+
+
+
+## example: ./bin/dump_branch_diff v2.10.2 v2.10.3-rc1
+
+echo $1 $2
+
+git log $1..$2 --pretty=format:%h,%ae > commits-logs/commits.log
+
+for params in `cat commits-logs/commits.log | xargs echo`; do id=`echo $params | awk -F "," '{print $1}'`; name=`echo $params | awk -F "," '{print $2}'`; git show $id --name-only --pretty="format:### %H,%an,%ae,%s" >> commits-logs/$name;  done;

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/interfaces"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
@@ -28,13 +29,13 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *interfaces.VmAccountBlock) er
 	// write index database
 	if err := c.indexDB.InsertAccountBlock(accountBlock); err != nil {
 		cErr := fmt.Errorf("c.indexDB.InsertAccountBlockAndSnapshot failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash)
-		c.log.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
+		common.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
 	}
 
 	// write state db
 	if err := c.stateDB.Write(vmAccountBlock); err != nil {
 		cErr := fmt.Errorf("c.stateDB.WriteAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash)
-		c.log.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
+		common.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
 	}
 
 	c.em.TriggerInsertAbs(insertAbsEvent, vmAbList)
@@ -122,7 +123,7 @@ func (c *chain) insertSnapshotBlock(snapshotBlock *ledger.SnapshotBlock) error {
 
 	if err != nil {
 		cErr := fmt.Errorf("c.blockDB.WriteAccountBlock failed, snapshotBlock is %+v. Error: %s", snapshotBlock, err.Error())
-		c.log.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
+		common.Crit(cErr.Error(), "method", "InsertSnapshotBlock")
 	}
 
 	var wg sync.WaitGroup

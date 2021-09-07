@@ -193,6 +193,13 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewLedgerDebugApi(vite),
 			Public:    false,
 		}
+	case "miner":
+		return rpc.API{
+			Namespace: "miner",
+			Version:   "1.0",
+			Service:   api.NewMinerApi(vite),
+			Public:    false,
+		}
 	default:
 		return rpc.API{Namespace: apiModule}
 	}

@@ -430,6 +430,10 @@ func (ab *AccountBlock) IsReceiveBlock() bool {
 	return IsReceiveBlock(ab.BlockType)
 }
 
+func (ab *AccountBlock) IsGenesisBlock() bool {
+	return ab.BlockType == BlockTypeGenesisReceive && ab.Height == types.GenesisHeight
+}
+
 func IsReceiveBlock(blockType byte) bool {
 	return blockType == BlockTypeReceive ||
 		blockType == BlockTypeReceiveError ||

@@ -10,7 +10,7 @@ import (
 )
 
 func TestMakeGenesisAccountConfig(t *testing.T) {
-	cfg := makeGenesisAccountConfig()
+	cfg := MainnetGenesis()
 	if !IsCompleteGenesisConfig(cfg) {
 		t.Fatalf("convert genesis config failed")
 	}
@@ -22,5 +22,10 @@ func TestGenesisCfg(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log(hash)
-	assert.Equal(t, "79803fa6fc50f7e7ce18366fd6595394d6d257a191ed47850ca09609749e8f21", hash.String())
+	assert.Equal(t, "4c56bfcc9a28d902352c3d17fcd9de147538ae9f7f71aff975433b8d403e45df", hash.String())
+}
+
+func TestLoadGenesisCfg(t *testing.T) {
+	loadFromGenesisFile("/Users/jie/go/src/github.com/vitelabs/go-vite/conf/evm/genesis.json")
+	loadFromGenesisFile("~/go/src/github.com/vitelabs/go-vite/conf/evm/genesis.json")
 }

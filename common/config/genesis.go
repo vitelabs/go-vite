@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"os"
 
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/log15"
 )
 
 type Genesis struct {
@@ -30,7 +30,7 @@ func (g *Genesis) UnmarshalJSON(data []byte) error {
 }
 
 func IsCompleteGenesisConfig(genesisConfig *Genesis) bool {
-	if genesisConfig == nil || genesisConfig.GenesisAccountAddress == nil ||
+	if genesisConfig == nil ||
 		genesisConfig.GovernanceInfo == nil || len(genesisConfig.GovernanceInfo.ConsensusGroupInfoMap) == 0 ||
 		len(genesisConfig.GovernanceInfo.RegistrationInfoMap) == 0 ||
 		genesisConfig.AssetInfo == nil || len(genesisConfig.AssetInfo.TokenInfoMap) == 0 ||
@@ -124,29 +124,36 @@ func MakeGenesisConfig(genesisFile string) *Genesis {
 	if len(genesisFile) > 0 {
 		return loadFromGenesisFile(genesisFile)
 	} else {
-		return makeMainnetGenesisCfg()
+		return MainnetGenesis()
 	}
 }
 
 func loadFromGenesisFile(filename string) *Genesis {
-	log := log15.New("module", "gvite/config")
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Crit(fmt.Sprintf("Failed to read genesis file: %v", err), "method", "readGenesis")
+		common.Crit(fmt.Sprintf("Failed to read genesis file: %v", err), "method", "readGenesis")
 	}
 	defer file.Close()
 
 	genesisConfig := new(Genesis)
 	if err := json.NewDecoder(file).Decode(genesisConfig); err != nil {
-		log.Crit(fmt.Sprintf("invalid genesis file: %v", err), "method", "readGenesis")
+		common.Crit(fmt.Sprintf("invalid genesis file: %v", err), "method", "readGenesis")
 	}
 	if !IsCompleteGenesisConfig(genesisConfig) {
-		log.Crit(fmt.Sprintf("invalid genesis file, genesis account info is not complete"), "method", "readGenesis")
+		common.Crit(fmt.Sprintf("invalid genesis file, genesis account info is not complete"), "method", "readGenesis")
 	}
 	return genesisConfig
 }
 
-func makeMainnetGenesisCfg() *Genesis {
+func GenesisJson() string {
+	return genesisJson
+}
+
+func MockGenesisJson() string {
+	return mockGenesisJson
+}
+
+func MainnetGenesis() *Genesis {
 	g := new(Genesis)
 	err := json.Unmarshal([]byte(GenesisJson()), g)
 	if err != nil {
@@ -155,6 +162,11 @@ func makeMainnetGenesisCfg() *Genesis {
 	return g
 }
 
-func GenesisJson() string {
-	return genesisJson
+func MockGenesis() *Genesis {
+	g := new(Genesis)
+	err := json.Unmarshal([]byte(MockGenesisJson()), g)
+	if err != nil {
+		panic(err)
+	}
+	return g
 }

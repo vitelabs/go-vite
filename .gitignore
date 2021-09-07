@@ -33,17 +33,12 @@ vite.p2p.db
 # Build files
 build/
 
-# config files for test
-node_config_*.json
-
 vite/net/simular/genesis.go
-genesis_*.json
 
 **/p2p/**/simular/**
 !**/p2p/**/simular/**/*.go
 **/net/**/simular/**
 !**/net/**/simular/**/*.go
-
 
 # node.js
 node_modules
@@ -53,3 +48,5 @@ package-lock.json
 sw.*
 workbox-*
 
+# bin/dump_branch_diff
+commits-logs/

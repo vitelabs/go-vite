@@ -121,7 +121,7 @@ func (v *Vite) Start() (err error) {
 
 	v.chain.Start()
 
-	err = v.consensus.Init()
+	err = v.consensus.Init(consensus.Cfg(v.Config().Producer.ExternalMiner))
 	if err != nil {
 		return err
 	}
