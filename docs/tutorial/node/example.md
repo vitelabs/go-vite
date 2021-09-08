@@ -298,7 +298,7 @@ sudo service vite stop
 Execute below command in gvite command line console
 
 ```bash
-setInterval(function(){vite.ledger_getSnapshotChainHeight();}, 1000)
+./gvite rpc ~/.gvite/maindata/gvite.ipc  ledger_getSnapshotChainHeight
 ```
 
 The latest height will be printed out in every second. Run `exit` to abort.
