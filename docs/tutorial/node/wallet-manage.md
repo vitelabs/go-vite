@@ -19,24 +19,11 @@ This document mainly introduces how to config wallet on full node. Before starti
 
 Follow [Full Node Installation][install] to start a full node.
 
-### Connect Full Node in Command Line Console
-
-Navigate to [Full Node Installation Directory][pwd] and execute the following command:
-
-  ```bash
-  ./gvite attach ~/.gvite/maindata/gvite.ipc
-  ```
-
-  Below output indicates the full node has been connected successfully:
-  ```
-  Welcome to the Gvite JavaScript console!
-  ->
-  ```
 ### Create a New Wallet
   
 Execute the following command
 ```javascript
-vite.wallet_createEntropyFile("Your_Password")
+./gvite rpc ~/.gvite/maindata/gvite.ipc wallet_createEntropyFile '["Your_Password"]'
 ```
 This will give you below result
 ```json

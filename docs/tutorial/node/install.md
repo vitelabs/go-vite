@@ -209,16 +209,14 @@ Go 1.11.1 or above version is required. See [Go Installation Guide](https://gola
 
   Linux/Unix:
   ```bash
-  ./gvite attach ~/.gvite/maindata/gvite.ipc
+  ./gvite rpc ~/.gvite/maindata/gvite.ipc ledger_getSnapshotChainHeight
   ```
   Windows:
   ```bash
-  gvite-windows-amd64.exe attach \\.\pipe\gvite.ipc
+  gvite-windows-amd64.exe rpc \\.\pipe\gvite.ipc ledger_getSnapshotChainHeight
   ```
-  Then execute command:
-  ```javascript
-  vite.ledger_getSnapshotChainHeight();
-  ```
+
+  
   The following result will be displayed:
   ```
   "{\"id\":0,\"jsonrpc\":\"2.0\",\"result\":\"51821203\"}"
@@ -229,7 +227,7 @@ Go 1.11.1 or above version is required. See [Go Installation Guide](https://gola
   
 ## Full node rewards
 
-In Vite Pre-Mainnet, rewards will be distributed to full node owners as incentives. 
+In Vite, rewards will be distributed to full node owners as incentives. 
 
 ### Node configuration
 
