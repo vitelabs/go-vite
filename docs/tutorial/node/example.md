@@ -70,25 +70,11 @@ For example, if you logged in as root user, the installation directory is:
 ```
 
 ## Create Wallet
-
-### Connect Command Line Console
-
-Enter [Installation Directory](./install.md#Description-of-installation-directory) and execute the following command:
-
-  ```bash
-  ./gvite attach ~/.gvite/maindata/gvite.ipc
-  ```
-
-  Below output indicates the full node has been connected successfully:
-  ```
-  Welcome to the Gvite JavaScript console!
-  ->
-  ```
 ### Create a New Wallet  
   
 Execute the following command
 ```javascript
-vite.wallet_newMnemonicAndEntropyStore("123456")
+./gvite rpc ~/.gvite/maindata/gvite.ipc wallet_newMnemonicAndEntropyStore '["123456"]'
 ```
 Here `123456` is keystore's password, you should replace it with your own password.
 
@@ -171,12 +157,9 @@ root      6560  5939  0 12:29 pts/1    00:00:00 grep --color=auto -w gvite
 
 ## Query Current Snapshot Height in Command Line
 
-```bash
-  ./gvite attach ~/.gvite/maindata/gvite.ipc
-```
 Input：
-```javascript
-  vite.ledger_getSnapshotChainHeight();
+```bash
+  ./gvite rpc ~/.gvite/maindata/gvite.ipc ledger_getSnapshotChainHeight
 ```
 Output:
 ```json
@@ -310,42 +293,7 @@ sudo service vite stop
 !!! Gvite service config is located in /etc/vite. Gvite console messages are logged in $HOME/.gvite/std.log.
 
 ## Tips
-
-### Enter gvite Command Line Console via Script
-
-Edit `~/.bashrc`
-
-```bash
-vi ~/.bashrc
-```
-
-Add the following content
-
-```bash
-alias vite="~/vite/gvite attach ~/.gvite/maindata/gvite.ipc"
-```
-Run
-
-```bash
-source ~/.bashrc
-```
-
-Then execute
-
-```bash
-vite
-```
-
-Now you are in gvite command line console. Have fun.
-
-```bash
-INFO[11-15|12:54:38]                                          monitor-log=/root/go-vite/backend-log/backend.log.9104
-this vite node`s git GO version is  7aa4ebc97dfb1d9be4cdd812bd68170b13de59f5
-Welcome to the Gvite JavaScript console!
--> 
-```
-
-### Print Current Snapshot Block Height Constantly
+### Print Current Snapshot Block Height 
 
 Execute below command in gvite command line console
 
