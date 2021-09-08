@@ -40,7 +40,7 @@ func (srv *Server) ServeListener(l net.Listener) error {
 		//	return err
 		//}
 		if conn != nil {
-			log.Info("Accepted connection", conn.RemoteAddr(), "addr", conn.LocalAddr())
+			log.Info("Accepted connection", "remote", conn.RemoteAddr(), "local", conn.LocalAddr())
 		}
 		go srv.ServeCodec(NewJSONCodec(conn), OptionMethodInvocation|OptionSubscriptions)
 	}
