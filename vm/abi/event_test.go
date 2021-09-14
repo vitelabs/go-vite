@@ -325,6 +325,30 @@ func TestEventUnpackIndexed(t *testing.T) {
 	require.Equal(t, uint8(8), rst.Value2)
 }
 
+// TestEventUnpackIndexed verifies that indexed field will be skipped by event decoder.
+func TestEventUnpackIndexed2(t *testing.T) {
+	definition := `[{"type":"event","name":"issueToken","inputs":[{"name":"tokenId","type":"tokenId","indexed":true}]}]`
+	type testStruct struct {
+		Value1 uint8
+		Value2 uint8
+	}
+	abiObj, err := JSONToABIContract(strings.NewReader(definition))
+	require.NoError(t, err)
+
+	a1, err := abiObj.Events["issueToken"].DirectUnPack([]types.Hash{
+		types.HexToHashPanic("0d21bc90666d2ba979f104f8fbd1ee0331d8e11da2893ffedbd375557e2d453d"),
+		types.HexToHashPanic("000000000000000000000000000000000000000000005649544520544f4b454e"),
+	}, []byte{})
+	require.NoError(t, err)
+
+	switch a := a1[0].(type) {
+	case types.TokenTypeId:
+		assert.Equal(t, a.Hex(), "tti_5649544520544f4b454e6e40")
+	default:
+		t.Error("error type")
+	}
+}
+
 func TestEventUnpack(t *testing.T) {
 	definition := `[{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"id","type":"uint256"}],"name":"TestEvent","type":"event"},{"executionBehavior":"sync","inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"test","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
 	abi, err := JSONToABIContract(strings.NewReader(definition))
