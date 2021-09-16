@@ -21,7 +21,7 @@ The go-vite binary files can be download from [releases](https://github.com/vite
 
 
 ## Guides & Documentation
-   * [White Paper](https://www.vite.org/whitepaper/vite_en.pdf)
+   * [White Paper](https://github.com/vitelabs/whitepaper/blob/master/vite_en.pdf)
    * [Documentation](https://docs.vite.org/go-vite/)
    * [Techblog](https://docs.vite.org/go-vite/articles/)
    * [Runing a node](https://vite.wiki/tutorial/node/install.html)
