@@ -5,6 +5,7 @@
 .PHONY: build_version build
 .PHONY: test
 
+
 GO ?= latest
 
 MAIN_DIR=gvite
@@ -24,7 +25,7 @@ build_version:
 	@echo "const VITE_BUILD_VERSION = "\"$(VITE_VERSION)\" >> $(VITE_VERSION_FILE)
 	@echo "gvite build version is "$(VITE_VERSION)", git commit is "$(VITE_GIT_COMMIT)"."
 
-gvite:
+build:
 	GO111MODULE=on go build -i -o $(BUILD_BIN) $(MAIN)
 	@echo "Build gvite done."
 	@echo "Run $(BUILD_DIR)/gvite to start gvite."
@@ -66,6 +67,8 @@ gvite-darwin: build_version build_darwin
 gvite-linux: build_version build_linux_amd64
 
 gvite-windows: build_version build_windows
+
+gvite: build_version build
 
 all: gvite-windows gvite-darwin gvite-linux
 
