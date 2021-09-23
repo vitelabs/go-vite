@@ -15,7 +15,7 @@ ADD . /usr/local/go/src/github.com/vitelabs/go-vite
 
 RUN go build -mod=readonly -o gvite github.com/vitelabs/go-vite/cmd/gvite
 
-FROM alpine:3.8
+FROM alpine:3.12.0
 
 RUN apk update \
     && apk upgrade \
