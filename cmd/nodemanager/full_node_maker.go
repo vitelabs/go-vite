@@ -226,7 +226,7 @@ func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) error {
 	err := cfg.ParseFromFile(configFile)
 	if err != nil {
 		log.Error("load node config fail, file: %s", configFile)
-		common.Crit("%v", err)
+		common.Crit(fmt.Sprintf("%v\n", err))
 	}
 	return nil
 }
