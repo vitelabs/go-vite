@@ -53,8 +53,8 @@ A round is approximately 75 seconds. Voting result is re-calculated in every 75 
 
 In each round, 25 SBPs are selected according to following rules:
 
-* 23 SBPs are randomly selected from the top 25 (sorted by votes) supernodes. Ratio is ${23/25}$
-* 2 SBPs are randomly selected from supernodes ranking from 26 to 100. Ratio is ${2/75}$
+* 23 SBPs are randomly selected from the top 25 (sorted by votes) supernodes. Ratio is $23/25$
+* 2 SBPs are randomly selected from supernodes ranking from 26 to 100. Ratio is $2/75$
 
 ## SBP Rewards
 
