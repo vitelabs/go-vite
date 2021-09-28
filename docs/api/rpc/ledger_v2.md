@@ -1343,7 +1343,7 @@ Send a raw transaction by filling in an account block
   * `data`: `[]byte` Additional data the transaction carries. This field can be specified in request transaction for user account as additional comment or formalized data used to call a contract. Ignore or fill with null if not used.
 
 - **Returns**: 
-  * `AccountBlock`: Detail of `AccountBlock` is described in [Common Models](common_models_v2.html#accountblock)
+  * `null`
 
 
 - **Example**:
@@ -1376,50 +1376,8 @@ Send a raw transaction by filling in an account block
 ```json tab:Response
 {
     "jsonrpc": "2.0",
-    "id": 2,
-    "result": [
-       {
-            "blockType": 2,
-            "height": "2",
-            "hash": "67f4d528a5194c46d594221d3d992257a3004ccdee7c5d7b2748d77e06a80caf",
-            "previousHash": "d517e8d4dc9c676876b72ad0cbb4c45890804aa438edd1f171ffc66276202a95",
-            "address": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
-            "publicKey": "WHZinxslscE+WaIqrUjGu2scOvorgD4Q+DQOOcDBv4M=",
-            "producer": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
-            "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
-            "toAddress": "vite_0000000000000000000000000000000000000003f6af7459b9",
-            "sendBlockHash": "0000000000000000000000000000000000000000000000000000000000000000",
-            "tokenId": "tti_5649544520544f4b454e6e40",
-            "amount": "1000000000000000000000000",
-            "fee": "0",
-            "data": "jefc/QAAAAAAAAAAAAAAqyTvaLhOZCwN3KBr7sgcmssZd7sA",
-            "difficulty": null,
-            "nonce": null,
-            "signature": "F5VzYwsNSr6ex2sl9hDaX67kP9g4TewMWcw7Tp57VkE1LQZO0i1toYEsXJ3MgcZdsvP67EymXXn1wpwhxnS3CQ==",
-            "quotaByStake": "105000",
-            "totalQuota": "105000",
-            "vmLogHash": null,
-            "triggeredSendBlockList": null,
-            "tokenInfo": {
-                "tokenName": "Vite Token",
-                "tokenSymbol": "VITE",
-                "totalSupply": "999925000000000000000000000",
-                "decimals": 18,
-                "owner": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
-                "tokenId": "tti_5649544520544f4b454e6e40",
-                "maxSupply": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
-                "ownerBurnOnly": false,
-                "isReIssuable": true,
-                "index": 0,
-                "isOwnerBurnOnly": false
-            },
-            "confirmations": "1793337",
-            "firstSnapshotHash": "f5033a11251672f413cb01d9c52dc53eaa98f0731065405d0c2c8ca80c6bbe06",
-            "receiveBlockHeight": "2",
-            "receiveBlockHash": "656c7cd0f5c306b96dc8e6fc461364213b5ce0c7fdb485d489df5771771566bc",
-            "timestamp": 1567513226
-        }
-    ]
+    "id": 17,
+    "result": null
 }
 ```
 
