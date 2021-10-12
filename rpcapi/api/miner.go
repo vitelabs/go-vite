@@ -38,12 +38,18 @@ func (api *MinerApi) Mine() error {
 		if err != nil {
 			return err
 		}
-
+		t := time.NewTicker(time.Second)
+		defer t.Stop()
 		// waiting for next snapshot block, with timeout 5s
 		for {
 			select {
 			case <-ctx.Done():
 				return errors.New("timeout for mine new block")
+			case <-t.C:
+				err := api.cs.TriggerMineEvent(addr)
+				if err != nil {
+					return err
+				}
 			default:
 				to := api.chain.GetLatestSnapshotBlock().Height
 				if to > from {
