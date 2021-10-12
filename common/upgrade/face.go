@@ -1,6 +1,14 @@
 package upgrade
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/log15"
+)
+
+var log = log15.New("module", "upgrade")
 
 type UpgradePoint struct {
 	Name    string
@@ -36,7 +44,9 @@ func InitUpgradeBox(box UpgradeBox) error {
 	if upgrade != nil {
 		panic("init upgrade twice")
 	}
-	upgrade = newUpgradeBox(box.UpgradePoints())
+	points := box.UpgradePoints()
+	log.Info(fmt.Sprintf("init upgrade: %s\n", common.ToJson(points)))
+	upgrade = newUpgradeBox(points)
 	return nil
 }
 
