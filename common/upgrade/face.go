@@ -139,3 +139,8 @@ func IsVersion10Upgrade(sHeight uint64) bool {
 	assertUpgradeNotNil()
 	return upgrade.isActive(10, sHeight)
 }
+
+func IsVersionXUpgrade(sHeight uint64) bool {
+	assertUpgradeNotNil()
+	return upgrade.isActive(11, sHeight)
+}
