@@ -270,7 +270,8 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 		amount         *big.Int
 		success        bool
 	)
-	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
+	rateArr := dex.GetFeeMineRateArr(db)
+	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, rateArr); success {
 		mineInfo.FeeMineDetail = make(map[int32]string)
 		feeMineSum := new(big.Int)
 		for tokenType, amount := range amountForItems {
@@ -286,7 +287,8 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 	} else {
 		return
 	}
-	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
+	makerRateArr := dex.GetMakerAndMaintainerArr(db)
+	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, makerRateArr); success {
 		mineInfo.MakerMine = amountForItems[dex.MineForMaker].String()
 	}
 	return

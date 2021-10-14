@@ -625,11 +625,19 @@ func IsDexStableMarketFork(db interfaces.VmDb) bool {
 	}
 }
 
-func IsDexEnrichOrderFork(db interfaces.VmDb) bool {
+func IsVersion10Upgrade(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
 		return upgrade.IsVersion10Upgrade(latestSb.Height)
+	}
+}
+
+func IsDexEnrichOrderFork(db interfaces.VmDb) bool {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return upgrade.IsVersionXUpgrade(latestSb.Height)
 	}
 }
 

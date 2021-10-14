@@ -101,6 +101,8 @@ var (
 	NewMarketFeeDonateAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(4000))
 	NewMarketFeeBurnAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(5000))
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
+	// 1000 -> 100 version 10
+	NewInviterFeeAmountForVersion10 = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
 
 	VxLockThreshold = new(big.Int).Set(commonTokenPow)
 	SchedulePeriods = 7 // T+7 schedule
@@ -125,10 +127,78 @@ var (
 	bitcoinMarketOrderAmtThreshold = big.NewInt(10e8)                                  // 10 BTC
 	usdMarketOrderAmtThreshold     = big.NewInt(100000e6)                              // 100,000 USD
 
-	RateSumForFeeMine                = "0.6"                                             // 15% * 4
-	RateForStakingMine               = "0.2"                                             // 20%
-	RateSumForMakerAndMaintainerMine = "0.2"                                             // 10% + 10%
-	vxMineDust                       = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
+	// RateSumForFeeMine                = "0.6" // 15% * 4
+	RateForStakingMine = "0.2" // 20%
+	// RateSumForMakerAndMaintainerMine = "0.2" // 10% + 10%
+
+	rateSumForFeeMineArr = mineRate{
+		totalRate: "0.6",
+		total:     4, // 4=1+1+1+1
+		fields: []mineRateField{
+			{
+				field: ViteTokenType,
+				rate:  1,
+			}, {
+				field: EthTokenType,
+				rate:  1,
+			}, {
+				field: BtcTokenType,
+				rate:  1,
+			}, {
+				field: UsdTokenType,
+				rate:  1,
+			},
+		},
+	}
+	rateSumForMakerAndMaintainerMineArr = mineRate{
+		totalRate: "0.2",
+		total:     2, // 2=1+1
+		fields: []mineRateField{
+			{
+				field: MineForMaker,
+				rate:  1,
+			},
+			{
+				field: MineForMaintainer,
+				rate:  1,
+			},
+		},
+	}
+	rateSumForFeeMineArrVersion10 = mineRate{
+		totalRate: "0.55",
+		total:     4, // 4=1+1+1+1
+		fields: []mineRateField{
+			{
+				field: ViteTokenType,
+				rate:  1,
+			}, {
+				field: EthTokenType,
+				rate:  1,
+			}, {
+				field: BtcTokenType,
+				rate:  1,
+			}, {
+				field: UsdTokenType,
+				rate:  1,
+			},
+		},
+	}
+	rateSumForMakerAndMaintainerMineArrVersion10 = mineRate{
+		totalRate: "0.25",
+		total:     5, // 5 = (15+25)/5 = 3+2
+		fields: []mineRateField{
+			{
+				field: MineForMaker,
+				rate:  3,
+			},
+			{
+				field: MineForMaintainer,
+				rate:  2,
+			},
+		},
+	}
+
+	vxMineDust = new(big.Int).Mul(commonTokenPow, big.NewInt(100)) // 100 VITE
 
 	ViteTokenDecimals int32 = 18
 
