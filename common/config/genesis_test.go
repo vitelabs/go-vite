@@ -10,7 +10,7 @@ import (
 )
 
 func TestMakeGenesisAccountConfig(t *testing.T) {
-	cfg := makeGenesisAccountConfig()
+	cfg := makeMainnetGenesisCfg()
 	if !IsCompleteGenesisConfig(cfg) {
 		t.Fatalf("convert genesis config failed")
 	}
