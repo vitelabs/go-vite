@@ -53,6 +53,10 @@ func GetActivePoints(sHeight uint64) []*UpgradePoint {
 	return upgrade.activePoints(sHeight)
 }
 
+func GetAllPoints() []*UpgradePoint {
+	return upgrade.UpgradePoints()
+}
+
 /*
 IsSeedUpgrade checks whether current snapshot block height is over seed hard fork.
 Vite pre-mainnet hard forks at snapshot block height 3488471.
