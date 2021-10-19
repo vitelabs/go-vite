@@ -1,7 +1,7 @@
 {
   "Identity": "foobar",
   "NetID": 3,
-  "GenesisFile": "/root/conf/evm/genesis.json",
+  "GenesisFile": "/root/conf/local/genesis.json",
   "Single": true,
   "RPCEnabled": true,
   "HttpHost": "0.0.0.0",
@@ -23,7 +23,7 @@
   ],
   "Miner": true,
   "CoinBase": "0:vite_3167c9421c8a4cb642d613082dfcef932e26063867f277ec0f",
-  "EntropyStorePath": "/root/conf/evm/vite_3167c9421c8a4cb642d613082dfcef932e26063867f277ec0f",
+  "EntropyStorePath": "/root/conf/local/vite_3167c9421c8a4cb642d613082dfcef932e26063867f277ec0f",
   "EntropyStorePassword": "123456",
   "LogLevel": "info",
   "OpenPlugins": true,
