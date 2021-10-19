@@ -21,6 +21,7 @@ import (
 	"github.com/vitelabs/go-vite/cmd/subcmd_plugin_data"
 	"github.com/vitelabs/go-vite/cmd/subcmd_recover"
 	"github.com/vitelabs/go-vite/cmd/subcmd_rpc"
+	"github.com/vitelabs/go-vite/cmd/subcmd_virtualnode"
 	"github.com/vitelabs/go-vite/cmd/utils"
 	"github.com/vitelabs/go-vite/log15"
 	"github.com/vitelabs/go-vite/version"
@@ -42,7 +43,7 @@ func init() {
 	app.Version = version.VITE_BUILD_VERSION
 	app.Compiled = time.Now()
 	app.Authors = []cli.Author{
-		cli.Author{
+		{
 			Name:  "Vite Labs",
 			Email: "info@vite.org",
 		},
@@ -61,6 +62,7 @@ func init() {
 		subcmd_rpc.RpcCommand,
 		subcmd_loadledger.LoadLedgerCommand,
 		subcmd_ledger.QueryLedgerCommand,
+		subcmd_virtualnode.VirtualNodeCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 

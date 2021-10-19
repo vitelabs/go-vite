@@ -86,7 +86,7 @@ func TestConsensus(t *testing.T) {
 
 	index := uint64(291471)
 	cs := NewConsensus(c, &lock.EasyImpl{})
-	cs.Init()
+	cs.Init(nil)
 	cs.Start()
 	stime, etime, err := cs.VoteIndexToTime(types.SNAPSHOT_GID, index)
 	if err != nil {

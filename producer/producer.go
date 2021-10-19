@@ -22,26 +22,10 @@ import (
 
 var mLog = log15.New("module", "producer")
 
-type AddressContext struct {
-	EntryPath string
-	Address   types.Address
-	Index     uint32
-}
-
-type Producer interface {
-	SetAccountEventFunc(func(producerevent.AccountEvent))
-	Init() error
-	Start() error
-	Stop() error
-	GetCoinBase() types.Address
-}
-
 // Backend wraps all methods required for mining.
 type SnapshotChainRW interface {
 	WriteMiningBlock(block *ledger.SnapshotBlock) error
 }
-
-type DownloaderRegister func(chan<- int) // 0 represent success, not 0 represent failed.
 
 /**
 
@@ -69,17 +53,15 @@ func (self *producerLifecycle) PostStart() bool {
 
 type producer struct {
 	producerLifecycle
-	tools                *tools
-	mining               int32
-	coinbase             interfaces.Account
-	worker               *worker
-	cs                   consensus.Subscriber
-	subscriber           net.Subscriber
-	downloaderRegisterCh chan int
-	dwlFinished          bool
-	accountFn            func(producerevent.AccountEvent)
-	syncState            net.SyncState
-	netSyncId            int
+	tools      *tools
+	mining     int32
+	coinbase   interfaces.Account
+	worker     *worker
+	cs         consensus.Subscriber
+	subscriber net.Subscriber
+	accountFn  func(producerevent.AccountEvent)
+	syncState  net.SyncState
+	netSyncId  int
 }
 
 // todo syncDone
@@ -95,8 +77,6 @@ func NewProducer(rw chain.Chain,
 	miner.cs = cs
 	miner.worker = newWorker(chain, coinbase)
 	miner.subscriber = subscriber
-	miner.downloaderRegisterCh = make(chan int)
-	miner.dwlFinished = false
 	return miner
 }
 func (self *producer) Init() error {

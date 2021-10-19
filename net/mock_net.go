@@ -110,3 +110,7 @@ func mock(chain Chain) Net {
 		chain: chain,
 	}
 }
+
+func Mock(chain Chain) Net {
+	return mock(chain)
+}

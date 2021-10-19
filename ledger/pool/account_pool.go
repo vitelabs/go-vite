@@ -261,7 +261,7 @@ func (accP *accountPool) AddDirectBlocks(received *accountPoolBlock) error {
 		}
 		return nil
 	default:
-		accP.log.Crit("verify unexpected.")
+		common.Crit("verify unexpected.")
 		return errors.New("verify unexpected")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 )
@@ -174,36 +175,36 @@ func (c *chain) deleteSnapshotBlocksToHeight(toHeight uint64) (chunks []*ledger.
 
 	if err := c.em.TriggerDeleteSbs(prepareDeleteSbsEvent, realChunksToDelete); err != nil {
 		cErr := fmt.Errorf("c.em.Trigger(prepareDeleteSbsEvent) failed, error is %s", err.Error())
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+		common.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	// rollback block db
 	if err := c.blockDB.Rollback(location); err != nil {
 		cErr := fmt.Errorf("c.blockDB.Rollback(location) failed, error is %s", err.Error())
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+		common.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	// rollback index db
 	if err := c.indexDB.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
 		cErr := fmt.Errorf("c.indexDB.RollbackSnapshotBlocks failed, error is %s", err.Error())
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+		common.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	// rollback cache
 	if err := c.cache.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
 		cErr := fmt.Errorf("c.cache.RollbackSnapshotBlocks failed, error is %s", err.Error())
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+		common.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	// rollback state db
 	if err := c.stateDB.RollbackSnapshotBlocks(snapshotChunks, newUnconfirmedBlocks); err != nil {
 		cErr := fmt.Errorf("c.stateDB.RollbackSnapshotBlocks failed, error is %s", err.Error())
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+		common.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	if err := c.em.TriggerDeleteSbs(deleteSbsEvent, realChunksToDelete); err != nil {
 		cErr := fmt.Errorf("c.em.Trigger(deleteSbsEvent) failed, error is %s", err.Error())
-		c.log.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
+		common.Crit(cErr.Error(), "method", "deleteSnapshotBlocksToHeight")
 	}
 
 	return realChunksToDelete, nil
@@ -285,19 +286,19 @@ func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 	// rollback index db
 	if err := c.indexDB.RollbackAccountBlocks(blocks); err != nil {
 		cErr := fmt.Errorf("c.indexDB.RollbackAccountBlocks failed. Error: %s", err.Error())
-		c.log.Crit(cErr.Error(), "method", "deleteAccountBlocks")
+		common.Crit(cErr.Error(), "method", "deleteAccountBlocks")
 	}
 
 	// rollback cache
 	if err := c.cache.RollbackAccountBlocks(blocks); err != nil {
 		cErr := fmt.Errorf("c.cache.RollbackAccountBlocks failed. Error: %s", err.Error())
-		c.log.Crit(cErr.Error(), "method", "deleteAccountBlocks")
+		common.Crit(cErr.Error(), "method", "deleteAccountBlocks")
 	}
 
 	// rollback state db
 	if err := c.stateDB.RollbackAccountBlocks(blocks); err != nil {
 		cErr := fmt.Errorf("c.stateDB.RollbackAccountBlocks failed. Error: %s", err.Error())
-		c.log.Crit(cErr.Error(), "method", "deleteAccountBlocks")
+		common.Crit(cErr.Error(), "method", "deleteAccountBlocks")
 	}
 
 	c.em.TriggerDeleteAbs(DeleteAbsEvent, blocks)
