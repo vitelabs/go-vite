@@ -245,12 +245,24 @@ func (f DexApi) IsMarketDelegatedTo(principal, agent types.Address, tradeToken, 
 	}
 }
 
+func (f DexApi) GetMiningInfo(periodId uint64) (mineInfo *apidex.NewRpcVxMineInfo, err error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	return getMiningInfo(db, periodId)
+}
+
 func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
 	periodId := dex.GetCurrentPeriodId(db, apidex.GetConsensusReader(f.vite))
+	return getMiningInfo(db, periodId)
+}
+
+func getMiningInfo(db interfaces.VmDb, periodId uint64) (mineInfo *apidex.NewRpcVxMineInfo, err error) {
 	toMine := dex.GetVxToMineByPeriodId(db, periodId)
 	available := dex.GetVxMinePool(db)
 	if toMine.Cmp(available) > 0 {
