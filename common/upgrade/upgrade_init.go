@@ -98,7 +98,7 @@ func NewMainnetUpgradeBox() *upgradeBox {
 		},
 		{
 			Name:    "Version10",
-			Height:  77134340,
+			Height:  77106666,
 			Version: 10,
 		},
 		{
