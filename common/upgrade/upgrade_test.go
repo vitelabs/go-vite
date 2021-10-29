@@ -66,7 +66,7 @@ func TestMainnetUpgradeBox(t *testing.T) {
 		},
 		{
 			IsVersion10Upgrade,
-			77134340,
+			77106666,
 		},
 		{
 			IsVersionXUpgrade,
