@@ -5,7 +5,7 @@ order: 2
 # One Page
 
 :::tip ViteX
-A fully decentralized exchange built on the Vite public chain. The world's first DAG-based decentralized exchange. 
+A fully decentralized exchange built on the Vite blockchain. The world's first DAG-based decentralized exchange. 
 
 **ViteX is of the community, by the community, for the community.**
 :::

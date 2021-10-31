@@ -2,7 +2,7 @@
 demoUrl: "https://vitex.vite.net/test"
 ---
 
-# Data Query API
+# Data Query API (deprecated)
 
 ## HTTP API
 
