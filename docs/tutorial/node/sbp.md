@@ -8,7 +8,7 @@ order: 3
 This document mainly introduces how to config supernode and SBP registration.
 Before reading this article, please see [Node - Installation](./install.md) to install gvite first.
 
-* **Vite Mining Rules**: [Rules - SBP](../rule/sbp.md)
+* **Vite Mining Rules**: [Rules - SBP](../../reference/sbp.md)
 * **Full Node Installation Tutorial**: [Node - Installation](./install.md)
 * **Wallet Management**: [Node - Wallet Management](./wallet-manage.md)
 :::
