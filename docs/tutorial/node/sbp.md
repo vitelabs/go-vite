@@ -126,6 +126,6 @@ Give your SBP a nice name. Bad name will not help recognition or attracting vote
 
 ### SBP Ranking List
 
-Visit [https://explorer.vite.net/SBPList](https://explorer.vite.net/SBPList) for the ranking list.
+Visit [https://vitescan.io/sbps](https://vitescan.io/sbps) for the ranking list.
 
 
