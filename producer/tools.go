@@ -53,7 +53,7 @@ func (self *tools) generateSnapshot(e *consensus.Event, coinbase interfaces.Acco
 
 	// add version
 	if upgrade.IsLeafUpgrade(block.Height) {
-		block.Version = upgrade.GetCurPoint(block.Height).Version
+		block.Version = upgrade.GetLatestPoint().Version
 	}
 
 	block.Hash = block.ComputeHash()

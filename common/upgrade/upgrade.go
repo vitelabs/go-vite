@@ -45,6 +45,18 @@ func (box *upgradeBox) AddPoint(version uint32, height uint64) UpgradeBox {
 	return box
 }
 
+func (box upgradeBox) latestPoint() *UpgradePoint {
+	var result *UpgradePoint
+	for _, v := range box.sortedPoints {
+		if v.Height < EndlessHeight {
+			result = v
+		} else {
+			break
+		}
+	}
+	return result
+}
+
 func (box upgradeBox) currentPoint(height uint64) *UpgradePoint {
 	var result *UpgradePoint
 	for _, v := range box.sortedPoints {

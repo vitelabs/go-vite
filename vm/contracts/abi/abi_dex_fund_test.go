@@ -29,6 +29,19 @@ func TestABI_MethodNameDexFundPeriodJob(t *testing.T) {
 		// t.Log(jobId, base64.StdEncoding.EncodeToString(byts))
 		assert.Equal(t, base64.StdEncoding.EncodeToString(byts), result[i])
 	}
+
+	// jobIds = []uint8{3}
+	// for peridId := 900; peridId <= 900; peridId++ {
+	// 	for _, jobId := range jobIds {
+	// 		lastPeriod := uint64(peridId)
+	// 		byts, err := ABIDexFund.PackMethod(MethodNameDexFundPeriodJob, lastPeriod+1, jobId)
+	// 		require.NoError(t, err)
+	// 		// t.Log(jobId, base64.StdEncoding.EncodeToString(byts))
+
+	// 		fmt.Printf("\"%s\",\n", base64.StdEncoding.EncodeToString(byts))
+	// 		// assert.Equal(t, base64.StdEncoding.EncodeToString(byts), result[i])
+	// 	}
+	// }
 }
 
 func TestABI_MethodNameDexFundEndorseVxV2(t *testing.T) {
