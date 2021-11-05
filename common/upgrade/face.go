@@ -23,6 +23,8 @@ type UpgradeBox interface {
 
 var upgrade *upgradeBox
 
+var EndlessHeight = uint64(1000000000)
+
 func assertUpgradeNotNil() {
 	if upgrade == nil {
 		panic("upgrade is nil")
@@ -56,6 +58,11 @@ func IsUpgradePoint(sHeight uint64) bool {
 func GetCurPoint(sHeight uint64) *UpgradePoint {
 	assertUpgradeNotNil()
 	return upgrade.currentPoint(sHeight)
+}
+
+func GetLatestPoint() *UpgradePoint {
+	assertUpgradeNotNil()
+	return upgrade.latestPoint()
 }
 
 func GetActivePoints(sHeight uint64) []*UpgradePoint {

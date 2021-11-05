@@ -101,8 +101,8 @@ var (
 	NewMarketFeeDonateAmount = new(big.Int).Mul(commonTokenPow, big.NewInt(4000))
 	NewMarketFeeBurnAmount   = new(big.Int).Mul(commonTokenPow, big.NewInt(5000))
 	NewInviterFeeAmount      = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
-	// 1000 -> 100 version 10
-	NewInviterFeeAmountForVersion10 = new(big.Int).Mul(commonTokenPow, big.NewInt(1000))
+	// 1000 -> 100 in version 10
+	NewInviterFeeAmountForVersion10 = new(big.Int).Mul(commonTokenPow, big.NewInt(100))
 
 	VxLockThreshold = new(big.Int).Set(commonTokenPow)
 	SchedulePeriods = 7 // T+7 schedule
