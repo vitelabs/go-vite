@@ -1,11 +1,14 @@
 package subcmd_ledger
 
 import (
+	"fmt"
+
 	"gopkg.in/urfave/cli.v1"
 
 	"github.com/vitelabs/go-vite"
 	"github.com/vitelabs/go-vite/cmd/nodemanager"
 	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/types"
 	"github.com/vitelabs/go-vite/log15"
 )
@@ -30,6 +33,12 @@ var (
 						Usage: "snapshot height",
 					}}...),
 				Action: utils.MigrateFlags(dumpAllBalanceAction),
+			},
+			{
+				Name:   "latestBlock",
+				Usage:  "print latest snapshot block",
+				Flags:  utils.ConfigFlags,
+				Action: utils.MigrateFlags(latestSnapshotBlockAction),
 			},
 		},
 	}
@@ -60,4 +69,15 @@ func dumpAllBalanceAction(ctx *cli.Context) error {
 	}
 	snapshotHeight := ctx.Uint64("snapshotHeight")
 	return dumpBalance(vite.Chain(), tokenId, snapshotHeight)
+}
+
+func latestSnapshotBlockAction(ctx *cli.Context) error {
+	vite, err := localVite(ctx)
+	if err != nil {
+		return err
+	}
+	block := vite.Chain().GetLatestSnapshotBlock()
+
+	fmt.Println(common.ToJson(block))
+	return nil
 }
