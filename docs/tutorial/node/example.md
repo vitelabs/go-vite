@@ -74,7 +74,7 @@ For example, if you logged in as root user, the installation directory is:
   
 Execute the following command
 ```javascript
-./gvite rpc ~/.gvite/maindata/gvite.ipc wallet_newMnemonicAndEntropyStore '["123456"]'
+./gvite rpc ~/.gvite/maindata/gvite.ipc wallet_createEntropyFile '["123456"]'
 ```
 Here `123456` is keystore's password, you should replace it with your own password.
 
