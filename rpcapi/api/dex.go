@@ -830,6 +830,18 @@ func (f DexPrivateApi) GetMakerMiningPool(periodId uint64) (string, error) {
 	return balance.String(), nil
 }
 
+func (f DexPrivateApi) GetLastPeriodIdByJobType(bizType uint8) (uint64, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return 0, err
+	}
+	if lastPeriodId := dex.GetLastJobPeriodIdByBizType(db, bizType); err != nil {
+		return 0, err
+	} else {
+		return lastPeriodId, nil
+	}
+}
+
 func (f DexPrivateApi) GetLastPeriodIdForJobs(bizType uint8) (map[string]uint64, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
