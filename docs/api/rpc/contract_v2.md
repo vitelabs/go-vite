@@ -345,7 +345,7 @@ Create a new contract address
   - `string address` New address
 
 - **Example**:
-::: demo
+::: tabs
 ```json tab:Request
 {  
    "jsonrpc":"2.0",
