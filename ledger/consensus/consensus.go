@@ -61,6 +61,7 @@ type Reader interface {
 type APIReader interface {
 	ReadVoteMap(t time.Time) ([]*VoteDetails, *ledger.HashHeight, error)
 	ReadSuccessRate(start, end uint64) ([]map[types.Address]*cdb.Content, error)
+	ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error)
 }
 
 // Life define the life cycle for consensus component
