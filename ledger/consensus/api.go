@@ -30,3 +30,19 @@ func (api *APISnapshot) ReadSuccessRate(start, end uint64) ([]map[types.Address]
 	}
 	return result, nil
 }
+
+func (api APISnapshot) ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error) {
+	// cal votes
+	eResult, err := api.snapshot.ElectionIndex(index)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	voteTime := api.snapshot.GenProofTime(index)
+	var result []*Event
+	for _, p := range eResult.Plans {
+		e := newConsensusEvent(eResult, p, gid, voteTime)
+		result = append(result, &e)
+	}
+	return result, uint64(eResult.Index), nil
+}
