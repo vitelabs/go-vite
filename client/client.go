@@ -7,6 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/crypto/ed25519"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/rpcapi/api"
 	"github.com/vitelabs/go-vite/vm/abi"
@@ -50,6 +51,7 @@ type Client interface {
 	GetBalanceAll(addr types.Address) (*api.RpcAccountInfo, *api.RpcAccountInfo, error)
 	SignData(wallet *entropystore.Manager, block *api.AccountBlock) error
 	SignDataWithPriKey(key *derivation.Key, block *api.AccountBlock) error
+	SignDataWithEd25519Key(key ed25519.PrivateKey, block *api.AccountBlock) error
 }
 
 func NewClient(rpc RpcClient) (Client, error) {
@@ -281,6 +283,25 @@ func (c *client) SignDataWithPriKey(key *derivation.Key, block *api.AccountBlock
 	if err != nil {
 		return err
 	}
+
+	block.Signature = signData
+	block.PublicKey = pub
+	return nil
+}
+
+func (c *client) SignDataWithEd25519Key(key ed25519.PrivateKey, block *api.AccountBlock) error {
+	if key == nil {
+		return errorNilKey
+	}
+	if block == nil {
+		return errorNilBlock
+	}
+	if (block.Hash == types.Hash{}) {
+		return errorEmptyHash
+	}
+
+	pub := key.PubByte()
+	signData := ed25519.Sign(key, block.Hash.Bytes())
 
 	block.Signature = signData
 	block.PublicKey = pub
