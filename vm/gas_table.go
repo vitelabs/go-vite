@@ -479,6 +479,10 @@ func gasCall2(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64)
 	return gasCall(vm, c, stack, mem, memorySize)
 }
 
+func gasSyncCall(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
+	return gasCall(vm, c, stack, mem, memorySize)
+}
+
 func gasReturn(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64) (uint64, bool, error) {
 	return memoryGasCost(vm, mem, memorySize)
 }

@@ -135,10 +135,12 @@ The instruction set in Vite VM is as follows:
 |  Opcode  | Mnemonic | POP | PUSH | Description | Differential with EVM |
 |:------------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|
 | 0xF0 | CREATE | - | - | Create a new contract | Not provided |
-| 0xF1 | CALL | 5 | 0 | Call another contract  | Call another contract asynchronously with no return value | 
+| 0xF1 | CALL | 5 | 0 | Call another contract asynchronously  | Send a call transaction to another contract and expect no return values | 
 | 0xF2 | CALLCODE | - | - | Change current account's status with calling an alternative contract’s code | Not provided |
-| 0xF3 | RETURN | 2 | 0 | Halt execution and return output data | Same semantics | 
+| 0xF3 | RETURN | 2 | 0 | Halt execution and return output data. | Send a callback transaction to the caller if the original call is a SYNCCALL. | 
 | 0xF4 | DELEGATECALL | 6 | 1 | Call another contract's code, change contract and current account's status but persisting the original transaction info | Not provided | 
+| 0xF7 | SYNCCALL | 6 | 0 | Call another contract with a callback Id. The callee will send a callback transaction to the caller while executing RETURN. | Additional | 
+| 0xF8 | CALLBACKDEST | 0 | 0 | Restore the execution context of a sync-call while receiving a callback transaction | Additional | 
 | 0xFA | STATICCALL | - | - | Call another contract, not allowed to change the status | Not provided |
 | 0xFD | REVERT | 2 | 0 | Halt execution, recover status and return output data | Same semantics | 
 | 0xFF | SELFDESTRUCT | 1 | 0 | Halt execution, set contract status as later deletion and return all of the balances | Not provided | 

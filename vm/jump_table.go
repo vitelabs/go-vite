@@ -188,6 +188,21 @@ func newSimpleInstructionSet() [256]operation {
 		reverts:       true,
 		returns:       true,
 	}
+	instructionSet[SYNCCALL] = operation{
+		execute:       opSyncCall,
+		gasCost:       gasSyncCall,
+		validateStack: makeStackFunc(6, 0),
+		memorySize:    memorySyncCall,
+		valid:         true,
+		halts: 		   true,
+	}
+	instructionSet[CALLBACKDEST] = operation{
+		execute:       opCallbackDest,
+		gasCost:       gasJumpdest,
+		validateStack: makeStackFunc(0, 0),
+		valid:         true,
+	}
+
 	return instructionSet
 }
 

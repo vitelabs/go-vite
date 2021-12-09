@@ -103,13 +103,13 @@ func (i *interpreter) runLoop(vm *VM, c *contract) (ret []byte, err error) {
 			}
 			nodeConfig.interpreterLog.Info("vm step",
 				"blockType", c.block.BlockType,
-				"address", c.block.AccountAddress.String(),
 				"height", c.block.Height,
+				"address", c.block.AccountAddress.String(),
 				"fromHash", c.block.FromBlockHash.String(),
-				"\ncurrent code", currentCode,
-				"\nop", opCodeToString[op],
-				"pc", currentPc,
+				"\npc", currentPc,
 				"quotaLeft", c.quotaLeft,
+				"\ncode", currentCode,
+				"\nop", opCodeToString[op],
 				"\nstack", st.print(),
 				"\nmemory", mem.print(),
 				"\nstorage", util.PrintMap(storageMap))

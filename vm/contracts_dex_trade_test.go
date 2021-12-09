@@ -138,7 +138,7 @@ func TestDexTrade(t *testing.T) {
 			fmt.Println(testFile.Name() + ":" + k)
 			db := initTradeDb(testCase, t)
 			reader := util.NewVMConsensusReader(newConsensusReaderTest(db.GetGenesisSnapshotBlock().Timestamp.Unix(), 24*3600, nil))
-			vm := NewVM(reader)
+			vm := NewVM(reader, nil)
 			executeTradeActions(testCase, vm, db, t)
 			executeTradeChecks(testCase, db, t)
 		}

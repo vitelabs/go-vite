@@ -166,7 +166,7 @@ func TestVM_RunV2(t *testing.T) {
 				if newDbErr != nil {
 					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
 				}
-				vm := NewVM(nil)
+				vm := NewVM(nil, nil)
 				vmBlock, isRetry, err = vm.RunV2(db, sendBlock, nil, nil)
 			} else if ledger.IsReceiveBlock(testCase.BlockType) {
 				sendBlock.BlockType = testCase.SendBlockType
@@ -211,7 +211,7 @@ func TestVM_RunV2(t *testing.T) {
 					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
 				}
 				cs := util.NewVMConsensusReader(newConsensusReaderTest(genesisTimestamp, csInterval, testCase.CsDetail))
-				vm := NewVM(cs)
+				vm := NewVM(cs, nil)
 				var status util.GlobalStatus
 				if testCase.NeedGlobalStatus {
 					status = NewTestGlobalStatus(0, latestSnapshotBlock)

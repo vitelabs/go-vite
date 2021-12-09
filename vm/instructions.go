@@ -2,6 +2,9 @@ package vm
 
 import (
 	"encoding/hex"
+	"errors"
+	"github.com/vitelabs/go-vite/vm/metadata"
+	"math/big"
 
 	"golang.org/x/crypto/sha3"
 
@@ -376,7 +379,13 @@ func opOffchainBalance(pc *uint64, vm *VM, c *contract, mem *memory, stack *stac
 }
 
 func opCaller(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.Get().SetBytes(c.sendBlock.AccountAddress.Bytes()))
+	var originSendBlock *ledger.AccountBlock
+	if vm.vmContext.originSendBlock == nil {
+		originSendBlock = c.sendBlock
+	} else {
+		originSendBlock = vm.vmContext.originSendBlock
+	}
+	stack.push(c.intPool.Get().SetBytes(originSendBlock.AccountAddress.Bytes()))
 	return nil, nil
 }
 
@@ -397,14 +406,16 @@ func opOffchainCallValue(pc *uint64, vm *VM, c *contract, mem *memory, stack *st
 
 func opCallDataLoad(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	offset := stack.pop()
-	stack.push(c.intPool.Get().SetBytes(helper.GetDataBig(c.data, offset, helper.Big32)))
+	calldata := metadata.GetCalldata(c.data)
+	stack.push(c.intPool.Get().SetBytes(helper.GetDataBig(calldata, offset, helper.Big32)))
 
 	c.intPool.Put(offset)
 	return nil, nil
 }
 
 func opCallDataSize(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.Get().SetInt64(int64(len(c.data))))
+	calldata := metadata.GetCalldata(c.data)
+	stack.push(c.intPool.Get().SetInt64(int64(len(calldata))))
 	return nil, nil
 }
 
@@ -414,7 +425,8 @@ func opCallDataCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 		dataOffset = stack.pop()
 		length     = stack.pop()
 	)
-	mem.set(memOffset.Uint64(), length.Uint64(), helper.GetDataBig(c.data, dataOffset, length))
+	calldata := metadata.GetCalldata(c.data)
+	mem.set(memOffset.Uint64(), length.Uint64(), helper.GetDataBig(calldata, dataOffset, length))
 
 	c.intPool.Put(memOffset, dataOffset, length)
 	return nil, nil
@@ -839,11 +851,181 @@ func opOffchainCall2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack)
 	return nil, nil
 }
 
+func opSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	callback, toAddrBig, tokenIDBig, amount, inOffset, inSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
+	toAddress, _ := types.BigToAddress(toAddrBig)
+	tokenID, _ := types.BigToTokenTypeId(tokenIDBig)
+	calldata := mem.get(inOffset.Int64(), inSize.Int64())
+
+	// get origin call send block
+	var originSendBlock *ledger.AccountBlock
+
+	if vm.vmContext.originSendBlock == nil {
+		originSendBlock = c.sendBlock
+	} else {
+		originSendBlock = vm.vmContext.originSendBlock
+	}
+
+	// get execution context
+	context := &metadata.ExecutionContext{
+		Stack: stack.data,
+		Memory: mem.get(0, int64(mem.len())),
+	}
+
+	// encode data
+	data, _ := metadata.EncodeSyncCallData(originSendBlock.Hash, callback, context, calldata)
+
+	nodeConfig.interpreterLog.Debug("opSyncCall",
+		"memory len", mem.len(),
+		"\noriginSendHash", originSendBlock.Hash.String(),
+		"\ncurrent stack", stack.data,
+		"\nstack dump", context.Stack,
+		"\ncurrent memory", hex.EncodeToString(mem.get(0, int64(mem.len()))),
+		"\nmemory dump", hex.EncodeToString(context.Memory),
+		"\ndata", hex.EncodeToString(data))
+
+	// send sync call transaction
+	vm.AppendBlock(
+		util.MakeRequestBlock(
+			c.block.AccountAddress,
+			toAddress,
+			ledger.BlockTypeSendCall,
+			amount,
+			tokenID,
+			data))
+
+	nodeConfig.log.Debug("opSyncCall",
+		"\nfrom", c.sendBlock.AccountAddress.String(),
+		"\nto", c.sendBlock.ToAddress.String(),
+		"\nsend block", c.sendBlock,
+		"\noriginSendBlock", originSendBlock)
+
+	return nil, nil
+}
+
+func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	sendType := metadata.GetSendType(c.sendBlock.Data)
+	if sendType == metadata.Callback {
+		syncCallSendHash, err := metadata.GetReferencedSendHash(c.sendBlock.Data)
+		if err != nil {
+			return nil, err
+		}
+
+		syncCallSendBlock, err := vm.GetAccountBlockByHash(syncCallSendHash)
+		if err != nil {
+			return nil, err
+		}
+
+		// validate sync call send block
+		if syncCallSendBlock.AccountAddress != c.block.AccountAddress || syncCallSendBlock.ToAddress != c.sendBlock.AccountAddress {
+			return nil, errors.New("the callback transaction references an invalid send block")
+		}
+
+		// get origin send block
+		originSendHash, err := metadata.GetReferencedSendHash(syncCallSendBlock.Data)
+		if err != nil {
+			return nil, err
+		}
+		originSendBlock, err := vm.GetAccountBlockByHash(originSendHash)
+		if err != nil {
+			return nil, err
+		}
+
+		// validate origin send block
+		if originSendBlock.ToAddress != c.block.AccountAddress {
+			return nil, errors.New("invalid origin send block")
+		}
+
+		// save origin send block to VM context
+		vm.vmContext.originSendBlock = originSendBlock
+
+		// load context
+		context := metadata.GetContext(syncCallSendBlock.Data)
+		if context == nil {
+			return nil, errors.New("cannot restore sync call execution context")
+		}
+
+		// restore context
+		stackDump := context.Stack
+		nodeConfig.interpreterLog.Debug("opCallbackDest",
+			"current stack", stack.print(), "stack dump", stackDump)
+
+		for i := 0; i < len(stackDump); i++ {
+			stackItem := stackDump[i]
+			stack.push(stackItem)
+			nodeConfig.interpreterLog.Debug("restore stack", "item", stackItem)
+		}
+		nodeConfig.interpreterLog.Debug("opCallbackDest",
+			"current stack", stack.print())
+
+		// restore memory
+		memoryDump := context.Memory
+		size := uint64(len(memoryDump))
+		mem.resize(size)
+		mem.set(0, size, memoryDump)
+
+		nodeConfig.interpreterLog.Debug("opCallbackDest",
+			"memory len", mem.len(),
+			"\ncurrent memory", hex.EncodeToString(mem.get(0, int64(mem.len()))),
+			"\nmemory dump", hex.EncodeToString(context.Memory))
+
+		nodeConfig.log.Debug("opCallbackDest",
+			"\nfrom", c.sendBlock.AccountAddress.String(),
+			"\nto", c.sendBlock.ToAddress.String(),
+			"\nsend block", c.sendBlock,
+			"\nsyncCallSendHash", syncCallSendHash,
+			"\noriginSendBlock", originSendBlock)
+	}
+
+	return nil, nil
+}
+
+func opOrigin(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+
+	return nil, nil
+}
+
 func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	offset, size := stack.pop(), stack.pop()
 	ret := mem.getPtr(offset.Int64(), size.Int64())
-
 	c.intPool.Put(offset, size)
+
+	sendType := metadata.GetSendType(c.sendBlock.Data)
+
+	// return to a sync call
+	if sendType == metadata.SyncCall || sendType == metadata.Callback {
+		var originSendBlock *ledger.AccountBlock
+		// get the send-block of the original call
+		if vm.vmContext.originSendBlock == nil {
+			originSendBlock = c.sendBlock
+		} else {
+			originSendBlock = vm.vmContext.originSendBlock
+		}
+
+		if metadata.GetSendType(originSendBlock.Data) == metadata.SyncCall {
+			// append return data
+			returnData := mem.getPtr(offset.Int64(), size.Int64())
+			data, err := metadata.EncodeCallbackData(originSendBlock, returnData)
+			util.DealWithErr(err)
+
+			// send callback transaction
+			vm.AppendBlock(
+				util.MakeRequestBlock(
+					c.block.AccountAddress,
+					originSendBlock.AccountAddress,
+					ledger.BlockTypeSendCall,
+					big.NewInt(int64(0)), // return call must be non-payable
+					ledger.ViteTokenId,
+					data))
+
+			nodeConfig.interpreterLog.Debug("opReturn",
+				"\nfrom", c.sendBlock.AccountAddress.String(),
+				"\nto", c.sendBlock.ToAddress.String(),
+				"\nsend block", c.sendBlock,
+				"\noriginSendBlock", originSendBlock)
+		}
+	}
+
 	return ret, nil
 }
 

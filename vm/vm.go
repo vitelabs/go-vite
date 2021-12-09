@@ -4,6 +4,7 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
+	"github.com/vitelabs/go-vite/vm_db"
 	"math/big"
 	"runtime/debug"
 	"strconv"
@@ -116,6 +117,7 @@ func initLog(dir, lvl string) {
 
 type vmContext struct {
 	sendBlockList []*ledger.AccountBlock
+	originSendBlock *ledger.AccountBlock  // holds the original send transaction while executing continuation code in a sync call
 }
 
 // VM holds the runtime information of vite vm and provides the necessary tools
@@ -136,12 +138,14 @@ type VM struct {
 	// latest snapshot block height, used for fork check
 	latestSnapshotHeight uint64
 	gasTable             *util.QuotaTable
+	// chain is used to query ledger during execution
+	chain vm_db.Chain
 }
 
 // NewVM is a constructor of VM. This method is called before running an
 // execution.
-func NewVM(cr util.ConsensusReader) *VM {
-	return &VM{reader: cr}
+func NewVM(cr util.ConsensusReader, c vm_db.Chain) *VM {
+	return &VM{reader: cr, chain: c}
 }
 
 // GlobalStatus is a getter method.
@@ -909,6 +913,14 @@ func (vm *VM) OffChainReader(db interfaces.VmDb, code []byte, data []byte) (resu
 	c := newContract(&ledger.AccountBlock{AccountAddress: *db.Address()}, db, &ledger.AccountBlock{ToAddress: *db.Address()}, data, offChainReaderGas)
 	c.setCallCode(*db.Address(), code)
 	return c.run(vm)
+}
+
+// GetAccountBlockByHash query a block by its hash
+func (vm *VM) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	nodeConfig.log.Info("GlobalStatus.GetAccountBlockByHash()", "blockHash", blockHash)
+	block, err := vm.chain.GetAccountBlockByHash(blockHash)
+	nodeConfig.log.Info("GlobalStatus.GetAccountBlockByHash() return", "block", block)
+	return block, err
 }
 
 func getStakeBeneficialAmount(db interfaces.VmDb) *big.Int {
