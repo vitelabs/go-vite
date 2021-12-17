@@ -1,14 +1,14 @@
 ---
-order: 1
+order: 2
 ---
 
-# ViteX Gateway Technical Specification
+# ViteX Gateway Protocol
 
 :::tip Introduction
-This specification describes the API interface that 3rd party gateways need to implement for plugging into ViteX. 
-It has been fully supported by [Vite Web Wallet](https://github.com/vitelabs/vite-web-wallet).
+This specification describes the API interface that a third-party ViteX gateway need to implement for integrating into ViteX. 
+It has been fully supported by [Vite Web Wallet](https://github.com/vitelabs/vite-web-wallet) and Vite Mobile App.
 
-For how to integrate the gateway in wallet, please see [Gateway Plug-in Tutorial](../operation/gate-integration.md)
+For how to integrate the gateway in the wallet, please see [Gateway Integration Guide](./integration-guide.md)
 :::
 
 :::warning Attention

@@ -1,5 +1,5 @@
 ---
 order: false
 parent:
-    title: Operation
+    title: ViteX Gateway
 ---

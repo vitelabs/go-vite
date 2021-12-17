@@ -63,13 +63,13 @@ The total supply of VX is ***29,328,807.8*** with no inflation, which will be fu
 
 The release of VX will be allocated daily as the breakdown below:
 
-* Trading, Referring and Listing: ***60%***
-  - BTC market: ***15%***
-  - ETH market: ***15%***
-  - VITE market: ***15%***
-  - USDT market: ***15%***
+* Trading, Referring and Listing: ***55%***
+  - BTC market: ***13.75%***
+  - ETH market: ***13.75%***
+  - VITE market: ***13.75%***
+  - USDT market: ***13.75%***
 * Staking: ***20%***
-* Market-making: ***10%***
+* Market-making: ***15%***
 * Team: ***10%***
 
 ### VX Holder Dividends
@@ -92,9 +92,9 @@ Starting from December 8, 2019, base fee collected in **VITE** are not sent to d
 
 ### Trading as Mining
 
-Mines approximately 60% of daily released VX. Currently, users are able to trade in four markets: BTC, ETH, VITE and USDT and receive VX rewards accordingly.
+Mines approximately 55% of daily released VX. Currently, users are able to trade in four markets: BTC, ETH, VITE and USDT and receive VX rewards accordingly.
 
-* **Allocation**: Each market receives 15% of daily distributed VX. 
+* **Allocation**: Each market receives 13.75% of daily distributed VX. 
 * **How to participate**: By fulfilling orders on **eligible trading pairs**, you mined VX. 
 * **Mining calculation**: The calculation is based on the proportion of your cumulative trading fee to the total trading fees collected in the associated market. For example, for a given day, if a trader contributed 5% of the total trading fee of BTC market, the trader will receive 5% of the 15% of VX applied to the market. 
     
@@ -110,15 +110,15 @@ By staking VITE to help ViteX obtain operational quota, users receive VX rewards
   
 ### Market-making as Mining
 
-Mines 10% of daily released VX; BTC market at 5%, ETH and VITE market equally at 1.5%, USDT market at 2%.
+Mines 15% of daily released VX; BTC market at 7.5%, ETH and VITE market equally at 2.25%, USDT market at 3%.
 
 Placing orders on ViteX can also earn VX. The amount of VX earned depends on three factors: 1) the amount of order, 2) the amount of time your order remains on the order book, and 3) the amount of deviation from the best bid and best offer in the order book spread.
 
-* **Allocation**: 10% of daily released VX
-  - BTC market **5%**
-  - ETH market **1.5%**
-  - VITE market **1.5%**
-  - USDT market **2%**
+* **Allocation**: 15% of daily released VX
+  - BTC market **7.5%**
+  - ETH market **2.25%**
+  - VITE market **2.25%**
+  - USDT market **3%**
 * **How to participate**: Place orders in the order book
   - Only eligible trading pairs will be considered for market-making as mining;
   - Both buy and sell orders are considered for market-making as mining rewards;
@@ -236,7 +236,7 @@ User can request invitation codes to invite friends to join the ViteX platform.
   - **2.5%** of their market making as mining proceeds.
   
 * **How to participate**:
-  - Spend 1,000 VITE to generate a referral code, of which 100% will be burned
+  - Spend 100 VITE to generate a referral code, of which 100% will be burned
   
 > As an example, let’s say Bob gets a referral code from Alice. When Bob signs up ViteX using the code and starts trading, he gets 10% off of all trading fees (Base Trading Fee + any applicable Operator Fees) on ViteX. Alice, on the other hand, benefits from Bob’s trading activity as 5% of Bob’s cumulative trading fees count for Alice’s cumulative trading fees. For example, if Bob accrues $100 in trading fees and Alice accrues $200, Alice will effectively have $205 in accumulated trading fees while Bob will have $102.5 as he is rewarded with additional 2.5% of his own trading fees.
 

@@ -33,11 +33,7 @@ vite.p2p.db
 # Build files
 build/
 
-# config files for test
-node_config_*.json
-
 vite/net/simular/genesis.go
-genesis_*.json
 
 **/p2p/**/simular/**
 !**/p2p/**/simular/**/*.go

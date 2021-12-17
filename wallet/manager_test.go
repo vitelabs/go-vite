@@ -4,120 +4,23 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"path/filepath"
+	"io/ioutil"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vitelabs/go-vite/common"
 	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/common/helper"
 	"github.com/vitelabs/go-vite/wallet"
 )
 
-func deskTopDir() string {
-	home := common.HomeDir()
-	if home != "" {
-
-		return filepath.Join(home, "Desktop", "wallet")
-	}
-	return ""
+func tmpDir() string {
+	tmpDir, _ := ioutil.TempDir("", "")
+	return tmpDir
 }
 
-func TestManager_NewMnemonicAndSeedStore(t *testing.T) {
-	manager := wallet.New(&config.Wallet{
-		DataDir: deskTopDir(),
-	})
-	mnemonic, em, err := manager.NewMnemonicAndEntropyStore("123456")
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(mnemonic)
-	fmt.Println(em.GetPrimaryAddr())
-	fmt.Println(em.GetEntropyStoreFile())
-	//
-	//em2, e := manager.RecoverEntropyStoreFromMnemonic(mnemonic, "123456")
-	//if e != nil {
-	//	t.Fatal()
-	//}
-	//em2.Unlock("123456")
-	err = em.Unlock("123456")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for i := 0; i < 1; i++ {
-		_, key2, e := em.DeriveForIndexPath(uint32(i))
-		if e != nil {
-			t.Fatal(e)
-		}
-		address, _ := key2.Address()
-		privateKeys, _ := key2.PrivateKey()
-		fmt.Println(address.String() + "@" + privateKeys.Hex())
-		//_, key, err2 := em.DeriveForIndexPath(uint32(i))
-		//if err2 != nil {
-		//	t.Fatal(err2)
-		//}
-		//assert.True(t, bytes.Equal(key2.Key, key.Key))
-		//assert.True(t, bytes.Equal(key2.ChainCode, key.ChainCode))
-
-	}
-
-	// fmt.Println(em.GetPrimaryAddr())
-	// fmt.Println(em.GetEntropyStoreFile())
-}
-
-func TestManager_RecoverEntropyStoreFromMnemonic(t *testing.T) {
-	mnemonic := ""
-	manager := wallet.New(&config.Wallet{
-		DataDir: deskTopDir(),
-	})
-	em, _ := manager.RecoverEntropyStoreFromMnemonic(mnemonic, "123456")
-	err := em.Unlock("123456")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr := em.GetPrimaryAddr()
-
-	t.Log(addr)
-
-	_, key, err := em.DeriveForIndexPath(0)
-	assert.NoError(t, err)
-	privateKey, err := key.PrivateKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(hex.EncodeToString(privateKey))
-	publicKey, err := key.PublicKey()
-	assert.NoError(t, err)
-	hexPubKey := hex.EncodeToString(publicKey)
-	t.Log(hexPubKey)
-	now := time.Now().Unix()
-	data, pub, err := key.SignData([]byte(fmt.Sprintf("%d", now)))
-	assert.NoError(t, err)
-	t.Log(hex.EncodeToString(pub))
-
-	pubKeyddd, _ := hex.DecodeString(hex.EncodeToString(publicKey))
-	sig, err := crypto.VerifySig(pubKeyddd, []byte(fmt.Sprintf("%d", now)), data)
-	t.Log(sig, err)
-}
-
-func TestManager_NewMnemonicAndSeedStore2(t *testing.T) {
-	for i := 1; i <= 25; i++ {
-		manager := wallet.New(&config.Wallet{
-			DataDir: fmt.Sprintf("/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_%d/devdata/wallet", i),
-		})
-		mnemonic, em, err := manager.NewMnemonicAndEntropyStore("123456")
-		if err != nil {
-			t.Fatal(err)
-		}
-		fmt.Println(mnemonic, ",", em.GetEntropyStoreFile())
-	}
-}
-
-func TestManager_NewMnemonicAndSeedStore21(t *testing.T) {
+func testManagerRecover(t *testing.T, dir string) {
 	mneList := []string{
 		"alter meat balance father season shop text figure pitch another fade figure faith chat smooth pottery dilemma pause differ equal shuffle series valve render",
 		"that split virus bulk piece recall kick cave balance trigger burst license chat fame frog void theme soft unit subject crime tragic hip sand",
@@ -147,66 +50,36 @@ func TestManager_NewMnemonicAndSeedStore21(t *testing.T) {
 	}
 
 	manager := wallet.New(&config.Wallet{
-		DataDir: fmt.Sprintf("wallet-dir"),
+		DataDir: dir,
 	})
 	err := manager.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < len(mneList); i++ {
-		em, err := manager.RecoverEntropyStoreFromMnemonic(mneList[i], "123456")
+		_, err := manager.RecoverEntropyStoreFromMnemonic(mneList[i], "123456")
 		if err != nil {
 			panic(err)
 		}
-		err = em.Unlock("123456")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		prim := em.GetPrimaryAddr()
-		fmt.Printf(`"s%d":{
-          "BlockProducingAddress":"%s",
-          "StakeAddress":"%s",
-          "Amount":100000000000000000000000,
-          "ExpirationHeight":7776000,
-          "RewardTime":1,
-          "RevokeTime":0,
-          "HistoryAddressList":["%s"]
-        },`, i+1, prim.Hex(), prim.Hex(), prim.Hex())
-		fmt.Println()
-		//N := uint32(10)
-		//for i := uint32(0); i < N; i++ {
-		//	_, key, err := em.DeriveForIndexPath(i)
-		//	if err != nil {
-		//		panic(err)
-		//	}
-		//	addr, err := key.Address()
-		//	if err != nil {
-		//		panic(err)
-		//	}
-		//	//fmt.Printf("\t\"%s\":{\"tti_5649544520544f4b454e6e40\":100000000000000000000000000},\n", addr)
-		//	//fmt.Printf("\t\"%s\":2000000000000000000000,\n", addr)
-		//}
-		//fmt.Printf("\n")
 	}
+	manager.Stop()
 }
 
 func TestManager_NewMnemonicAndSeedStore3(t *testing.T) {
 	manager := wallet.New(&config.Wallet{
-		DataDir: fmt.Sprintf("/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/tmpWallet"),
+		DataDir: tmpDir(),
 	})
 	for i := 1; i <= 5; i++ {
-		mnemonic, em, err := manager.NewMnemonicAndEntropyStore("123456")
+		_, _, err := manager.NewMnemonicAndEntropyStore("123456")
 		if err != nil {
 			t.Fatal(err)
 		}
-		fmt.Println(mnemonic, ",", em.GetEntropyStoreFile())
 	}
 }
 
-func TestManager_NewMnemonicAndSeedStore4(t *testing.T) {
+func testManagerDerive(t *testing.T, dir string) {
 	manager := wallet.New(&config.Wallet{
-		DataDir: fmt.Sprintf("/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/tmpWallet"),
+		DataDir: tmpDir(),
 	})
 	err := manager.Start()
 	if err != nil {
@@ -235,31 +108,21 @@ func TestManager_NewMnemonicAndSeedStore4(t *testing.T) {
 			panic(err)
 		}
 		fmt.Printf("%s,0:%s,%s\n", addr, addr, keys.Hex())
+
+		for i := 0; i < 25; i++ {
+			_, key, err := storeManager.DeriveForIndexPath(uint32(i))
+			helper.ErrFailf(t, err, "deriver for index %d err", i)
+			address, _ := key.Address()
+			fmt.Println(strconv.Itoa(i) + ":" + address.String())
+		}
 	}
+	manager.Stop()
 }
 
-func TestManager_GetEntropyStoreManager(t *testing.T) {
-	manager := wallet.New(&config.Wallet{
-		DataDir: "/Users/zhutiantao/Library/GVite/testdata/wallet/",
-	})
-	err := manager.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	storeManager, err := manager.GetEntropyStoreManager("vite_b1c00ae7dfd5b935550a6e2507da38886abad2351ae78d4d9a")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = storeManager.Unlock("123456")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for i := 0; i < 25; i++ {
-		_, key, _ := storeManager.DeriveForIndexPath(uint32(i))
-		address, _ := key.Address()
-		fmt.Println(strconv.Itoa(i) + ":" + address.String())
-	}
+func TestManage(t *testing.T) {
+	tmpDir := tmpDir()
+	testManagerRecover(t, tmpDir)
+	testManagerDerive(t, tmpDir)
 }
 
 func TestRead(t *testing.T) {

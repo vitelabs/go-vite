@@ -173,7 +173,7 @@ func (gen *generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 			if producer == nil {
 				return nil, errors.New("producer address is uncertain, can't sign")
 			}
-			signature, publicKey, e := signFunc(vb.Hash)
+			signature, publicKey, e := signFunc(vb.Hash.Bytes())
 			if e != nil {
 				return nil, e
 			}

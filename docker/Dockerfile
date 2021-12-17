@@ -1,10 +1,6 @@
-FROM golang:1.13-alpine as maker
+FROM golang:1.15-alpine as maker
 
-RUN set -eux; \
-    apk add gcc \
-    musl-dev \
-    git
-WORKDIR /go/src/github.com/vitelabs/go-vite
+WORKDIR /usr/local/go/src/github.com/vitelabs/go-vite
 
 COPY go.mod .
 COPY go.sum .
@@ -27,8 +23,11 @@ RUN apk update \
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=maker /go/src/github.com/vitelabs/go-vite/gvite .
-COPY ./conf/node_config.json .
-COPY ./docker/docker-gvite .
+WORKDIR /root
+
+COPY --from=maker /usr/local/go/src/github.com/vitelabs/go-vite/gvite .
+COPY --from=maker /usr/local/go/src/github.com/vitelabs/go-vite/conf conf
+COPY --from=maker /usr/local/go/src/github.com/vitelabs/go-vite/conf/node_config.json .
+
 EXPOSE 8483 8484 48132 41420 8483/udp
-ENTRYPOINT ["/docker-gvite"] 
+ENTRYPOINT ["./gvite"] 

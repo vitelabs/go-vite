@@ -1,4 +1,4 @@
-# ViteX Trading Service
+# ViteX API V1 (deprecated)
 
 ## Summary
 ViteX Trading Service is a central service provided by Vite Labs, running on ViteX decentralized exchange. Users can set/cancel/query orders through the service without giving out private keys. 
@@ -15,7 +15,7 @@ It's highly recommended to authorize only on the specific trading pairs that you
 
 Trading service engine will apply a unique address for each user to make the orders. It's your responsibility to provide necessary quota for the address by staking. Forgetting to stake may cause trading failure on the address.
 
-## Network
+## Base Endpoint
 * 【Mainnet】: `https://api.vitex.net`
 
 ## API Authorization
@@ -120,7 +120,7 @@ Make the API call:
     $ curl -X POST -d "amount=10&key=11111111&price=0.09&side=0&symbol=ETH-000_BTC-000&timestamp=1567755178560&signature=409cf00bb97c08ae99317af26b379ac59f4cfaba9591df7738c0604a4cb68b9a" https://api.vitex.net/api/v1/order
     ```
 
-# ViteX Public API
+# ViteX Public API (deprecated)
 
 ## Data Definition
 

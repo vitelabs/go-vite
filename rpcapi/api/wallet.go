@@ -257,7 +257,7 @@ func (m WalletApi) SignData(addr types.Address, hexMsg string) (*HexSignedTuple,
 		return nil, e
 	}
 
-	signedData, pubkey, err := account.Sign(hash)
+	signedData, pubkey, err := account.Sign(hash.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +342,7 @@ func (m WalletApi) SignDataWithPassphrase(addr types.Address, hexMsg string, pas
 	if err != nil {
 		return nil, err
 	}
-	signedData, pubkey, err := account.Sign(hash)
+	signedData, pubkey, err := account.Sign(hash.Bytes())
 	if err != nil {
 		return nil, err
 	}

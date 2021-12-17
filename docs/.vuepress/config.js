@@ -24,7 +24,8 @@ module.exports = {
         {
           hostname: "https://docs.vite.org"
         }
-      ]
+      ],
+      [require('./plugins/code-group.js')]
     ],
 
     themeConfig: {

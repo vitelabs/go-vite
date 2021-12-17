@@ -317,3 +317,55 @@ func Verify(publicKey PublicKey, message, sig []byte) bool {
 	R.ToBytes(&checkR)
 	return bytes.Equal(sig[:32], checkR[:])
 }
+
+func VerifySig(publicKey PublicKey, message, sig []byte) error {
+	if l := len(publicKey); l != PublicKeySize {
+		return errors.New("ed25519: bad public key length: " + strconv.Itoa(l))
+	}
+
+	if len(sig) != SignatureSize || sig[63]&224 != 0 {
+		return errors.New("ed25519: bad signature length: " + strconv.Itoa(len(sig)))
+	}
+
+	var A edwards25519.ExtendedGroupElement
+	var publicKeyBytes [32]byte
+	copy(publicKeyBytes[:], publicKey)
+	if !A.FromBytes(&publicKeyBytes) {
+		return errors.New("ed25519: bad public key format")
+	}
+	edwards25519.FeNeg(&A.X, &A.X)
+	edwards25519.FeNeg(&A.T, &A.T)
+
+	h, err := blake2b.New512(nil)
+	if err != nil {
+		return errors.New("ed25519: blake2b fail: " + err.Error())
+	}
+
+	h.Write(sig[:32])
+	h.Write(publicKey[:])
+	h.Write(message)
+	var digest [64]byte
+	h.Sum(digest[:0])
+
+	var hReduced [32]byte
+	edwards25519.ScReduce(&hReduced, &digest)
+
+	var R edwards25519.ProjectiveGroupElement
+	var s [32]byte
+	copy(s[:], sig[32:])
+
+	// https://tools.ietf.org/html/rfc8032#section-5.1.7 requires that s be in
+	// the range [0, order) in order to prevent signature malleability.
+	if !edwards25519.ScMinimal(&s) {
+		return errors.New("ed25519: s range error ")
+	}
+
+	edwards25519.GeDoubleScalarMultVartime(&R, &hReduced, &A, &s)
+
+	var checkR [32]byte
+	R.ToBytes(&checkR)
+	if !bytes.Equal(sig[:32], checkR[:]) {
+		return errors.New("ed25519: verify sig error ")
+	}
+	return nil
+}

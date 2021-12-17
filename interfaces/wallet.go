@@ -7,9 +7,13 @@ import (
 
 // SignFunc is the function type defining the callback when a block requires a
 // method to sign the transaction in generator.
-type SignFunc func(hash types.Hash) (signedData []byte, pub ed25519.PublicKey, err error)
+type SignFunc func(msg []byte) (signedData []byte, pub ed25519.PublicKey, err error)
+
+// VerifyFunc is the function
+type VerifyFunc func(pub ed25519.PublicKey, message, signdata []byte) error
 
 type Account interface {
 	Address() types.Address
-	Sign(hash types.Hash) (signData []byte, pub ed25519.PublicKey, err error)
+	Sign(msg []byte) (signData []byte, pub ed25519.PublicKey, err error)
+	Verify(pub ed25519.PublicKey, message, signdata []byte) error
 }

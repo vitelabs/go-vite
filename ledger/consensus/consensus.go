@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -27,8 +28,7 @@ type Event struct {
 	Stime   time.Time
 	Etime   time.Time
 
-	Timestamp         time.Time // add to block
-	SnapshotTimeStamp time.Time // add to block
+	Timestamp time.Time // add to block
 
 	VoteTime    time.Time // voteTime
 	PeriodStime time.Time // start time for period
@@ -47,6 +47,7 @@ type Subscriber interface {
 	Subscribe(gid types.Gid, id string, addr *types.Address, fn func(Event))
 	UnSubscribe(gid types.Gid, id string)
 	SubscribeProducers(gid types.Gid, id string, fn func(event ProducersEvent))
+	TriggerMineEvent(addr types.Address) error
 }
 
 // Reader can read consensus result
@@ -65,7 +66,7 @@ type APIReader interface {
 // Life define the life cycle for consensus component
 type Life interface {
 	Start()
-	Init() error
+	Init(cfg *ConsensusCfg) error
 	Stop()
 }
 
@@ -81,6 +82,9 @@ type Consensus interface {
 
 // update committee result
 type consensus struct {
+	Subscriber
+	subscribeTrigger
+
 	common.LifecycleStatus
 
 	mLog log15.Logger
@@ -95,13 +99,15 @@ type consensus struct {
 
 	dposWrapper *dposReader
 
-	// subscribes map[types.Gid]map[string]*subscribeEvent
-	subscribes sync.Map
-
 	api APIReader
 
 	wg     sync.WaitGroup
 	closed chan struct{}
+
+	ctx      context.Context
+	cancelFn context.CancelFunc
+
+	tg *trigger
 }
 
 func (cs *consensus) SBPReader() core.SBPStatReader {
@@ -116,8 +122,12 @@ func (cs *consensus) API() APIReader {
 func NewConsensus(ch Chain, rollback lock.ChainRollback) Consensus {
 	log := log15.New("module", "consensus")
 	rw := newChainRw(ch, log, rollback)
-	self := &consensus{rw: rw, rollback: rollback}
-	self.mLog = log
 
-	return self
+	sub := newConsensusSubscriber()
+	cs := &consensus{rw: rw, rollback: rollback}
+	cs.mLog = log
+	cs.Subscriber = sub
+	cs.subscribeTrigger = sub
+
+	return cs
 }

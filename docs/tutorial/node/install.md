@@ -257,7 +257,7 @@ The modified part of node_config.json is as below(please note this is not the fu
 
 ### Node status check
 
-Reboot full node, then visit [Vite Explorer](https://explorer.vite.net/FullNode) to examine if your node has shown up correctly (result will reflect in 5 minutes).
+Reboot full node, then visit [Vite Explorer](https://vitetxs.de/#/fullnodes) to examine if your node has shown up correctly (result will reflect in 5 minutes).
 Scroll to filter box and input your node name from above.
   
 ## Next steps

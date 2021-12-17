@@ -1,14 +1,18 @@
+---
+order: 1
+---
+
 # ViteX Gateway Integration Guide
 
-## What is Cross-chain Gateway
+## What is ViteX Gateway
 
-Cross-chain Gateways provide a way to exchange digital assets between any blockchain (Source Chain) and digital assets on the Vite chain (Gateway Token).
+ViteX Gateways provide a way to transfer digital assets between any blockchain (Source Chain) and those on the Vite blockchain (Gateway Token).
 
-For instance, if a user wants to trade BTC on the ViteX DEX, she will first convert BTC on the Bitcoin chain ("Native BTC") into a BTC coin on the Vite chain ("VBTC"). If after her trades, she still has an amount of VBTCs, then she can convert these coins back to Native BTC via the cross-chain Gateway. Between the two said conversions, the Native BTCs are locked inside the cross-chain Gateway.
+For instance, if a user wants to trade BTC on the ViteX exchange, she will first convert BTC on the Bitcoin blockchain ("native BTC") into a BTC-backed token on the Vite blockchain ("BTC-000"). A user holding an amount of BTC-000 also can convert these tokens back to native BTC via the ViteX Gateway. Between the two said conversions, the native BTC are locked inside the ViteX Gateway.
 
-Thanks to the protocol "ViteX Gateway Technical Specification" designed by Vite, anyone can operate a Gateway. This is how it works: Vite's official web wallet already implements this protocol. So a Gateway operator only needs to implement this protocol on their end to easily integrate with the web wallet.
+Following the [ViteX Gateway Protocol](./gateway-protocol.md), anyone can setup a ViteX Gateway without permissions. The ViteX web app and mobile app already support the protocol. The only thing to run a third-party ViteX Gateway is implementing interfaces defined in this protocol.
 
-## How to Create a Gateway
+## How to Create a ViteX Gateway
 ### Pre-requisites
 
 * Forge a new token on Vite chain to represent the digital asset in the Source Chain. See [here](./../../tutorial/rule/mintage.html) for instructions of token forging. The new token should have the same total issuance amount and decimal places as the Source Chain asset.
@@ -16,7 +20,6 @@ Thanks to the protocol "ViteX Gateway Technical Specification" designed by Vite,
 > * Instructions for how to run a Vite full node are [here](./../../tutorial/node/install.html). 
 > * Instructions for sending and inquiring about Vite transactions are [here](./../../api/rpc/).
 * The operator must be able to verify and send transactions for Source Chain token as well. Similarly to the above bullet point, she can run a full node for the Source Chain, or use API provided by trustworthy full nodes on the Source Chain.
-* Integrate with the interface as defined in the [ViteX Gateway Technical Specification](../api/gate.md).
 
 ### How to Integrate
 
