@@ -9,7 +9,6 @@ require (
 	github.com/allegro/bigcache v1.2.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.7.1
-	github.com/docker/docker v20.10.8+incompatible
 	github.com/fatih/color v1.12.0
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-stack/stack v1.8.0
@@ -43,5 +42,4 @@ require (
 	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/urfave/cli.v1 v1.20.0
 	gotest.tools v2.2.0+incompatible
-	gotest.tools/v3 v3.0.3 // indirect
 )
