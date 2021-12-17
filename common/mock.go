@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 func MockAddress(i int) types.Address {

@@ -1,11 +1,11 @@
 package wallet
 
 import (
-	"github.com/vitelabs/go-vite/common/errors"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
+	"github.com/vitelabs/go-vite/v2/common/errors"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	"github.com/vitelabs/go-vite/v2/wallet/hd-bip/derivation"
 )
 
 type Account struct {

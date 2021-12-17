@@ -3,7 +3,7 @@ package queue
 import (
 	"sync"
 
-	"github.com/vitelabs/go-vite/tools/list"
+	"github.com/vitelabs/go-vite/v2/tools/list"
 )
 
 // Queue is the FIFO data structure

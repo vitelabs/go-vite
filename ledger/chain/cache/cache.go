@@ -3,7 +3,7 @@ package chain_cache
 import (
 	"sync"
 
-	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 )
 
 type Cache struct {

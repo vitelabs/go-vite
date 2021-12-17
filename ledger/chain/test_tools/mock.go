@@ -1,9 +1,9 @@
 package test_tools
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 )
 
 type MockConsensus struct{}

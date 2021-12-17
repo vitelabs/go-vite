@@ -5,11 +5,11 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/common/upgrade"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/node"
+	"github.com/vitelabs/go-vite/v2/cmd/utils"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/node"
 )
 
 const CountPerDelete = 10000

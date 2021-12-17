@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/net/vnode"
-	"github.com/vitelabs/go-vite/tools/circle"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
+	"github.com/vitelabs/go-vite/v2/tools/circle"
 )
 
 func TestBroadcaster_Statistic(t *testing.T) {

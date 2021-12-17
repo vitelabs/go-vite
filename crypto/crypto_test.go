@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
 )
 
 const (

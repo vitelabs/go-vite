@@ -8,10 +8,10 @@ import (
 	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/mem"
 
-	vite "github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/common/hexutil"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/version"
+	vite "github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/hexutil"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/version"
 )
 
 type DashboardApi struct {

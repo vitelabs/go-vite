@@ -31,7 +31,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 type DB struct {

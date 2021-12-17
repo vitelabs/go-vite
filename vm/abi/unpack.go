@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/vm/util"
 )
 
 // reads the integer based on its kind

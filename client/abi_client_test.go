@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/vm/abi"
 )
 
 func TestAbiCli_CallOffChain(t *testing.T) {

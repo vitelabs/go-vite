@@ -4,14 +4,14 @@ import (
 	"math"
 	"sort"
 
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/quota"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/v2/vm/quota"
+	"github.com/vitelabs/go-vite/v2/vm/util"
 )
 
 type QuotaApi struct {

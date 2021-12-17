@@ -3,9 +3,9 @@ package chain_state
 import (
 	"fmt"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
 func (sDB *StateDB) NewStorageDatabase(snapshotHash types.Hash, addr types.Address) (StorageDatabaseInterface, error) {

@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
-	"github.com/vitelabs/go-vite/ledger/consensus"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/ledger/chain/test_tools"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus"
 )
 
 var innerChainInstance chain.Chain

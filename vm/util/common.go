@@ -6,10 +6,10 @@ import (
 	"sort"
 	"unicode"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/upgrade"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
 var (

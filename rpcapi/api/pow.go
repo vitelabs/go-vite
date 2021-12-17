@@ -5,12 +5,12 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/common/hexutil"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/pow"
-	"github.com/vitelabs/go-vite/pow/remote"
-	"github.com/vitelabs/go-vite/vm/quota"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/hexutil"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/pow"
+	"github.com/vitelabs/go-vite/v2/pow/remote"
+	"github.com/vitelabs/go-vite/v2/vm/quota"
 )
 
 type Pow struct {

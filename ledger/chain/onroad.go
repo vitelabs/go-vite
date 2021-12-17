@@ -6,9 +6,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_plugins "github.com/vitelabs/go-vite/ledger/chain/plugins"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_plugins "github.com/vitelabs/go-vite/v2/ledger/chain/plugins"
 )
 
 func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {

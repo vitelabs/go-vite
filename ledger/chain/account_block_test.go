@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
 func TestChain_AccountBlock(t *testing.T) {

@@ -11,12 +11,12 @@ import (
 	"sort"
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/cache"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/iterator"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/opt"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/storage"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/table"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/cache"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/iterator"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/opt"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/storage"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/table"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
 )
 
 // tFile holds basic information about a table.

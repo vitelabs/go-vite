@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/pool/batch"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/pool/batch"
 )
 
 // ExampleBatchSnapshot_Batch

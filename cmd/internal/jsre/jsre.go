@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/robertkrimen/otto"
-	"github.com/vitelabs/go-vite/cmd/internal/jsre/deps"
-	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/v2/cmd/internal/jsre/deps"
+	"github.com/vitelabs/go-vite/v2/cmd/utils"
 )
 
 var (

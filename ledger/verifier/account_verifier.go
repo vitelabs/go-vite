@@ -7,17 +7,17 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/math"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/upgrade"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/generator"
-	"github.com/vitelabs/go-vite/ledger/onroad"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/pow"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/math"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
+	"github.com/vitelabs/go-vite/v2/crypto"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/generator"
+	"github.com/vitelabs/go-vite/v2/ledger/onroad"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/pow"
 )
 
 // AccountVerifier implements all method to verify the transaction.

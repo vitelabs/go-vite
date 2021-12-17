@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/pool/lock"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/pool/lock"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 type trigger struct {

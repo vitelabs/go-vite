@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 func mockAgent(port int, handler func(pkt *packet)) *agent {

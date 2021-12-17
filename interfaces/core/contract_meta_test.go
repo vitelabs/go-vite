@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 func TestContractMeta_Serialize(t *testing.T) {

@@ -7,12 +7,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	css "github.com/vitelabs/go-vite/ledger/consensus"
-	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	css "github.com/vitelabs/go-vite/v2/ledger/consensus"
+	"github.com/vitelabs/go-vite/v2/monitor"
 )
 
 type SnapshotVerifier struct {

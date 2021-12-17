@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/v2/common"
 )
 
 func TestHexOrDecimal256(t *testing.T) {

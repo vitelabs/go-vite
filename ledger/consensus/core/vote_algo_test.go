@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
 func TestAlgo_FilterVotes(t *testing.T) {

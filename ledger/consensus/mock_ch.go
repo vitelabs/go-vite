@@ -12,9 +12,9 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	leveldb "github.com/syndtr/goleveldb/leveldb"
 
-	types "github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain "github.com/vitelabs/go-vite/ledger/chain"
+	types "github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain "github.com/vitelabs/go-vite/v2/ledger/chain"
 )
 
 // MockChain is a mock of Chain interface

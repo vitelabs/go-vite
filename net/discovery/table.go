@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 const bucketSize = 64

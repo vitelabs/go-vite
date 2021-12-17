@@ -4,9 +4,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/comparer"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/memdb"
 )
 
 type MemDB struct {

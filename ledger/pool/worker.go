@@ -4,8 +4,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/net"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/net"
 )
 
 type poolEventBus struct {

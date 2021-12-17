@@ -15,8 +15,8 @@ import (
 	"github.com/peterh/liner"
 	"github.com/robertkrimen/otto"
 
-	"github.com/vitelabs/go-vite/cmd/internal/jsre"
-	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/v2/cmd/internal/jsre"
+	"github.com/vitelabs/go-vite/v2/rpc"
 )
 
 var (

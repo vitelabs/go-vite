@@ -33,7 +33,7 @@ import (
 	"time"
 
 	"github.com/rs/cors"
-	log "github.com/vitelabs/go-vite/log15"
+	log "github.com/vitelabs/go-vite/v2/log15"
 )
 
 const (

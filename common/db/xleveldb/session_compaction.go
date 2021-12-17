@@ -9,9 +9,9 @@ package leveldb
 import (
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/iterator"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/opt"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/iterator"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/memdb"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/opt"
 )
 
 func (s *session) pickMemdbLevel(umin, umax []byte, maxLevel int) int {

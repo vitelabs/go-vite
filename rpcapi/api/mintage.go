@@ -3,13 +3,13 @@ package api
 import (
 	"sort"
 
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/abi"
 )
 
 type MintageAPI struct {

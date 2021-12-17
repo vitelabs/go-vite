@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/math"
+	"github.com/vitelabs/go-vite/v2/common/math"
 )
 
 func TestBlockNumberJSONUnmarshal(t *testing.T) {

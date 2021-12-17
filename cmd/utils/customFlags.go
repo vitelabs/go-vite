@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/v2/common"
 )
 
 type DirectoryString struct {

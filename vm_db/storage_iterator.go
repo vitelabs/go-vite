@@ -1,8 +1,8 @@
 package vm_db
 
 import (
-	"github.com/vitelabs/go-vite/common/db"
-	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/v2/common/db"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 )
 
 // Cannot be concurrent with write

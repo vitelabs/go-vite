@@ -14,16 +14,16 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/vitepb"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net/database"
-	"github.com/vitelabs/go-vite/net/discovery"
-	"github.com/vitelabs/go-vite/net/netool"
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/vitepb"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/net/database"
+	"github.com/vitelabs/go-vite/v2/net/discovery"
+	"github.com/vitelabs/go-vite/v2/net/netool"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 var netLog = log15.New("module", "net")

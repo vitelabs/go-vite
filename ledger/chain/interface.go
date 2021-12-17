@@ -6,16 +6,16 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_block "github.com/vitelabs/go-vite/ledger/chain/block"
-	chain_flusher "github.com/vitelabs/go-vite/ledger/chain/flusher"
-	chain_index "github.com/vitelabs/go-vite/ledger/chain/index"
-	chain_plugins "github.com/vitelabs/go-vite/ledger/chain/plugins"
-	chain_state "github.com/vitelabs/go-vite/ledger/chain/state"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_block "github.com/vitelabs/go-vite/v2/ledger/chain/block"
+	chain_flusher "github.com/vitelabs/go-vite/v2/ledger/chain/flusher"
+	chain_index "github.com/vitelabs/go-vite/v2/ledger/chain/index"
+	chain_plugins "github.com/vitelabs/go-vite/v2/ledger/chain/plugins"
+	chain_state "github.com/vitelabs/go-vite/v2/ledger/chain/state"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/dex"
 )
 
 type EventListener interface {

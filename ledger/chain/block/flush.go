@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
 var bufPool = sync.Pool{

@@ -1,8 +1,8 @@
 package abi
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 )
 
 // StorageDatabase define db interfaces for querying built-in contract

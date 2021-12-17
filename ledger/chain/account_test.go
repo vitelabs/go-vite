@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
-	"github.com/vitelabs/go-vite/vm_db"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/chain/utils"
+	"github.com/vitelabs/go-vite/v2/vm_db"
 )
 
 func TestChain_Account(t *testing.T) {

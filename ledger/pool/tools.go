@@ -3,8 +3,8 @@ package pool
 import (
 	"strconv"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/net"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/net"
 )
 
 type tools struct {

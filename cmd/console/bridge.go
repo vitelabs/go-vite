@@ -7,8 +7,8 @@ import (
 
 	"github.com/robertkrimen/otto"
 
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/rpc"
 )
 
 var (

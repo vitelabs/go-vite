@@ -3,13 +3,13 @@ package chain_plugins
 import (
 	"fmt"
 
-	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
-	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
+	leveldb "github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_db "github.com/vitelabs/go-vite/v2/ledger/chain/db"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
 type FilterToken struct {

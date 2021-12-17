@@ -3,7 +3,7 @@ package jsre
 import (
 	"testing"
 
-	"github.com/vitelabs/go-vite/cmd/internal/jsre/deps"
+	"github.com/vitelabs/go-vite/v2/cmd/internal/jsre/deps"
 )
 
 func TestAssetData(t *testing.T) {

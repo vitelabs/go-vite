@@ -7,8 +7,8 @@ import (
 	"math/rand"
 	"net/http"
 
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 // booter can supply bootNodes

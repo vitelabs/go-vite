@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	cabi "github.com/vitelabs/go-vite/v2/vm/contracts/abi"
 )
 
 //Note: allow dividend from specify periodId, former periods will be divided at that period

@@ -15,14 +15,14 @@ import (
 
 	"C"
 
-	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	ed255192 "github.com/vitelabs/go-vite/crypto/ed25519"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/wallet/entropystore"
+	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	ed255192 "github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/wallet"
+	"github.com/vitelabs/go-vite/v2/wallet/entropystore"
 )
 
 func main() {

@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/syndtr/goleveldb/leveldb"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
-	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto"
+	"github.com/vitelabs/go-vite/v2/ledger/chain/test_tools"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
 func TestFlusher(t *testing.T) {

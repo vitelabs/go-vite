@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	cabi "github.com/vitelabs/go-vite/v2/vm/contracts/abi"
 )
 
 func TestDivideByProportion(t *testing.T) {

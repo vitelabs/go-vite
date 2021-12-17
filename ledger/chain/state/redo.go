@@ -7,12 +7,12 @@ import (
 	"io"
 	"math/big"
 
-	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
-	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
-	"github.com/vitelabs/go-vite/log15"
+	leveldb "github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_db "github.com/vitelabs/go-vite/v2/ledger/chain/db"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 type LogItem struct {

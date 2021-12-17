@@ -13,7 +13,7 @@ import (
 
 	"github.com/aead/ecdh"
 
-	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519/internal/edwards25519"
 )
 
 type zeroReader struct{}

@@ -3,8 +3,8 @@ package core
 import (
 	"github.com/golang/protobuf/proto"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/vitepb"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/vitepb"
 )
 
 type HashHeight struct {

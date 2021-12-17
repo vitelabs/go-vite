@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/crypto/curve25519"
 
-	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
 )
 
 const (

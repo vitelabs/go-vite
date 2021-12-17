@@ -10,12 +10,12 @@ import (
 	"github.com/golang/snappy"
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_file_manager "github.com/vitelabs/go-vite/v2/ledger/chain/file_manager"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 var (

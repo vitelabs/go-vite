@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/upgrade"
-	"github.com/vitelabs/go-vite/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
 )
 
 var (

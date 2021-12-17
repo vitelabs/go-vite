@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/vitelabs/go-vite/client"
-	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/v2/client"
+	"github.com/vitelabs/go-vite/v2/cmd/utils"
 	"gopkg.in/urfave/cli.v1"
 )
 

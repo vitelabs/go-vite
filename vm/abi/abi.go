@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 // The ABIContract holds information about a contract's context and available

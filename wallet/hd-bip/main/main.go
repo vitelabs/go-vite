@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
+	"github.com/vitelabs/go-vite/v2/wallet/hd-bip/derivation"
 )
 
 func main() {

@@ -5,13 +5,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	ch "github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/monitor"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	ch "github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/monitor"
 )
 
 type chainDb interface {

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
-	"github.com/vitelabs/go-vite/ledger/chain/sync_cache"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	chain_file_manager "github.com/vitelabs/go-vite/v2/ledger/chain/file_manager"
+	"github.com/vitelabs/go-vite/v2/ledger/chain/sync_cache"
 )
 
 func (c *chain) GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (cr interfaces.LedgerReader, err error) {

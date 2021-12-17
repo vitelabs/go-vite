@@ -1,6 +1,6 @@
 package vm
 
-import "github.com/vitelabs/go-vite/vm/util"
+import "github.com/vitelabs/go-vite/v2/vm/util"
 
 func makeStackFunc(pop, push int) stackValidationFunc {
 	return func(stack *stack) error {

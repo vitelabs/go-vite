@@ -26,7 +26,7 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/vitelabs/go-vite/crypto/ed25519/internal/edwards25519"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519/internal/edwards25519"
 )
 
 const (

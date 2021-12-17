@@ -1,9 +1,9 @@
 package rpc
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpcapi/api/dex"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/rpc"
+	"github.com/vitelabs/go-vite/v2/rpcapi/api/dex"
 )
 
 // ContractApi ...

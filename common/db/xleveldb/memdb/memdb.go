@@ -11,10 +11,10 @@ import (
 	"math/rand"
 	"sync"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/iterator"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/comparer"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/iterator"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
 )
 
 // Common errors.

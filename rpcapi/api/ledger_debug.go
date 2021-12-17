@@ -1,11 +1,11 @@
 package api
 
 import (
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/ledger/onroad"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/ledger/onroad"
 )
 
 type LedgerDebugApi struct {

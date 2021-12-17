@@ -5,15 +5,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/rpcapi/api"
-	"github.com/vitelabs/go-vite/vm/abi"
-	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/wallet/entropystore"
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/rpcapi/api"
+	"github.com/vitelabs/go-vite/v2/vm/abi"
+	"github.com/vitelabs/go-vite/v2/vm/util"
+	"github.com/vitelabs/go-vite/v2/wallet/entropystore"
+	"github.com/vitelabs/go-vite/v2/wallet/hd-bip/derivation"
 )
 
 var errorEmptyHash = errors.New("empty hash")

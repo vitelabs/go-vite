@@ -4,8 +4,8 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 )
 
 func TestCacheItem_Serialize(t *testing.T) {

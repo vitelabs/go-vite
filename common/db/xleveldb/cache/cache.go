@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
 )
 
 // Cacher provides interface to implements a caching functionality.

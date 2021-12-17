@@ -31,7 +31,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	log "github.com/vitelabs/go-vite/log15"
+	log "github.com/vitelabs/go-vite/v2/log15"
 )
 
 func TestClientRequest(t *testing.T) {

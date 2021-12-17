@@ -1,6 +1,6 @@
 package chain_utils
 
-import "github.com/vitelabs/go-vite/common/types"
+import "github.com/vitelabs/go-vite/v2/common/types"
 
 // -------------------------------
 type SnapshotKey [1 + types.HeightSize]byte

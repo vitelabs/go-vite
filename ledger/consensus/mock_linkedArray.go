@@ -10,8 +10,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 
-	types "github.com/vitelabs/go-vite/common/types"
-	cdb "github.com/vitelabs/go-vite/ledger/consensus/cdb"
+	types "github.com/vitelabs/go-vite/v2/common/types"
+	cdb "github.com/vitelabs/go-vite/v2/ledger/consensus/cdb"
 )
 
 // MockLinkedArray is a mock of LinkedArray interface

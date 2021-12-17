@@ -11,7 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/fileutils"
+	"github.com/vitelabs/go-vite/v2/common/fileutils"
 )
 
 type fileCacheItem struct {

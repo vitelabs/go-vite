@@ -33,12 +33,12 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/vitepb"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/vitepb"
+	"github.com/vitelabs/go-vite/v2/crypto"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 var errWriteTooShort = errors.New("write too short")

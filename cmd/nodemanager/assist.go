@@ -3,9 +3,9 @@ package nodemanager
 import (
 	"fmt"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/node"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/node"
 )
 
 var (

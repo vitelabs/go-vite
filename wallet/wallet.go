@@ -3,9 +3,9 @@ package wallet
 import (
 	"github.com/tyler-smith/go-bip39"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/wallet/hd-bip/derivation"
 )
 
 func RandomMnemonic24() (types.Address, ed25519.PrivateKey, string, error) {

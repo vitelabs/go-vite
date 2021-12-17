@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/v2/vm/util"
 )
 
 func TestStack(t *testing.T) {

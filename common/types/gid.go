@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/v2/crypto"
 )
 
 const (
