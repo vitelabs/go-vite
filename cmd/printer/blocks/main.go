@@ -5,9 +5,9 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	chain_block "github.com/vitelabs/go-vite/ledger/chain/block"
-	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	chain_block "github.com/vitelabs/go-vite/v2/ledger/chain/block"
+	chain_file_manager "github.com/vitelabs/go-vite/v2/ledger/chain/file_manager"
 )
 
 // env GOOS=linux GOARCH=amd64 go build -i -o blocks_printer ./cmd/printer/blocks/main.go

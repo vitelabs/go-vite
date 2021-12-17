@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/pool/batch"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/pool/batch"
 )
 
 func (pl *pool) insertTo(height uint64) error {

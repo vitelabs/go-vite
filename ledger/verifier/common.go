@@ -1,7 +1,7 @@
 package verifier
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 // PENDING represents the block which can't be determined because its dependent transactions were not verified,

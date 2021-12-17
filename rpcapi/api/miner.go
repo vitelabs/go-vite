@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/ledger/consensus"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus"
 )
 
 type MinerApi struct {

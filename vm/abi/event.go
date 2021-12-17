@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 // Event is an event potentially triggered by the VM's LOG mechanism. The Event

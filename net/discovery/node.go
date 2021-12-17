@@ -5,8 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/netool"
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/net/netool"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 type Node struct {

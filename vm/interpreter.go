@@ -4,9 +4,9 @@ import (
 	"encoding/hex"
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/upgrade"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
+	"github.com/vitelabs/go-vite/v2/vm/util"
 )
 
 type interpreter struct {

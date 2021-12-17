@@ -25,8 +25,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/vnode"
-	"github.com/vitelabs/go-vite/tools/list"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
+	"github.com/vitelabs/go-vite/v2/tools/list"
 )
 
 var errStopped = errors.New("discovery server has stopped")

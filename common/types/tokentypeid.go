@@ -7,8 +7,8 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	vcrypto "github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	vcrypto "github.com/vitelabs/go-vite/v2/crypto"
 )
 
 const (

@@ -14,10 +14,10 @@ import (
 
 	"github.com/golang/snappy"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/filter"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/opt"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/comparer"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/filter"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/opt"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
 )
 
 func sharedPrefixLen(a, b []byte) int {

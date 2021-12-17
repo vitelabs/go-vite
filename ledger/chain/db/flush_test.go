@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
-	"github.com/vitelabs/go-vite/ledger/chain/flusher"
-	"github.com/vitelabs/go-vite/ledger/chain/test_tools"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/v2/ledger/chain/flusher"
+	"github.com/vitelabs/go-vite/v2/ledger/chain/test_tools"
 )
 
 func newStore() *Store {

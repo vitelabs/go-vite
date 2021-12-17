@@ -7,7 +7,7 @@ import (
 
 	"gotest.tools/assert"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 func TestSBPUpgrade(t *testing.T) {

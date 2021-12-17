@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 var glog = log15.New("module", "error")

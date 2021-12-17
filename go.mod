@@ -1,4 +1,4 @@
-module github.com/vitelabs/go-vite
+module github.com/vitelabs/go-vite/v2
 
 go 1.13
 

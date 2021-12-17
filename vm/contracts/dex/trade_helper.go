@@ -3,9 +3,9 @@ package dex
 import (
 	"bytes"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	dexproto "github.com/vitelabs/go-vite/v2/vm/contracts/dex/proto"
 )
 
 //Note: the 4th byte of trade db key must not be 0 or 1, in order to diff from orderId side value

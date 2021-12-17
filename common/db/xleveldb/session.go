@@ -12,10 +12,10 @@ import (
 	"os"
 	"sync"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/journal"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/opt"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/storage"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/journal"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/opt"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/storage"
 )
 
 // ErrManifestCorrupted records manifest corruption. This error will be

@@ -1,6 +1,6 @@
 package discovery
 
-import "github.com/vitelabs/go-vite/net/vnode"
+import "github.com/vitelabs/go-vite/v2/net/vnode"
 
 type Observer interface {
 	Sub(sub Subscriber)

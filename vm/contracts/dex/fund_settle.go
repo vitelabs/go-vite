@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/log15"
-	cabi "github.com/vitelabs/go-vite/vm/contracts/abi"
-	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	"github.com/vitelabs/go-vite/v2/log15"
+	cabi "github.com/vitelabs/go-vite/v2/vm/contracts/abi"
+	dexproto "github.com/vitelabs/go-vite/v2/vm/contracts/dex/proto"
+	"github.com/vitelabs/go-vite/v2/vm/util"
 )
 
 func DoSettleFund(db interfaces.VmDb, reader util.ConsensusReader, action *dexproto.FundSettle, marketInfo *MarketInfo, fundLogger log15.Logger) error {

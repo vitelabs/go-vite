@@ -3,12 +3,12 @@ package chain_index
 import (
 	"github.com/allegro/bigcache"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
-	"github.com/vitelabs/go-vite/ledger/chain/utils"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/chain/file_manager"
+	"github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
 func (iDB *IndexDB) IsSnapshotBlockExisted(hash *types.Hash) (bool, error) {

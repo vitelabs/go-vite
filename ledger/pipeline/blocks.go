@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	chain_block "github.com/vitelabs/go-vite/ledger/chain/block"
-	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
-	"github.com/vitelabs/go-vite/log15"
+	chain_block "github.com/vitelabs/go-vite/v2/ledger/chain/block"
+	chain_file_manager "github.com/vitelabs/go-vite/v2/ledger/chain/file_manager"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 type blocks struct {

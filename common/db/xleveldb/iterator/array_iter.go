@@ -7,7 +7,7 @@
 package iterator
 
 import (
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
 )
 
 // BasicArray is the interface that wraps basic Len and Search method.

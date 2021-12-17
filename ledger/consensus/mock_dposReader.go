@@ -10,8 +10,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 
-	types "github.com/vitelabs/go-vite/common/types"
-	core "github.com/vitelabs/go-vite/ledger/consensus/core"
+	types "github.com/vitelabs/go-vite/v2/common/types"
+	core "github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 )
 
 // MockDposReader is a mock of DposReader interface

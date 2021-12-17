@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/journal"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/storage"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/journal"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/storage"
 )
 
 // Logging.

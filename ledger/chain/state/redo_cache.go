@@ -3,7 +3,7 @@ package chain_state
 import (
 	"sync"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 type RedoCache struct {

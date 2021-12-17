@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 var log = log15.New("module", "upgrade")

@@ -19,7 +19,7 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"github.com/vitelabs/go-vite/rpcapi/api"
+	"github.com/vitelabs/go-vite/v2/rpcapi/api"
 	"reflect"
 	"runtime"
 	"strings"
@@ -27,7 +27,7 @@ import (
 	"sync/atomic"
 
 	mapset "github.com/deckarep/golang-set"
-	log "github.com/vitelabs/go-vite/log15"
+	log "github.com/vitelabs/go-vite/v2/log15"
 )
 
 const MetadataApi = "rpc"

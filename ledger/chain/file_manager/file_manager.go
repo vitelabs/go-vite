@@ -6,8 +6,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 type FileManager struct {

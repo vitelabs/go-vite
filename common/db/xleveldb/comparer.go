@@ -7,7 +7,7 @@
 package leveldb
 
 import (
-	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/comparer"
 )
 
 type IComparer struct {

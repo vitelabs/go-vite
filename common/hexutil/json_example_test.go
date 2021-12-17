@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/vitelabs/go-vite/common/hexutil"
+	"github.com/vitelabs/go-vite/v2/common/hexutil"
 )
 
 type MyType [5]byte

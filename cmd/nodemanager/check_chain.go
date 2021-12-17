@@ -5,9 +5,9 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/node"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/node"
 )
 
 type CheckChainNodeManager struct {

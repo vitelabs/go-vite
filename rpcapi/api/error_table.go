@@ -1,11 +1,11 @@
 package api
 
 import (
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	walleterrors "github.com/vitelabs/go-vite/common/errors"
-	"github.com/vitelabs/go-vite/ledger/verifier"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
+	walleterrors "github.com/vitelabs/go-vite/v2/common/errors"
+	"github.com/vitelabs/go-vite/v2/ledger/verifier"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/v2/vm/util"
 )
 
 type JsonRpc2Error struct {

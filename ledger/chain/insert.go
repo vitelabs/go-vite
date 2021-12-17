@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
 func (c *chain) InsertAccountBlock(vmAccountBlock *interfaces.VmAccountBlock) error {

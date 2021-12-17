@@ -11,13 +11,13 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 
-	xleveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
-	memdb "github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
-	types "github.com/vitelabs/go-vite/common/types"
-	interfaces "github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	db "github.com/vitelabs/go-vite/ledger/chain/db"
-	core "github.com/vitelabs/go-vite/ledger/consensus/core"
+	xleveldb "github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	memdb "github.com/vitelabs/go-vite/v2/common/db/xleveldb/memdb"
+	types "github.com/vitelabs/go-vite/v2/common/types"
+	interfaces "github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	db "github.com/vitelabs/go-vite/v2/ledger/chain/db"
+	core "github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 )
 
 // MockEventListener is a mock of EventListener interface

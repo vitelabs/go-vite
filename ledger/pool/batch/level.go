@@ -1,6 +1,6 @@
 package batch
 
-import "github.com/vitelabs/go-vite/common/types"
+import "github.com/vitelabs/go-vite/v2/common/types"
 
 type level struct {
 	index  int

@@ -3,7 +3,7 @@ package chain_utils
 import (
 	"encoding/binary"
 
-	"github.com/vitelabs/go-vite/ledger/chain/file_manager"
+	"github.com/vitelabs/go-vite/v2/ledger/chain/file_manager"
 )
 
 func SerializeLocation(location *chain_file_manager.Location) []byte {

@@ -1,6 +1,6 @@
 package core
 
-import "github.com/vitelabs/go-vite/common/types"
+import "github.com/vitelabs/go-vite/v2/common/types"
 
 func ConvertVoteToAddress(votes []*Vote) []types.Address {
 	var result []types.Address

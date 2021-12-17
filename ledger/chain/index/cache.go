@@ -7,8 +7,8 @@ import (
 	"github.com/allegro/bigcache"
 	"github.com/hashicorp/golang-lru"
 
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
 func (iDB *IndexDB) newCache() error {

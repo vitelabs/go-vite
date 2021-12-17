@@ -1,7 +1,7 @@
 package chain_utils
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 // ====== index db ======

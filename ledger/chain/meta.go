@@ -3,7 +3,7 @@ package chain
 import (
 	"github.com/syndtr/goleveldb/leveldb"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 const (

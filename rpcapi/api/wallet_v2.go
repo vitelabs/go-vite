@@ -3,7 +3,7 @@ package api
 import (
 	"errors"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 func (m WalletApi) GetEntropyFilesInStandardDir() ([]string, error) {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
+	dexproto "github.com/vitelabs/go-vite/v2/vm/contracts/dex/proto"
 )
 
 const (

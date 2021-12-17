@@ -13,10 +13,10 @@ import (
 	"github.com/tyler-smith/go-bip39"
 	"golang.org/x/crypto/scrypt"
 
-	walleterrors "github.com/vitelabs/go-vite/common/errors"
-	"github.com/vitelabs/go-vite/common/types"
-	vcrypto "github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
+	walleterrors "github.com/vitelabs/go-vite/v2/common/errors"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	vcrypto "github.com/vitelabs/go-vite/v2/crypto"
+	"github.com/vitelabs/go-vite/v2/wallet/hd-bip/derivation"
 )
 
 const (

@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/net/discovery"
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/net/discovery"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 type config struct {

@@ -4,12 +4,12 @@ import (
 	"encoding/hex"
 	"math/big"
 
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/log15"
-	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/log15"
+	apidex "github.com/vitelabs/go-vite/v2/rpcapi/api/dex"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/dex"
 )
 
 type DataApi struct {

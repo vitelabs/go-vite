@@ -33,7 +33,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	log "github.com/vitelabs/go-vite/log15"
+	log "github.com/vitelabs/go-vite/v2/log15"
 )
 
 var (

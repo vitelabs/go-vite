@@ -3,8 +3,8 @@ package chain_block
 import (
 	"fmt"
 
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_file_manager "github.com/vitelabs/go-vite/v2/ledger/chain/file_manager"
 )
 
 // GetAccountBlock by location

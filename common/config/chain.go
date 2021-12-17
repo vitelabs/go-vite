@@ -1,6 +1,6 @@
 package config
 
-import "github.com/vitelabs/go-vite/common/types"
+import "github.com/vitelabs/go-vite/v2/common/types"
 
 // chain config
 type Chain struct {

@@ -3,7 +3,7 @@ package batch
 import (
 	"errors"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 var (

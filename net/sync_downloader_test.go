@@ -30,7 +30,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 )
 
 //func TestMissingChunks(t *testing.T) {

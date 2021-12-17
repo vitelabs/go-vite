@@ -3,9 +3,9 @@ package client
 import (
 	"strings"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/rpcapi/api"
-	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/rpcapi/api"
+	"github.com/vitelabs/go-vite/v2/vm/abi"
 )
 
 type AbiClient interface {

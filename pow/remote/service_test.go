@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/pow"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/monitor"
+	"github.com/vitelabs/go-vite/v2/pow"
 )
 
 func init() {
