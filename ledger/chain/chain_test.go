@@ -9,14 +9,9 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"os/exec"
 	"path"
-	"sync"
-	"syscall"
 	"testing"
 	"time"
-
-	"github.com/docker/docker/pkg/reexec"
 
 	"github.com/vitelabs/go-vite/common/config"
 	"github.com/vitelabs/go-vite/common/types"
@@ -314,130 +309,6 @@ func TestCheckHash2(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Printf("%+v\n", block)
-}
-
-func testPanic(t *testing.T, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) {
-
-	//for i := 0; i < 10; i++ {
-	saveData(accounts, snapshotBlockList)
-	accounts = nil
-	snapshotBlockList = nil
-
-	for j := 0; j < 5; j++ {
-		cmd := reexec.Command("randomPanic")
-
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		t.Run(fmt.Sprintf("panic %d_%d", 1, j+1), func(t *testing.T) {
-			err := cmd.Run()
-
-			if exiterr, ok := err.(*exec.ExitError); ok {
-				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-					if status.ExitStatus() == mockPanicExitStatus {
-						return
-					}
-				}
-			}
-			//panic(fmt.Sprintf("cmd.Run(): %v", err))
-			fmt.Printf("cmd.Run(): %v", err)
-
-		})
-
-	}
-
-	//}
-
-}
-
-func init() {
-	reexec.Register("randomPanic", randomPanic)
-	if reexec.Init() {
-		os.Exit(0)
-	}
-}
-
-const mockPanicExitStatus = 16
-
-func randomPanic() {
-	quota.InitQuotaConfig(true, true)
-	chainInstance, err := NewChainInstance("unit_test", false)
-
-	accounts, snapshotBlockList := loadData(chainInstance)
-	if len(accounts) <= 0 {
-		accounts = MakeAccounts(chainInstance, 100)
-		snapshotBlockList = InsertAccountBlockAndSnapshot(chainInstance, accounts, 100, 10, false)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	snapshotBlockList = recoverAfterPanic(chainInstance, accounts, snapshotBlockList)
-
-	testChainAllNoTesting(chainInstance, accounts, snapshotBlockList)
-
-	if err != nil {
-		panic(err)
-	}
-
-	var mu sync.RWMutex
-
-	defer func() {
-		mu.Lock()
-		saveData(accounts, snapshotBlockList)
-		mu.Unlock()
-
-		//os.Exit(mockPanicExitStatus)
-	}()
-	//go func() {
-	//	defer func() {
-	//		mu.Lock()
-	//		saveData(accounts, snapshotBlockList)
-	//		mu.Unlock()
-	//
-	//		os.Exit(mockPanicExitStatus)
-	//	}()
-	//
-	//	fmt.Println("Wait 2 seconds")
-	//	time.Sleep(time.Second * 2)
-	//
-	//	for {
-	//		random := rand.Intn(100)
-	//		if random > 90 {
-	//			panic("error")
-	//		}
-	//		time.Sleep(time.Microsecond * 10)
-	//	}
-	//
-	//}()
-
-	for {
-		// insert account blocks
-		InsertAccountBlocks(&mu, chainInstance, accounts, rand.Intn(1000))
-		//snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(1000), rand.Intn(20), false)...)
-
-		// insert snapshot block
-		snapshotBlock := createSnapshotBlock(chainInstance, createSbOption{
-			SnapshotAll: false,
-		})
-
-		mu.Lock()
-		snapshotBlockList = append(snapshotBlockList, snapshotBlock)
-		Snapshot(accounts, snapshotBlock)
-		mu.Unlock()
-
-		invalidBlocks, err := chainInstance.InsertSnapshotBlock(snapshotBlock)
-		if err != nil {
-			panic(err)
-		}
-
-		mu.Lock()
-		DeleteInvalidBlocks(accounts, invalidBlocks)
-		mu.Unlock()
-
-	}
-
 }
 
 func recoverAfterPanic(chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
