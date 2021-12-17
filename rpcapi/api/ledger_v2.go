@@ -6,6 +6,7 @@ import (
 
 	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/interfaces/core"
 	"github.com/vitelabs/go-vite/ledger/chain"
 	chain_plugins "github.com/vitelabs/go-vite/ledger/chain/plugins"
@@ -669,4 +670,8 @@ func (l *LedgerApi) GetChunksV2(startHeight interface{}, endHeight interface{}) 
 	}
 
 	return l.ledgerChunksToRpcChunksV2(chunks)
+}
+
+func (l LedgerApi) GetUpgradeInfo() (interface{}, error) {
+	return upgrade.GetAllPoints(), nil
 }

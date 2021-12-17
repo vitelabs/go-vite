@@ -26,6 +26,5 @@ func TestGenesisCfg(t *testing.T) {
 }
 
 func TestLoadGenesisCfg(t *testing.T) {
-	loadFromGenesisFile("/Users/jie/go/src/github.com/vitelabs/go-vite/conf/evm/genesis.json")
 	loadFromGenesisFile("~/go/src/github.com/vitelabs/go-vite/conf/evm/genesis.json")
 }

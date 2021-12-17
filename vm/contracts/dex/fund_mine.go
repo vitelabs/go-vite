@@ -269,31 +269,32 @@ func BurnExtraVx(db interfaces.VmDb) ([]*ledger.AccountBlock, error) {
 	}
 }
 
-func GetVxAmountsForEqualItems(db interfaces.VmDb, periodId uint64, vxPool *big.Int, rateSum string, begin, end int) (amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
+func GetVxAmountsForEqualItems(db interfaces.VmDb, periodId uint64, vxPool *big.Int, mr mineRate) (amountForItems map[int32]*big.Int, vxAmtLeaved *big.Int, success bool) {
 	if vxPool.Sign() > 0 {
 		success = true
 		toDivideTotal := GetVxToMineByPeriodId(db, periodId)
 		toDivideTotalF := new(big.Float).SetPrec(bigFloatPrec).SetInt(toDivideTotal)
-		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString(rateSum)
+		proportion, _ := new(big.Float).SetPrec(bigFloatPrec).SetString(mr.totalRate)
 		amountSum := RoundAmount(new(big.Float).SetPrec(bigFloatPrec).Mul(toDivideTotalF, proportion))
 		var notEnough bool
 		if amountSum.Cmp(vxPool) > 0 {
 			amountSum.Set(vxPool)
 			notEnough = true
 		}
-		amount := new(big.Int).Div(amountSum, big.NewInt(int64(end-begin+1)))
+		amount := new(big.Int).Div(amountSum, big.NewInt(int64(mr.total)))
 		amountForItems = make(map[int32]*big.Int)
 		vxAmtLeaved = new(big.Int).Set(vxPool)
-		for i := begin; i <= end; i++ {
-			if vxAmtLeaved.Cmp(amount) >= 0 {
-				amountForItems[int32(i)] = new(big.Int).Set(amount)
+		for _, field := range mr.fields {
+			targetAmount := big.NewInt(0).Mul(amount, big.NewInt(int64(field.rate)))
+			if vxAmtLeaved.Cmp(targetAmount) >= 0 {
+				amountForItems[field.field] = new(big.Int).Set(targetAmount)
 			} else {
-				amountForItems[int32(i)] = new(big.Int).Set(vxAmtLeaved)
+				amountForItems[field.field] = new(big.Int).Set(vxAmtLeaved)
 			}
-			vxAmtLeaved.Sub(vxAmtLeaved, amountForItems[int32(i)])
+			vxAmtLeaved.Sub(vxAmtLeaved, amountForItems[field.field])
 		}
 		if notEnough || vxAmtLeaved.Cmp(vxMineDust) <= 0 {
-			amountForItems[int32(begin)].Add(amountForItems[int32(begin)], vxAmtLeaved)
+			amountForItems[mr.fields[0].field].Add(amountForItems[mr.fields[0].field], vxAmtLeaved)
 			vxAmtLeaved.SetInt64(0)
 		}
 	}
@@ -373,4 +374,33 @@ func AccumulateAmountFromMap(amountMap map[int32]*big.Int) *big.Int {
 		}
 	}
 	return sum
+}
+
+type mineRateField struct {
+	field int32
+	rate  uint32
+}
+
+type mineRate struct {
+	totalRate string
+	total     uint32
+	fields    []mineRateField
+}
+
+// -----------------
+
+func GetFeeMineRateArr(db interfaces.VmDb) mineRate {
+	if IsVersion10Upgrade(db) {
+		return rateSumForFeeMineArrVersion10
+	} else {
+		return rateSumForFeeMineArr
+	}
+}
+
+func GetMakerAndMaintainerArr(db interfaces.VmDb) mineRate {
+	if IsVersion10Upgrade(db) {
+		return rateSumForMakerAndMaintainerMineArrVersion10
+	} else {
+		return rateSumForMakerAndMaintainerMineArr
+	}
 }

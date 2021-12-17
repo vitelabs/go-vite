@@ -364,7 +364,8 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db interfaces.VmDb, block *led
 		vxPoolLeaved = new(big.Int).Set(vxPool)
 		switch param.BizType {
 		case dex.MineVxForFeeJob:
-			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
+			rateArr := dex.GetFeeMineRateArr(db)
+			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, rateArr); success {
 				if refund, err = dex.DoMineVxForFee(db, vm.ConsensusReader(), param.PeriodId, amtForItems, fundLogger); err != nil {
 					return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 				}
@@ -380,7 +381,8 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db interfaces.VmDb, block *led
 				return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for staking"), sendBlock)
 			}
 		case dex.MineVxForMakerAndMaintainerJob:
-			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
+			makerRateArr := dex.GetMakerAndMaintainerArr(db)
+			if amtForItems, vxPoolLeaved, success = dex.GetVxAmountsForEqualItems(db, param.PeriodId, vxPool, makerRateArr); success {
 				if err = dex.DoMineVxForMakerMineAndMaintainer(db, param.PeriodId, vm.ConsensusReader(), amtForItems); err != nil {
 					return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 				}
@@ -1412,10 +1414,15 @@ func (md MethodDexFundCreateNewInviter) DoReceive(db interfaces.VmDb, block *led
 	if code := dex.GetCodeByInviter(db, sendBlock.AccountAddress); code > 0 {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.AlreadyIsInviterErr, sendBlock)
 	}
-	if _, err := dex.ReduceAccount(db, sendBlock.AccountAddress, ledger.ViteTokenId.Bytes(), dex.NewInviterFeeAmount); err != nil {
+
+	fee := dex.NewInviterFeeAmount
+	if dex.IsVersion10Upgrade(db) {
+		fee = dex.NewInviterFeeAmountForVersion10
+	}
+	if _, err := dex.ReduceAccount(db, sendBlock.AccountAddress, ledger.ViteTokenId.Bytes(), fee); err != nil {
 		return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 	}
-	dex.SettleFeesWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenDecimals, dex.ViteTokenType, nil, dex.NewInviterFeeAmount, nil)
+	dex.SettleFeesWithTokenId(db, vm.ConsensusReader(), true, ledger.ViteTokenId, dex.ViteTokenDecimals, dex.ViteTokenType, nil, fee, nil)
 	if inviteCode := dex.NewInviteCode(db, block.PrevHash); inviteCode == 0 {
 		return handleDexReceiveErr(fundLogger, md.MethodName, dex.NewInviteCodeFailErr, sendBlock)
 	} else {

@@ -1,4 +1,3 @@
 package version
-
-const VITE_COMMIT_VERSION = "7bbd91c28db4f73e6bbbc6115a0c707881f0e3c7"
-const VITE_BUILD_VERSION = "v2.10.3"
+const VITE_COMMIT_VERSION = "be6db060b94d8052233668c13e8600a97d63dbaf"
+const VITE_BUILD_VERSION = "v2.11.0"

@@ -245,12 +245,24 @@ func (f DexApi) IsMarketDelegatedTo(principal, agent types.Address, tradeToken, 
 	}
 }
 
+func (f DexApi) GetMiningInfo(periodId uint64) (mineInfo *apidex.NewRpcVxMineInfo, err error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+	return getMiningInfo(db, periodId)
+}
+
 func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
 	}
 	periodId := dex.GetCurrentPeriodId(db, apidex.GetConsensusReader(f.vite))
+	return getMiningInfo(db, periodId)
+}
+
+func getMiningInfo(db interfaces.VmDb, periodId uint64) (mineInfo *apidex.NewRpcVxMineInfo, err error) {
 	toMine := dex.GetVxToMineByPeriodId(db, periodId)
 	available := dex.GetVxMinePool(db)
 	if toMine.Cmp(available) > 0 {
@@ -270,7 +282,8 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 		amount         *big.Int
 		success        bool
 	)
-	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForFeeMine, dex.ViteTokenType, dex.UsdTokenType); success {
+	rateArr := dex.GetFeeMineRateArr(db)
+	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, rateArr); success {
 		mineInfo.FeeMineDetail = make(map[int32]string)
 		feeMineSum := new(big.Int)
 		for tokenType, amount := range amountForItems {
@@ -286,7 +299,8 @@ func (f DexApi) GetCurrentMiningInfo() (mineInfo *apidex.NewRpcVxMineInfo, err e
 	} else {
 		return
 	}
-	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, dex.RateSumForMakerAndMaintainerMine, dex.MineForMaker, dex.MineForMaintainer); success {
+	makerRateArr := dex.GetMakerAndMaintainerArr(db)
+	if amountForItems, available, success = dex.GetVxAmountsForEqualItems(db, periodId, available, makerRateArr); success {
 		mineInfo.MakerMine = amountForItems[dex.MineForMaker].String()
 	}
 	return
@@ -814,6 +828,18 @@ func (f DexPrivateApi) GetMakerMiningPool(periodId uint64) (string, error) {
 	}
 	balance := dex.GetMakerMiningPoolByPeriodId(db, periodId)
 	return balance.String(), nil
+}
+
+func (f DexPrivateApi) GetLastPeriodIdByJobType(bizType uint8) (uint64, error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return 0, err
+	}
+	if lastPeriodId := dex.GetLastJobPeriodIdByBizType(db, bizType); err != nil {
+		return 0, err
+	} else {
+		return lastPeriodId, nil
+	}
 }
 
 func (f DexPrivateApi) GetLastPeriodIdForJobs(bizType uint8) (map[string]uint64, error) {
