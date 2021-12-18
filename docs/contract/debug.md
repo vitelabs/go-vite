@@ -45,7 +45,7 @@ Search for "Soliditypp" in VS Code and install.
 
 ### Create HelloWorld.solpp
 
-Open VS Code workbench, press `⇧⌘P`(or `F1`) in Mac(or `Ctrl+Shift+P` in Windows) to bring Command Palette, and then execute command `soliditypp: Generage HelloWorld.solpp`. This will generate `HelloWorld.solpp` under current folder as an example.
+Open VS Code workbench, press `⇧⌘P`(or `F1`) in Mac(or `Ctrl+Shift+P` in Windows) to bring Command Palette, and then execute command `soliditypp: Generate HelloWorld.solpp`. This will generate `HelloWorld.solpp` under current folder as an example.
 
 ### Write Smart Contract
 
