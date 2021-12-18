@@ -5,8 +5,7 @@ import (
 	"path"
 	"testing"
 
-	"gotest.tools/assert"
-
+	"github.com/stretchr/testify/assert"
 	"github.com/vitelabs/go-vite/v2/common"
 	"github.com/vitelabs/go-vite/v2/crypto"
 	chain_file_manager "github.com/vitelabs/go-vite/v2/ledger/chain/file_manager"
@@ -15,7 +14,7 @@ import (
 func TestReadSnapshotBlocks(t *testing.T) {
 	chainDir := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_2")
 	db, err := NewBlockDB(chainDir)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	statusList := db.GetStatus()
 	for _, status := range statusList {
 		t.Log(status.Name, status.Count, status.Size, status.Status)
@@ -29,7 +28,7 @@ func TestReadSnapshotBlocks(t *testing.T) {
 		if err == io.EOF {
 			break
 		}
-		assert.NilError(t, err)
+		assert.NoError(t, err)
 		if nextLocation == nil {
 			break
 		}
@@ -45,7 +44,7 @@ func TestReadSnapshotBlocks(t *testing.T) {
 func TestReadAccountBlocks(t *testing.T) {
 	chainDir := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_2")
 	db, err := NewBlockDB(chainDir)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	statusList := db.GetStatus()
 	for _, status := range statusList {
 		t.Log(status.Name, status.Count, status.Size, status.Status)
@@ -59,7 +58,7 @@ func TestReadAccountBlocks(t *testing.T) {
 		if err == io.EOF {
 			break
 		}
-		assert.NilError(t, err)
+		assert.NoError(t, err)
 		if nextLocation == nil {
 			break
 		}
@@ -74,7 +73,7 @@ func TestReadAccountBlocks(t *testing.T) {
 func TestReadLocation(t *testing.T) {
 	chainDir := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_1")
 	db, err := NewBlockDB(chainDir)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	statusList := db.GetStatus()
 	for _, status := range statusList {
 		t.Log(status.Name, status.Count, status.Size, status.Status)
@@ -88,9 +87,9 @@ func TestDiffBlocksDB(t *testing.T) {
 	chainDirA := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_1")
 	chainDirB := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_2")
 	dbA, err := NewBlockDB(chainDirA)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	dbB, err := NewBlockDB(chainDirB)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	location := chain_file_manager.NewLocation(1, 7333187)
 	//printLocationContext(t, location, dbA)
@@ -98,15 +97,15 @@ func TestDiffBlocksDB(t *testing.T) {
 
 	for {
 		bytA, nextLocationA, err := dbA.ReadUnitBytes(location)
-		assert.NilError(t, err)
+		assert.NoError(t, err)
 		bytB, nextLocationB, err := dbB.ReadUnitBytes(location)
-		assert.NilError(t, err)
+		assert.NoError(t, err)
 
 		t.Log(location.FileId, location.Offset)
 		assert.Equal(t, nextLocationA.FileId, nextLocationB.FileId, nextLocationA.String(), nextLocationB.String(), location.String())
 		assert.Equal(t, nextLocationA.Offset, nextLocationB.Offset, nextLocationA.String(), nextLocationB.String(), location.String())
 		assert.Equal(t, len(bytA), len(bytB))
-		assert.DeepEqual(t, crypto.Hash256(bytA), crypto.Hash256(bytB))
+		assert.EqualValues(t, crypto.Hash256(bytA), crypto.Hash256(bytB))
 
 		location = nextLocationA
 	}
@@ -114,7 +113,7 @@ func TestDiffBlocksDB(t *testing.T) {
 
 func printLocationContext(t *testing.T, location *chain_file_manager.Location, db *BlockDB) {
 	sb, ab, nextLocation, err := db.ReadUnit(location)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	if sb != nil {
 		t.Log("snapshot block", sb.Height, sb.Hash)
 	}

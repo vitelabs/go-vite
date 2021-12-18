@@ -5,20 +5,20 @@ import (
 	"strconv"
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 func TestSBPUpgrade(t *testing.T) {
 	rpc, err := NewRpcClient(RawUrl)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	sbpMap := make(map[types.Address]string)
 	versionMap := make(map[string]uint32)
 
 	sbpList, err := rpc.GetSBPVoteList()
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	for _, sbp := range sbpList {
 		fmt.Println(sbp.Name, sbp.BlockProducingAddress)
@@ -26,10 +26,10 @@ func TestSBPUpgrade(t *testing.T) {
 	}
 
 	latestHeight, err := strconv.ParseUint(rpc.GetSnapshotChainHeight(), 10, 64)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	blocks, err := rpc.GetSnapshotBlocks(latestHeight, 500)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 
 	for _, block := range blocks {
 		producer := block.Producer

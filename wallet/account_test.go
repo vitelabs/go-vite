@@ -3,7 +3,7 @@ package wallet
 import (
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAccount(t *testing.T) {
