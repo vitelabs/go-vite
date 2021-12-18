@@ -17,7 +17,7 @@ The line `uint storedData;` declares a state variable (an unsigned 256 bit integ
 
 `11-13` Defines a **getter** function that can be used to access the value of `storedData`.
 
-So far this seems relatively straightforward, but there is an important caveat: getter functions are off-chain, and can *not* be called by other contracts. They are conviniences for interfaces or front ends to collect needed information.
+So far this seems relatively straightforward, but there is an important caveat: getter functions are off-chain, and can *not* be called by other contracts. They are conveniences for interfaces or front ends to collect needed information.
 
 So how do contracts interact?
 One of the challenges of Solidity++ is understanding the asynchronous design and how values can not be returned by functions. Rather than return values, a message can be passed to request a value, and upon receiving the message, a response message can be generated and sent back. 
