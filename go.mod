@@ -9,7 +9,6 @@ require (
 	github.com/allegro/bigcache v1.2.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.7.1
-	github.com/fatih/color v1.12.0
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-stack/stack v1.8.0
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
@@ -20,11 +19,8 @@ require (
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.8
 	github.com/mattn/go-isatty v0.0.13
-	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/peterh/liner v1.2.1
 	github.com/pkg/errors v0.9.1
-	github.com/robertkrimen/otto v0.0.0-20210614181706-373ff5438452
 	github.com/rs/cors v1.8.0
 	github.com/shirou/gopsutil v3.21.7+incompatible
 	github.com/stretchr/testify v1.7.0
@@ -39,7 +35,6 @@ require (
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
-	gopkg.in/sourcemap.v1 v1.0.5 // indirect
 	gopkg.in/urfave/cli.v1 v1.20.0
 	gotest.tools v2.2.0+incompatible
 )

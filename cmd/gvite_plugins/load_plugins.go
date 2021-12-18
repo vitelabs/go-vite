@@ -12,9 +12,7 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/vitelabs/go-vite/v2/cmd/console"
 	"github.com/vitelabs/go-vite/v2/cmd/nodemanager"
-	"github.com/vitelabs/go-vite/v2/cmd/subcmd_attach"
 	"github.com/vitelabs/go-vite/v2/cmd/subcmd_export"
 	"github.com/vitelabs/go-vite/v2/cmd/subcmd_ledger"
 	"github.com/vitelabs/go-vite/v2/cmd/subcmd_loadledger"
@@ -55,7 +53,6 @@ func init() {
 	app.Commands = []cli.Command{
 		versionCommand,
 		licenseCommand,
-		subcmd_attach.AttachCommand,
 		subcmd_recover.LedgerRecoverCommand,
 		subcmd_export.ExportCommand,
 		subcmd_plugin_data.PluginDataCommand,
@@ -124,9 +121,5 @@ func action(ctx *cli.Context) error {
 }
 
 func afterAction(ctx *cli.Context) error {
-
-	// Resets terminal mode.
-	console.Stdin.Close()
-
 	return nil
 }
