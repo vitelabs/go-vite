@@ -23,7 +23,7 @@ Let's go through each line in detail.
 
 Events can contain a variety of data types. In this case we chose for our event structure to contain an `address` and a `string`. Addresses store a Vite address which uniquely identify either an account in a wallet, or a deployed contract. Note that the `indexed` modifier allows for Vite clients to efficienty filter blockchain events, which is important for developing dApps. Logging strings in events can be convenient for testing and debugging as shown here, though they generally are not as practical for deployed contracts.
 
-**`6`** This line `onMessage sayHello(address dest) payable {` begins the declaration of a *message listener*, one of the most important function types in Solidity++. Message listeners will execute when the contract receives a cooresponding *message*, which can be sent from any Vite address, even from another contract.
+**`6`** This line `onMessage sayHello(address dest) payable {` begins the declaration of a *message listener*, one of the most important function types in Solidity++. Message listeners will execute when the contract receives a corresponding *message*, which can be sent from any Vite address, even from another contract.
 
 For a message listener to execute, the message must indicate the message listener name (here it is `sayHello`) as well as contain the appropriate arguments (`sayHello` requires a single address `addr` as an argument).
 
