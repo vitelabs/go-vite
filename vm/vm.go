@@ -890,7 +890,7 @@ func checkDepth(db interfaces.VmDb, sendBlock *ledger.AccountBlock) bool {
 	return depth >= callDepth
 }
 
-// OffChainReader read contract storage without tx
+// OffChainReader read contract storage without creating a transaction
 func (vm *VM) OffChainReader(db interfaces.VmDb, code []byte, data []byte) (result []byte, err error) {
 	defer func() {
 		if err := recover(); err != nil {

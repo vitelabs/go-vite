@@ -188,6 +188,14 @@ func newSimpleInstructionSet() [256]operation {
 		reverts:       true,
 		returns:       true,
 	}
+	instructionSet[RETURN] = operation{
+		execute:       opReturn,
+		gasCost:       gasReturn,
+		validateStack: makeStackFunc(2, 0),
+		memorySize:    memoryReturn,
+		halts:         true,
+		valid:         true,
+	}
 	instructionSet[SYNCCALL] = operation{
 		execute:       opSyncCall,
 		gasCost:       gasSyncCall,
@@ -311,6 +319,28 @@ func newOffchainSimpleInstructionSet() [256]operation {
 		memorySize:    memoryRevert,
 		valid:         true,
 		halts:         true,
+	}
+	instructionSet[RETURN] = operation{
+		execute:       opOffchainReturn,
+		gasCost:       gasReturn,
+		validateStack: makeStackFunc(2, 0),
+		memorySize:    memoryReturn,
+		halts:         true,
+		valid:         true,
+	}
+	instructionSet[SYNCCALL] = operation{
+		execute:       opOffchainSyncCall,
+		gasCost:       gasSyncCall,
+		validateStack: makeStackFunc(6, 0),
+		memorySize:    memorySyncCall,
+		valid:         true,
+		halts: 		   true,
+	}
+	instructionSet[CALLBACKDEST] = operation{
+		execute:       opOffchainCallbackDest,
+		gasCost:       gasJumpdest,
+		validateStack: makeStackFunc(0, 0),
+		valid:         true,
 	}
 	return instructionSet
 }
@@ -986,14 +1016,6 @@ func newBaseInstructionSet() [256]operation {
 			execute:       makeSwap(16),
 			gasCost:       gasSwap,
 			validateStack: makeSwapStackFunc(17),
-			valid:         true,
-		},
-		RETURN: {
-			execute:       opReturn,
-			gasCost:       gasReturn,
-			validateStack: makeStackFunc(2, 0),
-			memorySize:    memoryReturn,
-			halts:         true,
 			valid:         true,
 		},
 		BALANCE: {

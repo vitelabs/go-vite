@@ -136,6 +136,47 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	return vm.NewVM(nil, nil).OffChainReader(db, codeBytes, param.Data)
 }
 
+type CallParam struct {
+	Addr              *types.Address `json:"address"`
+	Data              []byte         `json:"data"`
+	Height            *uint64        `json:"height"`
+	SnapshotHash      *types.Hash    `json:"snapshotHash"`
+}
+
+func (c *ContractApi) Call(param CallParam) ([]byte, error) {
+	var prevHash *types.Hash
+	var err error
+	if param.Height == nil {
+		prevHash, err = getPrevBlockHash(c.chain, *(param.Addr))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		prevHash, err = c.chain.GetAccountBlockHashByHeight(*(param.Addr), *(param.Height))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var snapshotHash *types.Hash
+	if param.SnapshotHash == nil {
+		snapshotHash = &c.chain.GetLatestSnapshotBlock().Hash
+	} else {
+		snapshotHash = param.SnapshotHash
+	}
+
+	db, err := vm_db.NewVmDb(c.chain, param.Addr, snapshotHash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+
+	_, code := util.GetContractCode(db, param.Addr, nil)
+
+	res, err := vm.NewVM(nil, nil).OffChainReader(db, code, param.Data)
+	log.Debug("call contract", "\nparam", param, "\ncode", hex.EncodeToString(code), "\nresult", res)
+
+	return res, err
+}
+
 func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {
 	var prefixBytes []byte
 	if len(prefix) > 0 {

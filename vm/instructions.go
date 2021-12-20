@@ -903,6 +903,11 @@ func opSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]b
 	return nil, nil
 }
 
+func opOffchainSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	c.intPool.Put(stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop())
+	return nil, nil
+}
+
 func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	sendType := metadata.GetSendType(c.sendBlock.Data)
 	if sendType == metadata.Callback {
@@ -980,6 +985,11 @@ func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 	return nil, nil
 }
 
+func opOffchainCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+
+	return nil, nil
+}
+
 func opOrigin(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 
 	return nil, nil
@@ -1025,6 +1035,14 @@ func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 				"\noriginSendBlock", originSendBlock)
 		}
 	}
+
+	return ret, nil
+}
+
+func opOffchainReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	offset, size := stack.pop(), stack.pop()
+	ret := mem.getPtr(offset.Int64(), size.Int64())
+	c.intPool.Put(offset, size)
 
 	return ret, nil
 }
