@@ -1,15 +1,15 @@
 FROM golang:1.15-alpine as maker
 
-WORKDIR /usr/local/go/src/github.com/vitelabs/go-vite
+WORKDIR /go/src/github.com/vitelabs/go-vite
 
 COPY go.mod .
 COPY go.sum .
 
 RUN GO111MODULE=on go mod download
 
-ADD . /go/src/github.com/vitelabs/go-vite
+ADD . .
 
-RUN GO111MODULE=on go build -mod=readonly -o gvite /go/src/github.com/vitelabs/go-vite/cmd/gvite
+RUN GO111MODULE=on go build -mod=readonly -o gvite cmd/gvite/main.go
 
 FROM alpine:3.8
 
@@ -25,9 +25,9 @@ RUN apk add --no-cache ca-certificates
 
 WORKDIR /root
 
-COPY --from=maker /usr/local/go/src/github.com/vitelabs/go-vite/gvite .
-COPY --from=maker /usr/local/go/src/github.com/vitelabs/go-vite/conf conf
-COPY --from=maker /usr/local/go/src/github.com/vitelabs/go-vite/conf/node_config.json .
+COPY --from=maker /go/src/github.com/vitelabs/go-vite/gvite .
+COPY --from=maker /go/src/github.com/vitelabs/go-vite/conf conf
+COPY --from=maker /go/src/github.com/vitelabs/go-vite/conf/node_config.json .
 
 EXPOSE 8483 8484 48132 41420 8483/udp
 ENTRYPOINT ["./gvite"] 
