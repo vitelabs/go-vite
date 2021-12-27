@@ -9,7 +9,7 @@ RUN GO111MODULE=on go mod download
 
 ADD . /go/src/github.com/vitelabs/go-vite
 
-RUN GO111MODULE=on go build -mod=readonly -o gvite github.com/vitelabs/go-vite/cmd/gvite
+RUN GO111MODULE=on go build -mod=readonly -o gvite /go/src/github.com/vitelabs/go-vite/cmd/gvite
 
 FROM alpine:3.8
 
