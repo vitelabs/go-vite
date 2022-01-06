@@ -3,7 +3,7 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
-	"github.com/vitelabs/go-vite/vm/metadata"
+	"github.com/vitelabs/go-vite/v2/vm/metadata"
 	"math/big"
 
 	"golang.org/x/crypto/sha3"

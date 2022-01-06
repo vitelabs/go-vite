@@ -4,7 +4,7 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
-	"github.com/vitelabs/go-vite/vm_db"
+	"github.com/vitelabs/go-vite/v2/vm_db"
 	"math/big"
 	"runtime/debug"
 	"strconv"
