@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -609,7 +610,7 @@ func TestVmInterpreter(t *testing.T) {
 				&sendCallBlock,
 				sendCallBlock.Data,
 				testCase.QuotaTotal)
-			code, _ := hex.DecodeString(testCase.Code)
+			code, _ := hex.DecodeString(strings.ReplaceAll(testCase.Code, " ", ""))
 			c.setCallCode(testCase.ToAddress, code)
 			util.AddBalance(db, &sendCallBlock.TokenId, sendCallBlock.Amount)
 			ret, err := c.run(vm)
@@ -623,7 +624,7 @@ func TestVmInterpreter(t *testing.T) {
 				} else if c.quotaLeft != testCase.QuotaLeft {
 					t.Fatalf("%v: %v failed, quota left error, expected %v, got %v", testFile.Name(), k, testCase.QuotaLeft, c.quotaLeft)
 				} else if checkStorageResult := checkStorage(db, testCase.Storage); checkStorageResult != "" {
-					t.Fatalf("%v: %v failed, storage error, %v", testFile.Name(), k, checkStorageResult)
+					t.Fatalf("%v: %v failed, storage error:[ %v ]", testFile.Name(), k, checkStorageResult)
 				} else if len(testCase.LogHash) > 0 {
 					if logHash := db.GetLogListHash(); (logHash == nil && len(testCase.LogHash) != 0) || (logHash != nil && logHash.String() != testCase.LogHash) {
 						t.Fatalf("%v: %v failed, log hash error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.LogHash, logHash)
@@ -668,7 +669,7 @@ func checkStorage(got *memoryDatabase, expected map[string]string) string {
 		}
 	}
 	if len(expected) != count {
-		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got.storage))
+		return "expected length " + strconv.Itoa(len(expected)) + ", got length " + strconv.Itoa(count)
 	}
 	for k, v := range got.storage {
 		if len(v) == 0 {

@@ -474,7 +474,17 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) (
 }
 
 func opReturnDataSize(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	stack.push(c.intPool.Get().SetUint64(uint64(len(c.returnData))))
+	sendType := metadata.GetSendType(c.sendBlock.Data)
+	if sendType == metadata.Callback || sendType == metadata.FailureCallback {
+		// extract return data from the callback send block
+		length := len(metadata.GetCalldata(c.sendBlock.Data))
+		if length >= 4 {
+			stack.push(c.intPool.Get().SetUint64(uint64(length - 4)))
+			return nil, nil
+		}
+	}
+
+	stack.push(c.intPool.Get().SetUint64(uint64(0)))
 	return nil, nil
 }
 
@@ -488,10 +498,20 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack
 	)
 	defer c.intPool.Put(memOffset, dataOffset, length, end)
 
-	if end.BitLen() > 64 || uint64(len(c.returnData)) < end.Uint64() {
-		return nil, util.ErrReturnDataOutOfBounds
+	sendType := metadata.GetSendType(c.sendBlock.Data)
+	if sendType == metadata.Callback || sendType == metadata.FailureCallback {
+		// extract return data from the callback send block
+		calldata := metadata.GetCalldata(c.sendBlock.Data)
+		if len(calldata) < 4 {
+			return nil, nil
+		}
+		returnData := calldata[4:]
+		// copy return data to the memory
+		if end.BitLen() > 64 || uint64(len(returnData)) < end.Uint64() {
+			return nil, util.ErrReturnDataOutOfBounds
+		}
+		mem.set(memOffset.Uint64(), length.Uint64(), returnData[dataOffset.Uint64():end.Uint64()])
 	}
-	mem.set(memOffset.Uint64(), length.Uint64(), c.returnData[dataOffset.Uint64():end.Uint64()])
 
 	return nil, nil
 }
