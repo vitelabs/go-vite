@@ -77,6 +77,7 @@ func TestGetSendType(t *testing.T) {
 	}{
 		{ "00000000760101012061b730eb65e9632f9e66dbb9573637e2de5011b2f512894a37981c62de3cbd40112233440006010101020103011600000201800001010102010301040105010601070108", SendType(SyncCall)},
 		{ "0000000076010200000000000000000000000000000000000000000000000000000000000000001122334401020304", SendType(Callback)},
+		{ "0000000076010300000000000000000000000000000000000000000000000000000000000000001122334401020304", SendType(FailureCallback)},
 		{ "0000000076010200000000", SendType(Callback)},
 		{ "00000000760101", SendType(AsyncCall)},
 		{ "000000007601", SendType(AsyncCall)},
@@ -481,10 +482,10 @@ func TestEncodeCallbackData(t *testing.T) {
 	returnData := []byte{1, 2, 3, 4}
 
 	assert.NotPanics(t, func() {
-		EncodeCallbackData(sendBlock, returnData)
+		EncodeCallbackData(sendBlock, returnData, true)
 	})
 
-	data, err := EncodeCallbackData(sendBlock, returnData)
+	data, err := EncodeCallbackData(sendBlock, returnData, true)
 
 	assert.Equal(t, nil, err)
 
@@ -493,6 +494,17 @@ func TestEncodeCallbackData(t *testing.T) {
 	assert.Equal(t,  SendType(Callback), GetSendType(data))
 
 	hashGot, _ := GetReferencedSendHash(data)
+	assert.Equal(t, sendBlock.Hash, hashGot)
+
+	data, err = EncodeCallbackData(sendBlock, returnData, false)
+
+	assert.Equal(t, nil, err)
+
+	fmt.Printf("data encoded: %v\n", hex.EncodeToString(data))
+
+	assert.Equal(t,  SendType(FailureCallback), GetSendType(data))
+
+	hashGot, _ = GetReferencedSendHash(data)
 	assert.Equal(t, sendBlock.Hash, hashGot)
 }
 

@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -114,7 +115,8 @@ func TestVM_RunV2(t *testing.T) {
 					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "pledgeBeneficialAmount", testCase.PledgeBeneficialAmount)
 				}
 			}
-			code, parseErr := hex.DecodeString(testCase.Code)
+			codeStr := strings.ReplaceAll(testCase.Code, " ", "")
+			code, parseErr := hex.DecodeString(codeStr)
 			if parseErr != nil {
 				t.Fatal("invalid test case code", "filename", testFile.Name(), "caseName", k, "code", testCase.Code, "err", parseErr)
 			}

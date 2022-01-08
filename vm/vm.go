@@ -4,6 +4,7 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
+	"github.com/vitelabs/go-vite/v2/vm/metadata"
 	"github.com/vitelabs/go-vite/v2/vm_db"
 	"math/big"
 	"runtime/debug"
@@ -562,7 +563,8 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 		vm.revert(db)
 		refundFlag := false
 		refundData, needRefund := p.GetRefundData(sendBlock, vm.latestSnapshotHeight)
-		refundFlag = doRefund(vm, db, block, sendBlock, refundData, needRefund, ledger.BlockTypeSendCall)
+		// TODO: return error data of built-in contracts
+		refundFlag = doRefund(vm, db, block, sendBlock, refundData, needRefund, ledger.BlockTypeSendCall, []byte{})
 		vm.updateBlock(db, block, err, quotaUsed, quotaUsed)
 		if refundFlag {
 			var refundErr error
@@ -606,7 +608,8 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 	_, code := util.GetContractCode(db, &block.AccountAddress, nil)
 	c := newContract(block, db, sendBlock, sendBlock.Data, quotaLeft)
 	c.setCallCode(block.AccountAddress, code)
-	_, err = c.run(vm)
+	var returnData []byte
+	returnData, err = c.run(vm)
 	if err == nil {
 		qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, nil)
 		vm.updateBlock(db, block, err, qStakeUsed, qUsed)
@@ -630,7 +633,8 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 			return nil, retry, err
 		}
 		// Contract receive out of quota, current block is first unconfirmed block, refund with no quota
-		refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund)
+		// TODO: set panic data
+		refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund, []byte{})
 		qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err)
 		vm.updateBlock(db, block, err, qStakeUsed, qUsed)
 		if refundFlag {
@@ -647,7 +651,7 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 		return &interfaces.VmAccountBlock{block, db}, noRetry, err
 	}
 
-	refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund)
+	refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund, returnData)
 	qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err)
 	vm.updateBlock(db, block, err, qStakeUsed, qUsed)
 	if refundFlag {
@@ -664,7 +668,7 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 	return &interfaces.VmAccountBlock{block, db}, noRetry, err
 }
 
-func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, refundData []byte, needRefund bool, refundBlockType byte) bool {
+func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, refundData []byte, needRefund bool, refundBlockType byte, errorData []byte) bool {
 	refundFlag := false
 	if sendBlock.Amount.Sign() > 0 && sendBlock.Fee.Sign() > 0 && sendBlock.TokenId == ledger.ViteTokenId {
 		refundAmount := new(big.Int).Add(sendBlock.Amount, sendBlock.Fee)
@@ -715,6 +719,43 @@ func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock 
 				refundData))
 		refundFlag = true
 	}
+
+	// trigger a failure callback transaction
+	sendType := metadata.GetSendType(sendBlock.Data)
+	if sendType == metadata.SyncCall || sendType == metadata.Callback || sendType == metadata.FailureCallback {
+		var originSendBlock *ledger.AccountBlock
+		// get the send-block of the original call
+		if vm.vmContext.originSendBlock == nil {
+			originSendBlock = sendBlock
+		} else {
+			originSendBlock = vm.vmContext.originSendBlock
+		}
+
+		if metadata.GetSendType(originSendBlock.Data) == metadata.SyncCall {
+			// append return data
+			data, err := metadata.EncodeCallbackData(originSendBlock, errorData, false)
+			if err == nil {
+				refundFlag = true
+				// send failure callback transaction
+				vm.AppendBlock(
+					util.MakeRequestBlock(
+						block.AccountAddress,
+						originSendBlock.AccountAddress, // it may be different from refund transactions
+						ledger.BlockTypeSendCall,
+						big.NewInt(int64(0)),
+						ledger.ViteTokenId,
+						data))
+
+				nodeConfig.log.Debug("failure callback",
+					"\nfrom", sendBlock.AccountAddress.String(),
+					"\nto", sendBlock.ToAddress.String(),
+					"\nsend block", sendBlock,
+					"\noriginSendBlock", originSendBlock)
+			}
+		}
+	}
+
+
 	return refundFlag
 }
 

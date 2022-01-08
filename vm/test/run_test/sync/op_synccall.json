@@ -1,0 +1,142 @@
+{
+  "synccall": {
+    "sbHeight": 500,
+    "blockType": 4,
+    "sendBlockType": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "",
+    "amount": "00",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "01  60 00 60 00 60 00 69 5649544520544f4b454e 74 ab24ef68b84e642c0ddca06beec81c9acb1977bb00 63 00000001 f7",
+    "pledgeBeneficialAmount": "10000000000000000000000",
+    "err": "",
+    "success": true,
+    "quota": 21006,
+    "quotaUsed": 21006,
+    "preContractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "contractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "sendBlockList": [
+      {
+        "blockType": 2,
+        "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+        "amount": "",
+        "tokenID": "tti_5649544520544f4b454e6e40",
+        "data": "000000007601010103000000000000000000000000000000000000000000000000000000000000000000000001000000"
+      }
+    ]
+  },
+  "synccall_forward_origin_hash": {
+    "sbHeight": 500,
+    "blockType": 4,
+    "sendBlockType": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "00000000760101012061b730eb65e9632f9e66dbb9573637e2de5011b2f512894a37981c62de3cbd401122334400060101010201030116000002018000010101020103010401050106010701080a0b0c0d",
+    "amount": "00",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "01  60 00 60 00 60 00 69 5649544520544f4b454e 74 ab24ef68b84e642c0ddca06beec81c9acb1977bb00 63 00000001 f7",
+    "pledgeBeneficialAmount": "10000000000000000000000",
+    "err": "",
+    "success": true,
+    "quota": 21006,
+    "quotaUsed": 21006,
+    "preContractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "contractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "sendBlockList": [
+      {
+        "blockType": 2,
+        "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+        "amount": "",
+        "tokenID": "tti_5649544520544f4b454e6e40",
+        "data": "000000007601010103000000000000000000000000000000000000000000000000000000000000000000000001000000"
+      }
+    ]
+  },
+  "synccall_dump_stack": {
+    "sbHeight": 500,
+    "blockType": 4,
+    "sendBlockType": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "",
+    "amount": "00",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "01  60 11 60 22 60 33  60 00 60 00 60 00 69 5649544520544f4b454e 74 ab24ef68b84e642c0ddca06beec81c9acb1977bb00 63 00000001 f7",
+    "pledgeBeneficialAmount": "10000000000000000000000",
+    "err": "",
+    "success": true,
+    "quota": 21009,
+    "quotaUsed": 21009,
+    "preContractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "contractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "sendBlockList": [
+      {
+        "blockType": 2,
+        "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+        "amount": "",
+        "tokenID": "tti_5649544520544f4b454e6e40",
+        "data": "000000007601010109000000000000000000000000000000000000000000000000000000000000000000000001000601110122013300"
+      }
+    ]
+  },
+  "synccall_dump_memory": {
+    "sbHeight": 500,
+    "blockType": 4,
+    "sendBlockType": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "",
+    "amount": "00",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "01  60 80 60 40 52  60 00 60 00 60 00 69 5649544520544f4b454e 74 ab24ef68b84e642c0ddca06beec81c9acb1977bb00 63 00000001 f7",
+    "pledgeBeneficialAmount": "10000000000000000000000",
+    "err": "",
+    "success": true,
+    "quota": 21012,
+    "quotaUsed": 21012,
+    "preContractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "contractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "sendBlockList": [
+      {
+        "blockType": 2,
+        "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+        "amount": "",
+        "tokenID": "tti_5649544520544f4b454e6e40",
+        "data": "0000000076010101080000000000000000000000000000000000000000000000000000000000000000000000010000010400000180"
+      }
+    ]
+  }
+}

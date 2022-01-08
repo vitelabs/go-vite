@@ -202,12 +202,12 @@ func newSimpleInstructionSet() [256]operation {
 		validateStack: makeStackFunc(6, 0),
 		memorySize:    memorySyncCall,
 		valid:         true,
-		halts: 		   true,
+		halts: 		   false,
 	}
 	instructionSet[CALLBACKDEST] = operation{
 		execute:       opCallbackDest,
 		gasCost:       gasJumpdest,
-		validateStack: makeStackFunc(0, 0),
+		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
 
@@ -339,7 +339,7 @@ func newOffchainSimpleInstructionSet() [256]operation {
 	instructionSet[CALLBACKDEST] = operation{
 		execute:       opOffchainCallbackDest,
 		gasCost:       gasJumpdest,
-		validateStack: makeStackFunc(0, 0),
+		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
 	return instructionSet

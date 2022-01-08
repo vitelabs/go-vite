@@ -1,0 +1,107 @@
+{
+  "revert": {
+    "sbHeight": 500,
+    "blockType": 4,
+    "sendBlockType": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "",
+    "amount": "00",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "01  63 11223344 60 80 52 60 04 60 80 fd",
+    "pledgeBeneficialAmount": "10000000000000000000000",
+    "err": "execution reverted",
+    "success": true,
+    "quota": 21010,
+    "quotaUsed": 21010,
+    "preContractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "contractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "sendBlockList": [
+    ]
+  },
+  "revert_with_refund": {
+    "sbHeight": 500,
+    "blockType": 4,
+    "sendBlockType": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "",
+    "amount": "ff",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "01  63 11223344 60 80 52 60 20 60 80 fd",
+    "pledgeBeneficialAmount": "10000000000000000000000",
+    "err": "execution reverted",
+    "success": true,
+    "quota": 21010,
+    "quotaUsed": 21010,
+    "preContractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "contractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "sendBlockList": [
+      {
+        "blockType": 6,
+        "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+        "amount": "ff",
+        "tokenID": "tti_5649544520544f4b454e6e40",
+        "data": ""
+      }
+    ]
+  },
+  "revert_in_sync_call_with_refund": {
+    "sbHeight": 500,
+    "blockType": 4,
+    "sendBlockType": 2,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
+    "data": "0000000076010101080000000000000000000000000000000000000000000000000000000000000000000000010000010400000180",
+    "amount": "ff",
+    "tokenId": "tti_5649544520544f4b454e6e40",
+    "code": "01  63 11223344 60 80 52 60 20 60 80 fd",
+    "pledgeBeneficialAmount": "10000000000000000000000",
+    "err": "execution reverted",
+    "success": true,
+    "quota": 21010,
+    "quotaUsed": 21010,
+    "preContractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "contractMetaMap": {
+      "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86": {
+        "quotaRatio": 10
+      }
+    },
+    "sendBlockList": [
+      {
+        "blockType": 6,
+        "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+        "amount": "ff",
+        "tokenID": "tti_5649544520544f4b454e6e40",
+        "data": ""
+      },
+      {
+        "blockType": 2,
+        "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+        "amount": "",
+        "tokenID": "tti_5649544520544f4b454e6e40",
+        "data": "000000007601030000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000011223344"
+      }
+    ]
+  }
+}

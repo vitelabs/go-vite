@@ -14,6 +14,7 @@ const (
 	AsyncCall SendType = 0
 	SyncCall = 1
 	Callback = 2
+	FailureCallback = 3
 )
 
 var (
@@ -105,6 +106,9 @@ func GetSendType(data []byte) SendType {
 	if  data[6] == byte(Callback) {
 		return Callback
 	}
+	if  data[6] == byte(FailureCallback) {
+		return FailureCallback
+	}
 	return AsyncCall
 }
 
@@ -115,7 +119,7 @@ func GetHeadLength(data []byte) int {
 	sendType := GetSendType(data)
 	if sendType == SyncCall {
 		return len(HeadIdentifier) + 1 + 1 + int(data[7])
-	} else if sendType == Callback {
+	} else if sendType == Callback || sendType == FailureCallback {
 		return len(HeadIdentifier) + 1
 	} else {
 		return 0
@@ -143,7 +147,7 @@ func GetMetaDataLength(data []byte) int {
 		contextLength := int(word.Uint64())
 		metaDataLength := GetHeadLength(data) + 32 + 4 + contextLength
 		return metaDataLength
-	} else if sendType == Callback {
+	} else if sendType == Callback || sendType == FailureCallback {
 		return GetHeadLength(data) + 32
 	} else {
 		return 0
@@ -291,7 +295,7 @@ func EncodeSyncCallData(sendHash types.Hash, callbackId *big.Int, context *Execu
 }
 
 // EncodeCallbackData encode the calldata for a callback (return transaction to a sync call)
-func EncodeCallbackData(originSendBlock *ledger.AccountBlock , returnData []byte) ([]byte, error) {
+func EncodeCallbackData(originSendBlock *ledger.AccountBlock, returnData []byte, success bool) ([]byte, error) {
 	sendCallData := originSendBlock.Data
 	if GetSendType(sendCallData) == SyncCall {
 		// metadata: [head_identifier][type][ref_send_hash] | [callback_id][returnData]
@@ -301,7 +305,11 @@ func EncodeCallbackData(originSendBlock *ledger.AccountBlock , returnData []byte
 		// append HeadIdentifier
 		data = append(data, HeadIdentifier...)
 		// append SendType
-		data = append(data, Callback)
+		if success {
+			data = append(data, Callback)
+		} else {
+			data = append(data, FailureCallback)
+		}
 		// append referenced send hash
 		data = append(data, originSendBlock.Hash.Bytes()...)
 		// append callback id

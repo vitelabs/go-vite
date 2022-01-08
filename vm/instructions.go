@@ -910,7 +910,7 @@ func opOffchainSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *sta
 
 func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	sendType := metadata.GetSendType(c.sendBlock.Data)
-	if sendType == metadata.Callback {
+	if sendType == metadata.Callback || sendType == metadata.FailureCallback {
 		syncCallSendHash, err := metadata.GetReferencedSendHash(c.sendBlock.Data)
 		if err != nil {
 			return nil, err
@@ -955,11 +955,22 @@ func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 		nodeConfig.interpreterLog.Debug("opCallbackDest",
 			"current stack", stack.print(), "stack dump", stackDump)
 
+		// restore stack
 		for i := 0; i < len(stackDump); i++ {
 			stackItem := stackDump[i]
 			stack.push(stackItem)
 			nodeConfig.interpreterLog.Debug("restore stack", "item", stackItem)
 		}
+		// push success flag (act as RETURN instruction in Ethereum)
+		if sendType == metadata.Callback {
+			// push true
+			t := big.NewInt(1)
+			stack.push(t)
+		} else {
+			// push false
+			stack.push(big.NewInt(0))
+		}
+
 		nodeConfig.interpreterLog.Debug("opCallbackDest",
 			"current stack", stack.print())
 
@@ -986,6 +997,8 @@ func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 }
 
 func opOffchainCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	// it should not appear in offchain code, push false to stop executing
+	stack.push(c.intPool.GetZero())
 
 	return nil, nil
 }
@@ -1002,8 +1015,8 @@ func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 
 	sendType := metadata.GetSendType(c.sendBlock.Data)
 
-	// return to a sync call
-	if sendType == metadata.SyncCall || sendType == metadata.Callback {
+	// trigger a callback transaction
+	if sendType == metadata.SyncCall || sendType == metadata.Callback || sendType == metadata.FailureCallback {
 		var originSendBlock *ledger.AccountBlock
 		// get the send-block of the original call
 		if vm.vmContext.originSendBlock == nil {
@@ -1014,8 +1027,7 @@ func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 
 		if metadata.GetSendType(originSendBlock.Data) == metadata.SyncCall {
 			// append return data
-			returnData := mem.getPtr(offset.Int64(), size.Int64())
-			data, err := metadata.EncodeCallbackData(originSendBlock, returnData)
+			data, err := metadata.EncodeCallbackData(originSendBlock, ret, true)
 			util.DealWithErr(err)
 
 			// send callback transaction
