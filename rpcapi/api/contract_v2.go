@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/hex"
+	"fmt"
 	"sort"
 	"time"
 
@@ -213,6 +214,9 @@ func NewStakeInfo(addr types.Address, info *types.StakeInfo, snapshotBlock *ledg
 }
 
 func (p *ContractApi) GetStakeList(address types.Address, pageIndex int, pageSize int) (*StakeInfoList, error) {
+	if pageSize > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	db, err := getVmDb(p.chain, types.AddressQuota)
 	if err != nil {
 		return nil, err
@@ -246,6 +250,9 @@ type StakeInfoListBySearchKey struct {
 }
 
 func (p *ContractApi) GetStakeListBySearchKey(snapshotHash types.Hash, lastKey string, size uint64) (*StakeInfoListBySearchKey, error) {
+	if size > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	lastKeyBytes, err := hex.DecodeString(lastKey)
 	if err != nil {
 		return nil, err
@@ -574,6 +581,9 @@ func (a byName) Less(i, j int) bool {
 }
 
 func (m *ContractApi) GetTokenInfoList(pageIndex int, pageSize int) (*TokenInfoList, error) {
+	if pageSize > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	db, err := getVmDb(m.chain, types.AddressAsset)
 	if err != nil {
 		return nil, err

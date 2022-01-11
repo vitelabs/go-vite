@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -189,6 +190,9 @@ func (p *QuotaApi) GetPledgeAmountByUtps(utps string) (*string, error) {
 
 // Deprecated: use contract_getStakeList instead
 func (p *QuotaApi) GetPledgeList(addr types.Address, index int, count int) (*PledgeInfoList, error) {
+	if count > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	db, err := getVmDb(p.chain, types.AddressQuota)
 	if err != nil {
 		return nil, err

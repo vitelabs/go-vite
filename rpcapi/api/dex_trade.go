@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	"github.com/vitelabs/go-vite/v2"
 	"github.com/vitelabs/go-vite/v2/common/types"
@@ -54,6 +55,9 @@ func (f DexTradeApi) GetOrderBySendHash(sendHash types.Hash) (*apidex.RpcOrder, 
 }
 
 func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *apidex.OrdersRes, err error) {
+	if end-begin > 10000 {
+		return nil, fmt.Errorf("end - begin must be less than 10000")
+	}
 	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
@@ -86,6 +90,12 @@ type MarketOrderParam struct {
 }
 
 func (f DexTradeApi) GetMarketOrders(param MarketOrderParam) (ordersRes *apidex.OrdersRes, err error) {
+	if param.SellEnd-param.SellBegin > 10000 {
+		return nil, fmt.Errorf("sell end - begin must be less than 10000")
+	}
+	if param.BuyEnd-param.BuyBegin > 10000 {
+		return nil, fmt.Errorf("sell end - begin must be less than 10000")
+	}
 	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {

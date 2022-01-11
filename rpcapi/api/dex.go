@@ -364,6 +364,9 @@ func (f DexApi) GetOrderByTransactionHash(sendHash types.Hash) (*apidex.RpcOrder
 }
 
 func (f DexApi) GetOrdersForMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *apidex.OrdersRes, err error) {
+	if end-begin > 10000 {
+		return nil, fmt.Errorf("end - begin must be less than 10000")
+	}
 	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
@@ -387,6 +390,9 @@ func (f DexApi) GetOrdersForMarket(tradeToken, quoteToken types.TokenTypeId, sid
 }
 
 func (f DexApi) GetVIPStakeInfoList(address types.Address, pageIndex int, pageSize int) (*apidex.StakeInfoList, error) {
+	if pageSize > 5000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -441,6 +447,9 @@ func (f DexApi) GetVIPStakeInfoList(address types.Address, pageIndex int, pageSi
 }
 
 func (f DexApi) GetMiningStakeInfoList(address types.Address, pageIndex int, pageSize int) (*apidex.StakeInfoList, error) {
+	if pageSize > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -489,6 +498,9 @@ func (f DexApi) IsAutoLockMinedVx(address types.Address) (bool, error) {
 }
 
 func (f DexApi) GetVxUnlockList(address types.Address, pageIndex int, pageSize int) (*apidex.VxUnlockList, error) {
+	if pageSize > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err
@@ -502,6 +514,9 @@ func (f DexApi) GetVxUnlockList(address types.Address, pageIndex int, pageSize i
 }
 
 func (f DexApi) GetCancelStakeList(address types.Address, pageIndex int, pageSize int) (*apidex.CancelStakeList, error) {
+	if pageSize > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
 		return nil, err

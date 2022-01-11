@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/vitelabs/go-vite/v2"
@@ -110,6 +111,9 @@ func checkGenesisToken(db interfaces.VmDb, owner types.Address, genesisTokenInfo
 
 // Deprecated: use contract_getTokenInfoList instead
 func (m *MintageAPI) GetTokenInfoList(index int, count int) (*TokenInfoList, error) {
+	if count > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	db, err := getVmDb(m.chain, types.AddressAsset)
 	if err != nil {
 		return nil, err

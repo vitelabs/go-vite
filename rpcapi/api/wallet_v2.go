@@ -43,6 +43,9 @@ func (m WalletApi) DeriveAddressesByIndexRange(entropyFile string, startIndex, e
 	if startIndex > endIndex {
 		return nil, errors.New("from value > to")
 	}
+	if endIndex-startIndex > 5000 {
+		return nil, errors.New("endIndex-startIndex must be less than 5000")
+	}
 
 	manager, e := m.wallet.GetEntropyStoreManager(entropyFile)
 	if e != nil {

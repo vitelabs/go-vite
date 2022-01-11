@@ -161,6 +161,9 @@ func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, er
 }
 
 func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height interface{}, count uint64) ([]*AccountBlock, error) {
+	if count > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	heightUint64, err := parseHeight(height)
 	if err != nil {
 		return nil, err
@@ -201,6 +204,9 @@ func (l *LedgerApi) GetSnapshotBlockByHeight(height interface{}) (*SnapshotBlock
 }
 
 func (l *LedgerApi) GetSnapshotBlocks(height interface{}, count int) ([]*SnapshotBlock, error) {
+	if count > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	heightUint64, err := parseHeight(height)
 	if err != nil {
 		return nil, err
