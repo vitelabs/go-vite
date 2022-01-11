@@ -272,9 +272,10 @@ func (l *LedgerApi) SendRawTransaction(block *AccountBlock) error {
 
 // new api: ledger_getUnreceivedBlocksByAddress <- onroad_getOnroadBlocksByAddress
 func (l *LedgerApi) GetUnreceivedBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
-
 	log.Info("GetUnreceivedBlocksByAddress", "addr", address, "index", index, "count", count)
-
+	if count > 1000 {
+		return nil, errors.New("count must be less than 1000")
+	}
 	blockList, err := l.chain.GetOnRoadBlocksByAddr(address, int(index), int(count))
 	if err != nil {
 		return nil, err
