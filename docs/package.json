@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@vite/vuepress-plugin-mathjax": "^1.1.0",
-    "markdown-it": "^12.0.4",
+    "markdown-it": "^12.3.2",
     "markdown-it-container": "^3.0.0",
     "vuepress-plugin-sitemap": "^2.3.1",
     "vuepress-theme-cosmos": "^1.0.182"
