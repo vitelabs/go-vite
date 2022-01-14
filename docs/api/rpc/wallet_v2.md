@@ -79,7 +79,7 @@ Return all entropy files maintained in wallet
 ```
 :::
 
-## wallet_exportMnemonics
+## wallet_exportMnemonic
 Return mnemonic phrase of the given entropy file
 
 - **Parameters**:
@@ -96,7 +96,7 @@ Return mnemonic phrase of the given entropy file
 {
 	"jsonrpc": "2.0",
 	"id": 4,
-	"method": "wallet_exportMnemonics",
+	"method": "wallet_exportMnemonic",
 	"params": [
 		"vite_15391ac8b09d4e8ad78bfe5f9f9ab9682fe689572f6f53655e",
 		"123456"
