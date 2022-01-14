@@ -83,6 +83,7 @@ type Consensus interface {
 
 // update committee result
 type consensus struct {
+	*ConsensusCfg
 	Subscriber
 	subscribeTrigger
 

@@ -64,7 +64,6 @@ func (w *worker) Stop() error {
 }
 
 func (w *worker) produceSnapshot(e consensus.Event) {
-	w.wg.Add(1)
 	if e.Address != w.coinbase.Address() {
 		mLog.Error("coinbase must be equal.", "addr", e.Address.String())
 		return
@@ -79,6 +78,7 @@ func (w *worker) genAndInsert(e *consensus.Event) {
 	wLog.Info("genAndInsert start.", "event", e)
 	defer wLog.Info("genAndInsert end.", "event", e)
 	defer monitor.LogTime("producer", "snapshotGenInsert", time.Now())
+	w.wg.Add(1)
 	defer w.wg.Done()
 	w.mu.Lock()
 	defer w.mu.Unlock()

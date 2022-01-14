@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/vitelabs/go-vite/v2/common"
 	"github.com/vitelabs/go-vite/v2/common/types"
@@ -129,6 +130,22 @@ func (self *producer) Start() error {
 	})
 	self.netSyncId = id
 	wLog.Info("started.")
+	return nil
+}
+
+func (self *producer) SnapshotOnce() error {
+	t := time.Now()
+	e := &consensus.Event{
+		Gid:         types.SNAPSHOT_GID,
+		Address:     self.coinbase.Address(),
+		Stime:       t,
+		Etime:       t,
+		Timestamp:   t,
+		VoteTime:    t,
+		PeriodStime: t,
+		PeriodEtime: t,
+	}
+	self.worker.genAndInsert(e)
 	return nil
 }
 

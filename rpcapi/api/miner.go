@@ -1,9 +1,7 @@
 package api
 
 import (
-	"context"
-	"errors"
-	"time"
+	"fmt"
 
 	"github.com/vitelabs/go-vite/v2"
 	"github.com/vitelabs/go-vite/v2/ledger/chain"
@@ -29,35 +27,11 @@ func (api MinerApi) String() string {
 }
 
 func (api *MinerApi) Mine() error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	if api.vite.Config().IsMine() {
-		addr := api.vite.Producer().GetCoinBase()
-		from := api.chain.GetLatestSnapshotBlock().Height
-		err := api.cs.TriggerMineEvent(addr)
-		if err != nil {
-			return err
-		}
-		t := time.NewTicker(time.Second)
-		defer t.Stop()
-		// waiting for next snapshot block, with timeout 5s
-		for {
-			select {
-			case <-ctx.Done():
-				return errors.New("timeout for mine new block")
-			case <-t.C:
-				err := api.cs.TriggerMineEvent(addr)
-				if err != nil {
-					return err
-				}
-			default:
-				to := api.chain.GetLatestSnapshotBlock().Height
-				if to > from {
-					return nil
-				}
-				time.Sleep(100 * time.Millisecond)
-			}
-		}
+	if !api.vite.Config().IsMine() {
+		return fmt.Errorf("should enable mine")
 	}
-	return errors.New("should enable mine")
+	if !api.vite.Config().ExternalMiner {
+		return fmt.Errorf("should enable external miner")
+	}
+	return api.vite.Producer().SnapshotOnce()
 }

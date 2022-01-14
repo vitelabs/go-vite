@@ -11,4 +11,5 @@ type Producer interface {
 	Start() error
 	Stop() error
 	GetCoinBase() types.Address
+	SnapshotOnce() error
 }
