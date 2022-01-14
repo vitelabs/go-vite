@@ -474,17 +474,23 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) (
 }
 
 func opReturnDataSize(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	sendType := metadata.GetSendType(c.sendBlock.Data)
-	if sendType == metadata.Callback || sendType == metadata.FailureCallback {
-		// extract return data from the callback send block
-		length := len(metadata.GetCalldata(c.sendBlock.Data))
-		if length >= 4 {
-			stack.push(c.intPool.Get().SetUint64(uint64(length - 4)))
-			return nil, nil
+	var size = 0
+	if c.returnData != nil {
+		// the last call is a delegate call
+		size = len(c.returnData)
+	} else {
+		// the last call is an async call, check if this is in a callback
+		sendType := metadata.GetSendType(c.sendBlock.Data)
+		if sendType == metadata.Callback || sendType == metadata.FailureCallback {
+			// extract return data from the callback send block
+			length := len(metadata.GetCalldata(c.sendBlock.Data))
+			if length >= 4 {
+				size = length - 4
+			}
 		}
 	}
 
-	stack.push(c.intPool.Get().SetUint64(uint64(0)))
+	stack.push(c.intPool.Get().SetUint64(uint64(size)))
 	return nil, nil
 }
 
@@ -498,18 +504,28 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack
 	)
 	defer c.intPool.Put(memOffset, dataOffset, length, end)
 
-	sendType := metadata.GetSendType(c.sendBlock.Data)
-	if sendType == metadata.Callback || sendType == metadata.FailureCallback {
-		// extract return data from the callback send block
-		calldata := metadata.GetCalldata(c.sendBlock.Data)
-		if len(calldata) < 4 {
-			return nil, nil
+	var returnData []byte = nil
+	if c.returnData != nil {
+		// the last call is a delegate call
+		returnData = c.returnData
+	} else {
+		// the last call is an async call, check if this is in a callback
+		sendType := metadata.GetSendType(c.sendBlock.Data)
+		if sendType == metadata.Callback || sendType == metadata.FailureCallback {
+			// extract return data from the callback send block
+			calldata := metadata.GetCalldata(c.sendBlock.Data)
+			if len(calldata) < 4 {
+				return nil, errors.New("bad calldata of a callback, the length is less than 4")
+			}
+			returnData = calldata[4:]
 		}
-		returnData := calldata[4:]
-		// copy return data to the memory
-		if end.BitLen() > 64 || uint64(len(returnData)) < end.Uint64() {
-			return nil, util.ErrReturnDataOutOfBounds
-		}
+	}
+	// bound check
+	if end.BitLen() > 64 || uint64(len(returnData)) < end.Uint64() {
+		return nil, util.ErrReturnDataOutOfBounds
+	}
+	// copy return data to the memory
+	if returnData != nil {
 		mem.set(memOffset.Uint64(), length.Uint64(), returnData[dataOffset.Uint64():end.Uint64()])
 	}
 

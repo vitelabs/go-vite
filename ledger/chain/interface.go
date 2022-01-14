@@ -217,6 +217,9 @@ type Chain interface {
 	// get contract code
 	GetContractCode(contractAddr types.Address) ([]byte, error)
 
+	// get the code of a contract/library which has been deployed BEFORE the creation of the caller contract
+	GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error)
+
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
 
 	GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (meta *ledger.ContractMeta, err error)

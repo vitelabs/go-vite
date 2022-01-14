@@ -860,13 +860,18 @@ func (vm *VM) receiveRefund(db interfaces.VmDb, block *ledger.AccountBlock, send
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
 	_, code := util.GetContractCode(c.db, &contractAddr, vm.globalStatus)
 	if len(code) > 0 {
-		cNew := newContract(c.block, c.db, c.sendBlock, c.data, c.quotaLeft)
+		cNew := newContract(c.block, c.db, c.sendBlock, data, c.quotaLeft)
 		cNew.setCallCode(contractAddr, code)
 		ret, err = cNew.run(vm)
 		c.quotaLeft = cNew.quotaLeft
+		if ret == nil {
+			// return an empty array instead of nil, let the caller know that it's from a delegate call (with no data returned)
+			ret = make([]byte, 0)
+		}
 		return ret, err
 	}
-	return nil, nil
+	// return an empty array instead of nil, let the caller know that it's from a delegate call (with no data returned)
+	return make([]byte, 0), nil
 }
 
 func (vm *VM) updateBlock(db interfaces.VmDb, block *ledger.AccountBlock, err error, qStakeUsed, qUsed uint64) {

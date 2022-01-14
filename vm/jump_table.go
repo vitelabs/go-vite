@@ -210,6 +210,13 @@ func newSimpleInstructionSet() [256]operation {
 		validateStack: makeStackFunc(0, 1),
 		valid:         true,
 	}
+	instructionSet[DELEGATECALL] = operation{
+		execute:       opDelegateCall,
+		gasCost:       gasDelegateCall,
+		validateStack: makeStackFunc(5, 1),
+		valid:         true,
+		returns:       true,
+	}
 
 	return instructionSet
 }

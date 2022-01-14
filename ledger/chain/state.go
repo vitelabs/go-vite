@@ -46,10 +46,47 @@ func (c *chain) GetContractCode(contractAddress types.Address) ([]byte, error) {
 	code, err := c.stateDB.GetCode(contractAddress)
 	if err != nil {
 		cErr := fmt.Errorf("c.stateDB.GetCode failed, error is %s, Addr is %s", err, contractAddress)
-		c.log.Error(cErr.Error(), "method", "GetBalance")
+		c.log.Error(cErr.Error(), "method", "GetContractCode")
 		return nil, cErr
 	}
 	return code, nil
+}
+
+// get the code of a contract/library which has been deployed BEFORE the creation of the caller contract
+func (c *chain) GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error) {
+	c.log.Debug("GetDeployedContractCode", "deployedContractAddr", deployedContractAddr, "callerAddr", callerAddr)
+	// get the genesis block of the caller
+	callerGenesisBlock, err := c.GetAccountBlockByHeight(callerAddr, types.GenesisHeight)
+	c.log.Debug("GetDeployedContractCode", "callerGenesisBlock", callerGenesisBlock, "err", err)
+	if err != nil {
+		return nil, err
+	}
+	// get the confirmed height of the genesis block of the caller
+	callerCreatedHeight, err := c.indexDB.GetConfirmHeightByHash(&callerGenesisBlock.Hash)
+	c.log.Debug("GetDeployedContractCode", "callerCreatedHeight", callerCreatedHeight, "err", err)
+	if err != nil {
+		return nil, err
+	}
+	// get the genesis block of the library
+	targetGenesisBlock, err := c.GetAccountBlockByHeight(deployedContractAddr, types.GenesisHeight)
+	c.log.Debug("GetDeployedContractCode", "targetGenesisBlock", targetGenesisBlock, "err", err)
+	if err != nil {
+		return nil, err
+	}
+	// get the confirmed height of the genesis block of the target contract/library
+	targetCreatedHeight, err := c.indexDB.GetConfirmHeightByHash(&targetGenesisBlock.Hash)
+	c.log.Debug("GetDeployedContractCode", "targetCreatedHeight", targetCreatedHeight, "err", err)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check the created transaction confirmed height, caller's height must be greater than target's height
+	// DelegateCalls to libraries that have not been deployed are not allowed due to deterministic considerations.
+	if callerCreatedHeight <= 0 || targetCreatedHeight <= 0 || targetCreatedHeight > callerCreatedHeight {
+		return nil, nil
+	}
+
+	return c.GetContractCode(deployedContractAddr)
 }
 
 func (c *chain) GetContractMeta(contractAddress types.Address) (*ledger.ContractMeta, error) {

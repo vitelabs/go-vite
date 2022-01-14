@@ -17,6 +17,8 @@ type Chain interface {
 
 	GetContractCode(contractAddr types.Address) ([]byte, error)
 
+	GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error)
+
 	GetContractMeta(contractAddress types.Address) (meta *core.ContractMeta, err error)
 
 	GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*core.SnapshotBlock, error)

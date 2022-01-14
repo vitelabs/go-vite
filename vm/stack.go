@@ -34,7 +34,7 @@ func (st *stack) len() int {
 
 func (st *stack) require(n int) error {
 	if st.len() < n {
-		nodeConfig.log.Error("stack underflow", "data len", len(st.data), "expected", n)
+		nodeConfig.interpreterLog.Error("stack underflow", "data len", len(st.data), "expected", n)
 		return util.ErrStackUnderflow
 	}
 	return nil

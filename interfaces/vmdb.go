@@ -85,7 +85,7 @@ type VmDb interface {
 
 	GetContractCode() ([]byte, error)
 
-	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *core.SnapshotBlock) ([]byte, error) // TODO
+	GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error)
 
 	GetUnsavedContractMeta() map[types.Address]*core.ContractMeta
 
@@ -97,3 +97,4 @@ type VmDb interface {
 	// ====== debug ======
 	DebugGetStorage() (map[string][]byte, error)
 }
+

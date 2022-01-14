@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"encoding/hex"
 	"sync/atomic"
 
 	"github.com/vitelabs/go-vite/v2/common/helper"
@@ -93,9 +92,12 @@ func (i *interpreter) runLoop(vm *VM, c *contract) (ret []byte, err error) {
 		res, err := operation.execute(&pc, vm, c, mem, st)
 
 		if nodeConfig.IsDebug {
-			currentCode := ""
-			if currentPc < uint64(len(c.code)) {
-				currentCode = hex.EncodeToString(c.code[currentPc:])
+			currentCode :=  "[" + opCodeToString[c.getOp(currentPc)] + "]"
+			if currentPc > 0 {
+				currentCode = opCodeToString[c.getOp(currentPc - 1)] + ", " + currentCode
+			}
+			if currentPc < uint64(len(c.code) - 1) {
+				currentCode = currentCode + ", " + opCodeToString[c.getOp(currentPc + 1)]
 			}
 			storageMap, err := c.db.DebugGetStorage()
 			if err != nil {

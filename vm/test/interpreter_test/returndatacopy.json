@@ -26,7 +26,7 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 99999999773,
-    "err": "",
+    "err": "vm: return data out of bounds",
     "storage": {
     }
   },
@@ -41,7 +41,7 @@
     "returnData": "",
     "quotaTotal": 100000000000,
     "quotaLeft": 99999999773,
-    "err": "",
+    "err": "vm: return data out of bounds",
     "storage": {
     }
   },
