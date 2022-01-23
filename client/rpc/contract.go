@@ -10,8 +10,8 @@ import (
 
 // ContractApi ...
 type ContractApi interface {
-	CallOffChainMethod(param api.CallOffChainMethodParam) ([]byte, error)  // Deprecated: Use Call() instead
-	Call(param api.CallParam) ([]byte, error)  // Executes a synchronous call immediately without sending a transaction to the blockchain
+	CallOffChainMethod(param api.CallOffChainMethodParam) ([]byte, error)  // Deprecated: Use Query() instead
+	Query(param api.QueryParam) ([]byte, error)  // Executes a synchronous call immediately without sending a transaction to the blockchain
 	GetCreateContractData(param api.CreateContractDataParam) ([]byte, error)
 	GetContractStorage(addr types.Address, prefix string) (map[string]string, error)
 	GetContractInfo(addr types.Address) (*api.ContractInfo, error)
@@ -35,8 +35,8 @@ func (ci contractApi) CallOffChainMethod(param api.CallOffChainMethodParam) (res
 	return
 }
 
-func (ci contractApi) Call(param api.CallParam) (result []byte, err error) {
-	err = ci.cc.Call(&result, "contract_call", param)
+func (ci contractApi) Query(param api.QueryParam) (result []byte, err error) {
+	err = ci.cc.Call(&result, "contract_query", param)
 	return
 }
 
