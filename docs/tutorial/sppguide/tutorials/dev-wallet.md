@@ -33,7 +33,7 @@ This is not a secure method for generating a Vite wallet. This is not an issue f
 
 ### "Personal" Wallet Setup
 
-1. Create a wallet through the [Vite iOS or Android app](https://x.vite.net/startCreate).
+1. Create a wallet through the [Vite iOS or Android app](https://app.vite.net/).
 
 2. **(testnet only)**
 	- Obtain the seed phrase on this website: [generate mnemonic](https://iancoleman.io/bip39/).
