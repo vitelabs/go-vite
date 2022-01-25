@@ -33,7 +33,8 @@ This is not a secure method for generating a Vite wallet. This is not an issue f
 
 ### "Personal" Wallet Setup
 
-1. Create a wallet through the [Vite iOS or Android app](https://app.vite.net/).
+1. **(mainnet only)**
+	- Create a wallet through the [Vite iOS or Android app](https://app.vite.net/).
 
 2. **(testnet only)**
 	- You may be tempted to use an existing Vite wallet for this purpose. In general, it is safe practice to have a new wallet dedicated to testing.
