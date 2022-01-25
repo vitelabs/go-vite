@@ -36,7 +36,9 @@ This is not a secure method for generating a Vite wallet. This is not an issue f
 1. Create a wallet through the [Vite iOS or Android app](https://x.vite.net/startCreate).
 
 2. **(testnet only)**
-In the Android/iOS Vite wallet app, set your network to `https://buidl.vite.net/gvite`.
+- Obtain the seed phrase on this website: [generate mnemonic](https://iancoleman.io/bip39/).
+- You may be tempted to use an existing Vite wallet for this purpose. In general, it is safe practice to have a new wallet dedicated to testing.
+- Import the seed phrase (aka mnemonic) to access your Testnet wallet here: https://buidl.vite.net/startLogin.
 
 3. Get Vite:
     - **(testnet)** <br>
