@@ -39,11 +39,10 @@ This is not a secure method for generating a Vite wallet. This is not an issue f
 
 2. **(testnet only)**
 	- Web Wallet
-		- You may be tempted to use an existing Vite wallet for this purpose. In general, it is safe practice to have a new wallet dedicated to testing.
-		- Obtain the seed phrase on this website: [generate mnemonic](https://iancoleman.io/bip39/).
+		- You may be tempted to use an existing Vite wallet for this purpose. In general, it is safe practice to have a new wallet dedicated to testing. Obtain the seed phrase on this website: [generate mnemonic](https://iancoleman.io/bip39/).
 		- Import the seed phrase (aka mnemonic) to access your Testnet wallet here: [Testnet wallet](https://buidl.vite.net/startLogin).
 	- Vite iOS or Android app
-		- In the Android/iOS Vite wallet app (Node Setting), set your network to `https://buidl.vite.net/gvite`
+		- In the Android/iOS Vite wallet app (Node Setting Page), set your network to `https://buidl.vite.net/gvite`
 
 3. Get Vite:
     - **(testnet)** <br>
