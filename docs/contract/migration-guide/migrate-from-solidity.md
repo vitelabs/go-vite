@@ -16,16 +16,16 @@ In addition, `selfdestruct` and `ecrecover` are disabled in this version.
 
 
 ## Types
-The `address` type is redefined to be compatible with Vite, and a new type `tti` representing Vite Native Token Id is introduced in Solidity++.
+The `address` type is redefined to be compatible with Vite, and a new type `vitetoken` representing Vite Native Token Id is introduced in Solidity++.
 
 ```javascript
 // address type
 address addr1 = address("vite_0102030405060708090807060504030201020304eddd83748e");
 address addr2 = "vite_0102030405060708090807060504030201020304eddd83748e";
 address payable addr3 = payable("vite_0102030405060708090807060504030201020304eddd83748e"); 
-// tti type
-tti token1 = tti("tti_2445f6e5cde8c2c70e446c83");
-tti token2 = "tti_2445f6e5cde8c2c70e446c83";
+// vitetoken type
+vitetoken token1 = vitetoken("tti_2445f6e5cde8c2c70e446c83");
+vitetoken token2 = "tti_2445f6e5cde8c2c70e446c83";
 ```
 
 ## Call Options
@@ -123,7 +123,7 @@ uint amount = msg.value
 Get transfer value and token id in Solidity++:
 ```javascript
 uint amount = msg.value;
-tti token = msg.token;
+vitetoken token = msg.token;
 ```
 
 ### Members of Address Types
@@ -134,7 +134,7 @@ Get account balance in Solidity:
 address.balance
 ```
 
-Get account balance in Solidity++, balance is a function with a single parameter of `tti`:
+Get account balance in Solidity++, balance is a function with a single parameter of `vitetoken`:
 ```javascript
 address.balance("tti_564954455820434f494e69b5");
 ```
