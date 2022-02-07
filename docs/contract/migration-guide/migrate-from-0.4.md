@@ -19,7 +19,7 @@ Some counter-intuitive syntax and keywords are removed in this version.
 * `getter` keyword is deprecated since 0.8.0. Use `view`/`pure` functions instead.
 * Inline assembly and Yul are available since 0.8.0.
 * `keccak256` is available since 0.8.0.
-* `tokenId` keyword (Vite Native Token Id type) is changed to `tti`.
+* `tokenId` keyword (Vite Native Token Id type) is changed to `vitetoken`.
 * Some transaction properties are changed since 0.8.0: `msg.tokenid` is changed to `msg.token`, `msg.amount` is changed to `msg.value`.
 
 ### Compatibilities

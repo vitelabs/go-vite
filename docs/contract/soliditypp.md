@@ -147,7 +147,7 @@ contract B {
 ```
 It's not required to declare callbacks explicitly in 0.8.1, the solppc compiler will generate callbacks for each await expression under the hood.
 
-![example-0.8.0](./solpp-0.8.1.png)
+![example-0.8.1](./solpp-0.8.1.png)
 
 * When the client invokes `B.inc()`, a request transaction *S1(C->B)* is initiated.
 * Once *S1* is dicovered and accepted, the code of `B.inc()` is executed. 
