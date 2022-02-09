@@ -71,6 +71,10 @@ func (db *memoryDatabase) GetContractCode() ([]byte, error) {
 	return nil, nil
 }
 
+func (db *memoryDatabase) GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error) {
+	return db.GetContractCode()
+}
+
 func (db *memoryDatabase) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
 	if code, ok := db.storage[getCodeKey(*addr)]; ok {
 		return code, nil

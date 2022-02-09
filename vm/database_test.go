@@ -112,6 +112,9 @@ func (db *testDatabase) GetContractCode() ([]byte, error) {
 	}
 	return nil, nil
 }
+func (db *testDatabase) GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error) {
+	return db.GetContractCode()
+}
 func (db *testDatabase) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
 	if code, ok := db.codeMap[*addr]; ok {
 		return code, nil

@@ -395,6 +395,9 @@ func (db *mockDB) SetContractCode(code []byte) {
 func (db *mockDB) GetContractCode() ([]byte, error) {
 	return db.code, nil
 }
+func (db *mockDB) GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error) {
+	return db.GetContractCode()
+}
 func (db *mockDB) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
 	return nil, nil
 }
