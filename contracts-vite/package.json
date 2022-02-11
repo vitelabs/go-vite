@@ -14,6 +14,6 @@
     "keccak256": "^1.0.2"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "3.3.0"
+    "@openzeppelin/contracts": "4.4.2"
   }
 }
