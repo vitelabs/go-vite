@@ -1046,7 +1046,7 @@ Return a list of all tokens issued
       - `owner`: `Address` Token owner
       - `isReIssuable`: `bool`  Whether the token can be re-issued
       - `maxSupply`: `big.Int`  Maximum supply
-      - `ownBurnOnly`: `bool`  Whether the token can be burned by the owner only
+      - `isOwnerBurnOnly`: `bool`  Whether the token can be burned by the owner only
       - `tokenId`: `TokenId` Token ID
       - `index`: `uint16` Token index between 0-999. For token having the same symbol, sequential indexes will be allocated according to when the token is issued.
   
@@ -1100,7 +1100,7 @@ Return token information
     - `owner`: `Address` Token owner
     - `isReIssuable`: `bool`  Whether the token can be re-issued
     - `maxSupply`: `big.Int`  Maximum supply
-    - `ownBurnOnly`: `bool`  Whether the token can be burned by the owner only
+    - `isOwnerBurnOnly`: `bool`  Whether the token can be burned by the owner only
     - `tokenId`: `TokenId` Token ID
     - `index`: `uint16` Token index between 0-999. For token having the same symbol, sequential indexes will be allocated according to when the token is issued.
   
@@ -1149,7 +1149,7 @@ Return a list of tokens issued by the given owner
     - `owner`: `Address` Token owner
     - `isReIssuable`: `bool`  Whether the token can be re-issued
     - `maxSupply`: `big.Int`  Maximum supply
-    - `ownBurnOnly`: `bool`  Whether the token can be burned by the owner only
+    - `isOwnerBurnOnly`: `bool`  Whether the token can be burned by the owner only
     - `tokenId`: `TokenId` Token ID
     - `index`: `uint16` Token index between 0-999. For token having the same symbol, sequential indexes will be allocated according to when the token is issued.
   
