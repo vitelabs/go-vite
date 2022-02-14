@@ -480,8 +480,8 @@ func opReturnDataSize(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack
 		size = len(c.returnData)
 	} else {
 		// the last call is an async call, check if this is in a callback
-		sendType := metadata.GetSendType(c.sendBlock.Data)
-		if sendType == metadata.Callback || sendType == metadata.FailureCallback {
+		sendType := c.sendBlock.BlockType
+		if sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
 			// extract return data from the callback send block
 			length := len(metadata.GetCalldata(c.sendBlock.Data))
 			if length >= 4 {
@@ -510,8 +510,8 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack
 		returnData = c.returnData
 	} else {
 		// the last call is an async call, check if this is in a callback
-		sendType := metadata.GetSendType(c.sendBlock.Data)
-		if sendType == metadata.Callback || sendType == metadata.FailureCallback {
+		sendType := c.sendBlock.BlockType
+		if sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
 			// extract return data from the callback send block
 			calldata := metadata.GetCalldata(c.sendBlock.Data)
 			if len(calldata) < 4 {
@@ -925,7 +925,7 @@ func opSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]b
 		util.MakeRequestBlock(
 			c.block.AccountAddress,
 			toAddress,
-			ledger.BlockTypeSendCall,
+			ledger.BlockTypeSendSyncCall,
 			amount,
 			tokenID,
 			data))
@@ -945,8 +945,8 @@ func opOffchainSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *sta
 }
 
 func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
-	sendType := metadata.GetSendType(c.sendBlock.Data)
-	if sendType == metadata.Callback || sendType == metadata.FailureCallback {
+	sendType := c.sendBlock.BlockType
+	if sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
 		syncCallSendHash, err := metadata.GetReferencedSendHash(c.sendBlock.Data)
 		if err != nil {
 			return nil, err
@@ -998,7 +998,7 @@ func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 			nodeConfig.interpreterLog.Debug("restore stack", "item", stackItem)
 		}
 		// push success flag (act as RETURN instruction in Ethereum)
-		if sendType == metadata.Callback {
+		if sendType == ledger.BlockTypeSendCallback {
 			// push true
 			t := big.NewInt(1)
 			stack.push(t)
@@ -1049,10 +1049,10 @@ func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 	ret := mem.getPtr(offset.Int64(), size.Int64())
 	c.intPool.Put(offset, size)
 
-	sendType := metadata.GetSendType(c.sendBlock.Data)
+	sendType := c.sendBlock.BlockType
 
 	// trigger a callback transaction
-	if sendType == metadata.SyncCall || sendType == metadata.Callback || sendType == metadata.FailureCallback {
+	if sendType == ledger.BlockTypeSendSyncCall || sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
 		var originSendBlock *ledger.AccountBlock
 		// get the send-block of the original call
 		if vm.vmContext.originSendBlock == nil {
@@ -1061,7 +1061,7 @@ func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 			originSendBlock = vm.vmContext.originSendBlock
 		}
 
-		if metadata.GetSendType(originSendBlock.Data) == metadata.SyncCall {
+		if originSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
 			// append return data
 			data, err := metadata.EncodeCallbackData(originSendBlock, ret, true)
 			util.DealWithErr(err)
@@ -1071,7 +1071,7 @@ func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 				util.MakeRequestBlock(
 					c.block.AccountAddress,
 					originSendBlock.AccountAddress,
-					ledger.BlockTypeSendCall,
+					ledger.BlockTypeSendCallback,
 					big.NewInt(int64(0)), // return call must be non-payable
 					ledger.ViteTokenId,
 					data))

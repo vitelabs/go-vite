@@ -1,5 +1,6 @@
 {
   "returndatasize in callback": {
+    "BlockType": 9,
     "sBHeight": 1,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
@@ -31,6 +32,7 @@
     }
   },
   "returndatasize in sync send call": {
+    "BlockType": 8,
     "sBHeight": 1,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
@@ -46,6 +48,7 @@
     }
   },
   "returndatasize in failure callback": {
+    "BlockType": 10,
     "sBHeight": 1,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",

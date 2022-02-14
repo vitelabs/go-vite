@@ -523,6 +523,7 @@ type TestLog struct {
 	Topics []string
 }
 type TestCase struct {
+	BlockType	  byte
 	SBHeight      uint64
 	SBTime        int64
 	FromAddress   types.Address
@@ -583,10 +584,15 @@ func TestVmInterpreter(t *testing.T) {
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)
+			var sendBlockType = ledger.BlockTypeSendCall
+			if testCase.BlockType > 0 {
+				sendBlockType = testCase.BlockType
+			}
+
 			sendCallBlock := ledger.AccountBlock{
 				AccountAddress: testCase.FromAddress,
 				ToAddress:      testCase.ToAddress,
-				BlockType:      ledger.BlockTypeSendCall,
+				BlockType:      sendBlockType,
 				Data:           inputData,
 				Amount:         new(big.Int).SetBytes(amount),
 				Fee:            big.NewInt(0),
@@ -684,7 +690,7 @@ func checkStorage(got *memoryDatabase, expected map[string]string) string {
 
 func checkSendBlockList(expected []*TestCaseSendBlock, got []*ledger.AccountBlock) string {
 	if len(got) != len(expected) {
-		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got))
+		return "expected len " + strconv.Itoa(len(expected)) + ", got len " + strconv.Itoa(len(got))
 	}
 	for i, expectedSendBlock := range expected {
 		gotSendBlock := got[i]

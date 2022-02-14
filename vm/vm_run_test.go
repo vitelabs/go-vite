@@ -210,7 +210,7 @@ func TestVM_RunV2(t *testing.T) {
 				var newDbErr error
 				db, newDbErr = NewMockDB(&testCase.ToAddress, latestSnapshotBlock, prevBlock, quotaInfoList, pledgeBeneficialAmount, testCase.PreBalanceMap, testCase.PreStorage, testCase.PreContractMetaMap, code, genesisTimestamp, forkSnapshotBlockMap)
 				if newDbErr != nil {
-					t.Fatal("new mock db failed", "filename", testFile.Name(), "caseName", k, "err", newDbErr)
+					t.Fatal("new mock db failed", "filename:", testFile.Name(), "caseName:", k, "err", newDbErr)
 				}
 				cs := util.NewVMConsensusReader(newConsensusReaderTest(genesisTimestamp, csInterval, testCase.CsDetail))
 				vm := NewVM(cs, nil)
@@ -220,12 +220,12 @@ func TestVM_RunV2(t *testing.T) {
 				}
 				vmBlock, isRetry, err = vm.RunV2(db, receiveBlock, sendBlock, status)
 			} else {
-				t.Fatal("invalid test case block type", "filename", testFile.Name(), "caseName", k, "blockType", testCase.BlockType)
+				t.Fatal("invalid test case block type", "filename:", testFile.Name(), "caseName:", k, "blockType", testCase.BlockType)
 			}
 			if !errorEquals(testCase.Err, err) {
-				t.Fatal("invalid test case run result, err", "filename", testFile.Name(), "caseName", k, "expected", testCase.Err, "got", err)
+				t.Fatal("invalid test case run result: error mismatch. ", "filename:", testFile.Name(), "caseName:", k, "expected error: [", testCase.Err, "] got error: [", err, "]")
 			} else if testCase.IsRetry != isRetry {
-				t.Fatal("invalid test case run result, isRetry", "filename", testFile.Name(), "caseName", k, "expected", testCase.IsRetry, "got", isRetry)
+				t.Fatal("invalid test case run result: isRetry mismatch. ", "filename:", testFile.Name(), "caseName:", k, "expected", testCase.IsRetry, "got", isRetry)
 			}
 			if testCase.Success {
 				balanceMapGot, _ := db.GetBalanceMap()

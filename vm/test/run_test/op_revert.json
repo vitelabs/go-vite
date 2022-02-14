@@ -65,7 +65,7 @@
   "revert_in_sync_call_with_refund": {
     "sbHeight": 500,
     "blockType": 4,
-    "sendBlockType": 2,
+    "sendBlockType": 8,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
     "data": "0000000076010101080000000000000000000000000000000000000000000000000000000000000000000000010000010400000180",
@@ -96,7 +96,7 @@
         "data": ""
       },
       {
-        "blockType": 2,
+        "blockType": 10,
         "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
         "amount": "",
         "tokenID": "tti_5649544520544f4b454e6e40",

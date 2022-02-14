@@ -23,8 +23,11 @@ const (
 	BlockTypeReceive      = byte(4) // receive
 	BlockTypeReceiveError = byte(5) // receive
 	BlockTypeSendRefund   = byte(6) // send
-
 	BlockTypeGenesisReceive = byte(7) // receive
+
+	BlockTypeSendSyncCall = byte(8) // send
+	BlockTypeSendCallback = byte(9) // send
+	BlockTypeSendFailureCallback = byte(10) // send
 )
 
 type AccountBlock struct {
@@ -423,7 +426,10 @@ func IsSendBlock(blockType byte) bool {
 	return blockType == BlockTypeSendCreate ||
 		blockType == BlockTypeSendCall ||
 		blockType == BlockTypeSendReward ||
-		blockType == BlockTypeSendRefund
+		blockType == BlockTypeSendRefund ||
+		blockType == BlockTypeSendSyncCall ||
+		blockType == BlockTypeSendCallback ||
+		blockType == BlockTypeSendFailureCallback
 }
 
 func (ab *AccountBlock) IsReceiveBlock() bool {

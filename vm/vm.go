@@ -221,7 +221,10 @@ func (vm *VM) RunV2(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *l
 			vmAccountBlock, err = vm.sendCreate(db, blockCopy, true, quotaTotal, quotaAddition)
 			return vmAccountBlock, noRetry, err
 		}
-		if blockCopy.BlockType == ledger.BlockTypeSendCall {
+		if blockCopy.BlockType == ledger.BlockTypeSendCall ||
+			blockCopy.BlockType == ledger.BlockTypeSendSyncCall ||
+			blockCopy.BlockType == ledger.BlockTypeSendCallback ||
+			blockCopy.BlockType == ledger.BlockTypeSendFailureCallback {
 			quotaTotal, quotaAddition, err := quota.GetQuotaForBlock(
 				db,
 				blockCopy.AccountAddress,
@@ -242,7 +245,7 @@ func (vm *VM) RunV2(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *l
 		contractMeta := getContractMeta(db)
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
 			return vm.receiveCreate(db, blockCopy, sendBlock, contractMeta)
-		} else if sendBlock.BlockType == ledger.BlockTypeSendCall {
+		} else if sendBlock.BlockType == ledger.BlockTypeSendCall || sendBlock.BlockType == ledger.BlockTypeSendSyncCall || sendBlock.BlockType == ledger.BlockTypeSendCallback || sendBlock.BlockType == ledger.BlockTypeSendFailureCallback {
 			return vm.receiveCall(db, blockCopy, sendBlock, contractMeta)
 		} else if sendBlock.BlockType == ledger.BlockTypeSendReward {
 			if !upgrade.IsSeedUpgrade(sb.Height) {
@@ -721,8 +724,8 @@ func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock 
 	}
 
 	// trigger a failure callback transaction
-	sendType := metadata.GetSendType(sendBlock.Data)
-	if sendType == metadata.SyncCall || sendType == metadata.Callback || sendType == metadata.FailureCallback {
+	sendType := sendBlock.BlockType
+	if sendType == ledger.BlockTypeSendSyncCall || sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
 		var originSendBlock *ledger.AccountBlock
 		// get the send-block of the original call
 		if vm.vmContext.originSendBlock == nil {
@@ -731,7 +734,7 @@ func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock 
 			originSendBlock = vm.vmContext.originSendBlock
 		}
 
-		if metadata.GetSendType(originSendBlock.Data) == metadata.SyncCall {
+		if originSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
 			// append return data
 			data, err := metadata.EncodeCallbackData(originSendBlock, errorData, false)
 			if err == nil {
@@ -741,7 +744,7 @@ func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock 
 					util.MakeRequestBlock(
 						block.AccountAddress,
 						originSendBlock.AccountAddress, // it may be different from refund transactions
-						ledger.BlockTypeSendCall,
+						ledger.BlockTypeSendFailureCallback,
 						big.NewInt(int64(0)),
 						ledger.ViteTokenId,
 						data))
@@ -894,7 +897,7 @@ func (vm *VM) doSendBlockList(db interfaces.VmDb) (newDb interfaces.VmDb, err er
 	for i, block := range vm.sendBlockList {
 		var sendBlock *interfaces.VmAccountBlock
 		switch block.BlockType {
-		case ledger.BlockTypeSendCall:
+		case ledger.BlockTypeSendCall, ledger.BlockTypeSendSyncCall, ledger.BlockTypeSendCallback, ledger.BlockTypeSendFailureCallback:
 			sendBlock, err = vm.sendCall(db, block, false, 0, 0)
 			if err != nil {
 				return db, err

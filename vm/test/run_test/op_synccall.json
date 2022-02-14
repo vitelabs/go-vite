@@ -26,7 +26,7 @@
     },
     "sendBlockList": [
       {
-        "blockType": 2,
+        "blockType": 8,
         "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
         "amount": "",
         "tokenID": "tti_5649544520544f4b454e6e40",
@@ -37,7 +37,7 @@
   "synccall_forward_origin_hash": {
     "sbHeight": 500,
     "blockType": 4,
-    "sendBlockType": 2,
+    "sendBlockType": 8,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
     "toAddress": "vite_a3ab3f8ce81936636af4c6f4da41612f11136d71f53bf8fa86",
     "data": "00000000760101012061b730eb65e9632f9e66dbb9573637e2de5011b2f512894a37981c62de3cbd401122334400060101010201030116000002018000010101020103010401050106010701080a0b0c0d",
@@ -61,7 +61,7 @@
     },
     "sendBlockList": [
       {
-        "blockType": 2,
+        "blockType": 8,
         "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
         "amount": "",
         "tokenID": "tti_5649544520544f4b454e6e40",
@@ -96,7 +96,7 @@
     },
     "sendBlockList": [
       {
-        "blockType": 2,
+        "blockType": 8,
         "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
         "amount": "",
         "tokenID": "tti_5649544520544f4b454e6e40",
@@ -131,7 +131,7 @@
     },
     "sendBlockList": [
       {
-        "blockType": 2,
+        "blockType": 8,
         "toAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
         "amount": "",
         "tokenID": "tti_5649544520544f4b454e6e40",
