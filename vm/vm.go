@@ -4,7 +4,6 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
-	"github.com/vitelabs/go-vite/v2/vm/metadata"
 	"github.com/vitelabs/go-vite/v2/vm_db"
 	"math/big"
 	"runtime/debug"
@@ -735,29 +734,37 @@ func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock 
 		}
 
 		if originSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
+			callback := originSendBlock.ExecutionContext.CallbackId
+			var data []byte
+			// append callback id
+			data = append(data, callback.FillBytes(make([]byte, 4))...)
 			// append return data
-			data, err := metadata.EncodeCallbackData(originSendBlock, errorData, false)
-			if err == nil {
-				refundFlag = true
-				// send failure callback transaction
-				vm.AppendBlock(
-					util.MakeRequestBlock(
-						block.AccountAddress,
-						originSendBlock.AccountAddress, // it may be different from refund transactions
-						ledger.BlockTypeSendFailureCallback,
-						big.NewInt(int64(0)),
-						ledger.ViteTokenId,
-						data))
+			data = append(data, errorData...)
 
-				nodeConfig.log.Debug("failure callback",
-					"\nfrom", sendBlock.AccountAddress.String(),
-					"\nto", sendBlock.ToAddress.String(),
-					"\nsend block", sendBlock,
-					"\noriginSendBlock", originSendBlock)
+			refundFlag = true
+			// send failure callback transaction
+			triggeredBlock := util.MakeRequestBlock(
+				block.AccountAddress,
+				originSendBlock.AccountAddress, // it may be different from refund transactions
+				ledger.BlockTypeSendFailureCallback,
+				big.NewInt(int64(0)),
+				ledger.ViteTokenId,
+				data)
+
+			executionContext := ledger.ExecutionContext{
+				ReferrerSendHash: originSendBlock.Hash,
 			}
+			triggeredBlock.ExecutionContext = &executionContext
+
+			nodeConfig.log.Debug("failure callback",
+				"\nfrom", sendBlock.AccountAddress.String(),
+				"\nto", sendBlock.ToAddress.String(),
+				"\nsend block", sendBlock,
+				"\noriginSendBlock", originSendBlock)
+
+			vm.AppendBlock(triggeredBlock)
 		}
 	}
-
 
 	return refundFlag
 }

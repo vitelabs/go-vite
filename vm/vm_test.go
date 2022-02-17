@@ -517,6 +517,7 @@ type TestCaseSendBlock struct {
 	Amount    string
 	TokenID   types.TokenTypeId
 	Data      string
+	ExecutionContext string
 }
 type TestLog struct {
 	Data   string
@@ -627,7 +628,7 @@ func TestVmInterpreter(t *testing.T) {
 			if err == nil || err.Error() == "execution reverted" {
 				if bytes.Compare(returnData, ret) != 0 {
 					t.Fatalf("%v: %v failed, return Data error, expected %v, got %v", testFile.Name(), k, returnData, ret)
-				} else if c.quotaLeft != testCase.QuotaLeft {
+				} else if testCase.QuotaLeft > 0 && c.quotaLeft != testCase.QuotaLeft {
 					t.Fatalf("%v: %v failed, quota left error, expected %v, got %v", testFile.Name(), k, testCase.QuotaLeft, c.quotaLeft)
 				} else if checkStorageResult := checkStorage(db, testCase.Storage); checkStorageResult != "" {
 					t.Fatalf("%v: %v failed, storage error:[ %v ]", testFile.Name(), k, checkStorageResult)
@@ -704,6 +705,11 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*ledger.AccountBloc
 			return strconv.Itoa(i) + "th, expected tokenId " + expectedSendBlock.TokenID.String() + ", got tokenId " + gotSendBlock.TokenId.String()
 		} else if gotData := hex.EncodeToString(gotSendBlock.Data); gotData != expectedSendBlock.Data {
 			return strconv.Itoa(i) + "th, expected data " + expectedSendBlock.Data + ", got data " + gotData
+		} else if gotSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
+			gotContext, _ := gotSendBlock.ExecutionContext.Serialize()
+			if hex.EncodeToString(gotContext) != expectedSendBlock.ExecutionContext {
+				return strconv.Itoa(i) + "th, expected execution context " + expectedSendBlock.ExecutionContext + ", got " + hex.EncodeToString(gotContext)
+			}
 		}
 	}
 	return ""

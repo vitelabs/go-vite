@@ -44,6 +44,8 @@ const (
 	VmLogListKeyPrefix = byte(10)
 
 	CallDepthKeyPrefix = byte(11)
+
+	ExecutionContextKeyPrefix = byte(12)
 )
 
 // state redo db

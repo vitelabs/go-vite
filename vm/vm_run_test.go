@@ -32,6 +32,7 @@ type VMRunTestCase struct {
 	FromAddress      types.Address
 	ToAddress        types.Address
 	Data             string
+	ExecutionContext string
 	Amount           string
 	TokenId          types.TokenTypeId
 	Fee              string
@@ -147,6 +148,14 @@ func TestVM_RunV2(t *testing.T) {
 				sendBlock.Data, parseErr = hex.DecodeString(testCase.Data)
 				if parseErr != nil {
 					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "data", testCase.Data)
+				}
+			}
+			if len(testCase.ExecutionContext) > 0 {
+				buf, parseErr := hex.DecodeString(testCase.ExecutionContext)
+				sendBlock.ExecutionContext = &ledger.ExecutionContext{}
+				sendBlock.ExecutionContext.Deserialize(buf)
+				if parseErr != nil {
+					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "execution context", testCase.ExecutionContext)
 				}
 			}
 

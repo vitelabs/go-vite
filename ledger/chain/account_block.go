@@ -109,6 +109,19 @@ func (c *chain) GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlo
 		return nil, cErr
 	}
 
+	// query execution context
+	blockType := block.BlockType
+	if block.ExecutionContext == nil && (blockType == ledger.BlockTypeSendSyncCall || blockType == ledger.BlockTypeSendCallback || blockType == ledger.BlockTypeSendFailureCallback) {
+		executionContext, err := c.stateDB.GetExecutionContext(&blockHash)
+		if err != nil {
+			cErr := fmt.Errorf("c.blockDB.GetAccountBlock failed, hash is %s, location is %+v. Error: %s",
+				blockHash, location, err.Error())
+			c.log.Error(cErr.Error(), "method", "GetCompleteBlockByHash", "cause", "GetExecutionContext Error")
+			return block, cErr
+		}
+		block.ExecutionContext = executionContext
+	}
+
 	return block, nil
 }
 

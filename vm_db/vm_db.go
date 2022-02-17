@@ -25,6 +25,8 @@ type vmDb struct {
 	prevAccountBlock     *ledger.AccountBlock // for cache
 
 	callDepth *uint16 // for cache
+
+	executionContext []byte // execution context for sync calls
 }
 
 func NewVmDb(chain Chain, address *types.Address, latestSnapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash) (*vmDb, error) {
