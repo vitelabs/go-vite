@@ -83,3 +83,16 @@
 			- ledger/chain/insert.go#InsertSnapshotBlock					插入snapshot block到chain中
 				- ledger/chain/insert.go#insertSnapshotBlock				更新indexDB,stateDB
 
+
+
+# 架构概括
+
+vite协议是一个dag数据结构的协议，block分为两个部分，account block和snapshot block。
+如果做一下与eth的类比：
+- send account block 类似于eth的transaction
+- receive account block 类似于eth的receipt
+- snapshot block 类似于eth的block
+
+用户签名account block来改变账户中的状态，单个账户的account block高度以此连接，形成一条账户链。
+account block上的height相当于eth中每个account的nonce，都是代表着账户链条的高度。
+在数据结构上，和eth有个很大的区别是，send block 和receive block都占用账户链的高度，而且vite的account block是以链表的形式存在，每个block引用前一个block的hash作为自己的prevHash。
