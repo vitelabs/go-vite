@@ -40,8 +40,9 @@
 3. vm    虚拟机的执行
 4. consensus  负责共识出块节点
 5. pool  负责分叉选择
-6. verifier 包装各种验证逻辑，是vite协议的包装
-7. onroad 负责合约receive block的生产
+6. verifier   包装各种验证逻辑，是vite协议的包装
+7. onroad 	  负责合约receive block的生产
+8. generator  聚合create block的流程，会被onroad和api等模块调用
 
 # 数据流
 
