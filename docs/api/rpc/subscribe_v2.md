@@ -3,42 +3,49 @@ sidebarDepth: 4
 ---
 
 # Subscribe
-:::tip Maintainer
-[viteLiz](https://github.com/viteLiz)
-:::
 
-Two subscription schemes, **polling** and **callback**, are provided in Vite.
+Vite provides two kinds of subscription API, **polling** and **callback**.
 
-* **Polling API** asks the client program to create a filter, then polls `subscribe_getChangesByFilterId` method for new events. 
-Filter will expire if it has not been used in 5 minutes, in this case you should create a new filter for further usage. 
-You can also manually stop subscription by calling `subscribe_uninstallFilter` method.
+* **Polling API** creates a subscription filter and relies on the client program calls `subscribe_getChangesByFilterId` with the filter id to poll for new events. 
+The filter will expire if it has not been used in 5 minutes or `subscribe_uninstallFilter` method is called explicitly.
 
-`subscribe_createSnapshotBlockFilter`, `subscribe_createAccountBlockFilter`, `subscribe_createAccountBlockFilterByAddress`, `subscribe_createUnreceivedBlockFilterByAddress`, `subscribe_createVmlogFilter`, `subscribe_uninstallFilter` and `subscribe_getChangesByFilterId` are polling APIs.
+Polling API includes 7 RPC methods:
+- `subscribe_newSnapshotBlockFilter`
+- `subscribe_newAccountBlockFilter`
+- `subscribe_newAccountBlockByAddressFilter`
+- `subscribe_newUnreceivedBlockByAddressFilter`
+- `subscribe_newVmLogFilter`
+- `subscribe_uninstallFilter`
+- `subscribe_getChangesByFilterId`
 
-* **Callback API** registers new subscription through WebSocket. Once listening starts, subscribed events will be returned in callback when generated. 
-This kind of subscription will close automatically when the WebSocket connection is broken.
+* **Callback API** registers a subscription topic through WebSocket. Once the connection is set up, newly generated events will be returned in callback messages. 
+This subscription will be cancelled when the WebSocket connection is closed.
 
-`subscribe_createSnapshotBlockSubscription`, `subscribe_createAccountBlockSubscription`, `subscribe_createAccountBlockSubscriptionByAddress`, `subscribe_createUnreceivedBlockSubscriptionByAddress` and `subscribe_createVmlogSubscription` are callback APIs.
+Callback API includes one RPC method `subscribe_subscribe` and 5 topics:
+- `newSnapshotBlock`
+- `newAccountBlock`
+- `newAccountBlockByAddress`
+- `newUnreceivedBlockByAddress`
+- `newVmLog`
 
-At the time being 5 kinds of events are supported: new snapshot, new transaction, new transaction on certain account, new unreceived transaction on certain account and new log. 
-All events support rollback. If rollback takes place, `removed` field of the event is set to true.
+Note that all events support revert. If an event was reverted, the `removed` field of the event is true.
 
 :::tip Note
-Add `"subscribe"` into `"PublicModules"` and set `"SubscribeEnabled":true` in node_config.json to enable subscription API
+Add `"subscribe"` in `"PublicModules"` and set `"SubscribeEnabled":true` in node_config.json to enable the subscription API
 :::
 
 ## Example
 
 ### Subscribe via Callback 
 
-First, register a new subscription on address `vite_f48f811a1800d9bde268e3d2eacdc4b4f8b9110e017bd7a76f` by calling `subscribe_subscribe` method with parameter `createVmlogSubscription`.
+First, register a new subscription on address `vite_f48f811a1800d9bde268e3d2eacdc4b4f8b9110e017bd7a76f` by calling `subscribe_subscribe` method with topic parameter `newVmLog` and start listening to new vmlogs generated for the address.
 ```json
 {
   "jsonrpc": "2.0",
   "id": 1,
   "method": "subscribe_subscribe",
   "params": [
-    "createVmlogSubscription",
+    "newVmLog",
     {
       "addressHeightRange":{
         "vite_f48f811a1800d9bde268e3d2eacdc4b4f8b9110e017bd7a76f":{
@@ -50,7 +57,7 @@ First, register a new subscription on address `vite_f48f811a1800d9bde268e3d2eacd
   ]
 }
 ```
-This will return a new subscription id `0x4b97e0674a5ebef942dbb07709c4a608`
+It will return a subscription id `0x4b97e0674a5ebef942dbb07709c4a608`
 ```json
 {
   "jsonrpc":"2.0",
@@ -58,7 +65,7 @@ This will return a new subscription id `0x4b97e0674a5ebef942dbb07709c4a608`
   "result":"0x4b97e0674a5ebef942dbb07709c4a608"
 }
 ```
-New logs will be sent to subscriber in callback's `result` field when generated
+When a new vmlog is generated, it will be sent as callback message
 ```json
 {
   "jsonrpc":"2.0",
@@ -83,24 +90,23 @@ New logs will be sent to subscriber in callback's `result` field when generated
   }
 }
 ```
-Callback subscription does not need to be cancelled explicitly. The subscription will stop once the connection is closed.
 
 ### Subscribe via Polling
 
-Create a filter on address `vite_f48f811a1800d9bde268e3d2eacdc4b4f8b9110e017bd7a76f`
+First create a filter for address `vite_f48f811a1800d9bde268e3d2eacdc4b4f8b9110e017bd7a76f`
 ```json
 {
 	"jsonrpc": "2.0",
 	"id": 1,
-	"method": "subscribe_createVmlogFilter",
+	"method": "subscribe_newVmLogFilter",
 	"params": [{
       "addressHeightRange":{
         "vite_f48f811a1800d9bde268e3d2eacdc4b4f8b9110e017bd7a76f":{"fromHeight":"0","toHeight":"0"}
       }
-		}]
+	}]
 }
 ```
-This will return a new filter id `0x61d780619649fb0872e1f94a40cec713`
+This will return a filter id `0x61d780619649fb0872e1f94a40cec713`
 ```json
 {
     "jsonrpc": "2.0",
@@ -108,7 +114,7 @@ This will return a new filter id `0x61d780619649fb0872e1f94a40cec713`
     "result": "0x61d780619649fb0872e1f94a40cec713"
 }
 ```
-Poll for new events periodically by filter id
+The caller polls for new events by filter id
 ```json
 {
 	"jsonrpc": "2.0",
@@ -117,7 +123,7 @@ Poll for new events periodically by filter id
 	"params": ["0x61d780619649fb0872e1f94a40cec713"]
 }
 ```
-New logs after last poll are returned
+If a new vmlog was generated during the time, it will be returned
 ```json
 {
     "jsonrpc": "2.0",
@@ -142,7 +148,9 @@ New logs after last poll are returned
     }
 }
 ```
-You should cancel polling subscription by `subscribe_uninstallFilter` explicitly
+If `subscribe_getChangesByFilterId` is not be called in 5 minutes, the subscription filter will expire, and the caller has to register a new filter instead. 
+
+The caller can also call `subscribe_uninstallFilter` to cancel a filter. 
 ```json
 {
 	"jsonrpc": "2.0",
@@ -152,14 +160,14 @@ You should cancel polling subscription by `subscribe_uninstallFilter` explicitly
 }
 ```
 
-### Log Completion
+:::tip Fix Missing Blocks
+A broken network connection may cause subscription accidentally closed. In this situation, the remedy is to use `ledger_getSnapshotBlocks`, `ledger_getAccountBlocks`, `ledger_getUnreceivedBlocksByAddress` and `ledger_getVmLogsByFilter` to fetch snapshot blocks, account blocks, unreceived blocks and vmlogs generated during the time.
 
-Accidental connection close may cause subscription stopped. In this situation, historical snapshot blocks, account blocks or unreceived blocks can be fetched by `ledger_getSnapshotBlocks`, `ledger_getBlocksByHeight` or `ledger_getUnreceivedBlocksByAddress`, while historical logs can be retrieved by `ledger_getVmlogsByFilter` method.
+As an example, to get the missing snapshot blocks, you should call `subscribe_newSnapshotBlockFilter` or `subscribe_subscribe` with `newSnapshotBlock` topic to resume subscription first, obtain the latest snapshot block height with `ledger_getLatestSnapshotBlock` method, then call `ledger_getSnapshotBlocks` to get the missing blocks.
+:::
 
-For example, in order to re-subscribe to new snapshot event, you should call `subscribe_createSnapshotBlockFilter` or `subscribe_newSnapshotBlocks` to resume subscription first, then obtain latest snapshot block height by `ledger_getLatestSnapshotBlock`, finally call `ledger_getSnapshotBlocks` to get all missing snapshot blocks.
-
-## subscribe_createSnapshotBlockFilter
-Create a filter for polling for new snapshot blocks by passing into `subscribe_getChangesByFilterId` as parameter
+## subscribe_newSnapshotBlockFilter
+Create a filter for new snapshot blocks.
   
 - **Returns**:  
 	- `string` filterId
@@ -169,7 +177,7 @@ Create a filter for polling for new snapshot blocks by passing into `subscribe_g
 {
 	"jsonrpc": "2.0",
 	"id": 1,
-	"method": "subscribe_createSnapshotBlockFilter",
+	"method": "subscribe_newSnapshotBlockFilter",
 	"params": []
 }
 ```
@@ -182,8 +190,8 @@ Create a filter for polling for new snapshot blocks by passing into `subscribe_g
 ```
 :::
 
-## subscribe_createAccountBlockFilter
-Create a filter for polling for new transactions on all accounts by passing into `subscribe_getChangesByFilterId` as parameter
+## subscribe_newAccountBlockFilter
+Create a filter for new transactions (account blocks) for all accounts
 
 - **Returns**:  
 	- `string` filterId
@@ -193,7 +201,7 @@ Create a filter for polling for new transactions on all accounts by passing into
 {
 	"jsonrpc": "2.0",
 	"id": 1,
-	"method": "subscribe_createAccountBlockFilter",
+	"method": "subscribe_newAccountBlockFilter",
 	"params": []
 }
 ```
@@ -206,8 +214,8 @@ Create a filter for polling for new transactions on all accounts by passing into
 ```
 :::
 
-## subscribe_createAccountBlockFilterByAddress
-Create a filter for polling for new transactions on specified account by passing into `subscribe_getChangesByFilterId` as parameter
+## subscribe_newAccountBlockByAddressFilter
+Create a filter for new transactions (account blocks) for a specified account.
 
 - **Parameters**:
   * `string address`: Address of account
@@ -220,7 +228,7 @@ Create a filter for polling for new transactions on specified account by passing
 {
 	"jsonrpc": "2.0",
 	"id": 1,
-	"method": "subscribe_createAccountBlockFilterByAddress",
+	"method": "subscribe_newAccountBlockByAddressFilter",
 	"params": ["vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a"]
 }
 ```
@@ -233,9 +241,8 @@ Create a filter for polling for new transactions on specified account by passing
 ```
 :::
 
-## subscribe_createUnreceivedBlockFilterByAddress
-Create a filter for polling for unreceived transactions on specified account by passing into `subscribe_getChangesByFilterId` as parameter. 
-The events include new unreceived transaction generated, received and rolled back.
+## subscribe_newUnreceivedBlockByAddressFilter
+Create a filter for new unreceived transactions for a specified account.
 
 - **Parameters**:
   * `Address`: Address of account
@@ -248,7 +255,7 @@ The events include new unreceived transaction generated, received and rolled bac
 {
 	"jsonrpc": "2.0",
 	"id": 1,
-	"method": "subscribe_createUnreceivedBlockFilterByAddress",
+	"method": "subscribe_newUnreceivedBlockByAddressFilter",
 	"params": ["vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a"]
 }
 ```
@@ -261,15 +268,15 @@ The events include new unreceived transaction generated, received and rolled bac
 ```
 :::
 
-## subscribe_createVmlogFilter
-Create a filter for polling for new logs by passing into `subscribe_getChangesByFilterId` as parameter
+## subscribe_newVmLogFilter
+Create a filter for new vmlogs.
 
 - **Parameters**:
   * `FilterParam`
-    * `addressHeightRange`: `map[Address]Range` Query logs of the specified account address with given range. Address and height range should be filled in the map. At least one address must be specified.
+    * `addressHeightRange`: `map[Address]Range` Return vmlogs of the specified account address with given range. Address and height range should be filled in the map. At least one address must be specified.
       * `fromHeight`: `uint64` Start height. `0` means starting from the latest block
-      * `toHeight`: `uint64` End height. `0` means no specific ending block
-    * `topics`: `[][]Hash` Prefix of topics. See below example for reference
+      * `toHeight`: `uint64` End height. `0` means no ending height
+    * `topics`: `[][]Hash` Prefix of topics. Refer to the following examples
 
 ```
 Topic examples：
@@ -288,7 +295,7 @@ Topic examples：
 {
 	"jsonrpc": "2.0",
 	"id": 1,
-	"method": "subscribe_createVmlogFilter",
+	"method": "subscribe_newVmLogFilter",
 	"params": [{
 		"addressHeightRange":{
 			"vite_bb6ad02107a4422d6a324fd2e3707ad53cfed9359378a78792":{
@@ -309,13 +316,13 @@ Topic examples：
 :::
 
 ## subscribe_uninstallFilter
-Cancel subscription by removing specified filter 
+Cancel subscription by removing the specified filter 
 
 - **Parameters**:
   * `string`: filterId
 
 - **Returns**:  
-	- `bool` If `true`, the subscription is cancelled
+	- `bool` If `true`, the subscription is successfully cancelled
 
 ::: demo
 ```json tab:Request
@@ -336,43 +343,43 @@ Cancel subscription by removing specified filter
 :::
 
 ## subscribe_getChangesByFilterId
-Poll for new events. The content of return value depends on various subscription. If no new event is generated, empty array will be returned.
+Poll for new events by filter. The return content depends on various subscription type. If no event is generated, an empty array will be returned.
 
 - **Parameters**:
   * `string`: filterId
 
-- **Returns (in case of `subscribe_createSnapshotBlockFilter`)**: 
+- **Returns (using `subscribe_newSnapshotBlockFilter`)**: 
   * `SnapshotBlocks`
     * `subscription`: `string` filterId
     * `result`: `Array<SnapshotBlockMessage>`
       * `hash`: `string hash` Hash of snapshot block
       * `height`: `string uint64` Height of snapshot block
-      * `removed`: `bool` If `true`, the snapshot block was rolled back. For new snapshot block, `false` is filled
+      * `removed`: `bool` If `true`, the snapshot block was reverted. For new snapshot blocks, the field is `false`
 
-- **Returns (in case of `subscribe_createAccountBlockFilter`)**: 
+- **Returns (using `subscribe_newAccountBlockFilter`)**: 
   * `AccountBlocks`
     * `subscription`: `string` filterId
     * `result`: `Array<AccountBlockMessage>`
       * `hash`: `string hash` Hash of account block
-      * `removed`: `bool` If `true`, the account block was rolled back. For new account block, `false` is filled
+      * `removed`: `bool` If `true`, the account block was reverted. For new account block, the field is `false`
 
-- **Returns (in case of `subscribe_createAccountBlockFilterByAddress`)**: 
+- **Returns (using `subscribe_newAccountBlockByAddressFilter`)**: 
   * `AccountBlocksWithHeight`
     * `subscription`: `string` filterId
     * `result`: `Array<AccountBlockWithHeightMessage>`
       * `hash`: `string hash` Hash of account block
       * `height`: `string height` Height of account block
-      * `removed`: `bool` If `true`, the account block was rolled back. For new account block, `false` is filled
+      * `removed`: `bool` If `true`, the account block was reverted. For new account block, the field is `false`
 
-- **Returns (in case of `subscribe_createUnreceivedBlockFilterByAddress`)**: 
+- **Returns (using `subscribe_newUnreceivedBlockByAddressFilter`)**: 
   * `UnreceivedBlocks`
     * `subscription`: `string` filterId
     * `result`: `Array<UnreceivedBlockMessage>`
       * `hash`: `string hash` Hash of account block
-      * `received`: `bool` If `true`, the transaction was received
-      * `removed`: `bool` If `true`, the unreceived transaction was rolled back. In the case of `false`, if `received` is `false`, this is new unreceived block, otherwise (`received` is `true`) the transaction has been received. 
-  
-- **Returns (in case of `subscribe_createVmlogFilter`)**:
+      * `received`: `bool` If `true`, the transaction has been received
+      * `removed`: `bool` If `true`, the unreceived transaction was reverted. For new unreceived blocks, both `removed` and `received` is `false`. 
+
+- **Returns (using `subscribe_newVmLogFilter`)**:
   * `Vmlogs` 
     * `subscription`: `string` filterId
     * `result`: `Array<VmlogMessage>`
@@ -382,7 +389,7 @@ Poll for new events. The content of return value depends on various subscription
       * `vmlog`: `VmLog` Event log of smart contract
         * `topics`: `Array<string hash>` Event signature and indexed field. The signature can be generated from ABI
         * `data`: `string base64` Non-indexed field of event, can be decoded based on ABI
-      * `removed`: `bool` If `true`, the log has been rolled back
+      * `removed`: `bool` If `true`, the vmlog has been reverted
 
 ::: demo
 ```json tab:Request
@@ -454,7 +461,7 @@ Poll for new events. The content of return value depends on various subscription
     }
 }
 ```
-```json tab:UnreceivedBlocks
+```json tab:UnreceivedTransactions
 {
     "jsonrpc": "2.0",
     "id": 1,
@@ -506,8 +513,9 @@ Poll for new events. The content of return value depends on various subscription
 ```
 :::
 
-## subscribe_createSnapshotBlockSubscription
-Start listening for new snapshot blocks. New blocks will be returned in callback
+## subscribe_subscribe (Callback API)
+### newSnapshotBlock
+Start listening for new snapshot blocks. Newly generated snapshot blocks will be returned in callback
   
 - **Returns**:  
 	- `string` Subscription id
@@ -518,7 +526,7 @@ Start listening for new snapshot blocks. New blocks will be returned in callback
     * `result`: `Array<SnapshotBlockMessage>`
       * `hash`: `string hash` Hash of snapshot block
       * `height`: `string uint64` Height of snapshot block
-      * `removed`: `bool` If `true`, the snapshot block was rolled back. For new snapshot block, `false` is filled
+      * `removed`: `bool` If `true`, the snapshot block was reverted. For new snapshot block, the field is `false`
 
 ::: demo
 ```json tab:Request
@@ -526,7 +534,7 @@ Start listening for new snapshot blocks. New blocks will be returned in callback
   "jsonrpc": "2.0",
   "id": 1,
   "method": "subscribe_subscribe",
-  "params": ["createSnapshotBlockSubscription"]
+  "params": ["newSnapshotBlock"]
 }
 ```
 ```json tab:Response
@@ -548,8 +556,8 @@ Start listening for new snapshot blocks. New blocks will be returned in callback
 ```
 :::
 
-## subscribe_createAccountBlockSubscription
-Start listening for new account blocks. New blocks will be returned in callback
+### newAccountBlock
+Start listening for new account blocks. Newly generated account blocks will be returned in callback
 
 - **Parameters**: 
   null
@@ -562,7 +570,7 @@ Start listening for new account blocks. New blocks will be returned in callback
     * `subscription`: `string` filterId
     * `result`: `Array<AccountBlockMessage>`
       * `hash`: `string hash` Hash of account block
-      * `removed`: `bool` If `true`, the account block was rolled back. For new account block, `false` is filled
+      * `removed`: `bool` If `true`, the account block was reverted. For new account block, the field is `false`
 
 ::: demo
 ```json tab:Request
@@ -570,7 +578,7 @@ Start listening for new account blocks. New blocks will be returned in callback
   "jsonrpc": "2.0",
   "id": 1,
   "method": "subscribe_subscribe",
-  "params": ["createAccountBlockSubscription"]
+  "params": ["newAccountBlock"]
 }
 ```
 ```json tab:Response
@@ -595,8 +603,8 @@ Start listening for new account blocks. New blocks will be returned in callback
 ```
 :::
 
-## subscribe_createAccountBlockSubscriptionByAddress
-Start listening for new account blocks on specified account. New blocks will be returned in callback
+### newAccountBlockByAddress
+Start listening for new account blocks for the specified account. Newly generated account blocks will be returned in callback
 
 - **Parameters**:
   * `string address` Address of account
@@ -610,7 +618,7 @@ Start listening for new account blocks on specified account. New blocks will be 
     * `result`: `Array<AccountBlockWithHeightMessage>`
       * `hash`: `string hash` Hash of account block
       * `height`: `string height` Height of account block
-      * `removed`: `bool` If `true`, the account block was rolled back. For new account block, `false` is filled
+      * `removed`: `bool` If `true`, the account block was reverted. For new account block, the field is `false`
 
 ::: demo
 ```json tab:Request
@@ -618,7 +626,7 @@ Start listening for new account blocks on specified account. New blocks will be 
   "jsonrpc": "2.0",
   "id": 1,
   "method": "subscribe_subscribe",
-  "params": ["createAccountBlockSubscriptionByAddress", "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a"]
+  "params": ["newAccountBlockByAddress", "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a"]
 }
 ```
 ```json tab:Response
@@ -644,8 +652,8 @@ Start listening for new account blocks on specified account. New blocks will be 
 ```
 :::
 
-## subscribe_createUnreceivedBlockSubscriptionByAddress
-Start listening for unreceived transactions on specified account. Unreceived blocks will be returned in callback
+### newUnreceivedBlockByAddress
+Start listening for unreceived transactions for the specified account. New unreceived blocks will be returned in callback
 
 - **Parameters**:
   * `address` Address of account
@@ -659,7 +667,7 @@ Start listening for unreceived transactions on specified account. Unreceived blo
     * `result`: `Array<UnreceivedBlockMessage>`
       * `hash`: `string hash` Hash of account block
       * `received`: `bool` If `true`, the transaction was received
-      * `removed`: `bool` If `true`, the unreceived transaction was rolled back. In the case of `false`, if `received` is `false`, this is new unreceived block, otherwise (`received` is `true`) the transaction has been received. 
+      * `removed`: `bool` If `true`, the unreceived transaction was reverted. For new unreceived blocks, both `removed` and `received` is `false`. 
 
 ::: demo
 ```json tab:Request
@@ -667,7 +675,7 @@ Start listening for unreceived transactions on specified account. Unreceived blo
   "jsonrpc": "2.0",
   "id": 1,
   "method": "subscribe_subscribe",
-  "params": ["createUnreceivedBlockSubscriptionByAddress", "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a"]
+  "params": ["newUnreceivedBlockByAddress", "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a"]
 }
 ```
 ```json tab:Response
@@ -693,15 +701,15 @@ Start listening for unreceived transactions on specified account. Unreceived blo
 ```
 :::
 
-## subscribe_createVmlogSubscription
-Start listening for new logs. New logs will be returned in callback
+### newVmLog
+Start listening for new vmlogs. New event logs will be returned in callback
 
 - **Parameters**:
   * `FilterParam`
-    * `addressHeightRange`: `map[Address]Range` Query logs of the specified account address with given range. Address and height range should be filled in the map. At least one address must be specified.
+    * `addressHeightRange`: `map[Address]Range` Return logs of the specified account address with given range. Address and height range should be filled in the map. At least one address must be specified.
       * `fromHeight`: `uint64` Start height. `0` means starting from the latest block
-      * `toHeight`: `uint64` End height. `0` means no specific ending block
-    * `topics`: `[][]Hash` Prefix of topics. See below example for reference
+      * `toHeight`: `uint64` End height. `0` means no ending height
+    * `topics`: `[][]Hash` Prefix of topics. 
 
 - **Returns**:  
 	- `string` Subscription id
@@ -716,7 +724,7 @@ Start listening for new logs. New logs will be returned in callback
       * `vmlog`: `VmLog` Event log of smart contract
         * `topics`: `Array<string hash>` Event signature and indexed field. The signature can be generated from ABI
         * `data`: `string base64` Non-indexed field of event, can be decoded based on ABI
-      * `removed`: `bool` If `true`, the log has been rolled back
+      * `removed`: `bool` If `true`, the vmlog has been reverted
 
 ::: demo
 ```json tab:Request
@@ -725,7 +733,7 @@ Start listening for new logs. New logs will be returned in callback
   "id": 1,
   "method": "subscribe_subscribe",
   "params": [
-    "createVmlogSubscription",
+    "newVmLog",
     {
       "addressHeightRange":{
         "vite_f48f811a1800d9bde268e3d2eacdc4b4f8b9110e017bd7a76f":{

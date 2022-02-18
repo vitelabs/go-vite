@@ -137,7 +137,11 @@ type LogsV2 struct {
 func (s *SubscribeApi) NewSnapshotBlocksFilter() (rpc.ID, error) {
 	return s.createSnapshotBlockFilter(SnapshotBlocksSubscription)
 }
+// Deprecated: replaced by subscribe_newSnapshotBlockFilter
 func (s *SubscribeApi) CreateSnapshotBlockFilter() (rpc.ID, error) {
+	return s.createSnapshotBlockFilter(SnapshotBlocksSubscriptionV2)
+}
+func (s *SubscribeApi) NewSnapshotBlockFilter() (rpc.ID, error) {
 	return s.createSnapshotBlockFilter(SnapshotBlocksSubscriptionV2)
 }
 func (s *SubscribeApi) createSnapshotBlockFilter(ft FilterType) (rpc.ID, error) {
@@ -176,7 +180,11 @@ func (s *SubscribeApi) createSnapshotBlockFilter(ft FilterType) (rpc.ID, error) 
 func (s *SubscribeApi) NewAccountBlocksFilter() (rpc.ID, error) {
 	return s.createAccountBlockFilter()
 }
+// Deprecated: replaced by subscribe_newAccountBlockFilter
 func (s *SubscribeApi) CreateAccountBlockFilter() (rpc.ID, error) {
+	return s.createAccountBlockFilter()
+}
+func (s *SubscribeApi) NewAccountBlockFilter() (rpc.ID, error) {
 	return s.createAccountBlockFilter()
 }
 func (s *SubscribeApi) createAccountBlockFilter() (rpc.ID, error) {
@@ -215,7 +223,11 @@ func (s *SubscribeApi) createAccountBlockFilter() (rpc.ID, error) {
 func (s *SubscribeApi) NewAccountBlocksByAddrFilter(addr types.Address) (rpc.ID, error) {
 	return s.createAccountBlockFilterByAddress(addr, AccountBlocksWithHeightSubscription)
 }
+// Deprecated: replaced by subscribe_newAccountBlockByAddressFilter
 func (s *SubscribeApi) CreateAccountBlockFilterByAddress(addr types.Address) (rpc.ID, error) {
+	return s.createAccountBlockFilterByAddress(addr, AccountBlocksWithHeightSubscriptionV2)
+}
+func (s *SubscribeApi) NewAccountBlockByAddressFilter(addr types.Address) (rpc.ID, error) {
 	return s.createAccountBlockFilterByAddress(addr, AccountBlocksWithHeightSubscriptionV2)
 }
 func (s *SubscribeApi) createAccountBlockFilterByAddress(addr types.Address, ft FilterType) (rpc.ID, error) {
@@ -254,7 +266,11 @@ func (s *SubscribeApi) createAccountBlockFilterByAddress(addr types.Address, ft 
 func (s *SubscribeApi) NewOnroadBlocksByAddrFilter(addr types.Address) (rpc.ID, error) {
 	return s.createUnreceivedBlockFilterByAddress(addr, OnroadBlocksSubscription)
 }
+// Deprecated: replaced by subscribe_newUnreceivedBlockByAddressFilter
 func (s *SubscribeApi) CreateUnreceivedBlockFilterByAddress(addr types.Address) (rpc.ID, error) {
+	return s.createUnreceivedBlockFilterByAddress(addr, OnroadBlocksSubscriptionV2)
+}
+func (s *SubscribeApi) NewUnreceivedBlockByAddressFilter(addr types.Address) (rpc.ID, error) {
 	return s.createUnreceivedBlockFilterByAddress(addr, OnroadBlocksSubscriptionV2)
 }
 func (s *SubscribeApi) createUnreceivedBlockFilterByAddress(addr types.Address, ft FilterType) (rpc.ID, error) {
@@ -293,7 +309,11 @@ func (s *SubscribeApi) createUnreceivedBlockFilterByAddress(addr types.Address, 
 func (s *SubscribeApi) NewLogsFilter(param RpcFilterParam) (rpc.ID, error) {
 	return s.createVmLogFilter(param.AddrRange, param.Topics, LogsSubscription)
 }
+// Deprecated: replaced by subscribe_newVmLogFilter
 func (s *SubscribeApi) CreateVmLogFilter(param api.VmLogFilterParam) (rpc.ID, error) {
+	return s.createVmLogFilter(param.AddrRange, param.Topics, LogsSubscriptionV2)
+}
+func (s *SubscribeApi) NewVmLogFilter(param api.VmLogFilterParam) (rpc.ID, error) {
 	return s.createVmLogFilter(param.AddrRange, param.Topics, LogsSubscriptionV2)
 }
 func (s *SubscribeApi) createVmLogFilter(rangeMap map[string]*api.Range, topics [][]types.Hash, ft FilterType) (rpc.ID, error) {
@@ -469,7 +489,11 @@ func (s *SubscribeApi) getChangesByFilterId(id rpc.ID) (interface{}, error) {
 func (s *SubscribeApi) NewSnapshotBlocks(ctx context.Context) (*rpc.Subscription, error) {
 	return s.createSnapshotBlockSubscription(ctx, SnapshotBlocksSubscription)
 }
+// Deprecated: replaced by subscribe_newSnapshotBlock
 func (s *SubscribeApi) CreateSnapshotBlockSubscription(ctx context.Context) (*rpc.Subscription, error) {
+	return s.createSnapshotBlockSubscription(ctx, SnapshotBlocksSubscriptionV2)
+}
+func (s *SubscribeApi) NewSnapshotBlock(ctx context.Context) (*rpc.Subscription, error) {
 	return s.createSnapshotBlockSubscription(ctx, SnapshotBlocksSubscriptionV2)
 }
 func (s *SubscribeApi) createSnapshotBlockSubscription(ctx context.Context, ft FilterType) (*rpc.Subscription, error) {
@@ -512,7 +536,11 @@ func (s *SubscribeApi) createSnapshotBlockSubscription(ctx context.Context, ft F
 func (s *SubscribeApi) NewAccountBlocks(ctx context.Context) (*rpc.Subscription, error) {
 	return s.createAccountBlockSubscription(ctx)
 }
+// Deprecated: replaced by subscribe_newAccountBlock
 func (s *SubscribeApi) CreateAccountBlockSubscription(ctx context.Context) (*rpc.Subscription, error) {
+	return s.createAccountBlockSubscription(ctx)
+}
+func (s *SubscribeApi) NewAccountBlock(ctx context.Context) (*rpc.Subscription, error) {
 	return s.createAccountBlockSubscription(ctx)
 }
 func (s *SubscribeApi) createAccountBlockSubscription(ctx context.Context) (*rpc.Subscription, error) {
@@ -547,7 +575,11 @@ func (s *SubscribeApi) createAccountBlockSubscription(ctx context.Context) (*rpc
 func (s *SubscribeApi) NewAccountBlocksByAddr(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
 	return s.createAccountBlockSubscriptionByAddress(ctx, addr, AccountBlocksWithHeightSubscription)
 }
+// Deprecated: replaced by subscribe_newAccountBlockByAddress
 func (s *SubscribeApi) CreateAccountBlockSubscriptionByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
+	return s.createAccountBlockSubscriptionByAddress(ctx, addr, AccountBlocksWithHeightSubscriptionV2)
+}
+func (s *SubscribeApi) NewAccountBlockByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
 	return s.createAccountBlockSubscriptionByAddress(ctx, addr, AccountBlocksWithHeightSubscriptionV2)
 }
 func (s *SubscribeApi) createAccountBlockSubscriptionByAddress(ctx context.Context, addr types.Address, ft FilterType) (*rpc.Subscription, error) {
@@ -590,7 +622,11 @@ func (s *SubscribeApi) createAccountBlockSubscriptionByAddress(ctx context.Conte
 func (s *SubscribeApi) NewOnroadBlocksByAddr(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
 	return s.createUnreceivedBlockSubscriptionByAddress(ctx, addr, OnroadBlocksSubscription)
 }
+// Deprecated: replaced by subscribe_newUnreceivedBlockByAddress
 func (s *SubscribeApi) CreateUnreceivedBlockSubscriptionByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
+	return s.createUnreceivedBlockSubscriptionByAddress(ctx, addr, OnroadBlocksSubscriptionV2)
+}
+func (s *SubscribeApi) NewUnreceivedBlockByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error) {
 	return s.createUnreceivedBlockSubscriptionByAddress(ctx, addr, OnroadBlocksSubscriptionV2)
 }
 func (s *SubscribeApi) createUnreceivedBlockSubscriptionByAddress(ctx context.Context, addr types.Address, ft FilterType) (*rpc.Subscription, error) {
@@ -629,11 +665,15 @@ func (s *SubscribeApi) createUnreceivedBlockSubscriptionByAddress(ctx context.Co
 	return rpcSub, nil
 }
 
-// Deprevated: use subscribe_createVmLogSubscription instead
+// Deprecated: use subscribe_createVmLogSubscription instead
 func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.Subscription, error) {
 	return s.createVmLogSubscription(ctx, param.AddrRange, param.Topics, LogsSubscription)
 }
+// Deprecated: replaced by subscribe_newVmlog
 func (s *SubscribeApi) CreateVmlogSubscription(ctx context.Context, param api.VmLogFilterParam) (*rpc.Subscription, error) {
+	return s.createVmLogSubscription(ctx, param.AddrRange, param.Topics, LogsSubscriptionV2)
+}
+func (s *SubscribeApi) NewVmlog(ctx context.Context, param api.VmLogFilterParam) (*rpc.Subscription, error) {
 	return s.createVmLogSubscription(ctx, param.AddrRange, param.Topics, LogsSubscriptionV2)
 }
 func (s *SubscribeApi) createVmLogSubscription(ctx context.Context, rangeMap map[string]*api.Range, topics [][]types.Hash, ft FilterType) (*rpc.Subscription, error) {
