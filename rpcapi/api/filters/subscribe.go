@@ -669,11 +669,11 @@ func (s *SubscribeApi) createUnreceivedBlockSubscriptionByAddress(ctx context.Co
 func (s *SubscribeApi) NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.Subscription, error) {
 	return s.createVmLogSubscription(ctx, param.AddrRange, param.Topics, LogsSubscription)
 }
-// Deprecated: replaced by subscribe_newVmlog
+// Deprecated: replaced by subscribe_newVmLog
 func (s *SubscribeApi) CreateVmlogSubscription(ctx context.Context, param api.VmLogFilterParam) (*rpc.Subscription, error) {
 	return s.createVmLogSubscription(ctx, param.AddrRange, param.Topics, LogsSubscriptionV2)
 }
-func (s *SubscribeApi) NewVmlog(ctx context.Context, param api.VmLogFilterParam) (*rpc.Subscription, error) {
+func (s *SubscribeApi) NewVmLog(ctx context.Context, param api.VmLogFilterParam) (*rpc.Subscription, error) {
 	return s.createVmLogSubscription(ctx, param.AddrRange, param.Topics, LogsSubscriptionV2)
 }
 func (s *SubscribeApi) createVmLogSubscription(ctx context.Context, rangeMap map[string]*api.Range, topics [][]types.Hash, ft FilterType) (*rpc.Subscription, error) {
