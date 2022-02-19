@@ -906,7 +906,7 @@ func opSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]b
 		Memory: mem.get(0, int64(mem.len())),
 	}
 	for i, item := range stack.data {
-		executionContext.Stack[i].SetInt64(item.Int64())
+		executionContext.Stack[i].SetBytes(item.Bytes())
 	}
 
 	nodeConfig.log.Debug("opSyncCall",
@@ -974,7 +974,7 @@ func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 
 		for i := 0; i < len(stackDump); i++ {
 			stackItem := stackDump[i]
-			stack.push(big.NewInt(stackItem.Int64()))
+			stack.push(big.NewInt(0).SetBytes(stackItem.Bytes()))
 		}
 		// push success flag (act as RETURN instruction in Ethereum)
 		if sendType == ledger.BlockTypeSendCallback {

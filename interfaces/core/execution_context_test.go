@@ -75,11 +75,12 @@ func TestMarshalStack(t *testing.T) {
 }
 
 func TestMarshalAndUnmarshalStack(t *testing.T) {
-	bigNumber, _ := hex.DecodeString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+	bigNumber, _ := hex.DecodeString("1122334455667788112233445566778811223344556677881122334455667788")
 
 	tests := [][]big.Int {
 		{*big.NewInt(1)},
 		{*big.NewInt(1), *big.NewInt(2), *big.NewInt(3)},
+		{*big.NewInt(0).SetBytes(bigNumber)},
 		{*big.NewInt(1), *big.NewInt(0).SetBytes(bigNumber), *big.NewInt(3)},
 		nil,
 	}
