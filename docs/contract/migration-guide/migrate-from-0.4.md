@@ -4,9 +4,7 @@ order: 2
 
 # Migrating from Solidity++ 0.4
 
-Solidity++ 0.8 is syntactically closer to Solidity than Solidity++ 0.4, which is more friendly to developers from Solidity. 
-
-Some counterintuitive syntax and keywords are removed in this version.
+Solidity++ 0.8 is syntactically closer to Solidity than Solidity++ 0.4, which is more friendly to developers from Solidity; some counterintuitive syntax and keywords are removed in this version.
 
 
 ## Solidity++ 0.8.0 Changes
