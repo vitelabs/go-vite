@@ -18,8 +18,8 @@ aside: true
 ## Reference
 
 * **[Vite RPC](./api/rpc/)**:  List of endpoints to interact with a Vite fullnode through RPC.
-* **[ViteX Data Query API](./dex/api/vitex-data-api.md)**: Data Query API for ViteX
-* **[ViteX API](./dex/api/dex-apis.md)**: ViteX API enables users to complete trading operations on ViteX decentralized exchange without exposing private keys.
+* **[ViteX REST API](./dex/api/rest-api.md)**
+* **[ViteX WebSocked API](./dex/api/websocket-api.md)**
 * **[ViteX Gateway Technical Specification](./dex/api/gate.md)**: This specification describes the API interface that 3rd party gateways need to implement for plugging into ViteX. 
 
 ## Resources
