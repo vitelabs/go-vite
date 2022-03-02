@@ -1655,6 +1655,24 @@ func GetMarketInfo(db interfaces.VmDb, tradeToken, quoteToken types.TokenTypeId)
 	return
 }
 
+func GetMarkets(db interfaces.VmDb) (markets []*MarketInfo, ok bool) {
+	iter, err := db.NewStorageIterator(marketInfoKeyPrefix)
+	if err != nil {
+		return nil, false
+	}
+	defer iter.Release()
+
+	for iter.Next() {
+		market := &MarketInfo{}
+		if err := market.DeSerialize(iter.Value()); err != nil {
+			return nil, false
+		}
+		markets = append(markets, market)
+	}
+
+	return markets, true
+}
+
 func SaveMarketInfo(db interfaces.VmDb, marketInfo *MarketInfo, tradeToken, quoteToken types.TokenTypeId) {
 	serializeToDb(db, GetMarketInfoKey(tradeToken, quoteToken), marketInfo)
 }
