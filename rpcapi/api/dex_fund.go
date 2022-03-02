@@ -103,6 +103,23 @@ func (f DexFundApi) GetMarketInfo(tradeToken, quoteToken types.TokenTypeId) (*ap
 	}
 }
 
+func (f DexFundApi) GetAllTradePairs() (markets []*apidex.NewRpcMarketInfo, err error) {
+	db, err := getVmDb(f.chain, types.AddressDexFund)
+	if err != nil {
+		return nil, err
+	}
+
+	if marketInfos, ok := dex.GetMarkets(db); ok {
+		for _, market := range marketInfos {
+			rpcMarketInfo := apidex.MarketInfoToNewRpc(market)
+			markets = append(markets, rpcMarketInfo)
+		}
+		return markets, nil
+	} else {
+		return nil, dex.TradeMarketsErr
+	}
+}
+
 func (f DexFundApi) GetCurrentDividendPools() (map[types.TokenTypeId]*apidex.DividendPoolInfo, error) {
 	db, err := getVmDb(f.chain, types.AddressDexFund)
 	if err != nil {
