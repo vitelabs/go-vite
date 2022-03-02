@@ -4,7 +4,7 @@ sidebarDepth: 4
 
 # Subscribe
 
-Vite provides two kinds of subscription API, **polling** and **callback**.
+Vite provides **polling** and **callback** subscription API.
 
 * **Polling API** creates a subscription filter and relies on the client program calls `subscribe_getChangesByFilterId` with the filter id to poll for new events. 
 The filter will expire if it has not been used in 5 minutes or `subscribe_uninstallFilter` method is called explicitly.
