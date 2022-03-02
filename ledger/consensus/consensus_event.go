@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 )
 
 type subscribeEvent struct {

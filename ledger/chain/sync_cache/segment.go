@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 )
 
 func NewSegment(from uint64, to uint64, prevHash, hash types.Hash) interfaces.Segment {

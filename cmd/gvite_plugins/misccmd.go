@@ -8,8 +8,8 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/version"
+	"github.com/vitelabs/go-vite/v2/cmd/utils"
+	"github.com/vitelabs/go-vite/v2/version"
 )
 
 var (

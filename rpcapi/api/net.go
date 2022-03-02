@@ -3,10 +3,10 @@ package api
 import (
 	"strconv"
 
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/net"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 type NetApi struct {

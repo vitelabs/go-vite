@@ -7,7 +7,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 const (

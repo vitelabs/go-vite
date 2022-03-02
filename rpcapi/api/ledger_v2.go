@@ -4,21 +4,24 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/upgrade"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	chain_plugins "github.com/vitelabs/go-vite/ledger/chain/plugins"
-	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/vm/quota"
-	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	chain_plugins "github.com/vitelabs/go-vite/v2/ledger/chain/plugins"
+	"github.com/vitelabs/go-vite/v2/vm"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/v2/vm/quota"
+	"github.com/vitelabs/go-vite/v2/vm/util"
+	"github.com/vitelabs/go-vite/v2/vm_db"
 )
 
 // new api
 func (l *LedgerApi) GetAccountBlocks(addr types.Address, originBlockHash *types.Hash, tokenTypeId *types.TokenTypeId, count uint64) ([]*AccountBlock, error) {
+	if count > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	if tokenTypeId == nil {
 		if originBlockHash == nil {
 			block, err := l.chain.GetLatestAccountBlock(addr)
@@ -102,8 +105,10 @@ func (l *LedgerApi) GetAccountBlockByHeight(addr types.Address, height interface
 
 // new api
 func (l *LedgerApi) GetAccountBlocksByAddress(addr types.Address, index int, count int) ([]*AccountBlock, error) {
-	l.log.Info("GetAccountBlocksByAddress")
-
+	l.log.Info("GetAccountBlocksByAddress", "addr", addr, "index", index, "count", count)
+	if count > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	height, err := l.chain.GetLatestAccountHeight(addr)
 	if err != nil {
 		l.log.Error(fmt.Sprintf("GetLatestAccountHeight, addr is %s", addr), "err", err, "method", "GetAccountBlocksByAddress")
@@ -272,9 +277,10 @@ func (l *LedgerApi) SendRawTransaction(block *AccountBlock) error {
 
 // new api: ledger_getUnreceivedBlocksByAddress <- onroad_getOnroadBlocksByAddress
 func (l *LedgerApi) GetUnreceivedBlocksByAddress(address types.Address, index, count uint64) ([]*AccountBlock, error) {
-
 	log.Info("GetUnreceivedBlocksByAddress", "addr", address, "index", index, "count", count)
-
+	if count > 1000 {
+		return nil, errors.New("count must be less than 1000")
+	}
 	blockList, err := l.chain.GetOnRoadBlocksByAddr(address, int(index), int(count))
 	if err != nil {
 		return nil, err
@@ -308,6 +314,11 @@ func (l *LedgerApi) GetUnreceivedTransactionSummaryByAddress(address types.Addre
 
 // new api: ledger_getUnreceivedBlocksInBatch <- onroad_getOnroadBlocksInBatch
 func (l *LedgerApi) GetUnreceivedBlocksInBatch(queryList []PagingQueryBatch) (map[types.Address][]*AccountBlock, error) {
+	for _, q := range queryList {
+		if q.PageCount > 1000 {
+			return nil, errors.New("pageCount must be less than 1000")
+		}
+	}
 	resultMap := make(map[types.Address][]*AccountBlock)
 	for _, q := range queryList {
 		if l, ok := resultMap[q.Address]; ok && l != nil {

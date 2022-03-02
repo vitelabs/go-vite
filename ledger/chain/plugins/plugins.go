@@ -8,10 +8,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_db "github.com/vitelabs/go-vite/v2/ledger/chain/db"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 const roundSize = uint64(10)

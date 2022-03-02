@@ -1,8 +1,8 @@
 package interfaces
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
 )
 
 // SignFunc is the function type defining the callback when a block requires a

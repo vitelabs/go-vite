@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/storage"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/storage"
 )
 
 func shorten(str string) string {

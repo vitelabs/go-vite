@@ -3,9 +3,9 @@
 package rpc
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpcapi/api"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/rpc"
+	"github.com/vitelabs/go-vite/v2/rpcapi/api"
 )
 
 // OnroadApi ...

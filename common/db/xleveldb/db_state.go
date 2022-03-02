@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/journal"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/storage"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/journal"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/memdb"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/storage"
 )
 
 var (

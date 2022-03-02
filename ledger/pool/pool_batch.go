@@ -8,9 +8,9 @@ import (
 	"github.com/golang-collections/collections/stack"
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/pool/batch"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/pool/batch"
 )
 
 /**

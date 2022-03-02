@@ -10,9 +10,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	vcrypto "github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	vcrypto "github.com/vitelabs/go-vite/v2/crypto"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
 )
 
 const (

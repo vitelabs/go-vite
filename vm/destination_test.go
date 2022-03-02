@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 func TestCodeAnalysis(t *testing.T) {

@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	"github.com/vitelabs/go-vite/pow"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto"
+	"github.com/vitelabs/go-vite/v2/pow"
 )
 
 func TestGetPowNonce(t *testing.T) {

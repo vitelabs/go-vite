@@ -1,8 +1,8 @@
 package vm_db
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto"
 )
 
 func (vdb *vmDb) GetReceiptHash() *types.Hash {

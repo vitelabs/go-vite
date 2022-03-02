@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 func TestFetch_failed(t *testing.T) {

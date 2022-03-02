@@ -25,9 +25,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 type reqState = int32

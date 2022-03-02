@@ -7,13 +7,13 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common"
-	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
+	"github.com/vitelabs/go-vite/v2/common"
+	leveldb "github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
 func (sDB *StateDB) RollbackSnapshotBlocks(deletedSnapshotSegments []*ledger.SnapshotChunk, newUnconfirmedBlocks []*ledger.AccountBlock) error {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/v2/vm/abi"
 )
 
 func TestConvert(t *testing.T) {

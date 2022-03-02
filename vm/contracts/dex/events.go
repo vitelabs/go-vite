@@ -5,9 +5,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	dexproto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	dexproto "github.com/vitelabs/go-vite/v2/vm/contracts/dex/proto"
 )
 
 const newOrderEventName = "newOrderEvent"

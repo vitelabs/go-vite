@@ -4,10 +4,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/vitelabs/go-vite/ledger/consensus"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 type StatsApi struct {
@@ -155,4 +156,9 @@ func (c StatsApi) reIndex(timeIndex core.TimeIndex) (uint64, uint64) {
 		startIdx = endIdx - N
 	}
 	return startIdx, endIdx
+}
+
+func (c StatsApi) GetSBP(idx uint64) (interface{}, error) {
+	events, _, err := c.cs.API().ReadByIndex(types.SNAPSHOT_GID, idx)
+	return events, err
 }

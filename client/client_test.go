@@ -7,12 +7,12 @@ import (
 	"path"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/rpcapi/api"
-	"github.com/vitelabs/go-vite/wallet"
-	"github.com/vitelabs/go-vite/wallet/entropystore"
+	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/rpcapi/api"
+	"github.com/vitelabs/go-vite/v2/wallet"
+	"github.com/vitelabs/go-vite/v2/wallet/entropystore"
 )
 
 var WalletDir string

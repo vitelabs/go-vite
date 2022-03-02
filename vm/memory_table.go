@@ -3,7 +3,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/helper"
 )
 
 // calculates the memory size required for a step

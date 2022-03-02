@@ -8,10 +8,10 @@ import (
 	"github.com/allegro/bigcache"
 	lru "github.com/hashicorp/golang-lru"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	chain_db "github.com/vitelabs/go-vite/v2/ledger/chain/db"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 type IndexDB struct {

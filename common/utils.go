@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 func SyncMapLen(m *sync.Map) uint64 {

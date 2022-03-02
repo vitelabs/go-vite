@@ -2,13 +2,14 @@ package api
 
 import (
 	"encoding/hex"
+	"fmt"
 
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/log15"
-	apidex "github.com/vitelabs/go-vite/rpcapi/api/dex"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/log15"
+	apidex "github.com/vitelabs/go-vite/v2/rpcapi/api/dex"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/dex"
 )
 
 type DexTradeApi struct {
@@ -54,6 +55,9 @@ func (f DexTradeApi) GetOrderBySendHash(sendHash types.Hash) (*apidex.RpcOrder, 
 }
 
 func (f DexTradeApi) GetOrdersFromMarket(tradeToken, quoteToken types.TokenTypeId, side bool, begin, end int) (ordersRes *apidex.OrdersRes, err error) {
+	if end-begin > 10000 {
+		return nil, fmt.Errorf("end - begin must be less than 10000")
+	}
 	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {
@@ -86,6 +90,12 @@ type MarketOrderParam struct {
 }
 
 func (f DexTradeApi) GetMarketOrders(param MarketOrderParam) (ordersRes *apidex.OrdersRes, err error) {
+	if param.SellEnd-param.SellBegin > 10000 {
+		return nil, fmt.Errorf("sell end - begin must be less than 10000")
+	}
+	if param.BuyEnd-param.BuyBegin > 10000 {
+		return nil, fmt.Errorf("sell end - begin must be less than 10000")
+	}
 	if fundDb, err := getVmDb(f.chain, types.AddressDexFund); err != nil {
 		return nil, err
 	} else {

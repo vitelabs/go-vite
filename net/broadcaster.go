@@ -8,12 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/bloom"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/tools/circle"
+	"github.com/vitelabs/go-vite/v2/common/bloom"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/monitor"
+	"github.com/vitelabs/go-vite/v2/tools/circle"
 )
 
 const filterCap = 100000

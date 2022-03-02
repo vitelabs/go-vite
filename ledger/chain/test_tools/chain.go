@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/vm/quota"
+	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/vm/quota"
 )
 
 func NewChainInstanceFromDir(dirName string, clear bool, genesis string) (chain.Chain, error) {

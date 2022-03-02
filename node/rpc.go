@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/v2/rpc"
 )
 
 // startIPC initializes and starts the IPC RPC endpoint.

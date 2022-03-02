@@ -10,8 +10,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 
-	types "github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	types "github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
 // MockRollbackProof is a mock of RollbackProof interface

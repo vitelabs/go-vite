@@ -10,9 +10,9 @@ package opt
 import (
 	"math"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/cache"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/comparer"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/filter"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/cache"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/comparer"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/filter"
 )
 
 const (

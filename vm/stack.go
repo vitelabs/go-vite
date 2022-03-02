@@ -3,7 +3,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/v2/vm/util"
 )
 
 type stack struct {

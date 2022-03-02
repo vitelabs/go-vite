@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/log15"
+	leveldb "github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 const filePrefix = "f_"

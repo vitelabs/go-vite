@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 const times = 3

@@ -3,7 +3,7 @@ package onroad
 import (
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 func Test_onroad(t *testing.T) {

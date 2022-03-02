@@ -5,8 +5,8 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/vitelabs/go-vite/cmd/nodemanager"
-	"github.com/vitelabs/go-vite/cmd/utils"
+	"github.com/vitelabs/go-vite/v2/cmd/nodemanager"
+	"github.com/vitelabs/go-vite/v2/cmd/utils"
 )
 
 var (

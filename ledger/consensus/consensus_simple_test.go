@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 func TestSimpleCs(t *testing.T) {

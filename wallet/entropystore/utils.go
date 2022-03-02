@@ -11,8 +11,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 // it it return false it must not be chain valid seedstore file

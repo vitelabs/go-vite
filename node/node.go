@@ -12,17 +12,17 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/cmd/utils/flock"
-	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/monitor"
-	"github.com/vitelabs/go-vite/pow"
-	"github.com/vitelabs/go-vite/pow/remote"
-	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpcapi"
-	"github.com/vitelabs/go-vite/rpcapi/api/filters"
-	"github.com/vitelabs/go-vite/wallet"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/cmd/utils/flock"
+	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/monitor"
+	"github.com/vitelabs/go-vite/v2/pow"
+	"github.com/vitelabs/go-vite/v2/pow/remote"
+	"github.com/vitelabs/go-vite/v2/rpc"
+	"github.com/vitelabs/go-vite/v2/rpcapi"
+	"github.com/vitelabs/go-vite/v2/rpcapi/api/filters"
+	"github.com/vitelabs/go-vite/v2/wallet"
 )
 
 var (

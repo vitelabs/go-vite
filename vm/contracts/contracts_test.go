@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/vm/abi"
-	abi2 "github.com/vitelabs/go-vite/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/vm/abi"
+	abi2 "github.com/vitelabs/go-vite/v2/vm/contracts/abi"
 )
 
 func TestABIContract_MethodById(t *testing.T) {

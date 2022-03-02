@@ -4,13 +4,13 @@ import (
 	"math/big"
 	"time"
 
-	leveldb "github.com/vitelabs/go-vite/common/db/xleveldb"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/memdb"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_db "github.com/vitelabs/go-vite/ledger/chain/db"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
+	leveldb "github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/memdb"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_db "github.com/vitelabs/go-vite/v2/ledger/chain/db"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 )
 
 type EventListener interface {

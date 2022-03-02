@@ -5,14 +5,14 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/contracts/dex"
-	"github.com/vitelabs/go-vite/vm/quota"
-	"github.com/vitelabs/go-vite/vm_db"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/dex"
+	"github.com/vitelabs/go-vite/v2/vm/quota"
+	"github.com/vitelabs/go-vite/v2/vm_db"
 )
 
 // sb height
@@ -247,4 +247,44 @@ func (c *chain) GetDexStakeListByPage(snapshotHash types.Hash, lastKey []byte, c
 		return nil, nil, cErr
 	}
 	return dex.GetStakeListByPage(sd, lastKey, count)
+}
+
+func (c *chain) GetDexFundByAddress(snapshotHash types.Hash, address types.Address) (*dex.Fund, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
+	if err != nil {
+		cErr := fmt.Errorf("c.stateDB.NewStorageDatabase failed")
+		c.log.Error(cErr.Error(), "method", "GetDexFundByAddress")
+		return nil, cErr
+	}
+	if v, err1 := sd.GetValue(dex.GetFundKey(address)); err1 != nil {
+		return nil, err1
+	} else {
+		if len(v) > 0 {
+			fund := &dex.Fund{}
+			err2 := fund.DeSerialize(v)
+			return fund, err2
+		} else {
+			return nil, nil
+		}
+	}
+}
+
+func (c *chain) GetDexFundStakeForMiningV1ListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*types.Address, []byte, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
+	if err != nil {
+		cErr := fmt.Errorf("c.stateDB.NewStorageDatabase failed")
+		c.log.Error(cErr.Error(), "method", "GetDexFundStakeForMiningV1ListByPage")
+		return nil, nil, cErr
+	}
+	return dex.GetStakeForMiningV1ByPage(sd, lastKey, count)
+}
+
+func (c *chain) GetDexFundStakeForMiningV2ListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*types.Address, []byte, error) {
+	sd, err := c.stateDB.NewStorageDatabase(snapshotHash, types.AddressDexFund)
+	if err != nil {
+		cErr := fmt.Errorf("c.stateDB.NewStorageDatabase failed")
+		c.log.Error(cErr.Error(), "method", "GetDexFundStakeForMiningV2ListByPage")
+		return nil, nil, cErr
+	}
+	return dex.GetStakeForMiningV2ByPage(sd, lastKey, count)
 }

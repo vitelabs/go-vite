@@ -10,12 +10,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
 
-	"github.com/vitelabs/go-vite/common/config"
-	walleterrors "github.com/vitelabs/go-vite/common/errors"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/wallet/entropystore"
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
+	"github.com/vitelabs/go-vite/v2/common/config"
+	walleterrors "github.com/vitelabs/go-vite/v2/common/errors"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/wallet/entropystore"
+	"github.com/vitelabs/go-vite/v2/wallet/hd-bip/derivation"
 )
 
 type Manager struct {

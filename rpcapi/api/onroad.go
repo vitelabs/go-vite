@@ -1,8 +1,8 @@
 package api
 
 import (
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 type PublicOnroadApi struct {

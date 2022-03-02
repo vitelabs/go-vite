@@ -1,13 +1,13 @@
 package pool
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces/core"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/pool/batch"
-	"github.com/vitelabs/go-vite/ledger/pool/tree"
-	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/tools/toposort"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces/core"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/pool/batch"
+	"github.com/vitelabs/go-vite/v2/ledger/pool/tree"
+	"github.com/vitelabs/go-vite/v2/net"
+	"github.com/vitelabs/go-vite/v2/tools/toposort"
 )
 
 // ChainState represents the relationship between the two branches

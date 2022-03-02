@@ -3,7 +3,7 @@ package api
 import (
 	"errors"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 func (m WalletApi) GetEntropyFilesInStandardDir() ([]string, error) {
@@ -42,6 +42,9 @@ func (m WalletApi) Lock(entropyFile string) error {
 func (m WalletApi) DeriveAddressesByIndexRange(entropyFile string, startIndex, endIndex uint32) ([]types.Address, error) {
 	if startIndex > endIndex {
 		return nil, errors.New("from value > to")
+	}
+	if endIndex-startIndex > 5000 {
+		return nil, errors.New("endIndex-startIndex must be less than 5000")
 	}
 
 	manager, e := m.wallet.GetEntropyStoreManager(entropyFile)

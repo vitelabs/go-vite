@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/vitelabs/go-vite/wallet"
+	"github.com/vitelabs/go-vite/v2/wallet"
 )
 
 var num = flag.Int("num", 1, "num ")

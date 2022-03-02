@@ -4,18 +4,19 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
+	"time"
 
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/ledger/consensus"
-	"github.com/vitelabs/go-vite/ledger/pool"
-	"github.com/vitelabs/go-vite/ledger/verifier"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/producer/producerevent"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus"
+	"github.com/vitelabs/go-vite/v2/ledger/pool"
+	"github.com/vitelabs/go-vite/v2/ledger/verifier"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/net"
+	"github.com/vitelabs/go-vite/v2/producer/producerevent"
 )
 
 // Package producer implements vite block creation
@@ -129,6 +130,22 @@ func (self *producer) Start() error {
 	})
 	self.netSyncId = id
 	wLog.Info("started.")
+	return nil
+}
+
+func (self *producer) SnapshotOnce() error {
+	t := time.Now()
+	e := &consensus.Event{
+		Gid:         types.SNAPSHOT_GID,
+		Address:     self.coinbase.Address(),
+		Stime:       t,
+		Etime:       t,
+		Timestamp:   t,
+		VoteTime:    t,
+		PeriodStime: t,
+		PeriodEtime: t,
+	}
+	self.worker.genAndInsert(e)
 	return nil
 }
 

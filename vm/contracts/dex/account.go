@@ -3,8 +3,8 @@ package dex
 import (
 	"math/big"
 
-	"github.com/vitelabs/go-vite/common/types"
-	dexProto "github.com/vitelabs/go-vite/vm/contracts/dex/proto"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	dexProto "github.com/vitelabs/go-vite/v2/vm/contracts/dex/proto"
 )
 
 type Account struct {

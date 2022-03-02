@@ -1,8 +1,8 @@
 package client
 
 import (
-	rpc2 "github.com/vitelabs/go-vite/client/rpc"
-	"github.com/vitelabs/go-vite/rpc"
+	rpc2 "github.com/vitelabs/go-vite/v2/client/rpc"
+	"github.com/vitelabs/go-vite/v2/rpc"
 )
 
 type RpcClient interface {

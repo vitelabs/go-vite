@@ -5,6 +5,7 @@
 .PHONY: build_version build
 .PHONY: test
 
+
 GO ?= latest
 
 MAIN_DIR=gvite
@@ -24,8 +25,8 @@ build_version:
 	@echo "const VITE_BUILD_VERSION = "\"$(VITE_VERSION)\" >> $(VITE_VERSION_FILE)
 	@echo "gvite build version is "$(VITE_VERSION)", git commit is "$(VITE_GIT_COMMIT)"."
 
-gvite:
-	GO111MODULE=on go build -i -o $(BUILD_BIN) $(MAIN)
+build:
+	GO111MODULE=on go build -o $(BUILD_BIN) $(MAIN)
 	@echo "Build gvite done."
 	@echo "Run $(BUILD_DIR)/gvite to start gvite."
 
@@ -37,7 +38,7 @@ test:
 	GO111MODULE=on go test ./wallet
 
 build_linux_amd64:
-	env GOOS=linux GO111MODULE=on GOARCH=amd64 go build -i -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/gvite $(MAIN)
+	env GOOS=linux GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/gvite $(MAIN)
 
 	@cp $(shell pwd)/conf/node_config.json $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/node_config.json
 	@cp $(shell pwd)/bin/bootstrap_linux $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/bootstrap
@@ -46,7 +47,7 @@ build_linux_amd64:
 	@echo "Build linux version done."
 
 build_darwin:
-	env GOOS=darwin GO111MODULE=on GOARCH=amd64 go build -i -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-darwin/gvite $(MAIN)
+	env GOOS=darwin GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-darwin/gvite $(MAIN)
 
 	@cp  $(shell pwd)/conf/node_config.json $(BUILD_DIR)/gvite-$(VITE_VERSION)-darwin/node_config.json
 	@ls -d $(BUILD_DIR)/gvite-$(VITE_VERSION)-darwin/gvite
@@ -54,7 +55,7 @@ build_darwin:
 
 
 build_windows:
-	env GOOS=windows GO111MODULE=on GOARCH=amd64 go build -i -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/gvite-windows-amd64.exe $(MAIN)
+	env GOOS=windows GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/gvite-windows-amd64.exe $(MAIN)
 
 	@cp  $(shell pwd)/conf/node_config.json $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/node_config.json
 	@ls -d $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/gvite-windows-amd64.exe
@@ -66,6 +67,8 @@ gvite-darwin: build_version build_darwin
 gvite-linux: build_version build_linux_amd64
 
 gvite-windows: build_version build_windows
+
+gvite: build_version build
 
 all: gvite-windows gvite-darwin gvite-linux
 

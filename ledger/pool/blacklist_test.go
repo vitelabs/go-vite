@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vitelabs/go-vite/common"
+	"github.com/vitelabs/go-vite/v2/common"
 )
 
 func TestBlacklist_AddAddTimeout(t *testing.T) {

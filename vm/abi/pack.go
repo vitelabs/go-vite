@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/helper"
 )
 
 // packBytesSlice packs the given bytes as [L, V] as the canonical representation

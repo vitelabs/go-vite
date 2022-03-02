@@ -7,10 +7,10 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/vitelabs/go-vite/cmd/nodemanager"
-	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/ledger/pipeline"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/cmd/nodemanager"
+	"github.com/vitelabs/go-vite/v2/cmd/utils"
+	"github.com/vitelabs/go-vite/v2/ledger/pipeline"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 var (

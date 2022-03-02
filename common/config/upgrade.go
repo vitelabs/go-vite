@@ -1,6 +1,6 @@
 package config
 
-import "github.com/vitelabs/go-vite/common/upgrade"
+import "github.com/vitelabs/go-vite/v2/common/upgrade"
 
 type Upgrade struct {
 	Level  string

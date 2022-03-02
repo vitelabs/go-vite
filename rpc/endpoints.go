@@ -23,7 +23,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	log "github.com/vitelabs/go-vite/log15"
+	log "github.com/vitelabs/go-vite/v2/log15"
 )
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint, configured with cors/vhosts/modules

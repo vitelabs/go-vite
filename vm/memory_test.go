@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/helper"
 )
 
 func TestMemory(t *testing.T) {

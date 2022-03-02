@@ -8,10 +8,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_file_manager "github.com/vitelabs/go-vite/ledger/chain/file_manager"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_file_manager "github.com/vitelabs/go-vite/v2/ledger/chain/file_manager"
 )
 
 func (c *chain) IsGenesisSnapshotBlock(hash types.Hash) bool {

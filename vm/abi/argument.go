@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/vitelabs/go-vite/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/helper"
 )
 
 // Argument holds the name of the argument and the corresponding type.

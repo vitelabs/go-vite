@@ -3,11 +3,11 @@ package onroad
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/producer/producerevent"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/net"
+	"github.com/vitelabs/go-vite/v2/producer/producerevent"
 )
 
 type mockVite struct {

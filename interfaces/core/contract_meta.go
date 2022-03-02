@@ -1,6 +1,6 @@
 package core
 
-import "github.com/vitelabs/go-vite/common/types"
+import "github.com/vitelabs/go-vite/v2/common/types"
 
 type ContractMeta struct {
 	Gid types.Gid // belong to the consensus group id

@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 type mockHandler struct {

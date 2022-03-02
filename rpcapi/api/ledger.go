@@ -6,12 +6,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 func NewLedgerApi(vite *vite.Vite) *LedgerApi {
@@ -161,6 +161,9 @@ func (l *LedgerApi) GetVmLogListByHash(logHash types.Hash) (ledger.VmLogList, er
 }
 
 func (l *LedgerApi) GetBlocksByHeight(addr types.Address, height interface{}, count uint64) ([]*AccountBlock, error) {
+	if count > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	heightUint64, err := parseHeight(height)
 	if err != nil {
 		return nil, err
@@ -201,6 +204,9 @@ func (l *LedgerApi) GetSnapshotBlockByHeight(height interface{}) (*SnapshotBlock
 }
 
 func (l *LedgerApi) GetSnapshotBlocks(height interface{}, count int) ([]*SnapshotBlock, error) {
+	if count > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	heightUint64, err := parseHeight(height)
 	if err != nil {
 		return nil, err

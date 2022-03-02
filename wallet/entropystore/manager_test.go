@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tyler-smith/go-bip39"
 
-	"github.com/vitelabs/go-vite/common"
-	walleterrors "github.com/vitelabs/go-vite/common/errors"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/wallet/entropystore"
+	"github.com/vitelabs/go-vite/v2/common"
+	walleterrors "github.com/vitelabs/go-vite/v2/common/errors"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/wallet/entropystore"
 )
 
 type testBipTuple struct {

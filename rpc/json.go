@@ -26,7 +26,7 @@ import (
 	"strings"
 	"sync"
 
-	log "github.com/vitelabs/go-vite/log15"
+	log "github.com/vitelabs/go-vite/v2/log15"
 )
 
 const (

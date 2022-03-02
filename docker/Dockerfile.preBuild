@@ -10,9 +10,11 @@ RUN apk update \
 
 RUN apk add --no-cache ca-certificates
 
+WORKDIR /root
+
 COPY build/cmd/gvite/gvite-*-linux/gvite .
+COPY ./conf conf
 COPY ./conf/node_config.json .
-COPY ./docker/docker-gvite .
-RUN mkdir -p /root/.gvite
+
 EXPOSE 8483 8484 48132 41420 8483/udp
-ENTRYPOINT ["/docker-gvite"] 
+ENTRYPOINT ["./gvite"] 

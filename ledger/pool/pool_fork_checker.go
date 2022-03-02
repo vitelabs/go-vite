@@ -5,10 +5,10 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"github.com/vitelabs/go-vite/ledger/pool/tree"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
+	"github.com/vitelabs/go-vite/v2/ledger/pool/tree"
 )
 
 func (pl *pool) checkFork() {

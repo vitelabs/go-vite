@@ -1,8 +1,8 @@
 package chain_cache
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
 func (cache *Cache) GetUnconfirmedBlocks() []*ledger.AccountBlock {

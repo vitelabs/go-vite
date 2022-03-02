@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
 func TestChain_SnapshotBlock(t *testing.T) {

@@ -1,8 +1,8 @@
 package producer
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/producer/producerevent"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/producer/producerevent"
 )
 
 type Producer interface {
@@ -11,4 +11,5 @@ type Producer interface {
 	Start() error
 	Stop() error
 	GetCoinBase() types.Address
+	SnapshotOnce() error
 }

@@ -12,18 +12,17 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/vitelabs/go-vite/cmd/console"
-	"github.com/vitelabs/go-vite/cmd/nodemanager"
-	"github.com/vitelabs/go-vite/cmd/subcmd_attach"
-	"github.com/vitelabs/go-vite/cmd/subcmd_export"
-	"github.com/vitelabs/go-vite/cmd/subcmd_ledger"
-	"github.com/vitelabs/go-vite/cmd/subcmd_loadledger"
-	"github.com/vitelabs/go-vite/cmd/subcmd_plugin_data"
-	"github.com/vitelabs/go-vite/cmd/subcmd_recover"
-	"github.com/vitelabs/go-vite/cmd/subcmd_rpc"
-	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/version"
+	"github.com/vitelabs/go-vite/v2/cmd/nodemanager"
+	"github.com/vitelabs/go-vite/v2/cmd/subcmd_export"
+	"github.com/vitelabs/go-vite/v2/cmd/subcmd_ledger"
+	"github.com/vitelabs/go-vite/v2/cmd/subcmd_loadledger"
+	"github.com/vitelabs/go-vite/v2/cmd/subcmd_plugin_data"
+	"github.com/vitelabs/go-vite/v2/cmd/subcmd_recover"
+	"github.com/vitelabs/go-vite/v2/cmd/subcmd_rpc"
+	"github.com/vitelabs/go-vite/v2/cmd/subcmd_virtualnode"
+	"github.com/vitelabs/go-vite/v2/cmd/utils"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/version"
 )
 
 // gvite is the official command-line client for Vite
@@ -42,7 +41,7 @@ func init() {
 	app.Version = version.VITE_BUILD_VERSION
 	app.Compiled = time.Now()
 	app.Authors = []cli.Author{
-		cli.Author{
+		{
 			Name:  "Vite Labs",
 			Email: "info@vite.org",
 		},
@@ -54,13 +53,13 @@ func init() {
 	app.Commands = []cli.Command{
 		versionCommand,
 		licenseCommand,
-		subcmd_attach.AttachCommand,
 		subcmd_recover.LedgerRecoverCommand,
 		subcmd_export.ExportCommand,
 		subcmd_plugin_data.PluginDataCommand,
 		subcmd_rpc.RpcCommand,
 		subcmd_loadledger.LoadLedgerCommand,
 		subcmd_ledger.QueryLedgerCommand,
+		subcmd_virtualnode.VirtualNodeCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 
@@ -122,9 +121,5 @@ func action(ctx *cli.Context) error {
 }
 
 func afterAction(ctx *cli.Context) error {
-
-	// Resets terminal mode.
-	console.Stdin.Close()
-
 	return nil
 }

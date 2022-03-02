@@ -3,9 +3,9 @@ package consensus
 import (
 	"time"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/ledger/consensus/core"
-	"github.com/vitelabs/go-vite/log15"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
+	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 type dposReader struct {

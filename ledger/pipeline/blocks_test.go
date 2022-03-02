@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/vitelabs/go-vite/interfaces/core"
-	chain_block "github.com/vitelabs/go-vite/ledger/chain/block"
+	"github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_block "github.com/vitelabs/go-vite/v2/ledger/chain/block"
 )
 
 func prepareTestData(t *testing.T, dir string) {

@@ -2,21 +2,22 @@ package api
 
 import (
 	"encoding/hex"
+	"fmt"
 	"sort"
 	"time"
 
-	"github.com/vitelabs/go-vite"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/ledger/consensus"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/vm"
-	"github.com/vitelabs/go-vite/vm/contracts"
-	"github.com/vitelabs/go-vite/vm/contracts/abi"
-	"github.com/vitelabs/go-vite/vm/quota"
-	"github.com/vitelabs/go-vite/vm/util"
-	"github.com/vitelabs/go-vite/vm_db"
+	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/vm"
+	"github.com/vitelabs/go-vite/v2/vm/contracts"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/abi"
+	"github.com/vitelabs/go-vite/v2/vm/quota"
+	"github.com/vitelabs/go-vite/v2/vm/util"
+	"github.com/vitelabs/go-vite/v2/vm_db"
 )
 
 type ContractApi struct {
@@ -136,6 +137,47 @@ func (c *ContractApi) CallOffChainMethod(param CallOffChainMethodParam) ([]byte,
 	return vm.NewVM(nil).OffChainReader(db, codeBytes, param.Data)
 }
 
+type QueryParam struct {
+	Addr              *types.Address `json:"address"`
+	Data              []byte         `json:"data"`
+	Height            *uint64        `json:"height"`
+	SnapshotHash      *types.Hash    `json:"snapshotHash"`
+}
+
+func (c *ContractApi) Query(param QueryParam) ([]byte, error) {
+	var prevHash *types.Hash
+	var err error
+	if param.Height == nil {
+		prevHash, err = getPrevBlockHash(c.chain, *(param.Addr))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		prevHash, err = c.chain.GetAccountBlockHashByHeight(*(param.Addr), *(param.Height))
+		if err != nil {
+			return nil, err
+		}
+	}
+	var snapshotHash *types.Hash
+	if param.SnapshotHash == nil {
+		snapshotHash = &c.chain.GetLatestSnapshotBlock().Hash
+	} else {
+		snapshotHash = param.SnapshotHash
+	}
+
+	db, err := vm_db.NewVmDb(c.chain, param.Addr, snapshotHash, prevHash)
+	if err != nil {
+		return nil, err
+	}
+
+	_, code := util.GetContractCode(db, param.Addr, nil)
+
+	res, err := vm.NewVM(nil).OffChainReader(db, code, param.Data)
+	log.Debug("call contract", "\nparam", param, "\ncode", hex.EncodeToString(code), "\nresult", res)
+
+	return res, err
+}
+
 func (c *ContractApi) GetContractStorage(addr types.Address, prefix string) (map[string]string, error) {
 	var prefixBytes []byte
 	if len(prefix) > 0 {
@@ -213,6 +255,9 @@ func NewStakeInfo(addr types.Address, info *types.StakeInfo, snapshotBlock *ledg
 }
 
 func (p *ContractApi) GetStakeList(address types.Address, pageIndex int, pageSize int) (*StakeInfoList, error) {
+	if pageSize > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	db, err := getVmDb(p.chain, types.AddressQuota)
 	if err != nil {
 		return nil, err
@@ -246,6 +291,9 @@ type StakeInfoListBySearchKey struct {
 }
 
 func (p *ContractApi) GetStakeListBySearchKey(snapshotHash types.Hash, lastKey string, size uint64) (*StakeInfoListBySearchKey, error) {
+	if size > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	lastKeyBytes, err := hex.DecodeString(lastKey)
 	if err != nil {
 		return nil, err
@@ -574,6 +622,9 @@ func (a byName) Less(i, j int) bool {
 }
 
 func (m *ContractApi) GetTokenInfoList(pageIndex int, pageSize int) (*TokenInfoList, error) {
+	if pageSize > 1000 {
+		return nil, fmt.Errorf("count must be less than 1000")
+	}
 	db, err := getVmDb(m.chain, types.AddressAsset)
 	if err != nil {
 		return nil, err

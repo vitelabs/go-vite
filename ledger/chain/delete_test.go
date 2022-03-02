@@ -8,10 +8,10 @@ import (
 	_ "net/http/pprof"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
-	chain_utils "github.com/vitelabs/go-vite/ledger/chain/utils"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
 func TestChain_DeleteSnapshotBlocks(t *testing.T) {

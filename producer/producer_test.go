@@ -5,17 +5,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/common/config"
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/common/upgrade"
-	"github.com/vitelabs/go-vite/ledger/chain"
-	"github.com/vitelabs/go-vite/ledger/consensus"
-	"github.com/vitelabs/go-vite/ledger/pool"
-	"github.com/vitelabs/go-vite/ledger/verifier"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/net"
-	"github.com/vitelabs/go-vite/wallet"
+	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
+	"github.com/vitelabs/go-vite/v2/ledger/chain"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus"
+	"github.com/vitelabs/go-vite/v2/ledger/pool"
+	"github.com/vitelabs/go-vite/v2/ledger/verifier"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/net"
+	"github.com/vitelabs/go-vite/v2/wallet"
 )
 
 var log = log15.New("module", "producerTest")

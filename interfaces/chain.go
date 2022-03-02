@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
 type StorageIterator interface {

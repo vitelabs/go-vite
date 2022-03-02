@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net"
 
-	log "github.com/vitelabs/go-vite/log15"
+	log "github.com/vitelabs/go-vite/v2/log15"
 )
 
 // ServeListener accepts connections on l, serving JSON-RPC on them.

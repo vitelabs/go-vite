@@ -1,6 +1,6 @@
 package chain_plugins
 
-import "github.com/vitelabs/go-vite/common/types"
+import "github.com/vitelabs/go-vite/v2/common/types"
 
 const (
 	OnRoadInfoKeyPrefix = byte(1)

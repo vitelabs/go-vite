@@ -82,9 +82,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/storage"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/storage"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
 )
 
 // These constants are part of the wire format and should not be changed.

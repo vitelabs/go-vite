@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/vitelabs/go-vite/net/vnode"
+	"github.com/vitelabs/go-vite/v2/net/vnode"
 )
 
 func TestExtractEndPoint(t *testing.T) {

@@ -3,7 +3,7 @@ package abi
 import (
 	"strings"
 
-	"github.com/vitelabs/go-vite/vm/abi"
+	"github.com/vitelabs/go-vite/v2/vm/abi"
 )
 
 const (

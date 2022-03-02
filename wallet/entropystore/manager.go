@@ -6,11 +6,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tyler-smith/go-bip39"
 
-	walleterrors "github.com/vitelabs/go-vite/common/errors"
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/crypto/ed25519"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/wallet/hd-bip/derivation"
+	walleterrors "github.com/vitelabs/go-vite/v2/common/errors"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/wallet/hd-bip/derivation"
 )
 
 const (

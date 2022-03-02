@@ -3,14 +3,15 @@
 package rpc
 
 import (
-	"github.com/vitelabs/go-vite/common/types"
-	"github.com/vitelabs/go-vite/rpc"
-	"github.com/vitelabs/go-vite/rpcapi/api"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/rpc"
+	"github.com/vitelabs/go-vite/v2/rpcapi/api"
 )
 
 // ContractApi ...
 type ContractApi interface {
-	CallOffChainMethod(param api.CallOffChainMethodParam) ([]byte, error)
+	CallOffChainMethod(param api.CallOffChainMethodParam) ([]byte, error)  // Deprecated: Use Query() instead
+	Query(param api.QueryParam) ([]byte, error)  // Executes a synchronous call immediately without sending a transaction to the blockchain
 	GetCreateContractData(param api.CreateContractDataParam) ([]byte, error)
 	GetContractStorage(addr types.Address, prefix string) (map[string]string, error)
 	GetContractInfo(addr types.Address) (*api.ContractInfo, error)
@@ -31,6 +32,11 @@ func (ci contractApi) GetCreateContractData(param api.CreateContractDataParam) (
 }
 func (ci contractApi) CallOffChainMethod(param api.CallOffChainMethodParam) (result []byte, err error) {
 	err = ci.cc.Call(&result, "contract_callOffChainMethod", param)
+	return
+}
+
+func (ci contractApi) Query(param api.QueryParam) (result []byte, err error) {
+	err = ci.cc.Call(&result, "contract_query", param)
 	return
 }
 

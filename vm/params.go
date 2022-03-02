@@ -3,8 +3,8 @@ package vm
 import (
 	"math/big"
 
-	"github.com/vitelabs/go-vite/common/helper"
-	"github.com/vitelabs/go-vite/vm/util"
+	"github.com/vitelabs/go-vite/v2/common/helper"
+	"github.com/vitelabs/go-vite/v2/vm/util"
 )
 
 const (

@@ -3,8 +3,8 @@ package vm_db
 import (
 	"fmt"
 
-	"github.com/vitelabs/go-vite/common/types"
-	ledger "github.com/vitelabs/go-vite/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/common/types"
+	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
 func (vdb *vmDb) AddLog(log *ledger.VmLog) {

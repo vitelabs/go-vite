@@ -7,10 +7,10 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
-	"github.com/vitelabs/go-vite/cmd/utils"
-	"github.com/vitelabs/go-vite/common"
-	"github.com/vitelabs/go-vite/log15"
-	"github.com/vitelabs/go-vite/node"
+	"github.com/vitelabs/go-vite/v2/cmd/utils"
+	"github.com/vitelabs/go-vite/v2/common"
+	"github.com/vitelabs/go-vite/v2/log15"
+	"github.com/vitelabs/go-vite/v2/node"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -225,8 +225,8 @@ func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) error {
 
 	err := cfg.ParseFromFile(configFile)
 	if err != nil {
-		log.Error("load node config fail, file: %s", configFile)
-		common.Crit("%v", err)
+		log.Error("load node config fail", "configFile", configFile, "err", err)
+		common.Crit(fmt.Sprintf("%v\n", err))
 	}
 	return nil
 }

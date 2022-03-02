@@ -27,7 +27,7 @@ import (
 	_ "net/http/pprof"
 	"testing"
 
-	"github.com/vitelabs/go-vite/common/types"
+	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 func TestFilter_record(t *testing.T) {

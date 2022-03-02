@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/vitelabs/go-vite/rpc"
+	"github.com/vitelabs/go-vite/v2/rpc"
 )
 
 // In this example, our client whishes to track the latest 'block number'

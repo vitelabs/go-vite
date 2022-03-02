@@ -7,11 +7,11 @@
 package leveldb
 
 import (
-	"github.com/vitelabs/go-vite/common/db/xleveldb/errors"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/iterator"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/opt"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/storage"
-	"github.com/vitelabs/go-vite/common/db/xleveldb/util"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/iterator"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/opt"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/storage"
+	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
 )
 
 // Reader is the interface that wraps basic Get and NewIterator methods.
