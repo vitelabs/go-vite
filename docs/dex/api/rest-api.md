@@ -6,10 +6,10 @@ order: 1
 
 :::tip Update Logs
 2020-04-30
-- New v2 version ViteX API is released. The current v1 API is deprecated and will stop service after May 15, 2020. Please kindly upgrade your client ASAP.
+- New v2 version ViteX API is released. The current v1 API is deprecated and service stops after May 15, 2020. Please kindly upgrade your client ASAP.
 - Success message changed from `Success` to `ok` in response.
-- Order query API (`/api/v2/order`, `/api/v2/orders`) changed to public and require no more authorization. New order query API will accept an address parameter.
-- Balance query API (`/api/v2/balance`) changed to public and require no more authorization. 
+- Order query API (`/api/v2/order`, `/api/v2/orders`) changed to public and require no more authorization. New order query API to accept an address parameter.
+- Balance query API (`/api/v2/balance`) changed to public and no more authorization is required. 
 - `/markets`, `/ticker/24hr`, `/ticker/bookTicker` changed.
 :::
 
