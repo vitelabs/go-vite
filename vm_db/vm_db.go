@@ -2,7 +2,6 @@ package vm_db
 
 import (
 	"errors"
-
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
@@ -25,8 +24,7 @@ type vmDb struct {
 	prevAccountBlock     *ledger.AccountBlock // for cache
 
 	callDepth *uint16 // for cache
-
-	executionContext []byte // execution context for sync calls
+	executionContext  map[*types.Hash]*ledger.ExecutionContext // for cache
 }
 
 func NewVmDb(chain Chain, address *types.Address, latestSnapshotBlockHash *types.Hash, prevAccountBlockHash *types.Hash) (*vmDb, error) {
@@ -45,6 +43,8 @@ func NewVmDb(chain Chain, address *types.Address, latestSnapshotBlockHash *types
 
 		latestSnapshotBlockHash: latestSnapshotBlockHash,
 		prevAccountBlockHash:    prevAccountBlockHash,
+
+		executionContext: make(map[*types.Hash]*ledger.ExecutionContext),
 	}, nil
 }
 
@@ -71,6 +71,7 @@ func NewVmDbByAddr(chain Chain, address *types.Address) *vmDb {
 	return &vmDb{
 		chain:   chain,
 		address: address,
+		executionContext: make(map[*types.Hash]*ledger.ExecutionContext),
 	}
 }
 
@@ -78,5 +79,6 @@ func NewGenesisVmDB(address *types.Address) *vmDb {
 	return &vmDb{
 		address:   address,
 		isGenesis: true,
+		executionContext: make(map[*types.Hash]*ledger.ExecutionContext),
 	}
 }

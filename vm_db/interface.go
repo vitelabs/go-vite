@@ -49,6 +49,8 @@ type Chain interface {
 
 	GetCallDepth(sendBlockHash types.Hash) (uint16, error)
 
+	GetExecutionContext(sendBlockHash *types.Hash) (*core.ExecutionContext, error)
+
 	GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
 
 	GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)

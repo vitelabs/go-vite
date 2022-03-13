@@ -113,6 +113,9 @@ type Chain interface {
 	// get call depth
 	GetCallDepth(sendBlock types.Hash) (uint16, error)
 
+	// get execution context
+	GetExecutionContext(blockHash *types.Hash) (*ledger.ExecutionContext, error)
+
 	// judge the account block is confirmed by the N or more than N snapshot blocks with seed
 	IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, error)
 

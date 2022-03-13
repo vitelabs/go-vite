@@ -112,16 +112,21 @@ func (sDB *StateDB) Write(block *interfaces.VmAccountBlock) error {
 		}
 	}
 
-	// write execution context
-	blockType := accountBlock.BlockType
-	if blockType == ledger.BlockTypeSendSyncCall || blockType == ledger.BlockTypeSendCallback || blockType == ledger.BlockTypeSendFailureCallback {
-		context := accountBlock.ExecutionContext
-		if context != nil {
-			key := chain_utils.CreateExecutionContextKey(accountBlock.Hash)
-			value, err := context.Serialize()
-			if err == nil {
-				redoLog.ExecutionContext = map[types.Hash][]byte{accountBlock.Hash: value}
-				batch.Put(key.Bytes(), value)
+	// write execution context for triggered blocks
+	if accountBlock.IsReceiveBlock() && len(accountBlock.SendBlockList) > 0 {
+		for _, sendBlock := range accountBlock.SendBlockList {
+			blockType := sendBlock.BlockType
+			if blockType == ledger.BlockTypeSendSyncCall || blockType == ledger.BlockTypeSendCallback || blockType == ledger.BlockTypeSendFailureCallback {
+				context, err := vmDb.GetExecutionContext(&sendBlock.Hash)
+				sDB.log.Debug("write execution context", "error", err, "\ncontext", context)
+				if err == nil && context != nil {
+					key := chain_utils.CreateExecutionContextKey(sendBlock.Hash)
+					value, err := context.Serialize()
+					if err == nil {
+						redoLog.ExecutionContext = map[types.Hash][]byte{sendBlock.Hash: value}
+						batch.Put(key.Bytes(), value)
+					}
+				}
 			}
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -640,7 +641,7 @@ func TestVmInterpreter(t *testing.T) {
 					if checkLogListResult := checkLogList(testCase.LogList, db.logList); checkLogListResult != "" {
 						t.Fatalf("%v: %v failed, log list error, %v", testFile.Name(), k, checkLogListResult)
 					}
-				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vm.sendBlockList); checkSendBlockListResult != "" {
+				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vm.sendBlockList, c.db); checkSendBlockListResult != "" {
 					t.Fatalf("%v: %v failed, send block list error, %v", testFile.Name(), k, checkSendBlockListResult)
 				}
 			}
@@ -689,7 +690,7 @@ func checkStorage(got *memoryDatabase, expected map[string]string) string {
 	return ""
 }
 
-func checkSendBlockList(expected []*TestCaseSendBlock, got []*ledger.AccountBlock) string {
+func checkSendBlockList(expected []*TestCaseSendBlock, got []*ledger.AccountBlock, vmDb interfaces.VmDb) string {
 	if len(got) != len(expected) {
 		return "expected len " + strconv.Itoa(len(expected)) + ", got len " + strconv.Itoa(len(got))
 	}
@@ -705,10 +706,11 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*ledger.AccountBloc
 			return strconv.Itoa(i) + "th, expected tokenId " + expectedSendBlock.TokenID.String() + ", got tokenId " + gotSendBlock.TokenId.String()
 		} else if gotData := hex.EncodeToString(gotSendBlock.Data); gotData != expectedSendBlock.Data {
 			return strconv.Itoa(i) + "th, expected data " + expectedSendBlock.Data + ", got data " + gotData
-		} else if gotSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
-			gotContext, _ := gotSendBlock.ExecutionContext.Serialize()
-			if hex.EncodeToString(gotContext) != expectedSendBlock.ExecutionContext {
-				return strconv.Itoa(i) + "th, expected execution context " + expectedSendBlock.ExecutionContext + ", got " + hex.EncodeToString(gotContext)
+		} else if gotSendBlock.BlockType == ledger.BlockTypeSendSyncCall || gotSendBlock.BlockType == ledger.BlockTypeSendCallback || gotSendBlock.BlockType == ledger.BlockTypeSendFailureCallback {
+			gotContext, _ :=  vmDb.GetExecutionContext(&gotSendBlock.Hash)
+			contextBytes, _ := gotContext.Serialize()
+			if hex.EncodeToString(contextBytes) != expectedSendBlock.ExecutionContext {
+				return strconv.Itoa(i) + "th, expected execution context " + expectedSendBlock.ExecutionContext + ", got " + hex.EncodeToString(contextBytes)
 			}
 		}
 	}

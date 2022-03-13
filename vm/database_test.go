@@ -181,6 +181,14 @@ func (db *testDatabase) GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList
 func (db *testDatabase) GetLogList() ledger.VmLogList {
 	return db.logList
 }
+
+func (db *testDatabase) GetExecutionContext(*types.Hash) (*ledger.ExecutionContext, error) {
+	return nil, nil
+}
+
+func (db *testDatabase) SetExecutionContext(blockHash *types.Hash, context *ledger.ExecutionContext) {
+}
+
 func (db *testDatabase) GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.SnapshotBlock, error) {
 	return db.LatestSnapshotBlock()
 }

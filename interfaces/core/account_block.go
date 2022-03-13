@@ -65,8 +65,6 @@ type AccountBlock struct {
 	SendBlockList []*AccountBlock `json:"sendBlockList"` // 13
 
 	Signature []byte `json:"signature"`
-
-	ExecutionContext *ExecutionContext // private field
 }
 
 func (ab *AccountBlock) Copy() *AccountBlock {

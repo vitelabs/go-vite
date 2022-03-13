@@ -197,8 +197,10 @@ func (vm *VM) RunV2(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *l
 		nodeConfig.log.Info("vm run start",
 			"blockType", block.BlockType,
 			"address", block.AccountAddress.String(),
-			"height", block.Height, ""+
-				"fromHash", block.FromBlockHash.String())
+			"height", block.Height,
+			"fromHash", block.FromBlockHash.String(),
+			"\nblock", block,
+			"\nsend", sendBlock)
 	}
 	sb, err := db.LatestSnapshotBlock()
 	util.DealWithErr(err)
@@ -220,10 +222,11 @@ func (vm *VM) RunV2(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *l
 			vmAccountBlock, err = vm.sendCreate(db, blockCopy, true, quotaTotal, quotaAddition)
 			return vmAccountBlock, noRetry, err
 		}
-		if blockCopy.BlockType == ledger.BlockTypeSendCall ||
-			blockCopy.BlockType == ledger.BlockTypeSendSyncCall ||
-			blockCopy.BlockType == ledger.BlockTypeSendCallback ||
-			blockCopy.BlockType == ledger.BlockTypeSendFailureCallback {
+		blockType := blockCopy.BlockType
+		if blockType == ledger.BlockTypeSendCall ||
+			blockType == ledger.BlockTypeSendSyncCall ||
+			blockType == ledger.BlockTypeSendCallback ||
+			blockType == ledger.BlockTypeSendFailureCallback {
 			quotaTotal, quotaAddition, err := quota.GetQuotaForBlock(
 				db,
 				blockCopy.AccountAddress,
@@ -733,8 +736,11 @@ func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock 
 			originSendBlock = vm.vmContext.originSendBlock
 		}
 
-		if originSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
-			callback := originSendBlock.ExecutionContext.CallbackId
+		// load execution context
+		originContext, err := db.GetExecutionContext(&originSendBlock.Hash)
+
+		if err == nil && originSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
+			callback := originContext.CallbackId
 			var data []byte
 			// append callback id
 			data = append(data, callback.FillBytes(make([]byte, 4))...)
@@ -754,7 +760,9 @@ func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock 
 			executionContext := ledger.ExecutionContext{
 				ReferrerSendHash: originSendBlock.Hash,
 			}
-			triggeredBlock.ExecutionContext = &executionContext
+
+			// save execution context
+			db.SetExecutionContext(&triggeredBlock.Hash, &executionContext)
 
 			nodeConfig.log.Debug("failure callback",
 				"\nfrom", sendBlock.AccountAddress.String(),
@@ -973,9 +981,9 @@ func (vm *VM) OffChainReader(db interfaces.VmDb, code []byte, data []byte) (resu
 
 // GetAccountBlockByHash query a block by its hash
 func (vm *VM) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
-	nodeConfig.log.Info("GlobalStatus.GetAccountBlockByHash()", "blockHash", blockHash)
+	nodeConfig.log.Debug("GlobalStatus.GetAccountBlockByHash()", "blockHash", blockHash)
 	block, err := vm.chain.GetAccountBlockByHash(blockHash)
-	nodeConfig.log.Info("GlobalStatus.GetAccountBlockByHash() return", "block", block)
+	nodeConfig.log.Debug("GlobalStatus.GetAccountBlockByHash() return", "block", block)
 	return block, err
 }
 

@@ -62,6 +62,10 @@ type VmDb interface {
 	GetHistoryLogList(logHash *types.Hash) (core.VmLogList, error)
 	GetLogListHash() *types.Hash
 
+	// ====== ExecutionContext ======
+	GetExecutionContext(blockHash *types.Hash) (*core.ExecutionContext, error)
+	SetExecutionContext(blockHash *types.Hash, context *core.ExecutionContext)
+
 	// ====== AccountBlock ======
 	GetUnconfirmedBlocks(address types.Address) []*core.AccountBlock
 

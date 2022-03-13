@@ -150,14 +150,6 @@ func TestVM_RunV2(t *testing.T) {
 					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "data", testCase.Data)
 				}
 			}
-			if len(testCase.ExecutionContext) > 0 {
-				buf, parseErr := hex.DecodeString(testCase.ExecutionContext)
-				sendBlock.ExecutionContext = &ledger.ExecutionContext{}
-				sendBlock.ExecutionContext.Deserialize(buf)
-				if parseErr != nil {
-					t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "execution context", testCase.ExecutionContext)
-				}
-			}
 
 			if ledger.IsSendBlock(testCase.BlockType) {
 				prevBlock := &ledger.AccountBlock{
@@ -227,6 +219,17 @@ func TestVM_RunV2(t *testing.T) {
 				if testCase.NeedGlobalStatus {
 					status = NewTestGlobalStatus(0, latestSnapshotBlock)
 				}
+				if len(testCase.ExecutionContext) > 0 {
+					buf, parseErr := hex.DecodeString(testCase.ExecutionContext)
+					ec := &ledger.ExecutionContext{}
+					ec.Deserialize(buf)
+
+					db.SetExecutionContext(&sendBlock.Hash, ec)
+
+					if parseErr != nil {
+						t.Fatal("invalid test case data", "filename", testFile.Name(), "caseName", k, "execution context", testCase.ExecutionContext)
+					}
+				}
 				vmBlock, isRetry, err = vm.RunV2(db, receiveBlock, sendBlock, status)
 			} else {
 				t.Fatal("invalid test case block type", "filename:", testFile.Name(), "caseName:", k, "blockType", testCase.BlockType)
@@ -250,7 +253,7 @@ func TestVM_RunV2(t *testing.T) {
 					t.Fatal("invalid test case run result, balanceMap", "filename", testFile.Name(), "caseName", k, checkBalanceResult)
 				} else if checkStorageResult := checkStorageMap(testCase.Storage, db.getStorageMap()); len(checkStorageResult) > 0 {
 					t.Fatal("invalid test case run result, storageMap", "filename", testFile.Name(), "caseName", k, checkStorageResult)
-				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vmBlock.AccountBlock.SendBlockList); len(checkSendBlockListResult) > 0 {
+				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vmBlock.AccountBlock.SendBlockList, vmBlock.VmDb); len(checkSendBlockListResult) > 0 {
 					t.Fatal("invalid test case run result, sendBlockList", "filename", testFile.Name(), "caseName", k, checkSendBlockListResult)
 				} else if checkLogListResult := checkLogList(testCase.LogList, db.logList); len(checkLogListResult) > 0 {
 					t.Fatal("invalid test case run result, logList", "filename", testFile.Name(), "caseName", k, checkLogListResult)

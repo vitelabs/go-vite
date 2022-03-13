@@ -183,6 +183,13 @@ func (db *memoryDatabase) GetCallDepth(hash *types.Hash) (uint16, error) {
 func (db *memoryDatabase) SetCallDepth(uint16) {
 }
 
+func (db *memoryDatabase) GetExecutionContext(*types.Hash) (*ledger.ExecutionContext, error) {
+	return nil, nil
+}
+
+func (db *memoryDatabase) SetExecutionContext(blockHash *types.Hash, context *ledger.ExecutionContext) {
+}
+
 func (db *memoryDatabase) GetUnsavedCallDepth() uint16 {
 	return 0
 }

@@ -158,6 +158,21 @@ func (c *chain) GetVmLogList(logListHash *types.Hash) (ledger.VmLogList, error) 
 	return logList, nil
 }
 
+func (c *chain) GetExecutionContext(blockHash *types.Hash) (*ledger.ExecutionContext, error) {
+	if blockHash == nil || blockHash.IsZero() {
+		return nil, nil
+	}
+	executionContext, err := c.stateDB.GetExecutionContext(blockHash)
+	if err != nil {
+		cErr := fmt.Errorf("c.stateDB.GetExecutionContext failed, hash is %s. Error: %s",
+			blockHash, err.Error())
+		c.log.Error(cErr.Error(), "method", "GetExecutionContext")
+		return nil, cErr
+	}
+	c.log.Debug("GetExecutionContext", "hash", blockHash, "\nresult", executionContext)
+	return executionContext, nil
+}
+
 // GetVmLogListByAddress query && vmLogs filter  [start,end]
 func (c *chain) GetVMLogListByAddress(address types.Address, start uint64, end uint64, id *types.Hash) (ledger.VmLogList, error) {
 	if !types.IsContractAddr(address) {

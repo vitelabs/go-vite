@@ -30,6 +30,7 @@ type mockDB struct {
 	logList                []*ledger.VmLog
 	code                   []byte
 	genesisBlock           *ledger.SnapshotBlock
+	executionContext  	   map[*types.Hash]*ledger.ExecutionContext
 }
 
 func NewMockDB(addr *types.Address,
@@ -54,6 +55,7 @@ func NewMockDB(addr *types.Address,
 		contractMetaMap:        make(map[types.Address]*ledger.ContractMeta),
 		code:                   code,
 		forkSnapshotBlockMap:   snapshotBlockMap,
+		executionContext:       make(map[*types.Hash]*ledger.ExecutionContext),
 	}
 	balanceMapCopy := make(map[types.TokenTypeId]*big.Int)
 	for tid, amount := range balanceMap {
@@ -108,6 +110,15 @@ func (db *mockDB) GetLatestAccountBlock(addr types.Address) (*ledger.AccountBloc
 func (db *mockDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return 0, nil
 }
+
+func (db *mockDB) GetExecutionContext(blockHash *types.Hash) (*ledger.ExecutionContext, error) {
+	return db.executionContext[blockHash], nil
+}
+
+func (db *mockDB) SetExecutionContext(blockHash *types.Hash, context *ledger.ExecutionContext) {
+	db.executionContext[blockHash] = context
+}
+
 func (db *mockDB) GetQuotaUsedList(addr types.Address) []types.QuotaInfo {
 	if addr != *db.currentAddr {
 		return nil

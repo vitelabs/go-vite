@@ -928,7 +928,7 @@ func opSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]b
 		tokenID,
 		calldata)
 
-	triggeredBlock.ExecutionContext = executionContext
+	c.db.SetExecutionContext(&triggeredBlock.Hash, executionContext)
 
 	vm.AppendBlock(triggeredBlock)
 
@@ -943,9 +943,15 @@ func opOffchainSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *sta
 func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	sendType := c.sendBlock.BlockType
 	if sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
-		syncCallSendHash := c.sendBlock.ExecutionContext.ReferrerSendHash
+		context, err := c.db.GetExecutionContext(&c.sendBlock.Hash)
+		if err != nil {
+			nodeConfig.log.Error("opCallbackDest: GetExecutionContext fails", "error", err)
+			return nil, err
+		}
+		syncCallSendHash := context.ReferrerSendHash
 		syncCallSendBlock, err := vm.GetAccountBlockByHash(syncCallSendHash)
 		if err != nil {
+			nodeConfig.log.Error("opCallbackDest: GetAccountBlockByHash fails", "error", err)
 			return nil, err
 		}
 
@@ -954,10 +960,17 @@ func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 			return nil, errors.New("the callback transaction references an invalid send block")
 		}
 
+		syncCallContext, err := c.db.GetExecutionContext(&syncCallSendHash)
+		if err != nil {
+			nodeConfig.log.Error("opCallbackDest: GetExecutionContext of send fails", "error", err)
+			return nil, err
+		}
+
 		// get origin send block
-		originSendHash := syncCallSendBlock.ExecutionContext.ReferrerSendHash
+		originSendHash := syncCallContext.ReferrerSendHash
 		originSendBlock, err := vm.GetAccountBlockByHash(originSendHash)
 		if err != nil {
+			nodeConfig.log.Error("opCallbackDest: GetAccountBlockByHash fails when get origin", "error", err)
 			return nil, err
 		}
 
@@ -970,7 +983,7 @@ func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 		vm.vmContext.originSendBlock = originSendBlock
 
 		// restore stack
-		stackDump := syncCallSendBlock.ExecutionContext.Stack
+		stackDump := syncCallContext.Stack
 
 		for i := 0; i < len(stackDump); i++ {
 			stackItem := stackDump[i]
@@ -987,7 +1000,7 @@ func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 		}
 
 		// restore memory
-		memoryDump := syncCallSendBlock.ExecutionContext.Memory
+		memoryDump := syncCallContext.Memory
 		size := uint64(len(memoryDump))
 		mem.resize(size)
 		mem.set(0, size, memoryDump)
@@ -998,7 +1011,7 @@ func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 			"\nsend block", c.sendBlock,
 			"\nsyncCallSendHash", syncCallSendHash,
 			"\noriginSendBlock", originSendBlock,
-			"\ncontext", *syncCallSendBlock.ExecutionContext,
+			"\ncontext", *syncCallContext,
 			"\ncurrent stack", stack.print(),
 			"\nstack dump", stackDump)
 	}
@@ -1036,7 +1049,13 @@ func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 		}
 
 		if originSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
-			callback := originSendBlock.ExecutionContext.CallbackId
+			// load execution context
+			originContext, err := c.db.GetExecutionContext(&originSendBlock.Hash)
+			if err != nil {
+				nodeConfig.log.Error("opReturn: GetExecutionContext fails", "error", err)
+				return nil, err
+			}
+			callback := originContext.CallbackId
 			var data []byte
 			// append callback id
 			data = append(data, callback.FillBytes(make([]byte, 4))...)
@@ -1054,7 +1073,10 @@ func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 			executionContext := ledger.ExecutionContext{
 				ReferrerSendHash: originSendBlock.Hash,
 			}
-			triggeredBlock.ExecutionContext = &executionContext
+
+			// save execution context
+			c.db.SetExecutionContext(&triggeredBlock.Hash, &executionContext)
+
 			// send callback transaction
 			vm.AppendBlock(triggeredBlock)
 
