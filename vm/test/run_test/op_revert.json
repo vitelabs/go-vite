@@ -1,6 +1,6 @@
 {
   "revert": {
-    "sbHeight": 500,
+    "sbHeight": 1100,
     "blockType": 4,
     "sendBlockType": 2,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
@@ -28,7 +28,7 @@
     ]
   },
   "revert_with_refund": {
-    "sbHeight": 500,
+    "sbHeight": 1100,
     "blockType": 4,
     "sendBlockType": 2,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
@@ -63,7 +63,7 @@
     ]
   },
   "revert_in_sync_call_with_refund": {
-    "sbHeight": 500,
+    "sbHeight": 1100,
     "blockType": 4,
     "sendBlockType": 8,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",

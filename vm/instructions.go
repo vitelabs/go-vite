@@ -378,6 +378,12 @@ func opOffchainBalance(pc *uint64, vm *VM, c *contract, mem *memory, stack *stac
 }
 
 func opCaller(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.Get().SetBytes(c.sendBlock.AccountAddress.Bytes()))
+	return nil, nil
+}
+
+// VEP19
+func opCallerV2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	var originSendBlock *ledger.AccountBlock
 	if vm.vmContext.originSendBlock == nil {
 		originSendBlock = c.sendBlock
@@ -470,6 +476,12 @@ func opExtCodeCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) (
 }
 
 func opReturnDataSize(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	stack.push(c.intPool.Get().SetUint64(uint64(len(c.returnData))))
+	return nil, nil
+}
+
+// VEP19
+func opReturnDataSizeV2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	var size = 0
 	if c.returnData != nil {
 		// the last call is a delegate call
@@ -491,6 +503,25 @@ func opReturnDataSize(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack
 }
 
 func opReturnDataCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	var (
+		memOffset  = stack.pop()
+		dataOffset = stack.pop()
+		length     = stack.pop()
+
+		end = c.intPool.Get().Add(dataOffset, length)
+	)
+	defer c.intPool.Put(memOffset, dataOffset, length, end)
+
+	if end.BitLen() > 64 || uint64(len(c.returnData)) < end.Uint64() {
+		return nil, util.ErrReturnDataOutOfBounds
+	}
+	mem.set(memOffset.Uint64(), length.Uint64(), c.returnData[dataOffset.Uint64():end.Uint64()])
+
+	return nil, nil
+}
+
+// VEP19
+func opReturnDataCopyV2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	var (
 		memOffset  = stack.pop()
 		dataOffset = stack.pop()
@@ -828,6 +859,7 @@ func makeOffchainLog(size int) executionFunc {
 	}
 }
 
+// VEP19
 func opDelegateCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	addrBig, inOffset, inSize, outOffset, outSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
 	contractAddress, _ := types.BigToAddress(addrBig)
@@ -883,6 +915,7 @@ func opOffchainCall2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack)
 	return nil, nil
 }
 
+// VEP19
 func opSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	callback, toAddrBig, tokenIDBig, amount, inOffset, inSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
 	toAddress, _ := types.BigToAddress(toAddrBig)
@@ -935,11 +968,13 @@ func opSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]b
 	return nil, nil
 }
 
+// VEP19
 func opOffchainSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	c.intPool.Put(stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop())
 	return nil, nil
 }
 
+// VEP19
 func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	sendType := c.sendBlock.BlockType
 	if sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
@@ -1019,6 +1054,7 @@ func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) 
 	return nil, nil
 }
 
+// VEP19
 func opOffchainCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	// it should not appear in offchain code, push false to stop executing
 	stack.push(c.intPool.GetZero())
@@ -1032,6 +1068,15 @@ func opOrigin(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 }
 
 func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	offset, size := stack.pop(), stack.pop()
+	ret := mem.getPtr(offset.Int64(), size.Int64())
+
+	c.intPool.Put(offset, size)
+	return ret, nil
+}
+
+// VEP19
+func opReturnV2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	offset, size := stack.pop(), stack.pop()
 	ret := mem.getPtr(offset.Int64(), size.Int64())
 	c.intPool.Put(offset, size)
@@ -1093,6 +1138,7 @@ func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 	return ret, nil
 }
 
+// VEP19
 func opOffchainReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	offset, size := stack.pop(), stack.pop()
 	ret := mem.getPtr(offset.Int64(), size.Int64())

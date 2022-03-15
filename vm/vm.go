@@ -725,9 +725,9 @@ func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock 
 		refundFlag = true
 	}
 
-	// trigger a failure callback transaction
+	// VEP19: trigger a failure callback transaction
 	sendType := sendBlock.BlockType
-	if sendType == ledger.BlockTypeSendSyncCall || sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
+	if upgrade.IsVersion11Upgrade(vm.latestSnapshotHeight) && (sendType == ledger.BlockTypeSendSyncCall || sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback) {
 		var originSendBlock *ledger.AccountBlock
 		// get the send-block of the original call
 		if vm.vmContext.originSendBlock == nil {
@@ -875,6 +875,7 @@ func (vm *VM) receiveRefund(db interfaces.VmDb, block *ledger.AccountBlock, send
 	return &interfaces.VmAccountBlock{block, db}, noRetry, nil
 }
 
+// VEP19
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
 	_, code := util.GetContractCode(c.db, &contractAddr, vm.globalStatus)
 	if len(code) > 0 {
@@ -883,12 +884,12 @@ func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract)
 		ret, err = cNew.run(vm)
 		c.quotaLeft = cNew.quotaLeft
 		if ret == nil {
-			// return an empty array instead of nil, let the caller know that it's from a delegate call (with no data returned)
+			// return an empty array instead of nil, let the caller know that it's from a delegate call (without data returned)
 			ret = make([]byte, 0)
 		}
 		return ret, err
 	}
-	// return an empty array instead of nil, let the caller know that it's from a delegate call (with no data returned)
+	// return an empty array instead of nil, let the caller know that it's from a delegate call (without data returned)
 	return make([]byte, 0), nil
 }
 

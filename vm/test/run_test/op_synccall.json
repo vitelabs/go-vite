@@ -1,6 +1,6 @@
 {
   "synccall": {
-    "sbHeight": 500,
+    "sbHeight": 1100,
     "blockType": 4,
     "sendBlockType": 2,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
@@ -36,7 +36,7 @@
     ]
   },
   "synccall_forward_origin_hash": {
-    "sbHeight": 500,
+    "sbHeight": 1100,
     "blockType": 4,
     "sendBlockType": 8,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
@@ -71,7 +71,7 @@
     ]
   },
   "synccall_dump_stack": {
-    "sbHeight": 500,
+    "sbHeight": 1100,
     "blockType": 4,
     "sendBlockType": 2,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
@@ -107,7 +107,7 @@
     ]
   },
   "synccall_dump_stack_with_long_item": {
-    "sbHeight": 500,
+    "sbHeight": 1100,
     "blockType": 4,
     "sendBlockType": 2,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
@@ -143,7 +143,7 @@
     ]
   },
   "synccall_dump_memory": {
-    "sbHeight": 500,
+    "sbHeight": 1100,
     "blockType": 4,
     "sendBlockType": 2,
     "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",

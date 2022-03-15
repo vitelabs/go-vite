@@ -62,6 +62,8 @@ func initCustomFork(t *testing.T) {
 			"DexMiningFork":       &upgrade.UpgradePoint{Height: 600, Version: 7},
 			"DexRobotFork":        &upgrade.UpgradePoint{Height: 600, Version: 8},
 			"DexStableMarketFork": &upgrade.UpgradePoint{Height: 600, Version: 9},
+			"Version10Fork": 	   &upgrade.UpgradePoint{Height: 1000, Version: 10},
+			"VEP19Fork": 		   &upgrade.UpgradePoint{Height: 1100, Version: 11},
 		},
 	))
 }

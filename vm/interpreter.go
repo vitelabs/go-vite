@@ -19,24 +19,37 @@ var (
 	offchainRandInterpreter   = &interpreter{offchainRandInstructionSet}
 	earthInterpreter          = &interpreter{earthInstructionSet}
 	offchainEarthInterpreter  = &interpreter{offchainEarthInstructionSet}
+	vep19Interpreter          = &interpreter{vep19InstructionsSet}
+	offchainVep19Interpreter  = &interpreter{offchainVep19InstructionSet}
 )
 
 func newInterpreter(blockHeight uint64, offChain bool) *interpreter {
+	// introduce VEP19 in Version11 upgrade
+	if upgrade.IsVersion11Upgrade(blockHeight) {
+		if offChain {
+			return offchainVep19Interpreter
+		}
+		nodeConfig.log.Debug("New interpreter on Version11 Fork", "height", blockHeight)
+		return vep19Interpreter
+	}
 	if upgrade.IsEarthUpgrade(blockHeight) {
 		if offChain {
 			return offchainEarthInterpreter
 		}
+		nodeConfig.log.Debug("New interpreter on Earth Fork", "height", blockHeight)
 		return earthInterpreter
 	}
 	if upgrade.IsSeedUpgrade(blockHeight) {
 		if offChain {
 			return offchainRandInterpreter
 		}
+		nodeConfig.log.Debug("New interpreter on Seed Fork", "height", blockHeight)
 		return randInterpreter
 	}
 	if offChain {
 		return offchainSimpleInterpreter
 	}
+	nodeConfig.log.Debug("New interpreter on init Fork", "height", blockHeight)
 	return simpleInterpreter
 }
 
