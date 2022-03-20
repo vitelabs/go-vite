@@ -42,7 +42,6 @@ vite/net/simular/genesis.go
 
 # node.js
 node_modules
-docs/.vuepress/dist
 *.log
 package-lock.json
 sw.*

@@ -18,7 +18,7 @@ var (
 		ArgsUsage:   "gvite rpc [endpoint] methodName '[args]'",
 		Flags:       append(utils.ConsoleFlags, utils.DataDirFlag),
 		Category:    "REMOTE COMMANDS",
-		Description: `For details, see <https://docs.vite.org/go-vite/api/rpc>`,
+		Description: `For details, see <https://docs.vite.org/vite-docs/api/rpc>`,
 	}
 )
 

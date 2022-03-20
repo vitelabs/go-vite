@@ -22,8 +22,8 @@ The go-vite binary files can be download from [releases](https://github.com/vite
 
 ## Guides & Documentation
    * [White Paper](https://github.com/vitelabs/whitepaper/blob/master/vite_en.pdf)
-   * [Documentation](https://docs.vite.org/go-vite/)
-   * [Techblog](https://docs.vite.org/go-vite/articles/)
+   * [Documentation](https://docs.vite.org)
+   * [Techblog](https://docs.vite.org/vite-docs/articles/)
    * [Runing a node](https://vite.wiki/tutorial/node/install.html)
    
 
@@ -50,9 +50,9 @@ The go-vite binary files can be download from [releases](https://github.com/vite
 
 You can choose one of the following installation options:
 
-- [Install from binary](https://docs.vite.org/go-vite/tutorial/node/install.html#install-from-binary)
+- [Install from binary](https://docs.vite.org/vite-docs/tutorial/node/install.html#install-from-binary)
 
-- [Install from source](https://docs.vite.org/go-vite/tutorial/node/install.html#install-from-source)
+- [Install from source](https://docs.vite.org/vite-docs/tutorial/node/install.html#install-from-source)
 
 ### Faster ledger sync
 
