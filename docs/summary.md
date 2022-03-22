@@ -1,5 +1,22 @@
 # go-vite summary
 
+<div align="center">
+    <img src="https://github.com/vitelabs/doc.vite.org/blob/master/docs/.vuepress/public/logo_black.svg" alt="Logo" width='300px' height='auto'/>
+</div>
+
+<br />
+
+[Vite](https://vite.org) is a next-generation Reactive Blockchain that adopts a _message-driven, asynchronous architecture and a DAG-based ledger_.
+The goal for Vite's design is to _provide a reliable public platform for industrial dApps_, with features of ultra-high throughput and scalability.
+
+As a result of the underlying data structure of the protocol being a directed acyclic graph (DAG), the block is divided into two parts, the account block and the snapshot block. If you make an analogy with ETH:
+
+* send account block is similar to ETH's transaction
+* receive account block similar to ETH's receipt
+* snapshot block is similar to ETH's block
+
+The user signs the account block to change the state in the account, and the account block height of a single account is connected with this to form an account chain. The height on the account block is equivalent to the nonce of each account in ETH, which represents the height of the account chain. In terms of data structure, a big difference from ETH is that both the send block and the receive block change the height of the account chain, and the account block of Vite exists in the form of a linked list, and each block refers to the hash of the previous block.
+
 Table of Content:
 * [Directories & packages](#directories)
   * [client](#directories_client)
@@ -20,6 +37,10 @@ Table of Content:
   * [vm_db](#directories_vm_db)
   * [vm](#directories_vm)
   * [wallet](#directories_wallet)
+* [Data flow examples](#examples)
+  * [User sends a transfer transaction](#examples_1)
+  * [Generate a receive block for a contract](#examples_2)
+  * [SBP generates a snapshot block](#examples_3)
 * [Appendix](#appendix)
   * [Setup goplantuml](#goplantuml)
   * [Other visualization tools](#visualization)
@@ -205,6 +226,74 @@ the realization of virtual machine and the realization of built-in contract, the
 [[Full wallet diagram]](/docs/images/summary_diagrams/puml/wallet_full.png?raw=true)
 
 implementation of wallet, private key mnemonic management, and signature and verification signature
+
+## Data flow examples <a name="examples"></a>
+
+### User sends a transfer transaction <a name="examples_1"></a>
+
+TODO: create diagram
+
+- rpcapi/api/ledger_v2.go#SendRawTransaction 
+  - rpc is the entry point for all access nodes
+- ledger/pool/pool.go#AddDirectAccountBlock 
+  - Insert the block directly into the ledger through the pool
+- ledger/verifier/verifier.go#VerifyPoolAccountBlock 
+  - call verifier to verify the validity of the block
+- ledger/chain/insert.go#InsertAccountBlock 
+  - calls the interface of chain to insert into the chain
+- ledger/chain/index/insert.go#InsertAccountBlock 
+  - maintains the hash relationship of blocks, such as the relationship between height and hash, the relationship between send-receive, etc.
+  - involving storage files ledger/index/* and ledger/blocks
+- ledger/chain/state/write.go#Write 
+  - maintains the state changed by the block, such as balance, storage, etc., involving the storage file ledger/state
+
+### Generate a receive block for a contract <a name="examples_2"></a>
+
+TODO: create diagram
+
+- ledger/consensus/trigger.go#update 
+  - generates an event that the contract starts to generate blocks and passes it to the downstream
+- producer/producer.go#producerContract 
+  - receives consensus layer messages and passes them to onroad
+- ledger/onroad/manager.go#producerStartEventFunc 
+  - onroad starts the coroutine internally, and processes the send block to be generated separately
+- ledger/onroad/contract.go#ContractWorker.Start 
+  - sorts all contracts according to the quota, and generates blocks in sequence
+- ledger/onroad/taskprocessor.go#ContractTaskProcessor.work 
+  - Take a contract address from the sorted queue and process it
+- ledger/onroad/taskprocessor.go#ContractTaskProcessor.processOneAddress 
+  - is processed for this contract
+- ledger/generator/generator.go#GenerateWithOnRoad 
+  - generates a receive block based on a send block
+- vm/vm.go#VM.RunV2 
+  - run vm logic
+- ledger/onroad/access.go#insertBlockToPool 
+  - insert the generated block into the pool
+- ledger/pool/pool.go#AddDirectAccountBlock 
+  - Insert the block directly into the ledger through the pool
+
+### SBP generates a snapshot block <a name="examples_2"></a>
+
+TODO: create diagram
+
+- ledger/consensus/trigger.go#update 
+  - generates a snapshot block start event and passes it to the downstream
+- producer/worker.go#produceSnapshot 
+  - receives consensus layer messages and creates a separate coroutine for snapshot block generation
+- producer/worker.go#randomSeed 
+  - Calculate random number seed
+- producer/tools.go#generateSnapshot
+- ledger/chain/unconfirmed.go#GetContentNeedSnapshot 
+  - Calculate which account blocks need snapshots
+- producer/tools.go#insertSnapshot
+- ledger/pool/pool.go#AddDirectSnapshotBlock 
+  - insert snapshot block into ledger
+- ledger/verifier/snapshot_verifier.go#VerifyReferred 
+  - to verify the validity of the snapshot block
+- ledger/chain/insert.go#InsertSnapshotBlock 
+  - insert snapshot block into chain
+- ledger/chain/insert.go#insertSnapshotBlock 
+  - update indexDB, stateDB
 
 ## Appendix <a name="appendix"></a>
 
