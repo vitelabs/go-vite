@@ -1,0 +1,69 @@
+@startuml
+namespace ed25519 {
+    class PrivateKey << (S,Aquamarine) >> {
+        + Public() crypto.PublicKey
+        + PubByte() []byte
+        + ToX25519Sk() []byte
+        + Hex() string
+        + Clear() 
+        + Sign(rand io.Reader, message []byte, opts crypto.SignerOpts) ([]byte, error)
+
+    }
+    class PublicKey << (S,Aquamarine) >> {
+        + Hex() string
+        + ToX25519Pk() []byte
+
+    }
+    class ed25519.PrivateKey << (T, #FF7700) >>  {
+    }
+    class ed25519.PublicKey << (T, #FF7700) >>  {
+    }
+}
+
+
+namespace edwards25519 {
+    class CachedGroupElement << (S,Aquamarine) >> {
+        - yPlusX FieldElement
+
+    }
+    class CompletedGroupElement << (S,Aquamarine) >> {
+        + X FieldElement
+
+        + ToProjective(r *ProjectiveGroupElement) 
+        + ToExtended(r *ExtendedGroupElement) 
+
+    }
+    class ExtendedGroupElement << (S,Aquamarine) >> {
+        + X FieldElement
+
+        + Zero() 
+        + Double(r *CompletedGroupElement) 
+        + ToCached(r *CachedGroupElement) 
+        + ToProjective(r *ProjectiveGroupElement) 
+        + ToBytes(s *[]byte) 
+        + FromBytes(s *[]byte) bool
+
+    }
+    class PreComputedGroupElement << (S,Aquamarine) >> {
+        - yPlusX FieldElement
+
+        + Zero() 
+
+    }
+    class ProjectiveGroupElement << (S,Aquamarine) >> {
+        + X FieldElement
+
+        + Zero() 
+        + Double(r *CompletedGroupElement) 
+        + ToBytes(s *[]byte) 
+
+    }
+    class edwards25519.FieldElement << (T, #FF7700) >>  {
+    }
+}
+
+
+"__builtin__.[]byte" #.. "ed25519.PrivateKey"
+"__builtin__.[]byte" #.. "ed25519.PublicKey"
+"__builtin__.[]int32" #.. "edwards25519.FieldElement"
+@enduml

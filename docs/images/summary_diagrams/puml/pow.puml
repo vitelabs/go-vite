@@ -1,0 +1,40 @@
+@startuml
+namespace remote {
+    class ResponseJson << (S,Aquamarine) >> {
+        + Code int
+        + Data <font color=blue>interface</font>{}
+        + Error string
+        + Msg string
+
+    }
+    class workCancel << (S,Aquamarine) >> {
+        + DataHash string
+
+    }
+    class workCancelResult << (S,Aquamarine) >> {
+    }
+    class workGenerate << (S,Aquamarine) >> {
+        + DataHash string
+        + Threshold string
+
+    }
+    class workGenerateResult << (S,Aquamarine) >> {
+        + Work string
+
+    }
+    class workValidate << (S,Aquamarine) >> {
+        + DataHash string
+        + Threshold string
+        + Work string
+
+    }
+    class workValidateResult << (S,Aquamarine) >> {
+        + Valid string
+
+    }
+}
+
+
+hide fields
+hide methods
+@enduml

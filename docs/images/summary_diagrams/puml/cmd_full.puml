@@ -1,0 +1,174 @@
+@startuml
+namespace flock {
+    interface Releaser  {
+        + Release() error
+
+    }
+    class plan9Lock << (S,Aquamarine) >> {
+        - f *os.File
+
+        + Release() error
+
+    }
+    class unixLock << (S,Aquamarine) >> {
+        - f *os.File
+        - f *os.File
+        - f *os.File
+
+        - set(lock bool) error
+        - set(lock bool) error
+        - set(lock bool) error
+
+        + Release() error
+        + Release() error
+        + Release() error
+
+    }
+    class windowsLock << (S,Aquamarine) >> {
+        - fd syscall.Handle
+
+        + Release() error
+
+    }
+}
+
+"flock.Releaser" <|-- "flock.plan9Lock"
+"flock.Releaser" <|-- "flock.unixLock"
+"flock.Releaser" <|-- "flock.windowsLock"
+
+namespace nodemanager {
+    class CheckChainNodeManager << (S,Aquamarine) >> {
+        - ctx *cli.Context
+        - node *node.Node
+        - log log15.Logger
+
+        + Start() error
+        + Stop() error
+        + Node() *node.Node
+
+    }
+    class DefaultNodeManager << (S,Aquamarine) >> {
+        - ctx *cli.Context
+        - node *node.Node
+
+        + Start() error
+        + Stop() error
+        + Node() *node.Node
+
+    }
+    class ExportNodeManager << (S,Aquamarine) >> {
+        - ctx *cli.Context
+        - node *node.Node
+
+        - getSbHeight() uint64
+
+        + Start() error
+
+    }
+    class FullNodeMaker << (S,Aquamarine) >> {
+        + MakeNode(ctx *cli.Context) (*node.Node, error)
+        + MakeNodeConfig(ctx *cli.Context) (*node.Config, error)
+
+    }
+    class LocalNodeMaker << (S,Aquamarine) >> {
+        + MakeNode(ctx *cli.Context) (*node.Node, error)
+        + MakeNodeConfig(ctx *cli.Context) (*node.Config, error)
+
+    }
+    interface NodeMaker  {
+        + MakeNode(ctx *cli.Context) (*node.Node, error)
+        + MakeNodeConfig(ctx *cli.Context) (*node.Config, error)
+
+    }
+    interface NodeManager  {
+        + Start() error
+        + Stop() error
+        + Node() *node.Node
+
+    }
+    class PluginDataNodeManager << (S,Aquamarine) >> {
+        - ctx *cli.Context
+        - node *node.Node
+
+        + Start() error
+        + Stop() error
+        + Node() *node.Node
+
+    }
+    class RecoverNodeManager << (S,Aquamarine) >> {
+        - ctx *cli.Context
+        - node *node.Node
+        - chain chain.Chain
+
+        - getDeleteToHeight() uint64
+
+        + Start() error
+        + Stop() error
+        + Node() *node.Node
+
+    }
+    class SubCmdNodeManager << (S,Aquamarine) >> {
+        - ctx *cli.Context
+        - node *node.Node
+
+        + Start() error
+        + Stop() error
+        + Node() *node.Node
+
+    }
+}
+
+"nodemanager.NodeManager" <|-- "nodemanager.CheckChainNodeManager"
+"nodemanager.NodeManager" <|-- "nodemanager.DefaultNodeManager"
+"nodemanager.NodeMaker" <|-- "nodemanager.FullNodeMaker"
+"nodemanager.NodeMaker" <|-- "nodemanager.LocalNodeMaker"
+"nodemanager.NodeManager" <|-- "nodemanager.PluginDataNodeManager"
+"nodemanager.NodeManager" <|-- "nodemanager.RecoverNodeManager"
+"nodemanager.NodeManager" <|-- "nodemanager.SubCmdNodeManager"
+
+namespace subcmd_ledger {
+    class dumpedAmount << (S,Aquamarine) >> {
+        + Address *types.Address
+        + Sum *big.Int
+        + WalletAmount *big.Int
+        + DexAvailable *big.Int
+        + DexLocked *big.Int
+        + DexOther *big.Int
+        + UnReceiveAmount *big.Int
+
+    }
+    class dumpedAmountSorter << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class subcmd_ledger.dumpedAmountSorter << (T, #FF7700) >>  {
+    }
+}
+
+
+namespace utils {
+    class DirectoryFlag << (S,Aquamarine) >> {
+        + Name string
+        + Value DirectoryString
+        + Usage string
+
+        + String() string
+        + Apply(set *flag.FlagSet) 
+        + GetName() string
+        + Set(value string) 
+
+    }
+    class DirectoryString << (S,Aquamarine) >> {
+        + Value string
+
+        + String() string
+        + Set(value string) error
+
+    }
+}
+
+
+"subcmd_ledger.[]*dumpedAmount" #.. "subcmd_ledger.dumpedAmountSorter"
+@enduml

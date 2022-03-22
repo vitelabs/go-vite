@@ -1,0 +1,2355 @@
+@startuml
+namespace connector {
+    class Connector << (S,Aquamarine) >> {
+        - listenAddress string
+        - server *net.TCPListener
+        - finder Finder
+        - onNode <font color=blue>func</font>(*vnode.Node) bool
+        - onConnection <font color=blue>func</font>(*net.TCPConn, bool) 
+        - term <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - log log15.Logger
+
+        - findLoop() 
+
+        + Start() error
+        + ConnectNode(node *vnode.Node) error
+
+    }
+    interface Finder  {
+        + Nodes() []*vnode.Node
+
+    }
+}
+
+"net.Connector" <|-- "connector.Connector"
+
+namespace database {
+    class DB << (S,Aquamarine) >> {
+        - id vnode.NodeID
+
+        + RetrieveActiveAt(id vnode.NodeID) int64
+        + StoreActiveAt(id vnode.NodeID, v int64) 
+        + RetrieveCheckAt(id vnode.NodeID) int64
+        + StoreCheckAt(id vnode.NodeID, v int64) 
+        + RetrieveMark(id vnode.NodeID) int64
+        + StoreMark(id vnode.NodeID, v int64) 
+        + BlockIP(ip net.IP, expiration int64) 
+        + BlockId(id vnode.NodeID, expiration int64) 
+        + RetrieveNode(id vnode.NodeID) (*vnode.Node, error)
+        + StoreNode(node *vnode.Node) error
+        + RemoveNode(ID vnode.NodeID) 
+        + ReadNodes(expiration int64) []*vnode.Node
+        + RetrieveInt64(key []byte) int64
+        + StoreInt64(key []byte, n int64) 
+        + Clean(expiration int64) 
+        + ReadMarkNodes(n int) []*vnode.Node
+        + Iterate(prefix []byte, fn <font color=blue>func</font>([]byte, []byte) bool) 
+        + Register(prefix []byte) *prefixDB
+
+    }
+    class database.marks << (T, #FF7700) >>  {
+    }
+    class mark << (S,Aquamarine) >> {
+        - id vnode.NodeID
+        - weight int64
+
+    }
+    class marks << (S,Aquamarine) >> {
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    class prefixDB << (S,Aquamarine) >> {
+        - db *leveldb.DB
+        - prefix []byte
+
+        + Store(key []byte, value []byte) error
+        + Retrieve(key []byte) []byte
+        + Remove(key []byte) 
+
+    }
+}
+"leveldb.DB" *-- "database.DB"
+
+
+namespace discovery {
+    class Discovery << (S,Aquamarine) >> {
+        - node *vnode.Node
+        - bootNodes []string
+        - bootSeeds []string
+        - booters []booter
+        - table nodeTable
+        - finder Finder
+        - stage <font color=blue>map</font>[string]*checkEndPointResult
+        - mu sync.Mutex
+        - socket socket
+        - db *discvDB
+        - running int32
+        - term <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - looking int32
+        - refreshing bool
+        - wg sync.WaitGroup
+        - log log15.Logger
+
+        - ping(n *Node, callback <font color=blue>func</font>(error) ) 
+        - pingDelete(n *Node) 
+        - tableLoop() 
+        - findLoop() 
+        - handle(pkt *packet) 
+        - receiveNode(n *Node) 
+        - receiveEndPoint(e *vnode.EndPoint) bool
+        - getBootNodes(num int) []*Node
+        - init() 
+        - loadBootNodes() bool
+        - findSubTree(distance uint) 
+        - refresh() 
+        - lookup(target vnode.NodeID, count int) 
+        - findNode(target vnode.NodeID, count int, n *Node, curr <font color=blue>chan</font> <font color=blue>struct</font>{}) float64
+        - receiveEndPointCurr(ep *vnode.EndPoint, ch <font color=blue>chan</font> <font color=blue>struct</font>{}, validCount *int32) 
+
+        + Nodes() []*vnode.Node
+        + NodesCount() int
+        + SubscribeNode(receiver <font color=blue>func</font>(*vnode.Node) ) int
+        + Unsubscribe(subId int) 
+        + GetNodes(count int) []*vnode.Node
+        + SetFinder(f Finder) 
+        + Delete(id vnode.NodeID, reason error) 
+        + Start() error
+        + Stop() error
+
+    }
+    interface Finder  {
+        + SetResolver(discv <font color=blue>interface</font>{GetNodes <font color=blue>func</font>(int) []*vnode.Node}) 
+        + FindNeighbors(fromId vnode.NodeID, target vnode.NodeID, count int) []*vnode.EndPoint
+
+    }
+    class Node << (S,Aquamarine) >> {
+        - checkAt int64
+        - addAt int64
+        - activeAt int64
+        - finding int32
+        - findAt int64
+        - addr *net.UDPAddr
+        - parseAt int64
+
+        - udpAddr() (*net.UDPAddr, error)
+        - update(n2 *Node) 
+        - needCheck() bool
+        - couldFind() bool
+        - findDone() 
+
+    }
+    interface NodeDB  {
+        + StoreNode(node *vnode.Node) error
+        + RemoveNode(id vnode.NodeID) 
+        + ReadNodes(expiration int64) []*vnode.Node
+        + RetrieveActiveAt(id vnode.NodeID) int64
+        + StoreActiveAt(id vnode.NodeID, v int64) 
+        + RetrieveCheckAt(id vnode.NodeID) int64
+        + StoreCheckAt(id vnode.NodeID, v int64) 
+        + Close() error
+        + Clean(expiration int64) 
+
+    }
+    interface Observer  {
+        + Sub(sub Subscriber) 
+        + UnSub(sub Subscriber) 
+
+    }
+    class Request << (S,Aquamarine) >> {
+        + Node *vnode.Node
+        + Count int
+
+    }
+    class Result << (S,Aquamarine) >> {
+        + Code int
+        + Message string
+        + Data []string
+
+    }
+    interface Subscriber  {
+        + Sub(receiver <font color=blue>func</font>(*vnode.Node) ) int
+        + UnSub(subId int) 
+
+    }
+    class agent << (S,Aquamarine) >> {
+        - node *vnode.Node
+        - listenAddress string
+        - socket *net.UDPConn
+        - peerKey ed25519.PrivateKey
+        - queue <font color=blue>chan</font> *packet
+        - handler <font color=blue>func</font>(*packet) 
+        - pool requestPool
+        - running int32
+        - term <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - wg sync.WaitGroup
+        - log log15.Logger
+
+        - start() error
+        - stop() error
+        - ping(n *Node, callback <font color=blue>func</font>(*Node, error) ) 
+        - pong(echo []byte, n *Node) error
+        - findNode(target vnode.NodeID, count int, n *Node) (<font color=blue>chan</font> []*vnode.EndPoint, error)
+        - sendNodes(eps []*vnode.EndPoint, to *net.UDPAddr) error
+        - readLoop() 
+        - handleLoop() 
+        - write(msg message, addr *net.UDPAddr) ([]byte, error)
+
+    }
+    interface body  {
+        - serialize() ([]byte, error)
+        - deserialize( []byte) error
+        - expired() bool
+
+    }
+    interface booter  {
+        - getBootNodes(count int) []*Node
+
+    }
+    interface booterDB  {
+        + ReadNodes(expiration int64) []*Node
+
+    }
+    interface bucket  {
+        - oldest() *Node
+        - replace(id vnode.NodeID, n *Node) bool
+
+    }
+    class cfgBooter << (S,Aquamarine) >> {
+        - bootNodes []*Node
+        - node *vnode.Node
+
+        - getBootNodes(count int) []*Node
+
+    }
+    class checkEndPointResult << (S,Aquamarine) >> {
+        - time int64
+        - status pingStatus
+        - node *Node
+        - err error
+        - callbacks []<font color=blue>func</font>(error) 
+
+    }
+    class closet << (S,Aquamarine) >> {
+        - nodes []*Node
+        - pivot vnode.NodeID
+
+        - push(n *Node) 
+
+    }
+    class dbBooter << (S,Aquamarine) >> {
+        - db booterDB
+
+        - getBootNodes(count int) []*Node
+
+    }
+    class discovery.code << (T, #FF7700) >>  {
+    }
+    class discovery.pingStatus << (T, #FF7700) >>  {
+    }
+    class discvDB << (S,Aquamarine) >> {
+        + StoreNode(node *Node) error
+        + ReadNodes(expiration int64) []*Node
+
+    }
+    class element << (S,Aquamarine) >> {
+        - next *element
+
+    }
+    class findNodeRequest << (S,Aquamarine) >> {
+        - count int
+        - received int
+        - ch <font color=blue>chan</font> []*vnode.EndPoint
+        - closed int32
+
+        - handle(pkt *packet, err error) bool
+        - close() 
+
+    }
+    class findnode << (S,Aquamarine) >> {
+        - target vnode.NodeID
+        - count int
+        - time time.Time
+
+        - serialize() ([]byte, error)
+        - deserialize(buf []byte) error
+        - expired() bool
+
+    }
+    class listBucket << (S,Aquamarine) >> {
+        - head *element
+        - tail *element
+        - cap int
+        - count int
+
+        - iterate(fn <font color=blue>func</font>(*Node) bool) 
+        - reset() 
+        - replace(id vnode.NodeID, n *Node) bool
+        - bubble(id vnode.NodeID) bool
+        - add(n *Node) *Node
+        - remove(id vnode.NodeID) *Node
+        - nodes(count int) []*Node
+        - oldest() *Node
+        - resolve(id vnode.NodeID) *Node
+        - size() int
+        - max() int
+
+    }
+    class message << (S,Aquamarine) >> {
+        - c code
+        - id vnode.NodeID
+
+        - pack(key ed25519.PrivateKey) ([]byte, error)
+
+    }
+    class neighbors << (S,Aquamarine) >> {
+        - endpoints []*vnode.EndPoint
+        - last bool
+        - time time.Time
+
+        - serialize() ([]byte, error)
+        - deserialize(buf []byte) error
+        - expired() bool
+
+    }
+    class netBooter << (S,Aquamarine) >> {
+        - self *vnode.Node
+        - reader *requestReader
+        - seeds []string
+        - log log15.Logger
+
+        - getBootNodes(count int) []*Node
+
+    }
+    interface nodeCollector  {
+        - reset() 
+        - bubble(id vnode.NodeID) bool
+        - add(node *Node) *Node
+        - remove(id vnode.NodeID) *Node
+        - nodes(count int) []*Node
+        - resolve(id vnode.NodeID) *Node
+        - size() int
+        - iterate(fn <font color=blue>func</font>(*Node) bool) 
+        - max() int
+
+    }
+    interface nodeStore  {
+        + StoreNode(node *Node) error
+
+    }
+    interface nodeTable  {
+        - addNodes(nodes []*Node) 
+        - oldest() []*Node
+        - findNeighbors(id vnode.NodeID, count int) []*Node
+        - findSource(id vnode.NodeID, count int) []*Node
+        - store(db nodeStore) 
+        - resolveAddr(address string) *Node
+        - subTreeToFind() uint
+
+    }
+    class packet << (S,Aquamarine) >> {
+        - from *net.UDPAddr
+        - hash []byte
+
+    }
+    class ping << (S,Aquamarine) >> {
+        - from *vnode.EndPoint
+        - net int
+        - ext []byte
+        - time time.Time
+
+        - serialize() ([]byte, error)
+        - deserialize(buf []byte) error
+        - expired() bool
+
+    }
+    class pingRequest << (S,Aquamarine) >> {
+        - hash []byte
+        - done <font color=blue>func</font>(*Node, error) 
+
+        - handle(pkt *packet, err error) bool
+        - receivePong(pkt *packet, png *pong) 
+
+    }
+    interface pinger  {
+        - ping(n *Node, callback <font color=blue>func</font>(error) ) 
+
+    }
+    class pong << (S,Aquamarine) >> {
+        - from *vnode.EndPoint
+        - net int
+        - ext []byte
+        - echo []byte
+        - time time.Time
+
+        - serialize() ([]byte, error)
+        - deserialize(data []byte) error
+        - expired() bool
+
+    }
+    interface receiver  {
+        - start() error
+        - stop() error
+
+    }
+    class request << (S,Aquamarine) >> {
+        - expectFrom string
+        - expectID vnode.NodeID
+        - expectCode code
+        - handler <font color=blue>interface</font>{handle <font color=blue>func</font>(*packet, error) bool}
+        - expiration time.Time
+
+    }
+    interface requestPool  {
+        - start() 
+        - stop() 
+        - add(req *request) bool
+        - rec(pkt *packet) bool
+        - size() int
+
+    }
+    class requestPoolImpl << (S,Aquamarine) >> {
+        - pending <font color=blue>map</font>[string]list.List
+        - mu sync.Mutex
+        - running int32
+        - term <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - wg sync.WaitGroup
+
+        - size() int
+        - start() 
+        - stop() 
+        - add(req *request) bool
+        - rec(pkt *packet) bool
+        - loop() 
+        - clean(now time.Time) 
+        - release() 
+
+    }
+    class requestReader << (S,Aquamarine) >> {
+        - request Request
+        - buf []byte
+        - r int
+
+        - reset(count int) 
+
+        + Read(p []byte) (int, error)
+
+    }
+    interface sender  {
+        - ping(n *Node, callback <font color=blue>func</font>(*Node, error) ) 
+        - pong(echo []byte, n *Node) error
+        - findNode(target vnode.NodeID, count int, n *Node) (<font color=blue>chan</font> []*vnode.EndPoint, error)
+        - sendNodes(eps []*vnode.EndPoint, addr *net.UDPAddr) error
+
+    }
+    interface socket  {
+    }
+    class table << (S,Aquamarine) >> {
+        - rw sync.RWMutex
+        - bucketSize int
+        - minDistance uint
+        - buckets []bucket
+        - nodeMap <font color=blue>map</font>[string]*Node
+        - bucketFact <font color=blue>func</font>(int) bucket
+        - id vnode.NodeID
+        - netId int
+        - subId int
+        - recievers <font color=blue>map</font>[int]<font color=blue>func</font>(*vnode.Node) 
+        - socket pinger
+
+        - getId() vnode.NodeID
+        - reset() 
+        - nodes(count int) []*Node
+        - notify(n *vnode.Node) 
+        - add(node *Node) *Node
+        - checkRemove(node *Node) 
+        - checkReplace(bkt bucket, oldNode *Node, newNode *Node) 
+        - addNodes(nodes []*Node) 
+        - getBucket(id vnode.NodeID) bucket
+        - remove(id vnode.NodeID) *Node
+        - removeLocked(id vnode.NodeID) *Node
+        - bubble(id vnode.NodeID) bool
+        - findNeighbors(target vnode.NodeID, count int) []*Node
+        - findSource(target vnode.NodeID, count int) []*Node
+        - oldest() []*Node
+        - size() int
+        - max() int
+        - resolve(id vnode.NodeID) *Node
+        - resolveAddr(address string) *Node
+        - store(db nodeStore) 
+        - iterate(fn <font color=blue>func</font>(*Node) bool) 
+        - subTreeToFind() uint
+
+        + Sub(rec <font color=blue>func</font>(*vnode.Node) ) int
+        + UnSub(subId int) 
+
+    }
+}
+"discovery.Observer" *-- "discovery.Finder"
+"vnode.Node" *-- "discovery.Node"
+"discovery.nodeCollector" *-- "discovery.bucket"
+"discovery.NodeDB" *-- "discovery.discvDB"
+"discovery.Node" *-- "discovery.element"
+"discovery.body" *-- "discovery.message"
+"discovery.Subscriber" *-- "discovery.nodeTable"
+"discovery.nodeCollector" *-- "discovery.nodeTable"
+"discovery.message" *-- "discovery.packet"
+"discovery.receiver" *-- "discovery.socket"
+"discovery.sender" *-- "discovery.socket"
+
+"connector.Finder" <|-- "discovery.Discovery"
+"discovery.booter" <|-- "discovery.Discovery"
+"discovery.pinger" <|-- "discovery.Discovery"
+"discovery.receiver" <|-- "discovery.agent"
+"discovery.sender" <|-- "discovery.agent"
+"discovery.booter" <|-- "discovery.cfgBooter"
+"discovery.booter" <|-- "discovery.dbBooter"
+"discovery.booterDB" <|-- "discovery.discvDB"
+"discovery.nodeStore" <|-- "discovery.discvDB"
+"discovery.body" <|-- "discovery.findnode"
+"discovery.bucket" <|-- "discovery.listBucket"
+"discovery.nodeCollector" <|-- "discovery.listBucket"
+"discovery.body" <|-- "discovery.neighbors"
+"discovery.booter" <|-- "discovery.netBooter"
+"discovery.body" <|-- "discovery.ping"
+"discovery.body" <|-- "discovery.pong"
+"discovery.requestPool" <|-- "discovery.requestPoolImpl"
+"discovery.Subscriber" <|-- "discovery.table"
+"discovery.nodeCollector" <|-- "discovery.table"
+"discovery.nodeTable" <|-- "discovery.table"
+
+namespace main {
+    class config << (S,Aquamarine) >> {
+        - peerKey ed25519.PrivateKey
+        - node *vnode.Node
+        - bootNodes []string
+        - listenAddress string
+
+    }
+}
+
+
+namespace net {
+    class AccountBlocks << (S,Aquamarine) >> {
+        + Blocks []*core.AccountBlock
+        + TTL int32
+
+        + String() string
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    interface BlockSubscriber  {
+        + SubscribeAccountBlock(fn AccountBlockCallback) int
+        + UnsubscribeAccountBlock(subId int) 
+        + SubscribeSnapshotBlock(fn SnapshotBlockCallback) int
+        + UnsubscribeSnapshotBlock(subId int) 
+
+    }
+    interface Broadcaster  {
+        + BroadcastSnapshotBlock(block *core.SnapshotBlock) 
+        + BroadcastSnapshotBlocks(blocks []*core.SnapshotBlock) 
+        + BroadcastAccountBlock(block *core.AccountBlock) 
+        + BroadcastAccountBlocks(blocks []*core.AccountBlock) 
+
+    }
+    interface Chain  {
+    }
+    class Chunk << (S,Aquamarine) >> {
+        - size int64
+
+        + SnapshotChunks []core.SnapshotChunk
+        + SnapshotRange []*core.HashHeight
+        + AccountRange <font color=blue>map</font>[types.Address][]*core.HashHeight
+        + HashMap <font color=blue>map</font>[types.Hash]<font color=blue>struct</font>{}
+        + Source types.BlockSource
+
+        - addSnapshotBlock(block *core.SnapshotBlock) error
+        - addAccountBlock(block *core.AccountBlock) error
+        - done() error
+
+    }
+    interface ChunkReader  {
+        + Peek() *Chunk
+        + Pop(endHash types.Hash) 
+
+    }
+    class Chunks << (S,Aquamarine) >> {
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    interface Codec  {
+        + Close() error
+        + SetReadTimeout(timeout time.Duration) 
+        + SetWriteTimeout(timeout time.Duration) 
+        + SetTimeout(timeout time.Duration) 
+        + Address() "net.Addr
+
+    }
+    interface CodecFactory  {
+        + CreateCodec(conn "net.Conn) Codec
+
+    }
+    interface Connector  {
+        + ConnectNode(node *vnode.Node) error
+
+    }
+    interface Consensus  {
+        + SubscribeProducers(gid types.Gid, id string, fn <font color=blue>func</font>(consensus.ProducersEvent) ) 
+        + UnSubscribe(gid types.Gid, id string) 
+        + API() consensus.APIReader
+
+    }
+    class DownloaderStatus << (S,Aquamarine) >> {
+        + Tasks []string
+        + Connections []SyncConnectionStatus
+
+    }
+    class Exception << (S,Aquamarine) >> {
+        + String() string
+        + Error() string
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    interface Fetcher  {
+        + FetchSnapshotBlocks(start types.Hash, count uint64) 
+        + FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, count uint64) 
+        + FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) 
+        + FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) 
+
+    }
+    class FilePoolStatus << (S,Aquamarine) >> {
+        + Connections []SyncConnectionStatus
+
+    }
+    class FileServerStatus << (S,Aquamarine) >> {
+        + Connections []SyncConnectionStatus
+
+    }
+    class GetAccountBlocks << (S,Aquamarine) >> {
+        + Address types.Address
+        + From core.HashHeight
+        + Count uint64
+        + Forward bool
+
+        + String() string
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    class GetHashHeightList << (S,Aquamarine) >> {
+        + From []*core.HashHeight
+        + Step uint64
+        + To uint64
+
+        + Serialize() ([]byte, error)
+        + Deserialize(data []byte) error
+
+    }
+    class GetSnapshotBlocks << (S,Aquamarine) >> {
+        + From core.HashHeight
+        + Count uint64
+        + Forward bool
+
+        + String() string
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    class HandshakeMsg << (S,Aquamarine) >> {
+        + Version int64
+        + NetID int64
+        + Name string
+        + ID vnode.NodeID
+        + Timestamp int64
+        + Height uint64
+        + Head types.Hash
+        + Genesis types.Hash
+        + Key ed25519.PublicKey
+        + Token []byte
+        + FileAddress []byte
+        + PublicAddress []byte
+
+        + Serialize() ([]byte, error)
+        + Deserialize(data []byte) error
+
+    }
+    class HashHeightPoint << (S,Aquamarine) >> {
+        + Size uint64
+
+        + Proto() *vitepb.HashHeightPoint
+        + DeProto(pb *vitepb.HashHeightPoint) error
+
+    }
+    class HashHeightPointList << (S,Aquamarine) >> {
+        + Points []*HashHeightPoint
+
+        + Serialize() ([]byte, error)
+        + Deserialize(data []byte) error
+
+    }
+    interface IrreversibleReader  {
+        + GetIrreversibleBlock() *core.SnapshotBlock
+
+    }
+    class MockCodec << (S,Aquamarine) >> {
+        - name string
+        - r <font color=blue>chan</font> Msg
+        - w <font color=blue>chan</font> Msg
+        - rtimeout time.Duration
+        - wtimeout time.Duration
+        - term <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - closed int32
+        - write int32
+
+        + ReadMsg() (Msg, error)
+        + WriteMsg(msg Msg) error
+        + Close() error
+        + SetReadTimeout(timeout time.Duration) 
+        + SetWriteTimeout(timeout time.Duration) 
+        + SetTimeout(timeout time.Duration) 
+        + Address() "net.Addr
+
+    }
+    class Msg << (S,Aquamarine) >> {
+        + Code Code
+        + Id uint32
+        + Payload []byte
+        + ReceivedAt int64
+        + Sender *Peer
+
+        + Recycle() 
+
+    }
+    interface MsgIder  {
+        + MsgID() MsgId
+
+    }
+    interface MsgReadWriter  {
+    }
+    interface MsgReader  {
+        + ReadMsg() (Msg, error)
+
+    }
+    interface MsgWriteCloser  {
+    }
+    interface MsgWriter  {
+        + WriteMsg( Msg) error
+
+    }
+    interface Net  {
+        + Start() error
+        + Stop() error
+        + Info() NodeInfo
+        + Nodes() []*vnode.Node
+        + PeerCount() int
+        + PeerKey() ed25519.PrivateKey
+
+    }
+    class NewAccountBlock << (S,Aquamarine) >> {
+        + Block *core.AccountBlock
+        + TTL int32
+
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    class NewSnapshotBlock << (S,Aquamarine) >> {
+        + Block *core.SnapshotBlock
+        + TTL int32
+
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    class NodeInfo << (S,Aquamarine) >> {
+        + ID vnode.NodeID
+        + Name string
+        + NetID int
+        + Version int
+        + Address string
+        + PeerCount int
+        + Peers []PeerInfo
+        + Height uint64
+        + Nodes int
+        + Latency []int64
+        + BroadCheckFailedRatio float32
+        + Server FileServerStatus
+
+    }
+    class Peer << (S,Aquamarine) >> {
+        - codec Codec
+        - publicAddress string
+        - fileAddress string
+        - reliable int32
+        - busy int32
+        - busyT int64
+        - running int32
+        - writable int32
+        - writing int32
+        - readQueue <font color=blue>chan</font> Msg
+        - writeQueue <font color=blue>chan</font> Msg
+        - errChan <font color=blue>chan</font> error
+        - wg sync.WaitGroup
+        - manager PeerManager
+        - handler msgHandler
+        - knownBlocks *bloom.Filter
+        - m <font color=blue>map</font>[peerId]<font color=blue>struct</font>{}
+        - m2 <font color=blue>map</font>[peerId]<font color=blue>struct</font>{}
+        - once sync.Once
+        - log log15.Logger
+
+        + Id peerId
+        + Name string
+        + Height uint64
+        + Head types.Hash
+        + Version int64
+        + CreateAt int64
+        + Flag PeerFlag
+        + Superior bool
+
+        - isReliable() bool
+        - setReliable(bool2 bool) 
+        - write() 
+        - writeDone() 
+        - run() error
+        - goLoop(fn <font color=blue>func</font>() error, ch <font color=blue>chan</font> error) 
+        - readLoop() error
+        - writeLoop() error
+        - handleLoop() error
+        - canWritable() bool
+        - stopWrite(err error) 
+        - catch(err error) 
+        - setPeers(ps []peerConn, patch bool) 
+        - peers() <font color=blue>map</font>[peerId]<font color=blue>struct</font>{}
+        - send(c Code, id MsgId, data Serializable) error
+        - sendSnapshotBlocks(bs []*core.SnapshotBlock, msgId MsgId) error
+        - sendAccountBlocks(bs []*core.AccountBlock, msgId MsgId) error
+
+        + WriteMsg(msg Msg) error
+        + Info() PeerInfo
+        + Close(err error) error
+        + Disconnect(err error) 
+        + String() string
+        + SetState(head types.Hash, height uint64) 
+        + SetSuperior(superior bool) error
+
+    }
+    class PeerError << (S,Aquamarine) >> {
+        + String() string
+        + Error() string
+        + Serialize() ([]byte, error)
+
+    }
+    class PeerFlag << (S,Aquamarine) >> {
+        - is(f2 PeerFlag) bool
+
+    }
+    class PeerInfo << (S,Aquamarine) >> {
+        + Id string
+        + Name string
+        + Version int64
+        + Height uint64
+        + Address string
+        + Flag PeerFlag
+        + Superior bool
+        + Reliable bool
+        + CreateAt string
+        + ReadQueue int
+        + WriteQueue int
+        + Peers []string
+
+    }
+    interface PeerManager  {
+        + UpdatePeer(p *Peer, newSuperior bool) 
+
+    }
+    interface Serializable  {
+        + Serialize() ([]byte, error)
+
+    }
+    class SnapshotBlocks << (S,Aquamarine) >> {
+        + Blocks []*core.SnapshotBlock
+
+        + String() string
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    interface Subscriber  {
+    }
+    class SyncConnectionStatus << (S,Aquamarine) >> {
+        + Address string
+        + Speed string
+        + Task string
+
+    }
+    class SyncDetail << (S,Aquamarine) >> {
+        + Chunks [][]*core.HashHeight
+        + Caches interfaces.SegmentList
+
+    }
+    class SyncState << (S,Aquamarine) >> {
+        - syncExited() bool
+
+        + UnmarshalText(text []byte) error
+        + MarshalText() ([]byte, error)
+        + String() string
+
+    }
+    interface SyncStateSubscriber  {
+        + SubscribeSyncStatus(fn SyncStateCallback) int
+        + UnsubscribeSyncStatus(subId int) 
+        + SyncState() SyncState
+
+    }
+    class SyncStatus << (S,Aquamarine) >> {
+        + From uint64
+        + To uint64
+        + Current uint64
+        + State SyncState
+        + Status string
+
+    }
+    interface Syncer  {
+        + Status() SyncStatus
+        + Detail() SyncDetail
+
+    }
+    interface Verifier  {
+        + VerifyNetSnapshotBlock(block *core.SnapshotBlock) error
+        + VerifyNetAccountBlock(block *core.AccountBlock) error
+
+    }
+    interface accountBockReader  {
+        + GetAccountBlockByHeight(addr types.Address, height uint64) (*core.AccountBlock, error)
+        + GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetAccountBlocks(blockHash types.Hash, count uint64) ([]*core.AccountBlock, error)
+        + GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*core.AccountBlock, error)
+        + GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+
+    }
+    class blockFeed << (S,Aquamarine) >> {
+        - aSubs <font color=blue>map</font>[int]AccountBlockCallback
+        - bSubs <font color=blue>map</font>[int]SnapshotBlockCallback
+        - currentId int
+        - blackBlocks <font color=blue>map</font>[types.Hash]<font color=blue>struct</font>{}
+
+        - notifySnapshotBlock(block *core.SnapshotBlock, source types.BlockSource) 
+        - notifyAccountBlock(block *core.AccountBlock, source types.BlockSource) 
+
+        + SubscribeAccountBlock(fn AccountBlockCallback) int
+        + UnsubscribeAccountBlock(subId int) 
+        + SubscribeSnapshotBlock(fn SnapshotBlockCallback) int
+        + UnsubscribeSnapshotBlock(subId int) 
+
+    }
+    interface blockFeeder  {
+    }
+    interface blockNotifier  {
+        - notifySnapshotBlock(block *core.SnapshotBlock, source types.BlockSource) 
+        - notifyAccountBlock(block *core.AccountBlock, source types.BlockSource) 
+
+    }
+    interface blockReceiver  {
+        - receiveAccountBlock(block *core.AccountBlock, source types.BlockSource) error
+        - receiveSnapshotBlock(block *core.SnapshotBlock, source types.BlockSource) error
+
+    }
+    interface blockStore  {
+        - enqueueAccountBlock(block *core.AccountBlock) 
+        - dequeueAccountBlock() *core.AccountBlock
+        - enqueueSnapshotBlock(block *core.SnapshotBlock) 
+        - dequeueSnapshotBlock() *core.SnapshotBlock
+
+    }
+    interface broadChainReader  {
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+
+    }
+    class broadcastStatus << (S,Aquamarine) >> {
+        - checkFailedRatio float32
+        - latency []int64
+
+    }
+    class broadcaster << (S,Aquamarine) >> {
+        - peers *peerSet
+        - strategy forwardStrategy
+        - st SyncState
+        - verifier Verifier
+        - feed blockNotifier
+        - filter *bloom.Filter
+        - rings *ringStatic
+        - store blockStore
+        - mu sync.Mutex
+        - statistic circle.List
+        - chain broadChainReader
+        - log log15.Logger
+
+        - name() string
+        - codes() []Code
+        - handle(msg Msg) error
+        - subSyncState(st SyncState) 
+        - forwardSnapshotBlock(msg *NewSnapshotBlock, sender *Peer) 
+        - forwardAccountBlock(msg *NewAccountBlock, sender *Peer) 
+        - status() broadcastStatus
+
+        + Statistic() []int64
+        + BroadcastSnapshotBlock(block *core.SnapshotBlock) 
+        + BroadcastSnapshotBlocks(blocks []*core.SnapshotBlock) 
+        + BroadcastAccountBlock(block *core.AccountBlock) 
+        + BroadcastAccountBlocks(blocks []*core.AccountBlock) 
+
+    }
+    class cacheReader << (S,Aquamarine) >> {
+        - chain syncChain
+        - verifier Verifier
+        - downloader syncDownloader
+        - irreader IrreversibleReader
+        - running bool
+        - mu sync.Mutex
+        - cond *sync.Cond
+        - readHeight uint64
+        - readable int32
+        - buffer Chunks
+        - downloadRecord <font color=blue>map</font>[string]peerId
+        - blackBlocks <font color=blue>map</font>[types.Hash]<font color=blue>struct</font>{}
+        - wg sync.WaitGroup
+        - log log15.Logger
+
+        - cache(from uint64, to uint64) interfaces.SegmentList
+        - caches() interfaces.SegmentList
+        - chunks() [][]*core.HashHeight
+        - addChunkToBuffer(c *Chunk) 
+        - getHeight() uint64
+        - start() 
+        - stop() 
+        - compareCache(start *core.HashHeight, hhs []*HashHeightPoint) syncTasks
+        - deleteChunk(segment interfaces.Segment) 
+        - localChunks() interfaces.SegmentList
+        - chunkDownloaded(t syncTask, err error) 
+        - chunkReadFailed(segment interfaces.Segment, fatal bool) 
+        - reset() 
+        - removeUselessChunks(cleanWrong bool) 
+        - read(c interfaces.Segment) (*Chunk, bool, error)
+        - pause() 
+        - resume() 
+        - canRead() bool
+        - readLoop() 
+        - cleanLoop() 
+
+        + Peek() *Chunk
+        + Pop(endHash types.Hash) 
+
+    }
+    interface chainReader  {
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetGenesisSnapshotBlock() *core.SnapshotBlock
+
+    }
+    class checkHandler << (S,Aquamarine) >> {
+        - chain <font color=blue>interface</font>{GetSnapshotBlockByHeight <font color=blue>func</font>(uint64) (*core.SnapshotBlock, error); GetLedgerReaderByHeight <font color=blue>func</font>(uint64, uint64) (interfaces.LedgerReader, error)}
+        - log log15.Logger
+
+        - name() string
+        - codes() []Code
+        - handleGetHashHeightList(get *GetHashHeightList) (Code, Serializable)
+        - handle(msg Msg) error
+
+    }
+    interface chunkNotifier  {
+        - notifyChunks(chunks []core.SnapshotChunk, source types.BlockSource) 
+
+    }
+    class connections << (S,Aquamarine) >> {
+        - del(i int) connections
+
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    class crossForward << (S,Aquamarine) >> {
+        - ps *peerSet
+        - commonMax int
+        - commonRatio int
+
+        - choosePeers(sender *Peer) peers
+
+    }
+    class defaultSyncConnectionFactory << (S,Aquamarine) >> {
+        - chain syncCacher
+        - peers *peerSet
+        - id peerId
+        - peerKey ed25519.PrivateKey
+        - mineKey ed25519.PrivateKey
+
+        - makeSyncConn(conn "net.Conn) *syncConn
+        - initiate(conn "net.Conn, peer *Peer) (*syncConn, error)
+        - receive(conn "net.Conn) (*syncConn, error)
+
+    }
+    class downloadConnPool << (S,Aquamarine) >> {
+        - mu sync.Mutex
+        - peers *peerSet
+        - mi <font color=blue>map</font>[peerId]int
+        - l connections
+        - blackList <font color=blue>map</font>[peerId]int64
+
+        - blockPeer(id peerId, duration time.Duration) 
+        - blocked(id peerId) bool
+        - connections() []SyncConnectionStatus
+        - delConn(c *syncConn) 
+        - delConnLocked(id peerId) 
+        - addConn(c *syncConn) error
+        - sort() 
+        - sortLocked() 
+        - chooseSource(t *syncTask) (*Peer, *syncConn, error)
+        - reset() 
+
+    }
+    class executor << (S,Aquamarine) >> {
+        - mu sync.Mutex
+        - tasks syncTasks
+        - cond *sync.Cond
+        - max int
+        - pool *downloadConnPool
+        - factory syncConnInitiator
+        - dialing <font color=blue>map</font>[string]<font color=blue>struct</font>{}
+        - dialer *"net.Dialer
+        - listeners []taskListener
+        - running bool
+        - wg sync.WaitGroup
+        - log log15.Logger
+
+        - start() 
+        - stop() 
+        - addListener(listener taskListener) 
+        - status() DownloaderStatus
+        - download(t *syncTask, must bool) bool
+        - cancelTask(t *syncTask) 
+        - cancelAllTasks() 
+        - loop() 
+        - run(t *syncTask) 
+        - doJob(c *syncConn, t *syncTask) error
+        - createConn(p *Peer) (*syncConn, error)
+        - do(t *syncTask) 
+        - notify(t *syncTask, err error) 
+        - addBlackList(id peerId) 
+
+    }
+    class fetcher << (S,Aquamarine) >> {
+        - idGen MsgIder
+        - recordsById <font color=blue>map</font>[MsgId]*record
+        - recordsByHash <font color=blue>map</font>[types.Hash]*record
+        - mu sync.Mutex
+        - pool sync.Pool
+        - peerFetchResultPool sync.Pool
+        - peers *peerSet
+        - st SyncState
+        - receiver blockReceiver
+        - log log15.Logger
+        - blackBlocks <font color=blue>map</font>[types.Hash]<font color=blue>struct</font>{}
+        - sbp bool
+        - term <font color=blue>chan</font> <font color=blue>struct</font>{}
+
+        - clean(t int64) 
+        - hold(hash types.Hash) (*record, bool)
+        - add(hash types.Hash) *record
+        - pending(id MsgId, peer *Peer) 
+        - done(id MsgId, peer *Peer, msg Msg, err error) 
+        - pickTargets(r *record, height uint64, peers *peerSet) peers
+        - setSBP(bool2 bool) 
+        - start() 
+        - stop() 
+        - cleanLoop() 
+        - subSyncState(st SyncState) 
+        - name() string
+        - codes() []Code
+        - handle(msg Msg) error
+        - fetchSnapshotBlock(hash types.Hash, peer *Peer, callback <font color=blue>func</font>(Msg, error) ) 
+
+        + FetchSnapshotBlocks(hash types.Hash, count uint64) 
+        + FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, count uint64) 
+        + FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) 
+        + FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) 
+
+    }
+    class finder << (S,Aquamarine) >> {
+        - self types.Address
+        - db *database.DB
+        - rw sync.RWMutex
+        - targets <font color=blue>map</font>[types.Address]*vnode.Node
+        - subId int
+        - minPeers int
+        - staticNodes []*vnode.Node
+        - resolver <font color=blue>interface</font>{GetNodes <font color=blue>func</font>(int) []*vnode.Node}
+        - peers *peerSet
+        - connect Connector
+        - consensus Consensus
+        - dialing <font color=blue>map</font>[peerId]<font color=blue>struct</font>{}
+        - sbps <font color=blue>map</font>[types.Address]int64
+        - observers <font color=blue>map</font>[int]<font color=blue>func</font>(bool) 
+        - term <font color=blue>chan</font> <font color=blue>struct</font>{}
+
+        + _selfIsSBP bool
+        + _subId int
+
+        - sub(fn <font color=blue>func</font>(bool) ) int
+        - unSub(subId int) 
+        - notify() 
+        - start() 
+        - stop() 
+        - selfIsSBP() bool
+        - isSBP(addr types.Address) bool
+        - clean() 
+        - receiveProducers(event consensus.ProducersEvent) 
+        - dial(node *vnode.Node) 
+        - doDial(node *vnode.Node) 
+        - receiveNode(node *vnode.Node) 
+        - total() int
+        - loop() 
+
+        + FindNeighbors(fromId vnode.NodeID, target vnode.NodeID, count int) []*vnode.EndPoint
+        + SetResolver(discv <font color=blue>interface</font>{GetNodes <font color=blue>func</font>(int) []*vnode.Node}) 
+        + Sub(sub discovery.Subscriber) 
+        + UnSub(sub discovery.Subscriber) 
+
+    }
+    interface forwardStrategy  {
+        - choosePeers(sender *Peer) peers
+
+    }
+    class fullForward << (S,Aquamarine) >> {
+        - ps *peerSet
+
+        - choosePeers(sender *Peer) peers
+
+    }
+    class getAccountBlocksHandler << (S,Aquamarine) >> {
+        - chain accountBockReader
+
+        - name() string
+        - codes() []Code
+        - handle(msg Msg) error
+
+    }
+    class getSnapshotBlocksHandler << (S,Aquamarine) >> {
+        - chain snapshotBlockReader
+
+        - name() string
+        - codes() []Code
+        - handle(msg Msg) error
+
+    }
+    class gid << (S,Aquamarine) >> {
+        - index uint32
+
+        + MsgID() MsgId
+
+    }
+    class handshaker << (S,Aquamarine) >> {
+        - version int
+        - netId int
+        - name string
+        - id vnode.NodeID
+        - genesis types.Hash
+        - fileAddress []byte
+        - publicAddress []byte
+        - peerKey ed25519.PrivateKey
+        - key ed25519.PrivateKey
+        - codecFactory CodecFactory
+        - chain chainReader
+        - blackList netool.BlackList
+        - onHandshaker <font color=blue>func</font>(Codec, PeerFlag, *HandshakeMsg) (bool, error)
+
+        - setChain(chain chainReader) 
+        - banAddr(addr "net.Addr, t int64) 
+        - bannedAddr(addr "net.Addr) bool
+        - readHandshake(c Codec) (*HandshakeMsg, MsgId, error)
+        - getSecret(theirId peerId) ([]byte, error)
+        - verifyHandshake(their *HandshakeMsg, secret []byte) error
+        - makeHandshake(secret []byte) *HandshakeMsg
+        - sendHandshake(c Codec, our *HandshakeMsg, msgId MsgId) error
+        - doHandshake(c Codec, flag PeerFlag, their *HandshakeMsg) error
+
+        + ReceiveHandshake(conn "net.Conn) (Codec, *HandshakeMsg, bool, error)
+        + InitiateHandshake(conn "net.Conn, id vnode.NodeID) (Codec, *HandshakeMsg, bool, error)
+
+    }
+    class hashHeightNode << (S,Aquamarine) >> {
+        - nodes <font color=blue>map</font>[types.Hash]*hashHeightNode
+
+        - addBranch(list []*HashHeightPoint, sender *Peer) 
+        - bestBranch() []*HashHeightPoint
+
+    }
+    class hashHeightPeers << (S,Aquamarine) >> {
+        - ps <font color=blue>map</font>[peerId]*Peer
+
+    }
+    class heartBeater << (S,Aquamarine) >> {
+        - chain chainReader
+        - last time.Time
+        - lastPeers <font color=blue>map</font>[peerId]<font color=blue>struct</font>{}
+        - ps *peerSet
+
+        - state() []byte
+
+    }
+    interface ledgerReader  {
+        + GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (interfaces.LedgerReader, error)
+
+    }
+    class memBlockStore << (S,Aquamarine) >> {
+        - rw sync.RWMutex
+        - aIndex int
+        - ablocks []*core.AccountBlock
+        - sIndex int
+        - sblocks []*core.SnapshotBlock
+
+        - enqueueAccountBlock(block *core.AccountBlock) 
+        - dequeueAccountBlock() *core.AccountBlock
+        - enqueueSnapshotBlock(block *core.SnapshotBlock) 
+        - dequeueSnapshotBlock() *core.SnapshotBlock
+
+    }
+    class mockAddress << (S,Aquamarine) >> {
+        - name string
+
+        + Network() string
+        + String() string
+
+    }
+    class mockChain << (S,Aquamarine) >> {
+        - height uint64
+
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHash(hash types.Hash) (*core.SnapshotBlock, error)
+        + GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetAccountBlockByHeight(addr types.Address, height uint64) (*core.AccountBlock, error)
+        + GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetAccountBlocks(blockHash types.Hash, count uint64) ([]*core.AccountBlock, error)
+        + GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*core.AccountBlock, error)
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetGenesisSnapshotBlock() *core.SnapshotBlock
+        + GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (interfaces.LedgerReader, error)
+        + GetSyncCache() interfaces.SyncCache
+
+    }
+    class mockNet << (S,Aquamarine) >> {
+        - chain Chain
+
+        + PeerKey() ed25519.PrivateKey
+        + SubscribeSyncStatus(fn SyncStateCallback) int
+        + UnsubscribeSyncStatus(subId int) 
+        + SyncState() SyncState
+        + Peek() *Chunk
+        + Pop(endHash types.Hash) 
+        + Status() SyncStatus
+        + Detail() SyncDetail
+        + FetchSnapshotBlocks(start types.Hash, count uint64) 
+        + FetchSnapshotBlocksWithHeight(hash types.Hash, height uint64, count uint64) 
+        + FetchAccountBlocks(start types.Hash, count uint64, address *types.Address) 
+        + FetchAccountBlocksWithHeight(start types.Hash, count uint64, address *types.Address, sHeight uint64) 
+        + BroadcastSnapshotBlock(block *core.SnapshotBlock) 
+        + BroadcastSnapshotBlocks(blocks []*core.SnapshotBlock) 
+        + BroadcastAccountBlock(block *core.AccountBlock) 
+        + BroadcastAccountBlocks(blocks []*core.AccountBlock) 
+        + SubscribeAccountBlock(fn AccountBlockCallback) int
+        + UnsubscribeAccountBlock(subId int) 
+        + SubscribeSnapshotBlock(fn SnapshotBlockCallback) int
+        + UnsubscribeSnapshotBlock(subId int) 
+        + Stop() error
+        + Start() error
+        + Info() NodeInfo
+        + Nodes() []*vnode.Node
+        + PeerCount() int
+
+    }
+    class mockReceiver << (S,Aquamarine) >> {
+        - receiveAccountBlock(block *core.AccountBlock, source types.BlockSource) error
+        - receiveSnapshotBlock(block *core.SnapshotBlock, source types.BlockSource) error
+
+    }
+    interface msgHandler  {
+        - name() string
+        - codes() []Code
+        - handle(msg Msg) error
+
+    }
+    class msgHandlers << (S,Aquamarine) >> {
+        - handlers <font color=blue>map</font>[Code]msgHandler
+
+        + _name string
+
+        - name() string
+        - codes() []Code
+        - handle(msg Msg) error
+        - register(h msgHandler) error
+        - unregister(h msgHandler) error
+
+    }
+    class net << (S,Aquamarine) >> {
+        - config *config.Net
+        - peerKey ed25519.PrivateKey
+        - node *vnode.Node
+        - finder *finder
+        - discover *discovery.Discovery
+        - db *database.DB
+        - dialer "net.Dialer
+        - listener "net.Listener
+        - hkr *handshaker
+        - receiveSlots <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - confirmedHashHeightList []*core.HashHeight
+        - syncServer *syncServer
+        - peers *peerSet
+        - chain Chain
+        - reader *cacheReader
+        - downloader syncDownloader
+        - handlers *msgHandlers
+        - query *queryHandler
+        - hb *heartBeater
+        - blackList netool.BlackList
+        - running int32
+        - log log15.Logger
+        - wg sync.WaitGroup
+
+        - listenLoop() 
+        - onConnection(conn "net.Conn, id peerId, inbound bool) 
+        - authorize(c Codec, flag PeerFlag, msg *HandshakeMsg) (bool, error)
+        - checkPeer(peer *Peer) 
+        - onPeerAdded(peer *Peer) error
+        - onPeerRemoved(peer *Peer) 
+        - beatLoop() 
+
+        + ConnectNode(node *vnode.Node) error
+        + Start() error
+        + Stop() error
+        + Nodes() []*vnode.Node
+        + PeerKey() ed25519.PrivateKey
+        + PeerCount() int
+        + Info() NodeInfo
+
+    }
+    class net.AccountBlockCallback << (T, #FF7700) >>  {
+    }
+    class net.Chunks << (T, #FF7700) >>  {
+    }
+    class net.Code << (T, #FF7700) >>  {
+    }
+    class net.Exception << (T, #FF7700) >>  {
+    }
+    class net.MsgId << (T, #FF7700) >>  {
+    }
+    class net.PeerError << (T, #FF7700) >>  {
+    }
+    class net.PeerFlag << (T, #FF7700) >>  {
+    }
+    class net.SnapshotBlockCallback << (T, #FF7700) >>  {
+    }
+    class net.SyncState << (T, #FF7700) >>  {
+    }
+    class net.SyncStateCallback << (T, #FF7700) >>  {
+    }
+    class net.accountBlockMap << (T, #FF7700) >>  {
+    }
+    class net.connections << (T, #FF7700) >>  {
+    }
+    class net.peerEventCode << (T, #FF7700) >>  {
+    }
+    class net.peerId << (T, #FF7700) >>  {
+    }
+    class net.peers << (T, #FF7700) >>  {
+    }
+    class net.reqState << (T, #FF7700) >>  {
+    }
+    class net.syncErrorCode << (T, #FF7700) >>  {
+    }
+    class net.syncTasks << (T, #FF7700) >>  {
+    }
+    class net.taskListener << (T, #FF7700) >>  {
+    }
+    class peerConn << (S,Aquamarine) >> {
+        - id []byte
+        - add bool
+
+    }
+    class peerEvent << (S,Aquamarine) >> {
+        - code peerEventCode
+        - peer *Peer
+        - count int
+
+    }
+    class peerFetchResult << (S,Aquamarine) >> {
+        - status reqState
+        - t int64
+
+    }
+    class peerSet << (S,Aquamarine) >> {
+        - m <font color=blue>map</font>[peerId]*Peer
+        - prw sync.RWMutex
+        - subs []<font color=blue>chan</font> peerEvent
+
+        - reliable() peers
+        - has(id peerId) bool
+        - pickDownloadPeers(height uint64) <font color=blue>map</font>[peerId]*{packageName}Peer
+        - sub(ch <font color=blue>chan</font> peerEvent) 
+        - unSub(ch <font color=blue>chan</font> peerEvent) 
+        - notify(e peerEvent) 
+        - bestPeer() *Peer
+        - syncPeer() *Peer
+        - add(peer *Peer) error
+        - remove(id peerId) (*Peer, error)
+        - pick(height uint64) peers
+        - pickReliable(height uint64) peers
+        - peers() peers
+        - sortPeers(reliable bool) peers
+        - idMap() <font color=blue>map</font>[peerId]<font color=blue>struct</font>{}
+        - get(id peerId) *Peer
+        - count() int
+        - countWithoutSBP() int
+        - inboundWithoutSBP() int
+        - info() []PeerInfo
+
+        + UpdatePeer(p *Peer, newSuperior bool) 
+
+    }
+    class peers << (S,Aquamarine) >> {
+        - delete(id peerId) peers
+
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    class pending << (S,Aquamarine) >> {
+        - wg *sync.WaitGroup
+        - tree *hashHeightNode
+
+        - done(msg Msg, sender *Peer, err error) 
+
+    }
+    class pickItem << (S,Aquamarine) >> {
+        - total int32
+        - picked int32
+        - failed int32
+        - createAt int64
+        - resetting int32
+        - life int64
+
+        - inc() 
+        - fail() 
+        - pick() 
+        - reset(now int64) 
+        - expired(now int64) bool
+
+    }
+    class queryHandler << (S,Aquamarine) >> {
+        - lock sync.RWMutex
+        - queue list.List
+        - term <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - wg sync.WaitGroup
+        - log log15.Logger
+
+        - start() 
+        - stop() 
+        - handle(msg Msg) error
+        - loop() 
+
+    }
+    class record << (S,Aquamarine) >> {
+        - id MsgId
+        - hash types.Hash
+        - addAt int64
+        - t int64
+        - mark int
+        - st reqState
+        - targets <font color=blue>map</font>[peerId]*peerFetchResult
+        - callback <font color=blue>func</font>(Msg, error) 
+
+        - inc() 
+        - refresh() 
+        - reset() 
+        - done(peer *Peer, msg Msg, err error) 
+
+    }
+    class ringStatic << (S,Aquamarine) >> {
+        - rw sync.RWMutex
+        - items []*pickItem
+        - index int32
+        - size int32
+        - d int64
+
+        - get() *pickItem
+        - failedRatio() float32
+
+    }
+    class safeBlockNotifier << (S,Aquamarine) >> {
+        - receiveAccountBlock(block *core.AccountBlock, source types.BlockSource) error
+        - receiveSnapshotBlock(block *core.SnapshotBlock, source types.BlockSource) error
+
+    }
+    class skeleton << (S,Aquamarine) >> {
+        - checking int32
+        - tree *hashHeightNode
+        - blackBlocks <font color=blue>map</font>[types.Hash]<font color=blue>struct</font>{}
+        - peers *peerSet
+        - idGen MsgIder
+        - mu sync.Mutex
+        - pending <font color=blue>map</font>[MsgId]*Peer
+        - wg sync.WaitGroup
+
+        - construct(start []*core.HashHeight, end uint64) []*HashHeightPoint
+        - getHashList(p *Peer, msg *GetHashHeightList) 
+        - receiveHashList(msg Msg, sender *Peer) 
+        - getHashListFailed(id MsgId, sender *Peer, err error) 
+        - removePending(id MsgId) 
+        - reset() 
+
+    }
+    interface snapshotBlockReader  {
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHash(hash types.Hash) (*core.SnapshotBlock, error)
+        + GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+
+    }
+    class stateHandler << (S,Aquamarine) >> {
+        - maxNeighbors int
+        - peers *peerSet
+
+        - name() string
+        - codes() []Code
+        - handle(msg Msg) error
+
+    }
+    interface syncCacheReader  {
+        - start() 
+        - stop() 
+        - compareCache(start *core.HashHeight, hhs []*HashHeightPoint) syncTasks
+        - chunks() [][]*core.HashHeight
+        - cache(from uint64, to uint64) interfaces.SegmentList
+        - caches() interfaces.SegmentList
+        - reset() 
+
+    }
+    interface syncCacher  {
+        + GetSyncCache() interfaces.SyncCache
+
+    }
+    interface syncChain  {
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+
+    }
+    class syncConn << (S,Aquamarine) >> {
+        - conn "net.Conn
+        - c Codec
+        - peer *Peer
+        - busy int32
+        - task syncTask
+        - closed int32
+        - cacher syncCacher
+        - buf []byte
+        - failed int32
+
+        + _speed uint64
+
+        - status() SyncConnectionStatus
+        - address() string
+        - fail() bool
+        - speed() uint64
+        - isBusy() bool
+        - download(t *syncTask) (bool, error)
+        - close() error
+
+    }
+    interface syncConnInitiator  {
+        - initiate(conn "net.Conn, peer *Peer) (*syncConn, error)
+
+    }
+    interface syncConnReceiver  {
+        - receive(conn "net.Conn) (*syncConn, error)
+
+    }
+    interface syncDownloader  {
+        - start() 
+        - stop() 
+        - status() DownloaderStatus
+        - download(t *syncTask, must bool) bool
+        - cancelAllTasks() 
+        - cancelTask(t *syncTask) 
+        - addListener(listener taskListener) 
+        - addBlackList(id peerId) 
+
+    }
+    class syncErrorCode << (S,Aquamarine) >> {
+        + Error() string
+
+    }
+    class syncHandshake << (S,Aquamarine) >> {
+        - id peerId
+        - key []byte
+        - time int64
+        - token []byte
+
+        - deserialize(data []byte) error
+
+        + Serialize() ([]byte, error)
+
+    }
+    class syncRequest << (S,Aquamarine) >> {
+        - from uint64
+        - prevHash types.Hash
+
+        - deserialize(data []byte) error
+
+        + Serialize() ([]byte, error)
+
+    }
+    class syncResponse << (S,Aquamarine) >> {
+        - from uint64
+        - size uint64
+        - prevHash types.Hash
+
+        - deserialize(data []byte) error
+
+        + Serialize() ([]byte, error)
+
+    }
+    class syncServer << (S,Aquamarine) >> {
+        - addr string
+        - ln "net.Listener
+        - mu sync.Mutex
+        - sconnMap <font color=blue>map</font>[peerId]*syncConn
+        - chain ledgerReader
+        - factory syncConnReceiver
+        - running int32
+        - wg sync.WaitGroup
+        - log log15.Logger
+
+        - status() FileServerStatus
+        - start() error
+        - stop() error
+        - listenLoop() 
+        - deleteConn(c *syncConn) 
+        - addConn(c *syncConn) 
+        - handleConn(conn "net.Conn) 
+
+    }
+    interface syncState  {
+        - state() SyncState
+        - enter() 
+        - sync() 
+        - done() 
+        - error(reason syncErrorCode) 
+        - cancel() 
+
+    }
+    class syncStateCancel << (S,Aquamarine) >> {
+        - host syncStateHost
+
+        - state() SyncState
+        - enter() 
+        - sync() 
+        - done() 
+        - error(reason syncErrorCode) 
+        - cancel() 
+
+    }
+    class syncStateDone << (S,Aquamarine) >> {
+        - host syncStateHost
+
+        - state() SyncState
+        - enter() 
+        - sync() 
+        - done() 
+        - error(reason syncErrorCode) 
+        - cancel() 
+
+    }
+    class syncStateError << (S,Aquamarine) >> {
+        - host syncStateHost
+
+        - state() SyncState
+        - enter() 
+        - sync() 
+        - done() 
+        - error(reason syncErrorCode) 
+        - cancel() 
+
+    }
+    interface syncStateHost  {
+        - setState( syncState) 
+
+    }
+    class syncStateInit << (S,Aquamarine) >> {
+        - host syncStateHost
+
+        - state() SyncState
+        - enter() 
+        - sync() 
+        - done() 
+        - error(reason syncErrorCode) 
+        - cancel() 
+
+    }
+    class syncStateSyncing << (S,Aquamarine) >> {
+        - host syncStateHost
+
+        - state() SyncState
+        - enter() 
+        - sync() 
+        - done() 
+        - error(reason syncErrorCode) 
+        - cancel() 
+
+    }
+    class syncTask << (S,Aquamarine) >> {
+        - st reqState
+        - doneAt time.Time
+        - source peerId
+
+        - status() string
+        - wait() 
+        - cancel() 
+        - pending() 
+        - done() 
+        - error() 
+        - equal(t2 *syncTask) bool
+
+    }
+    class syncTasks << (S,Aquamarine) >> {
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    class syncer << (S,Aquamarine) >> {
+        - sbp bool
+        - syncing int32
+        - from uint64
+        - state syncState
+        - timeout time.Duration
+        - peers *peerSet
+        - eventChan <font color=blue>chan</font> peerEvent
+        - taskCanceled int32
+        - sk *skeleton
+        - syncWG sync.WaitGroup
+        - chain syncChain
+        - downloader syncDownloader
+        - reader syncCacheReader
+        - irreader IrreversibleReader
+        - curSubId int
+        - subs <font color=blue>map</font>[int]SyncStateCallback
+        - mu sync.Mutex
+        - running int32
+        - term <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - log log15.Logger
+
+        - name() string
+        - codes() []Code
+        - handle(msg Msg) error
+        - setState(state syncState) 
+        - checkLoop(run *int32) 
+        - stop() 
+        - start() 
+        - getHeight() uint64
+        - getInitStart() []*core.HashHeight
+        - getEnd(start []*core.HashHeight) uint64
+        - getHashHeightList(start []*core.HashHeight, end uint64) ([]*HashHeightPoint, error)
+        - verifyHashHeightList(start []*core.HashHeight, points []*HashHeightPoint) (*core.HashHeight, error)
+        - sync() error
+        - downloadLoop(point *core.HashHeight, end uint64, points []*HashHeightPoint) 
+        - stopSync() 
+
+        + Peek() *Chunk
+        + Pop(endHash types.Hash) 
+        + SubscribeSyncStatus(fn SyncStateCallback) int
+        + UnsubscribeSyncStatus(subId int) 
+        + SyncState() SyncState
+        + Status() SyncStatus
+        + Detail() SyncDetail
+
+    }
+    class transport << (S,Aquamarine) >> {
+        - readTimeout time.Duration
+        - writeTimeout time.Duration
+        - minCompressLength int
+        - readHeadBuf []byte
+        - writeHeadBuf []byte
+        - writeBuf []byte
+
+        + Address() "net.Addr
+        + SetReadTimeout(timeout time.Duration) 
+        + SetWriteTimeout(timeout time.Duration) 
+        + SetTimeout(timeout time.Duration) 
+        + ReadMsg() (Msg, error)
+        + WriteMsg(msg Msg) error
+
+    }
+    class transportFactory << (S,Aquamarine) >> {
+        - minCompressLength int
+        - readTimeout time.Duration
+        - writeTimeout time.Duration
+
+        + CreateCodec(conn "net.Conn) Codec
+
+    }
+    class "<font color=blue>func</font>(*core.SnapshotBlock, types.BlockSource) " as fontcolorbluefuncfontcoreSnapshotBlocktypesBlockSource {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+    class "<font color=blue>func</font>(types.Address, *core.AccountBlock, types.BlockSource) " as fontcolorbluefuncfonttypesAddresscoreAccountBlocktypesBlockSource {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+    class "<font color=blue>map</font>[types.Address][]*core.AccountBlock" as fontcolorbluemapfonttypesAddresscoreAccountBlock {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+    class "vnode.NodeID" as vnodeNodeID {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+"net.accountBockReader" *-- "net.Chain"
+"net.chainReader" *-- "net.Chain"
+"net.ledgerReader" *-- "net.Chain"
+"net.snapshotBlockReader" *-- "net.Chain"
+"net.syncCacher" *-- "net.Chain"
+"net.MsgReadWriter" *-- "net.Codec"
+"core.HashHeight" *-- "net.HashHeightPoint"
+"net.MsgReader" *-- "net.MsgReadWriter"
+"net.MsgWriter" *-- "net.MsgReadWriter"
+"net.MsgWriter" *-- "net.MsgWriteCloser"
+"net.BlockSubscriber" *-- "net.Net"
+"net.Broadcaster" *-- "net.Net"
+"net.Fetcher" *-- "net.Net"
+"net.Syncer" *-- "net.Net"
+"net.BlockSubscriber" *-- "net.Subscriber"
+"net.SyncStateSubscriber" *-- "net.Subscriber"
+"net.DownloaderStatus" *-- "net.SyncDetail"
+"net.SyncStatus" *-- "net.SyncDetail"
+"net.ChunkReader" *-- "net.Syncer"
+"net.SyncStateSubscriber" *-- "net.Syncer"
+"net.BlockSubscriber" *-- "net.blockFeeder"
+"net.blockNotifier" *-- "net.blockFeeder"
+"net.hashHeightPeers" *-- "net.hashHeightNode"
+"net.HashHeightPoint" *-- "net.hashHeightPeers"
+"net.BlockSubscriber" *-- "net.net"
+"net.broadcaster" *-- "net.net"
+"net.fetcher" *-- "net.net"
+"net.syncer" *-- "net.net"
+"net.msgHandlers" *-- "net.queryHandler"
+"net.Verifier" *-- "net.safeBlockNotifier"
+"net.blockFeeder" *-- "net.safeBlockNotifier"
+"net.ChunkReader" *-- "net.syncCacheReader"
+"net.chainReader" *-- "net.syncChain"
+"net.syncCacher" *-- "net.syncChain"
+"interfaces.Segment" *-- "net.syncTask"
+"net.Conn" *-- "net.transport"
+
+"net.Serializable" <|-- "net.AccountBlocks"
+"net.Serializable" <|-- "net.Exception"
+"net.Serializable" <|-- "net.GetAccountBlocks"
+"net.Serializable" <|-- "net.GetHashHeightList"
+"net.Serializable" <|-- "net.GetSnapshotBlocks"
+"net.Serializable" <|-- "net.HandshakeMsg"
+"net.Serializable" <|-- "net.HashHeightPointList"
+"net.Codec" <|-- "net.MockCodec"
+"net.MsgReader" <|-- "net.MockCodec"
+"net.MsgWriter" <|-- "net.MockCodec"
+"net.Serializable" <|-- "net.NewAccountBlock"
+"net.Serializable" <|-- "net.NewSnapshotBlock"
+"net.MsgWriter" <|-- "net.Peer"
+"net.Serializable" <|-- "net.PeerError"
+"net.Serializable" <|-- "net.SnapshotBlocks"
+"net.BlockSubscriber" <|-- "net.blockFeed"
+"net.blockNotifier" <|-- "net.blockFeed"
+"net.Broadcaster" <|-- "net.broadcaster"
+"net.msgHandler" <|-- "net.broadcaster"
+"net.ChunkReader" <|-- "net.cacheReader"
+"net.syncCacheReader" <|-- "net.cacheReader"
+"net.msgHandler" <|-- "net.checkHandler"
+"net.forwardStrategy" <|-- "net.crossForward"
+"net.syncConnInitiator" <|-- "net.defaultSyncConnectionFactory"
+"net.syncConnReceiver" <|-- "net.defaultSyncConnectionFactory"
+"net.syncDownloader" <|-- "net.executor"
+"net.Fetcher" <|-- "net.fetcher"
+"net.msgHandler" <|-- "net.fetcher"
+"discovery.Finder" <|-- "net.finder"
+"discovery.Observer" <|-- "net.finder"
+"net.forwardStrategy" <|-- "net.fullForward"
+"net.msgHandler" <|-- "net.getAccountBlocksHandler"
+"net.msgHandler" <|-- "net.getSnapshotBlocksHandler"
+"net.MsgIder" <|-- "net.gid"
+"net.blockStore" <|-- "net.memBlockStore"
+"net.chainReader" <|-- "net.mockChain"
+"net.ledgerReader" <|-- "net.mockChain"
+"net.snapshotBlockReader" <|-- "net.mockChain"
+"net.syncCacher" <|-- "net.mockChain"
+"net.syncChain" <|-- "net.mockChain"
+"connector.Finder" <|-- "net.mockNet"
+"net.BlockSubscriber" <|-- "net.mockNet"
+"net.Broadcaster" <|-- "net.mockNet"
+"net.ChunkReader" <|-- "net.mockNet"
+"net.Fetcher" <|-- "net.mockNet"
+"net.Net" <|-- "net.mockNet"
+"net.SyncStateSubscriber" <|-- "net.mockNet"
+"net.Syncer" <|-- "net.mockNet"
+"net.blockReceiver" <|-- "net.mockReceiver"
+"net.msgHandler" <|-- "net.msgHandlers"
+"connector.Finder" <|-- "net.net"
+"net.Connector" <|-- "net.net"
+"net.Net" <|-- "net.net"
+"net.PeerManager" <|-- "net.peerSet"
+"net.blockReceiver" <|-- "net.safeBlockNotifier"
+"net.msgHandler" <|-- "net.stateHandler"
+"net.Serializable" <|-- "net.syncHandshake"
+"net.Serializable" <|-- "net.syncRequest"
+"net.Serializable" <|-- "net.syncResponse"
+"discovery.receiver" <|-- "net.syncServer"
+"net.syncState" <|-- "net.syncStateCancel"
+"net.syncState" <|-- "net.syncStateDone"
+"net.syncState" <|-- "net.syncStateError"
+"net.syncState" <|-- "net.syncStateInit"
+"net.syncState" <|-- "net.syncStateSyncing"
+"net.ChunkReader" <|-- "net.syncer"
+"net.SyncStateSubscriber" <|-- "net.syncer"
+"net.Syncer" <|-- "net.syncer"
+"net.msgHandler" <|-- "net.syncer"
+"net.syncStateHost" <|-- "net.syncer"
+"net.MsgReader" <|-- "net.transport"
+"net.MsgWriter" <|-- "net.transport"
+"net.CodecFactory" <|-- "net.transportFactory"
+
+namespace netool {
+    interface BlackList  {
+        + Ban( []byte,  int64) 
+        + UnBan( []byte) 
+        + Banned( []byte) bool
+
+    }
+    class DistinctNetSet << (S,Aquamarine) >> {
+        - members <font color=blue>map</font>[string]uint
+        - buf net.IP
+
+        + Subnet uint
+        + Limit uint
+
+        - key(ip net.IP) net.IP
+
+        + Add(ip net.IP) bool
+        + Remove(ip net.IP) 
+        + Contains(ip net.IP) bool
+        + Len() int
+        + String() string
+
+    }
+    class Netlist << (S,Aquamarine) >> {
+        + MarshalTOML() <font color=blue>interface</font>{}
+        + UnmarshalTOML(fn <font color=blue>func</font>(<font color=blue>interface</font>{}) error) error
+        + Add(cidr string) 
+        + Contains(ip net.IP) bool
+
+    }
+    class blackList << (S,Aquamarine) >> {
+        - records <font color=blue>map</font>[string]*record
+        - strategy Strategy
+        - mu sync.RWMutex
+
+        + Ban(buf []byte, expiration int64) 
+        + UnBan(buf []byte) 
+        + Banned(buf []byte) bool
+
+    }
+    class netool.Netlist << (T, #FF7700) >>  {
+    }
+    class netool.Strategy << (T, #FF7700) >>  {
+    }
+    class record << (S,Aquamarine) >> {
+        - c int
+        - t int64
+
+    }
+    class "[]net.IPNet" as netIPNet {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+"netool.BlackList" <|-- "netool.blackList"
+
+namespace protos {
+    class Findnode << (S,Aquamarine) >> {
+        + Target []byte
+        + Count uint32
+        + Time int64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetTarget() []byte
+        + GetCount() uint32
+        + GetTime() int64
+
+    }
+    class Neighbors << (S,Aquamarine) >> {
+        + Nodes [][]byte
+        + Last bool
+        + Time int64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetNodes() [][]byte
+        + GetLast() bool
+        + GetTime() int64
+
+    }
+    class Node << (S,Aquamarine) >> {
+        + Id []byte
+        + Endpoint []byte
+        + Net uint32
+        + Ext []byte
+        + ActiveAt int64
+        + CheckAt int64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetId() []byte
+        + GetEndpoint() []byte
+        + GetNet() uint32
+        + GetExt() []byte
+        + GetActiveAt() int64
+        + GetCheckAt() int64
+
+    }
+    class Ping << (S,Aquamarine) >> {
+        + From []byte
+        + To []byte
+        + Net uint32
+        + Ext []byte
+        + Time int64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetFrom() []byte
+        + GetTo() []byte
+        + GetNet() uint32
+        + GetExt() []byte
+        + GetTime() int64
+
+    }
+    class Pong << (S,Aquamarine) >> {
+        + From []byte
+        + To []byte
+        + Echo []byte
+        + Net uint32
+        + Ext []byte
+        + Time int64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetFrom() []byte
+        + GetTo() []byte
+        + GetEcho() []byte
+        + GetNet() uint32
+        + GetExt() []byte
+        + GetTime() int64
+
+    }
+}
+
+
+namespace vnode {
+    class EndPoint << (S,Aquamarine) >> {
+        + Host []byte
+        + Port int
+        + Typ HostType
+
+        + UnmarshalJSON(data []byte) error
+        + MarshalJSON() ([]byte, error)
+        + MarshalText() ([]byte, error)
+        + UnmarshalText(text []byte) error
+        + Equal(e2 *EndPoint) bool
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+        + Length() int
+        + String() string
+        + Hostname() string
+
+    }
+    class HostType << (S,Aquamarine) >> {
+        + Is(ht2 HostType) bool
+
+    }
+    class Node << (S,Aquamarine) >> {
+        + ID NodeID
+        + EndPoint EndPoint
+        + Net int
+        + Ext []byte
+
+        + Equal(n2 *Node) bool
+        + Address() string
+        + String() string
+        + Serialize() ([]byte, error)
+        + Deserialize(data []byte) error
+
+    }
+    class NodeID << (S,Aquamarine) >> {
+        + String() string
+        + Brief() string
+        + Bytes() []byte
+        + IsZero() bool
+        + UnmarshalJSON(data []byte) error
+        + MarshalJSON() ([]byte, error)
+        + MarshalText() ([]byte, error)
+        + UnmarshalText(text []byte) error
+
+    }
+    class NodeMode << (S,Aquamarine) >> {
+        + String() string
+
+    }
+    class PEndPoint << (S,Aquamarine) >> {
+        + Host []byte
+        + Port int32
+        + HostType int32
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetHost() []byte
+        + GetPort() int32
+        + GetHostType() int32
+
+    }
+    class PNode << (S,Aquamarine) >> {
+        + Id []byte
+        + Hostname []byte
+        + HostType uint32
+        + Port uint32
+        + Net uint32
+        + Ext []byte
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetId() []byte
+        + GetHostname() []byte
+        + GetHostType() uint32
+        + GetPort() uint32
+        + GetNet() uint32
+        + GetExt() []byte
+
+    }
+    class vnode.HostType << (T, #FF7700) >>  {
+    }
+    class vnode.NodeID << (T, #FF7700) >>  {
+    }
+    class vnode.NodeMode << (T, #FF7700) >>  {
+    }
+}
+
+"net.Serializable" <|-- "vnode.EndPoint"
+"net.Serializable" <|-- "vnode.Node"
+
+"__builtin__.[]byte" #.. "vnode.NodeID"
+"__builtin__.byte" #.. "discovery.code"
+"__builtin__.byte" #.. "discovery.pingStatus"
+"__builtin__.byte" #.. "net.Code"
+"__builtin__.byte" #.. "net.Exception"
+"__builtin__.byte" #.. "net.PeerError"
+"__builtin__.byte" #.. "net.PeerFlag"
+"__builtin__.byte" #.. "net.SyncState"
+"__builtin__.byte" #.. "net.peerEventCode"
+"__builtin__.byte" #.. "net.syncErrorCode"
+"__builtin__.byte" #.. "vnode.HostType"
+"__builtin__.byte" #.. "vnode.NodeMode"
+"__builtin__.int32" #.. "net.reqState"
+"__builtin__.uint32" #.. "net.MsgId"
+"database.[]mark" #.. "database.marks"
+"net.fontcolorbluefuncfontcoreSnapshotBlocktypesBlockSource" #.. "net.SnapshotBlockCallback"
+"net.<font color=blue>func</font>(SyncState) " #.. "net.SyncStateCallback"
+"net.<font color=blue>func</font>(syncTask, error) " #.. "net.taskListener"
+"net.fontcolorbluefuncfonttypesAddresscoreAccountBlocktypesBlockSource" #.. "net.AccountBlockCallback"
+"net.fontcolorbluemapfonttypesAddresscoreAccountBlock" #.. "net.accountBlockMap"
+"net.[]*Chunk" #.. "net.Chunks"
+"net.[]*Peer" #.. "net.peers"
+"net.[]*syncConn" #.. "net.connections"
+"net.[]*syncTask" #.. "net.syncTasks"
+"net.vnodeNodeID" #.. "net.peerId"
+"netool.<font color=blue>func</font>(int64, int) bool" #.. "netool.Strategy"
+"netool.netIPNet" #.. "netool.Netlist"
+hide fields
+hide methods
+@enduml

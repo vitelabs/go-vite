@@ -1,0 +1,414 @@
+@startuml
+namespace rpc {
+    class API << (S,Aquamarine) >> {
+        + Namespace string
+        + Version string
+        + Service <font color=blue>interface</font>{}
+        + Public bool
+
+    }
+    class BatchElem << (S,Aquamarine) >> {
+        + Method string
+        + Args []<font color=blue>interface</font>{}
+        + Result <font color=blue>interface</font>{}
+        + Error error
+
+    }
+    class Client << (S,Aquamarine) >> {
+        - idCounter uint32
+        - connectFunc <font color=blue>func</font>(context.Context) (net.Conn, error)
+        - isHTTP bool
+        - writeConn net.Conn
+        - close <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - didQuit <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - reconnected <font color=blue>chan</font> net.Conn
+        - readErr <font color=blue>chan</font> error
+        - readResp <font color=blue>chan</font> []*jsonrpcMessage
+        - requestOp <font color=blue>chan</font> *requestOp
+        - sendDone <font color=blue>chan</font> error
+        - respWait <font color=blue>map</font>[string]*requestOp
+        - subs <font color=blue>map</font>[string]*ClientSubscription
+
+        - nextID() json.RawMessage
+        - newMessage(method string, paramsIn ...<font color=blue>interface</font>{}) (*jsonrpcMessage, error)
+        - send(ctx context.Context, op *requestOp, msg <font color=blue>interface</font>{}) error
+        - write(ctx context.Context, msg <font color=blue>interface</font>{}) error
+        - reconnect(ctx context.Context) error
+        - dispatch(conn net.Conn) 
+        - closeRequestOps(err error) 
+        - handleNotification(msg *jsonrpcMessage) 
+        - handleResponse(msg *jsonrpcMessage) 
+        - read(conn net.Conn) error
+        - sendHTTP(ctx context.Context, op *requestOp, msg <font color=blue>interface</font>{}) error
+        - sendBatchHTTP(ctx context.Context, op *requestOp, msgs []*jsonrpcMessage) error
+
+        + SupportedModules() (<font color=blue>map</font>[string]string, error)
+        + Close() 
+        + Call(result <font color=blue>interface</font>{}, method string, args ...<font color=blue>interface</font>{}) error
+        + CallContext(ctx context.Context, result <font color=blue>interface</font>{}, method string, args ...<font color=blue>interface</font>{}) error
+        + BatchCall(b []BatchElem) error
+        + BatchCallContext(ctx context.Context, b []BatchElem) error
+        + EthSubscribe(ctx context.Context, channel <font color=blue>interface</font>{}, args ...<font color=blue>interface</font>{}) (*ClientSubscription, error)
+        + ShhSubscribe(ctx context.Context, channel <font color=blue>interface</font>{}, args ...<font color=blue>interface</font>{}) (*ClientSubscription, error)
+        + Subscribe(ctx context.Context, namespace string, channel <font color=blue>interface</font>{}, args ...<font color=blue>interface</font>{}) (*ClientSubscription, error)
+
+    }
+    class ClientSubscription << (S,Aquamarine) >> {
+        - client *Client
+        - etype reflect.Type
+        - channel reflect.Value
+        - namespace string
+        - subid string
+        - in <font color=blue>chan</font> json.RawMessage
+        - quitOnce sync.Once
+        - quit <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - errOnce sync.Once
+        - err <font color=blue>chan</font> error
+
+        - quitWithError(err error, unsubscribeServer bool) 
+        - deliver(result json.RawMessage) bool
+        - start() 
+        - forward() (error, bool)
+        - unmarshal(result json.RawMessage) (<font color=blue>interface</font>{}, error)
+        - requestUnsubscribe() error
+
+        + Err() <font color=blue>chan</font> error
+        + Unsubscribe() 
+
+    }
+    interface Error  {
+        + Error() string
+        + ErrorCode() int
+
+    }
+    interface ErrorWithId  {
+        + Id() <font color=blue>interface</font>{}
+
+    }
+    class HTTPTimeouts << (S,Aquamarine) >> {
+        + ReadTimeout time.Duration
+        + WriteTimeout time.Duration
+        + IdleTimeout time.Duration
+
+    }
+    class Notifier << (S,Aquamarine) >> {
+        - codec ServerCodec
+        - subMu sync.RWMutex
+        - active <font color=blue>map</font>[ID]*Subscription
+        - inactive <font color=blue>map</font>[ID]*Subscription
+
+        - unsubscribe(id ID) error
+        - activate(id ID, namespace string) 
+
+        + CreateSubscription() *Subscription
+        + Notify(id ID, data <font color=blue>interface</font>{}) error
+        + Closed() <font color=blue>chan</font> <font color=blue>interface</font>{}
+
+    }
+    class RPCService << (S,Aquamarine) >> {
+        - server *Server
+
+        + Modules() <font color=blue>map</font>[string]string
+
+    }
+    class Server << (S,Aquamarine) >> {
+        - services serviceRegistry
+        - run int32
+        - codecsMu sync.Mutex
+        - codecs golang-set.Set
+
+        - healthRequest() *serverRequest
+        - execHeader(ctx context.Context, codec ServerCodec, req *serverRequest) error
+        - serveRequest(ctx context.Context, codec ServerCodec, singleShot bool, options CodecOption) error
+        - createSubscription(ctx context.Context, c ServerCodec, req *serverRequest) (ID, error)
+        - handle(ctx context.Context, codec ServerCodec, req *serverRequest) (<font color=blue>interface</font>{}, <font color=blue>func</font>() )
+        - exec(ctx context.Context, codec ServerCodec, req *serverRequest) 
+        - execBatch(ctx context.Context, codec ServerCodec, requests []*serverRequest) 
+        - readRequest(codec ServerCodec) ([]*serverRequest, bool, Error)
+
+        + ServeHTTP(w http.ResponseWriter, r *http.Request) 
+        + ServeListener(l net.Listener) error
+        + RegisterName(name string, rcvr <font color=blue>interface</font>{}) error
+        + ServeCodec(codec ServerCodec, options CodecOption) error
+        + ServeSingleRequest(ctx context.Context, codec ServerCodec, options CodecOption) 
+        + Stop() 
+        + WebsocketHandler(allowedOrigins []string) http.Handler
+
+    }
+    interface ServerCodec  {
+        + ReadRequestHeaders() ([]rpcRequest, bool, Error)
+        + ParseRequestArguments(argTypes []reflect.Type, params <font color=blue>interface</font>{}) ([]reflect.Value, Error)
+        + CreateResponse(id <font color=blue>interface</font>{}, reply <font color=blue>interface</font>{}) <font color=blue>interface</font>{}
+        + CreateErrorResponse(id <font color=blue>interface</font>{}, err Error) <font color=blue>interface</font>{}
+        + CreateErrorResponseWithInfo(id <font color=blue>interface</font>{}, err Error, info <font color=blue>interface</font>{}) <font color=blue>interface</font>{}
+        + CreateNotification(id string, namespace string, event <font color=blue>interface</font>{}) <font color=blue>interface</font>{}
+        + Write(msg <font color=blue>interface</font>{}) error
+        + Close() 
+        + Closed() <font color=blue>chan</font> <font color=blue>interface</font>{}
+
+    }
+    class StdIOConn << (S,Aquamarine) >> {
+        + Read(b []byte) (int, error)
+        + Write(b []byte) (int, error)
+        + Close() error
+        + LocalAddr() net.Addr
+        + RemoteAddr() net.Addr
+        + SetDeadline(t time.Time) error
+        + SetReadDeadline(t time.Time) error
+        + SetWriteDeadline(t time.Time) error
+
+    }
+    class Subscription << (S,Aquamarine) >> {
+        - namespace string
+        - err <font color=blue>chan</font> error
+
+        + ID ID
+
+        + Err() <font color=blue>chan</font> error
+
+    }
+    class WebSocketCli << (S,Aquamarine) >> {
+        - u *url.URL
+        - c *websocket.Conn
+        - srv *Server
+        - closed <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - nextConnTime time.Time
+
+        + Srv(c *websocket.Conn) error
+        + Close() 
+        + Handle() 
+
+    }
+    class callback << (S,Aquamarine) >> {
+        - rcvr reflect.Value
+        - method reflect.Method
+        - argTypes []reflect.Type
+        - hasCtx bool
+        - errPos int
+        - isSubscribe bool
+
+    }
+    class callbackError << (S,Aquamarine) >> {
+        - message string
+
+        + ErrorCode() int
+        + Error() string
+
+    }
+    class executePanicError << (S,Aquamarine) >> {
+        + ErrorCode() int
+        + Error() string
+
+    }
+    class httpConn << (S,Aquamarine) >> {
+        - client *http.Client
+        - req *http.Request
+        - closeOnce sync.Once
+        - closed <font color=blue>chan</font> <font color=blue>struct</font>{}
+
+        - doRequest(ctx context.Context, msg <font color=blue>interface</font>{}) (io.ReadCloser, error)
+
+        + LocalAddr() net.Addr
+        + RemoteAddr() net.Addr
+        + SetReadDeadline( time.Time) error
+        + SetWriteDeadline( time.Time) error
+        + SetDeadline( time.Time) error
+        + Write( []byte) (int, error)
+        + Read(b []byte) (int, error)
+        + Close() error
+
+    }
+    class httpReadWriteNopCloser << (S,Aquamarine) >> {
+        + Close() error
+
+    }
+    class invalidMessageError << (S,Aquamarine) >> {
+        - message string
+
+        + ErrorCode() int
+        + Error() string
+
+    }
+    class invalidParamsError << (S,Aquamarine) >> {
+        - message string
+
+        + ErrorCode() int
+        + Error() string
+
+    }
+    class invalidRequestError << (S,Aquamarine) >> {
+        - message string
+        - id <font color=blue>interface</font>{}
+
+        + ErrorCode() int
+        + Error() string
+        + Id() <font color=blue>interface</font>{}
+
+    }
+    class jsonCodec << (S,Aquamarine) >> {
+        - closer sync.Once
+        - closed <font color=blue>chan</font> <font color=blue>interface</font>{}
+        - decMu sync.Mutex
+        - decode <font color=blue>func</font>(<font color=blue>interface</font>{}) error
+        - encMu sync.Mutex
+        - encode <font color=blue>func</font>(<font color=blue>interface</font>{}) error
+        - rw io.ReadWriteCloser
+
+        + ReadRequestHeaders() ([]rpcRequest, bool, Error)
+        + ParseRequestArguments(argTypes []reflect.Type, params <font color=blue>interface</font>{}) ([]reflect.Value, Error)
+        + CreateResponse(id <font color=blue>interface</font>{}, reply <font color=blue>interface</font>{}) <font color=blue>interface</font>{}
+        + CreateErrorResponse(id <font color=blue>interface</font>{}, err Error) <font color=blue>interface</font>{}
+        + CreateErrorResponseWithInfo(id <font color=blue>interface</font>{}, err Error, info <font color=blue>interface</font>{}) <font color=blue>interface</font>{}
+        + CreateNotification(subid string, namespace string, event <font color=blue>interface</font>{}) <font color=blue>interface</font>{}
+        + Write(res <font color=blue>interface</font>{}) error
+        + Close() 
+        + Closed() <font color=blue>chan</font> <font color=blue>interface</font>{}
+
+    }
+    class jsonErrResponse << (S,Aquamarine) >> {
+        + Version string
+        + Id <font color=blue>interface</font>{}
+        + Error jsonError
+
+    }
+    class jsonError << (S,Aquamarine) >> {
+        + Code int
+        + Message string
+        + Data <font color=blue>interface</font>{}
+
+        + Error() string
+        + ErrorCode() int
+
+    }
+    class jsonNotification << (S,Aquamarine) >> {
+        + Version string
+        + Method string
+        + Params jsonSubscription
+
+    }
+    class jsonRequest << (S,Aquamarine) >> {
+        + Method string
+        + Version string
+        + Id json.RawMessage
+        + Payload json.RawMessage
+
+    }
+    class jsonSubscription << (S,Aquamarine) >> {
+        + Subscription string
+        + Result <font color=blue>interface</font>{}
+
+    }
+    class jsonSuccessResponse << (S,Aquamarine) >> {
+        + Version string
+        + Id <font color=blue>interface</font>{}
+        + Result <font color=blue>interface</font>{}
+
+    }
+    class jsonrpcMessage << (S,Aquamarine) >> {
+        + Version string
+        + ID json.RawMessage
+        + Method string
+        + Params json.RawMessage
+        + Error *jsonError
+        + Result json.RawMessage
+
+        - isNotification() bool
+        - isResponse() bool
+        - hasValidID() bool
+
+        + String() string
+
+    }
+    class methodNotFoundError << (S,Aquamarine) >> {
+        - service string
+        - method string
+        - id <font color=blue>interface</font>{}
+
+        + ErrorCode() int
+        + Error() string
+        + Id() <font color=blue>interface</font>{}
+
+    }
+    class notifierKey << (S,Aquamarine) >> {
+    }
+    class requestOp << (S,Aquamarine) >> {
+        - ids []json.RawMessage
+        - err error
+        - resp <font color=blue>chan</font> *jsonrpcMessage
+        - sub *ClientSubscription
+
+        - wait(ctx context.Context) (*jsonrpcMessage, error)
+
+    }
+    class rpc.CodecOption << (T, #FF7700) >>  {
+    }
+    class rpc.ID << (T, #FF7700) >>  {
+    }
+    class rpc.callbacks << (T, #FF7700) >>  {
+    }
+    class rpc.serviceRegistry << (T, #FF7700) >>  {
+    }
+    class rpc.subscriptions << (T, #FF7700) >>  {
+    }
+    class rpcRequest << (S,Aquamarine) >> {
+        - service string
+        - method string
+        - id <font color=blue>interface</font>{}
+        - isPubSub bool
+        - params <font color=blue>interface</font>{}
+        - err Error
+
+    }
+    class serverRequest << (S,Aquamarine) >> {
+        - id <font color=blue>interface</font>{}
+        - svcname string
+        - callb *callback
+        - args []reflect.Value
+        - isUnsubscribe bool
+        - err Error
+
+    }
+    class service << (S,Aquamarine) >> {
+        - name string
+        - typ reflect.Type
+        - callbacks callbacks
+        - subscriptions subscriptions
+
+    }
+    class shutdownError << (S,Aquamarine) >> {
+        + ErrorCode() int
+        + Error() string
+
+    }
+    class virtualHostHandler << (S,Aquamarine) >> {
+        - vhosts <font color=blue>map</font>[string]<font color=blue>struct</font>{}
+        - next http.Handler
+
+        + ServeHTTP(w http.ResponseWriter, r *http.Request) 
+
+    }
+}
+"rpc.Error" *-- "rpc.ErrorWithId"
+"io.Reader" *-- "rpc.httpReadWriteNopCloser"
+"io.Writer" *-- "rpc.httpReadWriteNopCloser"
+
+"rpc.Error" <|-- "rpc.callbackError"
+"rpc.Error" <|-- "rpc.executePanicError"
+"rpc.Error" <|-- "rpc.invalidMessageError"
+"rpc.Error" <|-- "rpc.invalidParamsError"
+"rpc.Error" <|-- "rpc.invalidRequestError"
+"rpc.ErrorWithId" <|-- "rpc.invalidRequestError"
+"rpc.ServerCodec" <|-- "rpc.jsonCodec"
+"rpc.Error" <|-- "rpc.jsonError"
+"rpc.Error" <|-- "rpc.methodNotFoundError"
+"rpc.ErrorWithId" <|-- "rpc.methodNotFoundError"
+"rpc.Error" <|-- "rpc.shutdownError"
+
+"__builtin__.int" #.. "rpc.CodecOption"
+"__builtin__.string" #.. "rpc.ID"
+"rpc.<font color=blue>map</font>[string]*callback" #.. "rpc.callbacks"
+"rpc.<font color=blue>map</font>[string]*callback" #.. "rpc.subscriptions"
+"rpc.<font color=blue>map</font>[string]*service" #.. "rpc.serviceRegistry"
+hide fields
+hide methods
+@enduml

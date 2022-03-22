@@ -1,0 +1,4302 @@
+@startuml
+namespace batch {
+    interface Batch  {
+        + AddAItem(item Item, sHash *types.Hash) error
+        + AddSItem(item Item) error
+        + Levels() []Level
+        + Size() int
+        + Info() string
+        + Version() uint64
+        + Exists(hash types.Hash) bool
+        + Batch(snapshotFn BucketExecutorFn, accountFn BucketExecutorFn) error
+        + Id() uint64
+
+    }
+    interface Bucket  {
+        + Items() []Item
+        + Owner() *types.Address
+
+    }
+    interface Item  {
+        + ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
+        + Owner() *types.Address
+        + Hash() types.Hash
+        + Height() uint64
+        + PrevHash() types.Hash
+
+    }
+    interface Level  {
+        + Buckets() []Bucket
+        + Add(item Item) error
+        + SHash() *types.Hash
+        + Snapshot() bool
+        + Index() int
+        + Close() 
+        + Closed() bool
+        + Done() 
+        + HasDone() bool
+        + Size() int
+
+    }
+    class accountLevel << (S,Aquamarine) >> {
+        - bs <font color=blue>map</font>[types.Address]*bucket
+        - sHash *types.Hash
+
+        + Buckets() []Bucket
+        + Snapshot() bool
+        + SHash() *types.Hash
+        + Add(b Item) error
+        + Size() int
+
+    }
+    class batch.AccountExistsFunc << (T, #FF7700) >>  {
+    }
+    class batch.BucketExecutorFn << (T, #FF7700) >>  {
+    }
+    class batch.SnapshotExistsFunc << (T, #FF7700) >>  {
+    }
+    class batchExecutor << (S,Aquamarine) >> {
+        - p Batch
+        - snapshotFn BucketExecutorFn
+        - accountFn BucketExecutorFn
+        - maxParallel int
+        - log log15.Logger
+
+        - execute() error
+        - insertLevel(l Level) error
+        - insertSnapshotLevel(l Level) error
+        - insertAccountLevel(l Level) error
+
+    }
+    class batchSnapshot << (S,Aquamarine) >> {
+        - num int
+        - current int
+        - lastSnapshot int
+        - version uint64
+        - all <font color=blue>map</font>[types.Hash]*ownerLevel
+        - ls []Level
+        - snapshotExistsF SnapshotExistsFunc
+        - accountExistsF AccountExistsFunc
+        - maxLevel int
+        - id uint64
+
+        - addSnapshotItem(b Item) error
+        - addAccountItem(b Item, sHash *types.Hash) error
+        - addToAll(keys []types.Hash, l *ownerLevel) 
+
+        + Exists(hash types.Hash) bool
+        + Info() string
+        + Version() uint64
+        + Size() int
+        + Id() uint64
+        + Levels() []Level
+        + AddSItem(b Item) error
+        + AddAItem(b Item, sHash *types.Hash) error
+        + Batch(snapshotFn BucketExecutorFn, accountFn BucketExecutorFn) error
+
+    }
+    class bucket << (S,Aquamarine) >> {
+        - bs []Item
+        - last int
+        - owner *types.Address
+
+        - add(b Item) error
+
+        + Owner() *types.Address
+        + Items() []Item
+
+    }
+    class level << (S,Aquamarine) >> {
+        - index int
+        - closed bool
+        - done bool
+
+        + Index() int
+        + Close() 
+        + Closed() bool
+        + Done() 
+        + HasDone() bool
+
+    }
+    class mockChain << (S,Aquamarine) >> {
+        - all <font color=blue>map</font>[types.Hash]<font color=blue>struct</font>{}
+
+        - len() int
+        - exists(hash types.Hash) error
+        - insert(item Item) error
+        - execute(p Batch, l Level, bucket Bucket, version uint64) error
+
+    }
+    class mockItem << (S,Aquamarine) >> {
+        - prevHash types.Hash
+        - hash types.Hash
+        - height uint64
+        - addr *types.Address
+        - keys []types.Hash
+        - accBlocks []types.Hash
+        - sBlock *types.Hash
+        - expectedErr error
+
+        - computeHash() types.Hash
+
+        + ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
+        + Owner() *types.Address
+        + Hash() types.Hash
+        + Height() uint64
+        + PrevHash() types.Hash
+
+    }
+    class ownerLevel << (S,Aquamarine) >> {
+        - owner *types.Address
+        - level int
+
+    }
+    class snapshotLevel << (S,Aquamarine) >> {
+        - bu *bucket
+
+        + Add(b Item) error
+        + SHash() *types.Hash
+        + Snapshot() bool
+        + Buckets() []Bucket
+        + Size() int
+
+    }
+    class "<font color=blue>func</font>(types.Hash) error" as fontcolorbluefuncfonttypesHasherror {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+"batch.level" *-- "batch.accountLevel"
+"batch.level" *-- "batch.snapshotLevel"
+
+"batch.Batch" <|-- "batch.batchSnapshot"
+"batch.Bucket" <|-- "batch.bucket"
+"batch.Item" <|-- "batch.mockItem"
+"tree.Knot" <|-- "batch.mockItem"
+
+namespace cdb {
+    class AddrArr << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + SetBytes(byt []byte) ([]types.Address, error)
+
+    }
+    class ConsensusDB << (S,Aquamarine) >> {
+        - db *leveldb.DB
+
+        + GetPointByHeight(prefix byte, height uint64) (*Point, error)
+        + DeletePointByHeight(prefix byte, height uint64) error
+        + StorePointByHeight(prefix byte, height uint64, p *Point) error
+        + GetElectionResultByHash(hash types.Hash) ([]types.Address, error)
+        + DeleteElectionResultByHash(hash types.Hash) error
+        + StoreElectionResultByHash(hash types.Hash, addrArr []types.Address) error
+        + Check() 
+
+    }
+    class Content << (S,Aquamarine) >> {
+        + ExpectedNum uint32
+        + FactualNum uint32
+
+        + Copy() *Content
+        + Merge(c *Content) 
+        + Rate() int32
+        + AddNum(ExpectedNum uint32, FactualNum uint32) 
+
+    }
+    class Point << (S,Aquamarine) >> {
+        + PrevHash types.Hash
+        + Hash types.Hash
+        + Sbps <font color=blue>map</font>[types.Address]*Content
+        + Votes *VoteContent
+
+        + Json() string
+        + Marshal() ([]byte, error)
+        + Unmarshal(buf []byte) error
+        + LeftAppend(p *Point) error
+        + RightAppend(p *Point) error
+        + IsEmpty() bool
+
+    }
+    class VoteContent << (S,Aquamarine) >> {
+        + Details <font color=blue>map</font>[string]*big.Int
+        + Total *big.Int
+
+    }
+    class cdb.AddrArr << (T, #FF7700) >>  {
+    }
+    class "[]types.Address" as typesAddress {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+
+namespace chain {
+    class ByBalance << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    interface Chain  {
+        + Init() error
+        + Start() error
+        + Stop() error
+        + Destroy() error
+        + Register(listener EventListener) 
+        + UnRegister(listener EventListener) 
+        + InsertAccountBlock(vmAccountBlocks *interfaces.VmAccountBlock) error
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock) ([]*core.AccountBlock, error)
+        + DeleteAccountBlocks(addr types.Address, toHash types.Hash) ([]*core.AccountBlock, error)
+        + DeleteAccountBlocksToHeight(addr types.Address, toHeight uint64) ([]*core.AccountBlock, error)
+        + DeleteSnapshotBlocks(toHash types.Hash) ([]*core.SnapshotChunk, error)
+        + DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*core.SnapshotChunk, error)
+        + IsGenesisAccountBlock(hash types.Hash) bool
+        + IsAccountBlockExisted(hash types.Hash) (bool, error)
+        + GetAccountBlockByHeight(addr types.Address, height uint64) (*core.AccountBlock, error)
+        + GetAccountBlockHashByHeight(addr types.Address, height uint64) (*types.Hash, error)
+        + GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetReceiveAbBySendAb(sendBlockHash types.Hash) (*core.AccountBlock, error)
+        + IsReceived(sendBlockHash types.Hash) (bool, error)
+        + GetAccountBlocks(blockHash types.Hash, count uint64) ([]*core.AccountBlock, error)
+        + GetCompleteBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*core.AccountBlock, error)
+        + GetAccountBlocksByRange(addr types.Address, start uint64, end uint64) ([]*core.AccountBlock, error)
+        + GetCallDepth(sendBlock types.Hash) (uint16, error)
+        + IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, error)
+        + GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+        + GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
+        + GetLatestAccountHeight(addr types.Address) (uint64, error)
+        + IsGenesisSnapshotBlock(hash types.Hash) bool
+        + IsSnapshotBlockExisted(hash types.Hash) (bool, error)
+        + GetGenesisSnapshotBlock() *core.SnapshotBlock
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetSnapshotHeightByHash(hash types.Hash) (uint64, error)
+        + GetSnapshotHeaderByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotHashByHeight(height uint64) (*types.Hash, error)
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotHeaderByHash(hash types.Hash) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHash(hash types.Hash) (*core.SnapshotBlock, error)
+        + GetRangeSnapshotHeaders(startHash types.Hash, endHash types.Hash) ([]*core.SnapshotBlock, error)
+        + GetRangeSnapshotBlocks(startHash types.Hash, endHash types.Hash) ([]*core.SnapshotBlock, error)
+        + GetSnapshotHeaders(blockHash types.Hash, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetSnapshotHeadersByHeight(height uint64, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*core.SnapshotBlock, error)
+        + GetConfirmSnapshotBlockByAbHash(abHash types.Hash) (*core.SnapshotBlock, error)
+        + GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*core.SnapshotBlock, error)
+        + GetSnapshotHeadersAfterOrEqualTime(endHashHeight *core.HashHeight, startTime *time.Time, producer *types.Address) ([]*core.SnapshotBlock, error)
+        + GetLastUnpublishedSeedSnapshotHeader(producer types.Address, beforeTime time.Time) (*core.SnapshotBlock, error)
+        + GetRandomSeed(snapshotHash types.Hash, n int) uint64
+        + GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
+        + GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
+        + GetSeed(limitSb *core.SnapshotBlock, fromHash types.Hash) (uint64, error)
+        + GetSubLedger(startHeight uint64, endHeight uint64) ([]*core.SnapshotChunk, error)
+        + GetSubLedgerAfterHeight(height uint64) ([]*core.SnapshotChunk, error)
+        + GetAllUnconfirmedBlocks() []*core.AccountBlock
+        + GetUnconfirmedBlocks(addr types.Address) []*core.AccountBlock
+        + GetContentNeedSnapshot() core.SnapshotContent
+        + GetContentNeedSnapshotRange() <font color=blue>map</font>[types.Address]*core.HeightRange
+        + IterateContracts(iterateFunc <font color=blue>func</font>(types.Address, *core.ContractMeta, error) bool) 
+        + IterateAccounts(iterateFunc <font color=blue>func</font>(types.Address, uint64, error) bool) 
+        + GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
+        + GetBalanceMap(addr types.Address) (<font color=blue>map</font>[types.TokenTypeId]*big.Int, error)
+        + GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (<font color=blue>map</font>[types.Address]*big.Int, error)
+        + GetContractCode(contractAddr types.Address) ([]byte, error)
+        + GetContractMeta(contractAddress types.Address) (*core.ContractMeta, error)
+        + GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (*core.ContractMeta, error)
+        + GetContractList(gid types.Gid) ([]types.Address, error)
+        + GetQuotaUnused(address types.Address) (uint64, error)
+        + GetGlobalQuota() types.QuotaInfo
+        + GetQuotaUsedList(address types.Address) []types.QuotaInfo
+        + GetStorageIterator(address types.Address, prefix []byte) (interfaces.StorageIterator, error)
+        + GetValue(address types.Address, key []byte) ([]byte, error)
+        + GetVmLogList(logListHash *types.Hash) (core.VmLogList, error)
+        + GetVMLogListByAddress(address types.Address, start uint64, end uint64, id *types.Hash) (core.VmLogList, error)
+        + GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
+        + GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
+        + GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)
+        + GetConsensusGroup(snapshotHash types.Hash, gid types.Gid) (*types.ConsensusGroupInfo, error)
+        + GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
+        + GetStakeBeneficialAmount(addr types.Address) (*big.Int, error)
+        + GetStakeQuota(addr types.Address) (*big.Int, *types.Quota, error)
+        + GetStakeQuotas(addrList []types.Address) (<font color=blue>map</font>[types.Address]*types.Quota, error)
+        + GetTokenInfoById(tokenId types.TokenTypeId) (*types.TokenInfo, error)
+        + GetAllTokenInfo() (<font color=blue>map</font>[types.TokenTypeId]*types.TokenInfo, error)
+        + CalVoteDetails(gid types.Gid, info *core.GroupInfo, snapshotBlock core.HashHeight) ([]*interfaces.VoteDetails, error)
+        + GetStakeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.StakeInfo, []byte, error)
+        + GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.Fund, error)
+        + GetDexStakeListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*dex.DelegateStakeInfo, []byte, error)
+        + GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (interfaces.LedgerReader, error)
+        + GetSyncCache() interfaces.SyncCache
+        + LoadOnRoad(gid types.Gid) (<font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.Address][]core.HashHeight, error)
+        + DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash) 
+        + GetOnRoadBlocksByAddr(addr types.Address, pageNum int, pageSize int) ([]*core.AccountBlock, error)
+        + LoadAllOnRoad() (<font color=blue>map</font>[types.Address][]types.Hash, error)
+        + GetAccountOnRoadInfo(addr types.Address) (*core.AccountInfo, error)
+        + GetOnRoadInfoUnconfirmedHashList(addr types.Address) ([]*types.Hash, error)
+        + UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeId, number uint64, amount big.Int) error
+        + ClearOnRoadUnconfirmedCache(addr types.Address, hashList []*types.Hash) error
+        + SetCacheLevelForConsensus(level uint32) 
+        + NewDb(dirName string) (*leveldb.DB, error)
+        + Plugins() *plugins.Plugins
+        + SetConsensus(cs Consensus) 
+        + DBs() (*index.IndexDB, *block.BlockDB, *state.StateDB)
+        + Flusher() *flusher.Flusher
+        + StopWrite() 
+        + RecoverWrite() 
+        + WriteGenesisCheckSum(hash types.Hash) error
+        + QueryGenesisCheckSum() (*types.Hash, error)
+        + CheckRedo() error
+        + CheckRecentBlocks() error
+        + CheckOnRoad() error
+        + GetStatus() []interfaces.DBStatus
+
+    }
+    interface Consensus  {
+        + VerifyAccountProducer(block *core.AccountBlock) (bool, error)
+        + SBPReader() core.SBPStatReader
+        + VerifyABsProducer(abs <font color=blue>map</font>[types.Gid][]*core.AccountBlock) ([]*core.AccountBlock, error)
+
+    }
+    interface EventListener  {
+        + PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + PrepareInsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + InsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + PrepareDeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + DeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + PrepareDeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + DeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+
+    }
+    interface Listener  {
+    }
+    class chain << (S,Aquamarine) >> {
+        - genesisCfg *config.Genesis
+        - chainCfg *config.Chain
+        - genesisSnapshotBlock *core.SnapshotBlock
+        - genesisAccountBlocks []*interfaces.VmAccountBlock
+        - genesisAccountBlockHash <font color=blue>map</font>[types.Hash]<font color=blue>struct</font>{}
+        - dataDir string
+        - chainDir string
+        - consensus Consensus
+        - log log15.Logger
+        - em *eventManager
+        - cache *cache.Cache
+        - metaDB *leveldb.DB
+        - indexDB *index.IndexDB
+        - blockDB *block.BlockDB
+        - stateDB *state.StateDB
+        - syncCache interfaces.SyncCache
+        - flusher *flusher.Flusher
+        - flushMu sync.RWMutex
+        - plugins *plugins.Plugins
+        - status uint32
+
+        - getAccountBlocks(addr types.Address, locations []*file_manager.Location, heightRange []uint64) ([]*core.AccountBlock, error)
+        - rsBlockToSBlock(rsBlock *core.AccountBlock, blockHash types.Hash) *core.AccountBlock
+        - genVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *interfaces.VoteDetails
+        - newDbAndRecover() error
+        - checkAndInitData() (byte, error)
+        - checkForkPoints() error
+        - initCache() error
+        - closeAndCleanData() error
+        - cleanAllData() error
+        - deleteSnapshotBlocksToHeight(toHeight uint64) ([]*core.SnapshotChunk, error)
+        - deleteAccountBlockByHeightOrHash(addr types.Address, toHeight uint64, toHash *types.Hash) ([]*core.AccountBlock, error)
+        - deleteAccountBlocks(blocks []*core.AccountBlock) error
+        - getTopProducersMap(snapshotHeight uint64) <font color=blue>map</font>[types.Address]<font color=blue>struct</font>{}
+        - getBlocksToBeConfirmed(sc core.SnapshotContent) ([]*core.AccountBlock, error)
+        - insertSnapshotBlock(snapshotBlock *core.SnapshotBlock) error
+        - getSnapshotBlockList(getList getSnapshotListFunc, higher bool, onlyHeader bool) ([]*core.SnapshotBlock, error)
+        - binarySearchBeforeTime(start *core.SnapshotBlock, end *core.SnapshotBlock, timeNanosecond int64) (*core.SnapshotBlock, error)
+        - filterUnconfirmedBlocks(snapshotBlock *core.SnapshotBlock, checkConsensus bool) []*core.AccountBlock
+        - checkQuota(quotaUnusedCache <font color=blue>map</font>[types.Address]uint64, quotaUsedCache <font color=blue>map</font>[types.Address]uint64, block *core.AccountBlock, sbHeight uint64) (bool, error)
+        - computeDependencies(accountBlocks []*core.AccountBlock) []*core.AccountBlock
+        - filterConsensusFailed(blocks []*core.AccountBlock) ([]*core.AccountBlock, error)
+
+        + GetAccountId(address types.Address) (uint64, error)
+        + GetAccountAddress(accountId uint64) (*types.Address, error)
+        + IterateAccounts(iterateFunc <font color=blue>func</font>(types.Address, uint64, error) bool) 
+        + IterateContracts(iterateFunc <font color=blue>func</font>(types.Address, *core.ContractMeta, error) bool) 
+        + IsGenesisAccountBlock(hash types.Hash) bool
+        + IsAccountBlockExisted(hash types.Hash) (bool, error)
+        + GetAccountBlockByHeight(addr types.Address, height uint64) (*core.AccountBlock, error)
+        + GetAccountBlockHashByHeight(addr types.Address, height uint64) (*types.Hash, error)
+        + GetCompleteBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetReceiveAbBySendAb(sendBlockHash types.Hash) (*core.AccountBlock, error)
+        + IsReceived(sendBlockHash types.Hash) (bool, error)
+        + GetAccountBlocks(blockHash types.Hash, count uint64) ([]*core.AccountBlock, error)
+        + GetAccountBlocksByHeight(addr types.Address, height uint64, count uint64) ([]*core.AccountBlock, error)
+        + GetAccountBlocksByRange(addr types.Address, start uint64, end uint64) ([]*core.AccountBlock, error)
+        + GetCallDepth(sendBlockHash types.Hash) (uint16, error)
+        + GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+        + IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, error)
+        + GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
+        + GetLatestAccountHeight(addr types.Address) (uint64, error)
+        + GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
+        + GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
+        + GetConsensusGroup(snapshotHash types.Hash, gid types.Gid) (*types.ConsensusGroupInfo, error)
+        + GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)
+        + GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
+        + GetStakeBeneficialAmount(addr types.Address) (*big.Int, error)
+        + GetStakeQuota(addr types.Address) (*big.Int, *types.Quota, error)
+        + GetStakeQuotas(addrList []types.Address) (<font color=blue>map</font>[types.Address]*types.Quota, error)
+        + GetTokenInfoById(tokenId types.TokenTypeId) (*types.TokenInfo, error)
+        + GetAllTokenInfo() (<font color=blue>map</font>[types.TokenTypeId]*types.TokenInfo, error)
+        + CalVoteDetails(gid types.Gid, info *core.GroupInfo, snapshotBlock core.HashHeight) ([]*interfaces.VoteDetails, error)
+        + GetStakeListByPage(snapshotHash types.Hash, lastKey []byte, count uint64) ([]*types.StakeInfo, []byte, error)
+        + GetDexFundsByPage(snapshotHash types.Hash, lastAddress types.Address, count int) ([]*dex.Fund, error)
+        + GetDexStakeListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*dex.DelegateStakeInfo, []byte, error)
+        + GetDexFundByAddress(snapshotHash types.Hash, address types.Address) (*dex.Fund, error)
+        + GetDexFundStakeForMiningV1ListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*types.Address, []byte, error)
+        + GetDexFundStakeForMiningV2ListByPage(snapshotHash types.Hash, lastKey []byte, count int) ([]*types.Address, []byte, error)
+        + Init() error
+        + Start() error
+        + Stop() error
+        + Destroy() error
+        + Plugins() *plugins.Plugins
+        + NewDb(dirName string) (*leveldb.DB, error)
+        + SetConsensus(cs Consensus) 
+        + DBs() (*index.IndexDB, *block.BlockDB, *state.StateDB)
+        + Flusher() *flusher.Flusher
+        + ResetLog(dir string, lvl string) 
+        + GetStatus() []interfaces.DBStatus
+        + SetCacheLevelForConsensus(level uint32) 
+        + StopWrite() 
+        + RecoverWrite() 
+        + CheckRedo() error
+        + CheckRecentBlocks() error
+        + CheckOnRoad() error
+        + CheckHash() error
+        + DeleteSnapshotBlocks(toHash types.Hash) ([]*core.SnapshotChunk, error)
+        + DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*core.SnapshotChunk, error)
+        + DeleteAccountBlocks(addr types.Address, toHash types.Hash) ([]*core.AccountBlock, error)
+        + DeleteAccountBlocksToHeight(addr types.Address, toHeight uint64) ([]*core.AccountBlock, error)
+        + Register(listener EventListener) 
+        + UnRegister(listener EventListener) 
+        + InsertAccountBlock(vmAccountBlock *interfaces.VmAccountBlock) error
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock) ([]*core.AccountBlock, error)
+        + WriteGenesisCheckSum(hash types.Hash) error
+        + QueryGenesisCheckSum() (*types.Hash, error)
+        + LoadOnRoad(gid types.Gid) (<font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.Address][]core.HashHeight, error)
+        + GetOnRoadBlocksByAddr(addr types.Address, pageNum int, pageSize int) ([]*core.AccountBlock, error)
+        + DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash) 
+        + GetAccountOnRoadInfo(addr types.Address) (*core.AccountInfo, error)
+        + LoadAllOnRoad() (<font color=blue>map</font>[types.Address][]types.Hash, error)
+        + GetOnRoadInfoUnconfirmedHashList(addr types.Address) ([]*types.Hash, error)
+        + UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeId, number uint64, amount big.Int) error
+        + ClearOnRoadUnconfirmedCache(addr types.Address, hashList []*types.Hash) error
+        + IsGenesisSnapshotBlock(hash types.Hash) bool
+        + IsSnapshotBlockExisted(hash types.Hash) (bool, error)
+        + GetGenesisSnapshotBlock() *core.SnapshotBlock
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetSnapshotHeightByHash(hash types.Hash) (uint64, error)
+        + GetSnapshotHashByHeight(height uint64) (*types.Hash, error)
+        + GetSnapshotHeaderByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotHeaderByHash(hash types.Hash) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHash(hash types.Hash) (*core.SnapshotBlock, error)
+        + GetRangeSnapshotHeaders(startHash types.Hash, endHash types.Hash) ([]*core.SnapshotBlock, error)
+        + GetRangeSnapshotBlocks(startHash types.Hash, endHash types.Hash) ([]*core.SnapshotBlock, error)
+        + GetSnapshotHeaders(blockHash types.Hash, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetSnapshotBlocks(blockHash types.Hash, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetSnapshotHeadersByHeight(height uint64, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*core.SnapshotBlock, error)
+        + GetConfirmSnapshotBlockByAbHash(abHash types.Hash) (*core.SnapshotBlock, error)
+        + GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*core.SnapshotBlock, error)
+        + GetSnapshotHeadersAfterOrEqualTime(endHashHeight *core.HashHeight, startTime *time.Time, producer *types.Address) ([]*core.SnapshotBlock, error)
+        + QuerySnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + QueryLatestSnapshotBlock() (*core.SnapshotBlock, error)
+        + GetRandomSeed(snapshotHash types.Hash, n int) uint64
+        + GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
+        + GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
+        + GetSeed(limitSb *core.SnapshotBlock, fromHash types.Hash) (uint64, error)
+        + GetLastUnpublishedSeedSnapshotHeader(producer types.Address, beforeTime time.Time) (*core.SnapshotBlock, error)
+        + GetSubLedger(startHeight uint64, endHeight uint64) ([]*core.SnapshotChunk, error)
+        + GetSubLedgerAfterHeight(height uint64) ([]*core.SnapshotChunk, error)
+        + GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
+        + GetBalanceMap(addr types.Address) (<font color=blue>map</font>[types.TokenTypeId]*big.Int, error)
+        + GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (<font color=blue>map</font>[types.Address]*big.Int, error)
+        + GetContractCode(contractAddress types.Address) ([]byte, error)
+        + GetContractMeta(contractAddress types.Address) (*core.ContractMeta, error)
+        + GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (*core.ContractMeta, error)
+        + GetContractList(gid types.Gid) ([]types.Address, error)
+        + GetVmLogList(logListHash *types.Hash) (core.VmLogList, error)
+        + GetVMLogListByAddress(address types.Address, start uint64, end uint64, id *types.Hash) (core.VmLogList, error)
+        + GetQuotaUnused(address types.Address) (uint64, error)
+        + GetGlobalQuota() types.QuotaInfo
+        + GetQuotaUsedList(address types.Address) []types.QuotaInfo
+        + GetStorageIterator(address types.Address, prefix []byte) (interfaces.StorageIterator, error)
+        + GetValue(address types.Address, key []byte) ([]byte, error)
+        + GetLedgerReaderByHeight(startHeight uint64, endHeight uint64) (interfaces.LedgerReader, error)
+        + GetSyncCache() interfaces.SyncCache
+        + GetAllUnconfirmedBlocks() []*core.AccountBlock
+        + GetUnconfirmedBlocks(addr types.Address) []*core.AccountBlock
+        + GetContentNeedSnapshot() core.SnapshotContent
+        + GetContentNeedSnapshotRange() <font color=blue>map</font>[types.Address]*core.HeightRange
+
+    }
+    class chain.ByBalance << (T, #FF7700) >>  {
+    }
+    class chain.getSnapshotListFunc << (T, #FF7700) >>  {
+    }
+    class eventManager << (S,Aquamarine) >> {
+        - listenerList []EventListener
+        - chain *chain
+        - maxHandlerId uint32
+        - mu sync.Mutex
+
+        + TriggerInsertAbs(eventType byte, vmAccountBlocks []*interfaces.VmAccountBlock) error
+        + TriggerDeleteAbs(eventType byte, accountBlocks []*core.AccountBlock) error
+        + TriggerInsertSbs(eventType byte, chunks []*core.SnapshotChunk) error
+        + TriggerDeleteSbs(eventType byte, chunks []*core.SnapshotChunk) error
+        + Register(listener EventListener) 
+        + UnRegister(listener EventListener) 
+
+    }
+    class ledgerReader << (S,Aquamarine) >> {
+        - chain *chain
+        - from uint64
+        - to uint64
+        - chunkPrevHash types.Hash
+        - chunkHash types.Hash
+        - fromLocation *file_manager.Location
+        - toLocation *file_manager.Location
+        - currentLocation *file_manager.Location
+
+        + Seg() interfaces.Segment
+        + Size() int
+        + Read(p []byte) (int, error)
+        + Close() error
+
+    }
+    class "<font color=blue>func</font>() ([]*file_manager.Location, []uint64, error)" as fontcolorbluefuncfontfilemanagerLocationuint64error {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+    class "[]*interfaces.VoteDetails" as interfacesVoteDetails {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+"chain.Chain" <|-- "chain.chain"
+"chain_cache.Chain" <|-- "chain.chain"
+"chain_genesis.Chain" <|-- "chain.chain"
+"chain_index.Chain" <|-- "chain.chain"
+"chain_plugins.Chain" <|-- "chain.chain"
+"chain_state.Chain" <|-- "chain.chain"
+"generator.chain" <|-- "chain.chain"
+"generator.stateChain" <|-- "chain.chain"
+"onroad.JudgeGenesis" <|-- "chain.chain"
+"onroad_pool.chainReader" <|-- "chain.chain"
+"verifier.accountChain" <|-- "chain.chain"
+
+namespace chain_block {
+    class BlockDB << (S,Aquamarine) >> {
+        - fm *file_manager.FileManager
+        - snappyWriteBuffer []byte
+        - wg sync.WaitGroup
+        - fileSize int64
+        - id types.Hash
+        - flushStartLocation *file_manager.Location
+        - flushTargetLocation *file_manager.Location
+        - flushBuf *BufWriter
+        - log log15.Logger
+
+        - maxLocation(location *file_manager.Location) *file_manager.Location
+
+        + GetAccountBlock(location *file_manager.Location) (*core.AccountBlock, error)
+        + FileSize() int64
+        + Close() error
+        + Write(ss *core.SnapshotChunk) (<font color=blue>map</font>[types.Hash]*file_manager.Location, *file_manager.Location, error)
+        + Read(location *file_manager.Location) ([]byte, error)
+        + ReadRaw(startLocation *file_manager.Location, buf []byte) (*file_manager.Location, int, error)
+        + ReadUnitBytes(location *file_manager.Location) ([]byte, *file_manager.Location, error)
+        + ReadUnit(location *file_manager.Location) (*core.SnapshotBlock, *core.AccountBlock, *file_manager.Location, error)
+        + ReadChunk(location *file_manager.Location) (*core.SnapshotChunk, *file_manager.Location, error)
+        + ReadRange(startLocation *file_manager.Location, endLocation *file_manager.Location) ([]*core.SnapshotChunk, error)
+        + GetNextLocation(location *file_manager.Location) (*file_manager.Location, error)
+        + PrepareRollback(location *file_manager.Location) ([]*core.SnapshotChunk, error)
+        + Rollback(location *file_manager.Location) error
+        + SetLog(h log15.Handler) 
+        + GetStatus() []interfaces.DBStatus
+        + Id() types.Hash
+        + Prepare() 
+        + CancelPrepare() 
+        + RedoLog() ([]byte, error)
+        + Commit() error
+        + AfterCommit() 
+        + BeforeRecover(redoLog []byte) 
+        + AfterRecover() 
+        + PatchRedoLog(redoLog []byte) error
+        + GetSnapshotBlock(location *file_manager.Location) (*core.SnapshotBlock, error)
+        + GetSnapshotHeader(location *file_manager.Location) (*core.SnapshotBlock, error)
+
+    }
+    class BufWriter << (S,Aquamarine) >> {
+        + Buffer *bytes.Buffer
+        + Err error
+
+        + Write(data []byte) error
+        + WriteError(err error) 
+        + Close() error
+        + Release() 
+
+    }
+    class blockFileParser << (S,Aquamarine) >> {
+        - blockSize int64
+        - blockSizeBuffer []byte
+        - blockSizeBufferPointer int
+        - blockType byte
+        - blockBufferPointer int64
+        - blockBuffer []byte
+        - bytesBuffer <font color=blue>chan</font> *byteBuffer
+        - closed bool
+        - err error
+
+        + Close() error
+        + WriteError(err error) 
+        + Write(buf []byte) error
+        + Iterator() <font color=blue>chan</font> *byteBuffer
+        + Error() error
+
+    }
+    class byteBuffer << (S,Aquamarine) >> {
+        + BlockType byte
+        + Buffer []byte
+        + Size int64
+
+    }
+}
+
+"chain_flusher.Storage" <|-- "chain_block.BlockDB"
+"chain_file_manager.DataParser" <|-- "chain_block.BufWriter"
+"chain_file_manager.DataParser" <|-- "chain_block.blockFileParser"
+
+namespace chain_cache {
+    class Cache << (S,Aquamarine) >> {
+        - chain Chain
+        - ds *dataSet
+        - mu sync.RWMutex
+        - unconfirmedPool *UnconfirmedPool
+        - hd *hotData
+        - quotaList *quotaList
+
+        - insertAccountBlock(block *core.AccountBlock) 
+        - initLatestSnapshotBlock() error
+
+        + InsertAccountBlock(block *core.AccountBlock) 
+        + RollbackAccountBlocks(accountBlocks []*core.AccountBlock) error
+        + IsAccountBlockExisted(hash types.Hash) bool
+        + GetLatestAccountBlock(address types.Address) *core.AccountBlock
+        + GetAccountBlockByHeight(addr types.Address, height uint64) *core.AccountBlock
+        + GetAccountBlockByHash(hash types.Hash) *core.AccountBlock
+        + Destroy() 
+        + GetStatus() []interfaces.DBStatus
+        + Init() error
+        + GetQuotaUsedList(addr types.Address) []types.QuotaInfo
+        + GetGlobalQuota() types.QuotaInfo
+        + ResetUnconfirmedQuotas(unconfirmedBlocks []*core.AccountBlock) 
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock, confirmedBlocks []*core.AccountBlock) 
+        + RollbackSnapshotBlocks(deletedChunks []*core.SnapshotChunk, unconfirmedBlocks []*core.AccountBlock) error
+        + IsSnapshotBlockExisted(hash types.Hash) bool
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetSnapshotHeaderByHash(hash types.Hash) *core.SnapshotBlock
+        + GetSnapshotBlockByHash(hash types.Hash) *core.SnapshotBlock
+        + GetSnapshotHeaderByHeight(height uint64) *core.SnapshotBlock
+        + GetSnapshotBlockByHeight(height uint64) *core.SnapshotBlock
+        + GetUnconfirmedBlocks() []*core.AccountBlock
+        + GetUnconfirmedBlocksByAddress(address *types.Address) []*core.AccountBlock
+
+    }
+    interface Chain  {
+        + QueryLatestSnapshotBlock() (*core.SnapshotBlock, error)
+        + QuerySnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSubLedger(endHeight uint64, startHeight uint64) ([]*core.SnapshotChunk, error)
+        + GetSubLedgerAfterHeight(height uint64) ([]*core.SnapshotChunk, error)
+
+    }
+    class UnconfirmedPool << (S,Aquamarine) >> {
+        - ds *dataSet
+        - insertedList []types.Hash
+        - insertedMap <font color=blue>map</font>[types.Address][]types.Hash
+
+        + InsertAccountBlock(block *core.AccountBlock) 
+        + GetBlocks() []*core.AccountBlock
+        + GetBlocksByAddress(addr *types.Address) []*core.AccountBlock
+        + DeleteBlocks(blocks []*core.AccountBlock) 
+        + DeleteAllBlocks() 
+
+    }
+    class chain_cache.quotaInfo << (T, #FF7700) >>  {
+    }
+    class dataSet << (S,Aquamarine) >> {
+        - store *cache.Cache
+        - snapshotKeepCount uint64
+
+        - insertAccountBlock(accountBlock *core.AccountBlock, delay time.Duration) 
+        - deleteStaleSnapshotBlock(height uint64) 
+
+        + Close() 
+        + IsLarge() bool
+        + InsertAccountBlock(accountBlock *core.AccountBlock) 
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock) 
+        + DeleteAccountBlocks(accountBlocks []*core.AccountBlock) 
+        + DelayDeleteAccountBlocks(accountBlocks []*core.AccountBlock, delay time.Duration) 
+        + DeleteSnapshotBlock(snapshotBlock *core.SnapshotBlock) 
+        + GetAccountBlock(hash types.Hash) *core.AccountBlock
+        + GetAccountBlockByHeight(address types.Address, height uint64) *core.AccountBlock
+        + IsAccountBlockExisted(hash types.Hash) bool
+        + GetSnapshotBlock(hash types.Hash) *core.SnapshotBlock
+        + GetSnapshotBlockByHeight(height uint64) *core.SnapshotBlock
+        + IsSnapshotBlockExisted(hash types.Hash) bool
+        + GetStatus() []interfaces.DBStatus
+
+    }
+    class hotData << (S,Aquamarine) >> {
+        - ds *dataSet
+        - latestSnapshotBlock *core.SnapshotBlock
+        - latestAccountBlocks <font color=blue>map</font>[types.Address]types.Hash
+
+        + SetLatestSnapshotBlock(snapshotBlock *core.SnapshotBlock) 
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + InsertAccountBlock(block *core.AccountBlock) 
+        + DeleteAccountBlocks(blocks []*core.AccountBlock) 
+        + GetLatestAccountBlock(addr types.Address) *core.AccountBlock
+
+    }
+    class quotaList << (S,Aquamarine) >> {
+        - chain Chain
+        - backElement <font color=blue>map</font>[types.Address]*quotaInfo
+        - globalUsed types.QuotaInfo
+        - usedStart *list.Element
+        - usedAccumulateHeight int
+        - list *list.List
+        - listMaxLength int
+        - status byte
+        - log log15.Logger
+
+        - init() error
+        - build() error
+        - moveNext(backElement <font color=blue>map</font>[types.Address]*quotaInfo) 
+        - add(quotaInfoMap <font color=blue>map</font>[types.Address]*quotaInfo, addr types.Address, quota uint64, quotaUsed uint64) 
+        - sub(quotaInfoMap <font color=blue>map</font>[types.Address]*quotaInfo, addr types.Address, blockCount uint64, quota uint64, quotaUsed uint64) 
+        - calculateGlobalUsed() 
+        - resetUsedStart() 
+        - aggregate(quotaMap <font color=blue>map</font>[types.Address]*quotaInfo) (uint64, uint64, uint64)
+
+        + GetGlobalQuota() types.QuotaInfo
+        + GetQuotaUsedList(addr types.Address) []types.QuotaInfo
+        + Add(addr types.Address, quota uint64, quotaUsed uint64) 
+        + Sub(addr types.Address, quota uint64, quotaUsed uint64) 
+        + ResetUnconfirmedQuotas(unconfirmedBlocks []*core.AccountBlock) 
+        + NewNext(confirmedBlocks []*core.AccountBlock) 
+        + Rollback(deletedChunks []*core.SnapshotChunk) error
+
+    }
+    class "types.QuotaInfo" as typesQuotaInfo {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+
+namespace chain_db {
+    class Store << (S,Aquamarine) >> {
+        - id types.Hash
+        - name string
+        - memDbMu sync.RWMutex
+        - memDb *db.MemDB
+        - snapshotBatch *leveldb.Batch
+        - flushingBatch *leveldb.Batch
+        - unconfirmedBatchs *UnconfirmedBatchs
+        - dbDir string
+        - db *leveldb.DB
+        - afterRecoverFuncs []<font color=blue>func</font>() 
+
+        - getNewBatch() *leveldb.Batch
+        - releaseFlushingBatch() 
+        - getSnapshotMemDb() (*memdb.DB, uint64)
+        - putMemDb(batch *leveldb.Batch) 
+
+        + Id() types.Hash
+        + Prepare() 
+        + CancelPrepare() 
+        + RedoLog() ([]byte, error)
+        + Commit() error
+        + PatchRedoLog(redoLog []byte) error
+        + AfterCommit() 
+        + BeforeRecover( []byte) 
+        + AfterRecover() 
+        + RollbackAccountBlocks(rollbackBatch *leveldb.Batch, accountBlocks []*core.AccountBlock) 
+        + RollbackAccountBlockByHash(rollbackBatch *leveldb.Batch, blockHashList []types.Hash) 
+        + RollbackSnapshot(rollbackBatch *leveldb.Batch) 
+        + CompactRange(r util.Range) error
+        + NewBatch() *leveldb.Batch
+        + Get(key []byte) ([]byte, error)
+        + GetOriginal(key []byte) ([]byte, error)
+        + Has(key []byte) (bool, error)
+        + NewIterator(slice *util.Range) interfaces.StorageIterator
+        + Close() error
+        + Clean() error
+        + RegisterAfterRecover(f <font color=blue>func</font>() ) 
+        + GetStatus() []interfaces.DBStatus
+        + WriteDirectly(batch *leveldb.Batch) 
+        + WriteAccountBlock(batch *leveldb.Batch, block *core.AccountBlock) 
+        + WriteAccountBlockByHash(batch *leveldb.Batch, blockHash types.Hash) 
+        + WriteSnapshot(snapshotBatch *leveldb.Batch, accountBlocks []*core.AccountBlock) 
+        + WriteSnapshotByHash(snapshotBatch *leveldb.Batch, blockHashList []types.Hash) 
+
+    }
+    class UnconfirmedBatchs << (S,Aquamarine) >> {
+        - batchMap <font color=blue>map</font>[types.Hash]*list.Element
+        - batchList *list.List
+        - mu sync.RWMutex
+
+        + Size() int
+        + Get(blockHash types.Hash) (*leveldb.Batch, bool)
+        + Put(blockHash types.Hash, batch *leveldb.Batch) 
+        + Remove(blockHash types.Hash) 
+        + Clear() 
+        + All(f <font color=blue>func</font>(*leveldb.Batch) ) 
+
+    }
+}
+
+"chain_flusher.Storage" <|-- "chain_db.Store"
+
+namespace chain_file_manager {
+    interface DataParser  {
+        + Write( []byte) error
+        + WriteError(err error) 
+        + Close() error
+
+    }
+    class FileManager << (S,Aquamarine) >> {
+        - fileSize int64
+        - fdSet *fdManager
+        - nextFlushStartLocation *Location
+        - prevFlushLocation *Location
+        - fSyncWg sync.WaitGroup
+        - log log15.Logger
+
+        - readFile(fd *fileDescription, fromLocation *Location, toLocation *Location) ([]byte, error)
+        - write(buf []byte) (int, error)
+
+        + NextFlushStartLocation() *Location
+        + SetNextFlushStartLocation(location *Location) 
+        + LatestLocation() *Location
+        + Write(buf []byte) (*Location, error)
+        + DeleteTo(location *Location) error
+        + Flush(startLocation *Location, targetLocation *Location, buf []byte) error
+        + GetNextLocation(location *Location) (*Location, error)
+        + Read(location *Location) ([]byte, *Location, error)
+        + ReadRaw(startLocation *Location, buf []byte) (*Location, int, error)
+        + ReadRange(startLocation *Location, endLocation *Location, parser DataParser) 
+        + SetLog(h log15.Handler) 
+        + Close() error
+        + GetCacheStatusList() []interfaces.DBStatus
+
+    }
+    class Location << (S,Aquamarine) >> {
+        + FileId uint64
+        + Offset int64
+
+        + Compare(a *Location) int
+        + Distance(fileSize int64, backLocation *Location) int64
+        + String() string
+
+    }
+    class fdManager << (S,Aquamarine) >> {
+        - dirName string
+        - dirFd *os.File
+        - filenamePrefix string
+        - filenamePrefixSize int
+        - fileCache *list.List
+        - fileFdCache <font color=blue>map</font>[uint64]*fileDescription
+        - fileCacheLength int
+        - fileSize int64
+        - writeFd *fileDescription
+        - changeFdMu sync.RWMutex
+        - fileManager *FileManager
+
+        - resetWriteFd(location *Location) error
+        - latestFileId() uint64
+        - loadLatestLocation() (*Location, error)
+        - reset() 
+        - getCacheItem(fileId uint64) *fileCacheItem
+        - getFileFd(fileId uint64) (*os.File, error)
+        - createNewFile(fileId uint64) (*os.File, error)
+        - isCorrectFile(filename string) bool
+        - fileIdToAbsoluteFilename(fileId uint64) string
+        - filenameToFileId(filename string) (uint64, error)
+
+        + LatestLocation() *Location
+        + GetFd(fileId uint64) (*fileDescription, error)
+        + GetTmpFlushFd(fileId uint64) (*fileDescription, error)
+        + GetWriteFd() *fileDescription
+        + DeleteTo(location *Location) error
+        + DiskDelete(highLocation *Location, lowLocation *Location) error
+        + CreateNextFd() error
+        + Close() error
+
+    }
+    class fileCacheItem << (S,Aquamarine) >> {
+        + Buffer []byte
+        + BufferLen int64
+        + FileId uint64
+        + Mu sync.RWMutex
+        + FileWriter *os.File
+
+    }
+    class fileDescription << (S,Aquamarine) >> {
+        - fdSet *fdManager
+        - fileReader *os.File
+        - cacheItem *fileCacheItem
+        - fileId uint64
+        - writeMaxSize int64
+
+        - readAt(b []byte, offset int64) (int, error)
+
+        + ReadAt(b []byte, offset int64) (int, error)
+        + Write(buf []byte) (int, error)
+        + Flush(startOffset int64, buf []byte) (int, error)
+        + Close() 
+
+    }
+}
+
+
+namespace chain_flusher {
+    class Flusher << (S,Aquamarine) >> {
+        - dirName string
+        - storeList []Storage
+        - idMap <font color=blue>map</font>[types.Hash]Storage
+        - log log15.Logger
+        - fd *os.File
+        - mu *sync.RWMutex
+        - syncFlush sync.WaitGroup
+        - wg sync.WaitGroup
+        - flushInterval time.Duration
+        - flushingMu sync.Mutex
+        - startCommitFlag types.Hash
+        - commitWg sync.WaitGroup
+        - terminal <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - flusherStatus int32
+
+        - loopFlush() 
+        - flush() 
+        - commitRedo() error
+        - loadRedo(fd *os.File) ([][]byte, []Storage, error)
+        - cleanRedoLog() error
+        - prepare() error
+        - writeRedoLog() error
+        - syncRedoLog() bool
+        - commit() error
+        - afterCommit() 
+        - beforeRecover(stores []Storage, redoLogList [][]byte) 
+        - afterRecover() 
+        - redo(stores []Storage, redoLogList [][]byte) error
+
+        + Close() error
+        + ReplaceStore(id types.Hash, store Storage) 
+        + Abort() 
+        + Start() 
+        + Stop() 
+        + Flush() 
+        + Recover() error
+        + LoadRedo(fd *os.File) ([][]byte, []Storage, error)
+
+    }
+    interface Storage  {
+        + Id() types.Hash
+        + Prepare() 
+        + CancelPrepare() 
+        + RedoLog() ([]byte, error)
+        + Commit() error
+        + AfterCommit() 
+        + BeforeRecover( []byte) 
+        + AfterRecover() 
+        + PatchRedoLog( []byte) error
+
+    }
+}
+
+
+namespace chain_genesis {
+    interface Chain  {
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock) ([]*core.AccountBlock, error)
+        + InsertAccountBlock(vmAccountBlocks *interfaces.VmAccountBlock) error
+        + QuerySnapshotBlockByHeight( uint64) (*core.SnapshotBlock, error)
+        + GetContentNeedSnapshot() core.SnapshotContent
+        + WriteGenesisCheckSum(hash types.Hash) error
+        + QueryGenesisCheckSum() (*types.Hash, error)
+
+    }
+    class SortBalances << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class SortVmBlocks << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class byTokenId << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class chain_genesis.SortBalances << (T, #FF7700) >>  {
+    }
+    class chain_genesis.SortVmBlocks << (T, #FF7700) >>  {
+    }
+    class chain_genesis.byTokenId << (T, #FF7700) >>  {
+    }
+    class tokenInfoForSort << (S,Aquamarine) >> {
+        - tokenId types.TokenTypeId
+
+    }
+    class "[]<font color=blue>struct</font>{types.TokenTypeId, *big.Int}" as fontcolorbluestructfonttypesTokenTypeIdbigInt {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+    class "[]*interfaces.VmAccountBlock" as interfacesVmAccountBlock {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+"config.TokenInfo" *-- "chain_genesis.tokenInfoForSort"
+
+
+namespace chain_index {
+    interface Chain  {
+        + LoadOnRoad(gid types.Gid) (<font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.Address][]core.HashHeight, error)
+        + IterateContracts(iterateFunc <font color=blue>func</font>(types.Address, *core.ContractMeta, error) bool) 
+
+    }
+    class IndexDB << (S,Aquamarine) >> {
+        - store *db.Store
+        - latestAccountId uint64
+        - cache *bigcache.BigCache
+        - sendCreateBlockHashCache *golang-lru.Cache
+        - accountCache *golang-lru.Cache
+        - log log15.Logger
+
+        - createAccount(batch interfaces.Batch, addr *types.Address) uint64
+        - queryLatestAccountId() (uint64, error)
+        - newCache() error
+        - initCache(c Chain) error
+        - getValue(key []byte) ([]byte, error)
+        - rollback(batch *xleveldb.Batch, deletedSnapshotSegments []*core.SnapshotChunk) error
+        - deleteSnapshotBlock(batch *xleveldb.Batch, snapshotBlock *core.SnapshotBlock) 
+        - deleteAccountBlocks(batch *xleveldb.Batch, blocks []*core.AccountBlock, sendBlockHashMap <font color=blue>map</font>[types.Hash]*core.AccountBlock) error
+        - deleteSnapshotBlockHash(batch *xleveldb.Batch, snapshotBlockHash types.Hash) 
+        - deleteSnapshotBlockHeight(batch *xleveldb.Batch, snapshotBlockHeight uint64) 
+        - deleteAccountBlockHash(batch *xleveldb.Batch, accountBlockHash types.Hash) 
+        - deleteAccountBlockHeight(batch *xleveldb.Batch, addr types.Address, height uint64) 
+        - deleteReceiveInfo(batch *xleveldb.Batch, sendBlockHash types.Hash) 
+        - deleteConfirmHeight(batch *xleveldb.Batch, addr types.Address, height uint64) 
+        - deleteConfirmCache(blockHash types.Hash) 
+        - insertAccountBlock(batch *xleveldb.Batch, accountBlock *core.AccountBlock) error
+        - insertAbHashHeight(batch interfaces.Batch, block *core.AccountBlock, value []byte) 
+        - insertConfirmCache(blockHash types.Hash, snapshotHeight uint64) 
+        - insertAbHeightLocation(batch interfaces.Batch, block *core.AccountBlock, location *file_manager.Location) 
+        - insertSbHashHeight(batch interfaces.Batch, hash types.Hash, height uint64) 
+        - insertSbHeightLocation(batch interfaces.Batch, block *core.SnapshotBlock, location *file_manager.Location) 
+        - insertReceiveInfo(batch interfaces.Batch, sendBlockHash types.Hash, value []byte) 
+        - insertOnRoad(batch interfaces.Batch, toAddr types.Address, blockHash types.Hash) 
+        - deleteOnRoad(batch interfaces.Batch, toAddr types.Address, blockHash types.Hash) 
+        - getSnapshotBlockLocations(startHeight uint64, endHeight uint64) ([]*file_manager.Location, []uint64, error)
+        - getSnapshotBlockLocationsByCache(endHeight uint64, startHeight uint64) ([]*file_manager.Location, []uint64, error)
+
+        + HasAccount(addr types.Address) (bool, error)
+        + GetAccountId(addr *types.Address) (uint64, error)
+        + GetAccountAddress(accountId uint64) (*types.Address, error)
+        + IterateAccounts(iterateFunc <font color=blue>func</font>(types.Address, uint64, error) bool) 
+        + IsAccountBlockExisted(hash *types.Hash) (bool, error)
+        + GetLatestAccountBlock(addr *types.Address) (uint64, *file_manager.Location, error)
+        + GetAccountBlockLocationByHash(blockHash *types.Hash) (*file_manager.Location, error)
+        + GetAccountBlockLocation(addr *types.Address, height uint64) (*file_manager.Location, error)
+        + GetAccountBlockLocationByHeight(addr *types.Address, height uint64) (*types.Hash, *file_manager.Location, error)
+        + GetAccountBlockLocationListByRange(addr types.Address, start uint64, end uint64) ([]*file_manager.Location, []uint64, error)
+        + GetAccountBlockLocationListByHeight(addr types.Address, height uint64, count uint64) ([]*file_manager.Location, []uint64, error)
+        + GetAccountBlockLocationList(hash *types.Hash, count uint64) (*types.Address, []*file_manager.Location, []uint64, error)
+        + GetConfirmHeightByHash(blockHash *types.Hash) (uint64, error)
+        + GetReceivedBySend(sendBlockHash *types.Hash) (*types.Hash, error)
+        + IsReceived(sendBlockHash *types.Hash) (bool, error)
+        + GetAddrHeightByHash(blockHash *types.Hash) (*types.Address, uint64, error)
+        + RollbackAccountBlocks(accountBlocks []*core.AccountBlock) error
+        + RollbackSnapshotBlocks(deletedSnapshotSegments []*core.SnapshotChunk, unconfirmedBlocks []*core.AccountBlock) error
+        + DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash) 
+        + Init(c Chain) error
+        + InitAccountId() 
+        + CleanAllData() error
+        + Store() *db.Store
+        + Close() error
+        + GetStatus() []interfaces.DBStatus
+        + InsertAccountBlock(accountBlock *core.AccountBlock) error
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock, confirmedBlocks []*core.AccountBlock, snapshotBlockLocation *file_manager.Location, abLocationsList <font color=blue>map</font>[types.Hash]*file_manager.Location) 
+        + Load(addrList []types.Address) (<font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.Address][]core.HashHeight, error)
+        + LoadAllHash() (<font color=blue>map</font>[types.Address][]types.Hash, error)
+        + GetOnRoadHashList(addr types.Address, pageNum int, pageSize int) ([]types.Hash, error)
+        + IsSnapshotBlockExisted(hash *types.Hash) (bool, error)
+        + GetSnapshotBlockHeight(hash *types.Hash) (uint64, error)
+        + GetSnapshotBlockLocationByHash(hash *types.Hash) (*file_manager.Location, error)
+        + GetSnapshotBlockLocation(height uint64) (*file_manager.Location, error)
+        + GetSnapshotBlockByHeight(height uint64) (*types.Hash, *file_manager.Location, error)
+        + GetLatestSnapshotBlockLocation() (*file_manager.Location, error)
+        + GetSnapshotBlockLocationList(blockHash *types.Hash, higher bool, count uint64) ([]*file_manager.Location, []uint64, error)
+        + GetSnapshotBlockLocationListByHeight(height uint64, higher bool, count uint64) ([]*file_manager.Location, []uint64, error)
+        + GetRangeSnapshotBlockLocations(startHash *types.Hash, endHash *types.Hash) ([]*file_manager.Location, []uint64, error)
+
+    }
+}
+
+
+namespace chain_plugins {
+    interface Chain  {
+        + Flusher() *flusher.Flusher
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetSnapshotBlocksByHeight(height uint64, higher bool, count uint64) ([]*core.SnapshotBlock, error)
+        + GetSubLedgerAfterHeight(height uint64) ([]*core.SnapshotChunk, error)
+        + GetSubLedger(startHeight uint64, endHeight uint64) ([]*core.SnapshotChunk, error)
+        + GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + IsAccountBlockExisted(hash types.Hash) (bool, error)
+        + IsGenesisAccountBlock(hash types.Hash) bool
+        + GetAllUnconfirmedBlocks() []*core.AccountBlock
+        + LoadAllOnRoad() (<font color=blue>map</font>[types.Address][]types.Hash, error)
+
+    }
+    class FilterToken << (S,Aquamarine) >> {
+        - store *db.Store
+        - chain Chain
+
+        - deleteAccountBlocks(batch *xleveldb.Batch, accountBlocks []*core.AccountBlock, sendBlocksMap <font color=blue>map</font>[types.Hash]*core.AccountBlock) error
+
+        + SetStore(store *db.Store) 
+        + InsertAccountBlock(batch *xleveldb.Batch, accountBlock *core.AccountBlock) error
+        + InsertSnapshotBlock(batch *xleveldb.Batch, snapshotBlock *core.SnapshotBlock, confirmedBlocks []*core.AccountBlock) error
+        + DeleteAccountBlocks(batch *xleveldb.Batch, accountBlocks []*core.AccountBlock) error
+        + DeleteSnapshotBlocks(batch *xleveldb.Batch, chunks []*core.SnapshotChunk) error
+        + RemoveNewUnconfirmed( *xleveldb.Batch,  []*core.AccountBlock) error
+        + GetBlocks(addr types.Address, tokenId types.TokenTypeId, blockHash *types.Hash, count uint64) ([]*core.AccountBlock, error)
+
+    }
+    class OnRoadInfo << (S,Aquamarine) >> {
+        - chain Chain
+        - unconfirmedCache <font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.Hash]*core.AccountBlock
+        - store *db.Store
+        - mu sync.RWMutex
+
+        - reBuildOnRoadInfo(flusher *flusher.Flusher) error
+        - getUnconfirmed(addr types.Address) (<font color=blue>map</font>[types.TokenTypeId]*signOnRoadMeta, error)
+        - addUnconfirmed(blocks []*core.AccountBlock) 
+        - removeUnconfirmed(blocks []*core.AccountBlock) 
+        - flushWriteBySnapshotLine(batch *xleveldb.Batch, confirmedBlocks <font color=blue>map</font>[types.Address][]*core.AccountBlock) error
+        - flushDeleteBySnapshotLine(batch *xleveldb.Batch, confirmedBlocks <font color=blue>map</font>[types.Address][]*core.AccountBlock) error
+        - readOnRoadInfo(addr *types.Address) (<font color=blue>map</font>[types.TokenTypeId]*onroadMeta, error)
+        - getMeta(key []byte) (*onroadMeta, error)
+        - writeMeta(batch *xleveldb.Batch, key []byte, meta *onroadMeta) error
+        - deleteMeta(batch *xleveldb.Batch, key []byte) 
+        - aggregateBlocks(blocks []*core.AccountBlock) (<font color=blue>map</font>[types.TokenTypeId]*signOnRoadMeta, error)
+
+        + SetStore(store *db.Store) 
+        + InsertSnapshotBlock(batch *xleveldb.Batch, snapshotBlock *core.SnapshotBlock, confirmedBlocks []*core.AccountBlock) error
+        + DeleteSnapshotBlocks(batch *xleveldb.Batch, chunks []*core.SnapshotChunk) error
+        + RemoveNewUnconfirmed(rollbackBatch *xleveldb.Batch, allUnconfirmedBlocks []*core.AccountBlock) error
+        + InsertAccountBlock(batch *xleveldb.Batch, block *core.AccountBlock) error
+        + DeleteAccountBlocks(batch *xleveldb.Batch, blocks []*core.AccountBlock) error
+        + UpdateOnRoadInfo(addr types.Address, tkId types.TokenTypeId, number uint64, amount big.Int) error
+        + RemoveFromUnconfirmedCache(addr types.Address, hashList []*types.Hash) error
+        + GetOnRoadInfoUnconfirmedHashList(addr types.Address) ([]*types.Hash, error)
+        + GetAccountInfo(addr *types.Address) (*core.AccountInfo, error)
+
+    }
+    interface Plugin  {
+        + SetStore(store *db.Store) 
+        + InsertAccountBlock( *xleveldb.Batch,  *core.AccountBlock) error
+        + InsertSnapshotBlock( *xleveldb.Batch,  *core.SnapshotBlock,  []*core.AccountBlock) error
+        + DeleteAccountBlocks( *xleveldb.Batch,  []*core.AccountBlock) error
+        + DeleteSnapshotBlocks( *xleveldb.Batch,  []*core.SnapshotChunk) error
+        + RemoveNewUnconfirmed( *xleveldb.Batch,  []*core.AccountBlock) error
+
+    }
+    class Plugins << (S,Aquamarine) >> {
+        - dataDir string
+        - log log15.Logger
+        - chain Chain
+        - store *db.Store
+        - plugins <font color=blue>map</font>[string]Plugin
+        - writeStatus uint32
+        - mu sync.RWMutex
+
+        - checkAndRecover() (*db.Store, error)
+
+        + StopWrite() 
+        + StartWrite() 
+        + RebuildData() error
+        + Close() error
+        + Store() *db.Store
+        + GetPlugin(name string) Plugin
+        + RemovePlugin(name string) 
+        + PrepareInsertAccountBlocks(vmBlocks []*interfaces.VmAccountBlock) error
+        + PrepareInsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + PrepareDeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + PrepareDeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + DeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + InsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + DeleteAccountBlocks(blocks []*core.AccountBlock) error
+
+    }
+    class onroadMeta << (S,Aquamarine) >> {
+        + TotalAmount big.Int
+        + Number uint64
+
+        - proto() *vitepb.OnroadMeta
+        - deProto(pb *vitepb.OnroadMeta) 
+        - serialize() ([]byte, error)
+        - deserialize(buf []byte) error
+
+    }
+    class signOnRoadMeta << (S,Aquamarine) >> {
+        - amount big.Int
+        - number big.Int
+
+    }
+}
+
+"chain_plugins.Plugin" <|-- "chain_plugins.FilterToken"
+"chain_plugins.Plugin" <|-- "chain_plugins.OnRoadInfo"
+"chain.EventListener" <|-- "chain_plugins.Plugins"
+
+namespace chain_state {
+    interface Chain  {
+        + IterateAccounts(iterateFunc <font color=blue>func</font>(types.Address, uint64, error) bool) 
+        + QueryLatestSnapshotBlock() (*core.SnapshotBlock, error)
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetSnapshotHeightByHash(hash types.Hash) (uint64, error)
+        + GetUnconfirmedBlocks(addr types.Address) []*core.AccountBlock
+        + GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*core.SnapshotBlock, error)
+        + GetSnapshotHeadersAfterOrEqualTime(endHashHeight *core.HashHeight, startTime *time.Time, producer *types.Address) ([]*core.SnapshotBlock, error)
+        + GetSnapshotHeaderByHeight(height uint64) (*core.SnapshotBlock, error)
+        + StopWrite() 
+        + RecoverWrite() 
+
+    }
+    interface Consensus  {
+        + VerifyAccountProducer(block *core.AccountBlock) (bool, error)
+        + SBPReader() core.SBPStatReader
+
+    }
+    interface EventListener  {
+        + PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + PrepareInsertSnapshotBlocks(snapshotBlocks []*core.SnapshotBlock) error
+        + InsertSnapshotBlocks(snapshotBlocks []*core.SnapshotBlock) error
+        + PrepareDeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + DeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + PrepareDeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + DeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+
+    }
+    class FlushingBatch << (S,Aquamarine) >> {
+        + Operation byte
+        + Batch *xleveldb.Batch
+
+    }
+    class LogItem << (S,Aquamarine) >> {
+        + Storage [][][]byte
+        + BalanceMap <font color=blue>map</font>[types.TokenTypeId]*big.Int
+        + Code []byte
+        + ContractMeta <font color=blue>map</font>[types.Address][]byte
+        + VmLogList <font color=blue>map</font>[types.Hash][]byte
+        + CallDepth <font color=blue>map</font>[types.Hash]uint16
+        + Height uint64
+
+    }
+    class MemPool << (S,Aquamarine) >> {
+        - byteSliceList [][]byte
+        - byteSliceLimit int
+        - intSliceList [][]int
+        - intSliceLimit int
+        - mu sync.RWMutex
+
+        + GetByteSlice(n int) []byte
+        + GetIntSlice(n int) []int
+        + Put(x <font color=blue>interface</font>{}) 
+
+    }
+    class Redo << (S,Aquamarine) >> {
+        - store *db.Store
+        - cache *RedoCache
+        - chain Chain
+        - retainHeight uint64
+        - log log15.Logger
+
+        - initCache() error
+
+        + Close() error
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock, confirmedBlocks []*core.AccountBlock) 
+        + HasRedo(snapshotHeight uint64) (bool, error)
+        + QueryLog(snapshotHeight uint64) (SnapshotLog, bool, error)
+        + SetCurrentSnapshot(snapshotHeight uint64, logMap SnapshotLog) 
+        + AddLog(addr types.Address, log LogItem) 
+        + Rollback(chunks []*core.SnapshotChunk) 
+
+    }
+    class RedoCache << (S,Aquamarine) >> {
+        - snapshotLogMap <font color=blue>map</font>[uint64]SnapshotLog
+        - currentHeight uint64
+        - retainHeightGap uint64
+        - mu sync.RWMutex
+
+        + Init(currentHeight uint64) 
+        + Current() SnapshotLog
+        + Get(snapshotHeight uint64) (SnapshotLog, bool)
+        + Delete(snapshotHeight uint64) 
+        + Set(snapshotHeight uint64, snapshotLog SnapshotLog) 
+        + SetCurrent(snapshotHeight uint64, snapshotLog SnapshotLog) 
+        + AddLog(addr types.Address, log LogItem) 
+
+    }
+    class RedoCacheData << (S,Aquamarine) >> {
+        - roundIndex uint64
+        - lastSnapshotBlock *core.SnapshotBlock
+        - currentData *memdb.DB
+        - redoLogs *RoundCacheRedoLogs
+        - mu sync.RWMutex
+
+    }
+    interface RedoInterface  {
+        - initCache() error
+
+        + Close() error
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock, confirmedBlocks []*core.AccountBlock) 
+        + HasRedo(snapshotHeight uint64) (bool, error)
+        + QueryLog(snapshotHeight uint64) (SnapshotLog, bool, error)
+        + SetCurrentSnapshot(snapshotHeight uint64, logMap SnapshotLog) 
+        + AddLog(addr types.Address, log LogItem) 
+        + Rollback(chunks []*core.SnapshotChunk) 
+
+    }
+    class RoundCache << (S,Aquamarine) >> {
+        - chain Chain
+        - stateDB StateDBInterface
+        - roundCount uint64
+        - timeIndex core.TimeIndex
+        - latestRoundIndex uint64
+        - data []*RedoCacheData
+        - mu sync.RWMutex
+        - mp *MemPool
+        - status int
+
+        - getCurrentData(snapshotHash types.Hash) *memdb.DB
+        - initRounds(startRoundIndex uint64, endRoundIndex uint64) ([]*RedoCacheData, error)
+        - queryCurrentData(roundIndex uint64) (*memdb.DB, *core.SnapshotBlock, error)
+        - queryRedoLogs(roundIndex uint64) (*RoundCacheRedoLogs, bool, error)
+        - buildCurrentData(prevCurrentData *memdb.DB, redoLogs *RoundCacheRedoLogs) *memdb.DB
+        - roundToLastSnapshotBlock(roundIndex uint64) (*core.SnapshotBlock, error)
+        - getRoundSnapshotBlocks(roundIndex uint64) ([]*core.SnapshotBlock, error)
+        - setAllBalanceToCache(roundData *memdb.DB, snapshotHash types.Hash) error
+        - setBalanceToCache(roundData *memdb.DB, snapshotHash types.Hash, addressList []types.Address) error
+        - setStorageToCache(roundData *memdb.DB, contractAddress types.Address, snapshotHash types.Hash) error
+        - destroyMemDb(db *memdb.DB) 
+
+        + Init(timeIndex core.TimeIndex) error
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock, snapshotLog SnapshotLog) error
+        + DeleteSnapshotBlocks(snapshotBlocks []*core.SnapshotBlock) error
+        + GetSnapshotViteBalanceList(snapshotHash types.Hash, addrList []types.Address) (<font color=blue>map</font>[types.Address]*big.Int, []types.Address, error)
+        + StorageIterator(snapshotHash types.Hash) interfaces.StorageIterator
+
+    }
+    interface RoundCacheInterface  {
+        - getCurrentData(snapshotHash types.Hash) *memdb.DB
+        - initRounds(startRoundIndex uint64, endRoundIndex uint64) ([]*RedoCacheData, error)
+        - queryCurrentData(roundIndex uint64) (*memdb.DB, *core.SnapshotBlock, error)
+        - queryRedoLogs(roundIndex uint64) (*RoundCacheRedoLogs, bool, error)
+        - buildCurrentData(prevCurrentData *memdb.DB, redoLogs *RoundCacheRedoLogs) *memdb.DB
+        - roundToLastSnapshotBlock(roundIndex uint64) (*core.SnapshotBlock, error)
+        - getRoundSnapshotBlocks(roundIndex uint64) ([]*core.SnapshotBlock, error)
+        - setAllBalanceToCache(roundData *memdb.DB, snapshotHash types.Hash) error
+        - setBalanceToCache(roundData *memdb.DB, snapshotHash types.Hash, addressList []types.Address) error
+        - setStorageToCache(roundData *memdb.DB, contractAddress types.Address, snapshotHash types.Hash) error
+
+        + Init(timeIndex core.TimeIndex) error
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock, snapshotLog SnapshotLog) error
+        + DeleteSnapshotBlocks(snapshotBlocks []*core.SnapshotBlock) error
+        + GetSnapshotViteBalanceList(snapshotHash types.Hash, addrList []types.Address) (<font color=blue>map</font>[types.Address]*big.Int, []types.Address, error)
+        + StorageIterator(snapshotHash types.Hash) interfaces.StorageIterator
+
+    }
+    class RoundCacheLogItem << (S,Aquamarine) >> {
+        + Storage [][][]byte
+        + BalanceMap <font color=blue>map</font>[types.TokenTypeId]*big.Int
+
+    }
+    class RoundCacheRedoLogs << (S,Aquamarine) >> {
+        + Logs []*RoundCacheSnapshotLog
+
+        + Add(snapshotHeight uint64, snapshotLog SnapshotLog) 
+
+    }
+    class RoundCacheSnapshotLog << (S,Aquamarine) >> {
+        + LogMap <font color=blue>map</font>[types.Address][]RoundCacheLogItem
+        + SnapshotHeight uint64
+
+    }
+    class SnapshotLog << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    class StateDB << (S,Aquamarine) >> {
+        - chain Chain
+        - chainCfg *config.Chain
+        - vmLogWhiteListSet <font color=blue>map</font>[types.Address]<font color=blue>struct</font>{}
+        - vmLogAll bool
+        - store *db.Store
+        - cache *cache.Cache
+        - log log15.Logger
+        - redo *Redo
+        - useCache bool
+        - consensusCacheLevel uint32
+        - roundCache *RoundCache
+
+        - newCache() error
+        - initCache() error
+        - disableCache() 
+        - enableCache() 
+        - initSnapshotValueCache() error
+        - initContractMetaCache() error
+        - getValue(key []byte, cachePrefix string) ([]byte, error)
+        - getValueInCache(key []byte, cachePrefix string) ([]byte, error)
+        - parseStorageKey(key []byte) []byte
+        - copyValue(value []byte) []byte
+        - rollbackByRedo(batch *xleveldb.Batch, snapshotBlock *core.SnapshotBlock, redoLogMap <font color=blue>map</font>[types.Address][]LogItem, rollbackKeySet <font color=blue>map</font>[types.Address]<font color=blue>map</font>[string]<font color=blue>struct</font>{}, rollbackTokenSet <font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.TokenTypeId]<font color=blue>struct</font>{}) error
+        - recoverLatestIndexToSnapshot(batch *xleveldb.Batch, hashHeight core.HashHeight, keySetMap <font color=blue>map</font>[types.Address]<font color=blue>map</font>[string]<font color=blue>struct</font>{}, tokenSetMap <font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.TokenTypeId]<font color=blue>struct</font>{}) error
+        - recoverLatestIndexByRedo(batch *xleveldb.Batch, addrMap <font color=blue>map</font>[types.Address]<font color=blue>struct</font>{}, redoLogMap <font color=blue>map</font>[types.Address][]LogItem, rollbackKeySet <font color=blue>map</font>[types.Address]<font color=blue>map</font>[string]<font color=blue>struct</font>{}, rollbackTokenSet <font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.TokenTypeId]<font color=blue>struct</font>{}) 
+        - rollbackAccountBlock(batch *xleveldb.Batch, accountBlock *core.AccountBlock) 
+        - recoverToSnapshot(batch *xleveldb.Batch, snapshotHeight uint64, unconfirmedLog <font color=blue>map</font>[types.Address][]LogItem, addrMap <font color=blue>map</font>[types.Address]<font color=blue>struct</font>{}) error
+        - recoverStorageToSnapshot(batch *xleveldb.Batch, height uint64, addr types.Address, keySet <font color=blue>map</font>[string][]byte) error
+        - recoverBalanceToSnapshot(batch *xleveldb.Batch, height uint64, addr types.Address, tokenSet <font color=blue>map</font>[types.TokenTypeId]*big.Int) error
+        - compactHistoryStorage() 
+        - deleteContractMeta(batch interfaces.Batch, key []byte) 
+        - deleteBalance(batch interfaces.Batch, key []byte) 
+        - deleteHistoryKey(batch interfaces.Batch, key []byte) 
+        - rollbackRoundCache(deletedSnapshotSegments []*core.SnapshotChunk) error
+        - shouldCacheContractData(addr types.Address) bool
+        - getSnapshotBalanceList(balanceMap <font color=blue>map</font>[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error
+        - writeContractMeta(batch interfaces.Batch, key []byte, value []byte) 
+        - writeBalance(batch interfaces.Batch, key []byte, value []byte) 
+        - writeHistoryKey(batch interfaces.Batch, key []byte, value []byte) 
+        - canWriteVmLog(addr types.Address) bool
+
+        + RollbackSnapshotBlocks(deletedSnapshotSegments []*core.SnapshotChunk, newUnconfirmedBlocks []*core.AccountBlock) error
+        + RollbackAccountBlocks(accountBlocks []*core.AccountBlock) error
+        + NewStorageIterator(addr types.Address, prefix []byte) interfaces.StorageIterator
+        + NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr types.Address, prefix []byte) (interfaces.StorageIterator, error)
+        + NewSnapshotStorageIterator(snapshotHash types.Hash, addr types.Address, prefix []byte) (interfaces.StorageIterator, error)
+        + NewRawSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr types.Address, prefix []byte) interfaces.StorageIterator
+        + Init() error
+        + Close() error
+        + SetConsensus(cs Consensus) error
+        + GetStorageValue(addr *types.Address, key []byte) ([]byte, error)
+        + GetBalance(addr types.Address, tokenTypeId types.TokenTypeId) (*big.Int, error)
+        + GetBalanceMap(addr types.Address) (<font color=blue>map</font>[types.TokenTypeId]*big.Int, error)
+        + GetCode(addr types.Address) ([]byte, error)
+        + GetContractMeta(addr types.Address) (*core.ContractMeta, error)
+        + IterateContracts(iterateFunc <font color=blue>func</font>(types.Address, *core.ContractMeta, error) bool) 
+        + HasContractMeta(addr types.Address) (bool, error)
+        + GetContractList(gid *types.Gid) ([]types.Address, error)
+        + GetVmLogList(logHash *types.Hash) (core.VmLogList, error)
+        + GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
+        + GetSnapshotBalanceList(balanceMap <font color=blue>map</font>[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error
+        + GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error)
+        + SetCacheLevelForConsensus(level uint32) 
+        + Store() *db.Store
+        + RedoStore() *db.Store
+        + Redo() RedoInterface
+        + GetStatus() []interfaces.DBStatus
+        + NewStorageDatabase(snapshotHash types.Hash, addr types.Address) (StorageDatabaseInterface, error)
+        + Write(block *interfaces.VmAccountBlock) error
+        + WriteByRedo(blockHash types.Hash, addr types.Address, redoLog LogItem) 
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock, confirmedBlocks []*core.AccountBlock) error
+
+    }
+    interface StateDBInterface  {
+        - rollbackByRedo(batch *xleveldb.Batch, snapshotBlock *core.SnapshotBlock, redoLogMap <font color=blue>map</font>[types.Address][]LogItem, rollbackKeySet <font color=blue>map</font>[types.Address]<font color=blue>map</font>[string]<font color=blue>struct</font>{}, rollbackTokenSet <font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.TokenTypeId]<font color=blue>struct</font>{}) error
+        - recoverLatestIndexToSnapshot(batch *xleveldb.Batch, hashHeight core.HashHeight, keySetMap <font color=blue>map</font>[types.Address]<font color=blue>map</font>[string]<font color=blue>struct</font>{}, tokenSetMap <font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.TokenTypeId]<font color=blue>struct</font>{}) error
+        - recoverLatestIndexByRedo(batch *xleveldb.Batch, addrMap <font color=blue>map</font>[types.Address]<font color=blue>struct</font>{}, redoLogMap <font color=blue>map</font>[types.Address][]LogItem, rollbackKeySet <font color=blue>map</font>[types.Address]<font color=blue>map</font>[string]<font color=blue>struct</font>{}, rollbackTokenSet <font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.TokenTypeId]<font color=blue>struct</font>{}) 
+        - rollbackAccountBlock(batch *xleveldb.Batch, accountBlock *core.AccountBlock) 
+        - recoverToSnapshot(batch *xleveldb.Batch, snapshotHeight uint64, unconfirmedLog <font color=blue>map</font>[types.Address][]LogItem, addrMap <font color=blue>map</font>[types.Address]<font color=blue>struct</font>{}) error
+        - recoverStorageToSnapshot(batch *xleveldb.Batch, height uint64, addr types.Address, keySet <font color=blue>map</font>[string][]byte) error
+        - recoverBalanceToSnapshot(batch *xleveldb.Batch, height uint64, addr types.Address, tokenSet <font color=blue>map</font>[types.TokenTypeId]*big.Int) error
+        - compactHistoryStorage() 
+        - deleteContractMeta(batch interfaces.Batch, key []byte) 
+        - deleteBalance(batch interfaces.Batch, key []byte) 
+        - deleteHistoryKey(batch interfaces.Batch, key []byte) 
+        - rollbackRoundCache(deletedSnapshotSegments []*core.SnapshotChunk) error
+        - getSnapshotBalanceList(balanceMap <font color=blue>map</font>[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error
+        - newCache() error
+        - initCache() error
+        - disableCache() 
+        - enableCache() 
+        - initSnapshotValueCache() error
+        - initContractMetaCache() error
+        - getValue(key []byte, cachePrefix string) ([]byte, error)
+        - getValueInCache(key []byte, cachePrefix string) ([]byte, error)
+        - parseStorageKey(key []byte) []byte
+        - copyValue(value []byte) []byte
+        - writeContractMeta(batch interfaces.Batch, key []byte, value []byte) 
+        - writeBalance(batch interfaces.Batch, key []byte, value []byte) 
+        - writeHistoryKey(batch interfaces.Batch, key []byte, value []byte) 
+        - canWriteVmLog(addr types.Address) bool
+
+        + NewStorageIterator(addr types.Address, prefix []byte) interfaces.StorageIterator
+        + NewSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr types.Address, prefix []byte) (interfaces.StorageIterator, error)
+        + NewSnapshotStorageIterator(snapshotHash types.Hash, addr types.Address, prefix []byte) (interfaces.StorageIterator, error)
+        + NewRawSnapshotStorageIteratorByHeight(snapshotHeight uint64, addr types.Address, prefix []byte) interfaces.StorageIterator
+        + RollbackSnapshotBlocks(deletedSnapshotSegments []*core.SnapshotChunk, newUnconfirmedBlocks []*core.AccountBlock) error
+        + RollbackAccountBlocks(accountBlocks []*core.AccountBlock) error
+        + Init() error
+        + Close() error
+        + SetConsensus(cs Consensus) error
+        + GetStorageValue(addr *types.Address, key []byte) ([]byte, error)
+        + GetBalance(addr types.Address, tokenTypeId types.TokenTypeId) (*big.Int, error)
+        + GetBalanceMap(addr types.Address) (<font color=blue>map</font>[types.TokenTypeId]*big.Int, error)
+        + GetCode(addr types.Address) ([]byte, error)
+        + GetContractMeta(addr types.Address) (*core.ContractMeta, error)
+        + IterateContracts(iterateFunc <font color=blue>func</font>(types.Address, *core.ContractMeta, error) bool) 
+        + HasContractMeta(addr types.Address) (bool, error)
+        + GetContractList(gid *types.Gid) ([]types.Address, error)
+        + GetVmLogList(logHash *types.Hash) (core.VmLogList, error)
+        + GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
+        + GetSnapshotBalanceList(balanceMap <font color=blue>map</font>[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error
+        + GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error)
+        + SetCacheLevelForConsensus(level uint32) 
+        + Store() *db.Store
+        + RedoStore() *db.Store
+        + Redo() RedoInterface
+        + GetStatus() []interfaces.DBStatus
+        + NewStorageDatabase(snapshotHash types.Hash, addr types.Address) (StorageDatabaseInterface, error)
+        + Write(block *interfaces.VmAccountBlock) error
+        + WriteByRedo(blockHash types.Hash, addr types.Address, redoLog LogItem) 
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock, confirmedBlocks []*core.AccountBlock) error
+
+    }
+    class StorageDatabase << (S,Aquamarine) >> {
+        - stateDb *StateDB
+        - snapshotHash types.Hash
+        - snapshotHeight uint64
+        - addr types.Address
+
+        + GetValue(key []byte) ([]byte, error)
+        + NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
+        + Address() *types.Address
+
+    }
+    interface StorageDatabaseInterface  {
+        + GetValue(key []byte) ([]byte, error)
+        + NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
+        + Address() *types.Address
+
+    }
+    interface TimeIndex  {
+        + Index2Time(index uint64) (time.Time, time.Time)
+        + Time2Index(t time.Time) uint64
+
+    }
+    class TransformIterator << (S,Aquamarine) >> {
+        - iter iterator.Iterator
+        - keyPrefixLength int
+
+        + Last() bool
+        + Prev() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Key() []byte
+        + Value() []byte
+        + Error() error
+        + Release() 
+
+    }
+    class chain_state.SnapshotLog << (T, #FF7700) >>  {
+    }
+    class snapshotStorageIterator << (S,Aquamarine) >> {
+        - iter interfaces.StorageIterator
+        - iterOk bool
+        - snapshotHeight uint64
+        - lastKey []byte
+
+        - step(isNext bool) bool
+        - setCorrectPointer(key []byte) bool
+        - isBeforeOrEqualHeight(key []byte) bool
+        - setLastKey(key []byte) 
+
+        + Last() bool
+        + Prev() bool
+        + Next() bool
+        + Seek(key []byte) bool
+        + Key() []byte
+        + Value() []byte
+        + Error() error
+        + Release() 
+
+    }
+    class stateStorageIterator << (S,Aquamarine) >> {
+        - iter interfaces.StorageIterator
+        - snapshotHeight uint64
+        - addr types.Address
+
+        + Last() bool
+        + Prev() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Key() []byte
+        + Value() []byte
+        + Error() error
+        + Release() 
+
+    }
+    class "<font color=blue>map</font>[types.Address][]LogItem" as fontcolorbluemapfonttypesAddressLogItem {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+"chain_state.RedoInterface" <|-- "chain_state.Redo"
+"chain_state.RoundCacheInterface" <|-- "chain_state.RoundCache"
+"chain_state.StateDBInterface" <|-- "chain_state.StateDB"
+"chain_state.StorageDatabaseInterface" <|-- "chain_state.StorageDatabase"
+
+namespace chain_utils {
+    class AccountAddressKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + AddressRefill(addr types.Address) 
+
+    }
+    class AccountBlockHashKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + HashRefill(hash types.Hash) 
+
+    }
+    class AccountBlockHeightKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + AddressRefill(addr types.Address) 
+        + HeightRefill(height uint64) 
+
+    }
+    class AccountIdKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + AccountIdRefill(accountId uint64) 
+
+    }
+    class BalanceHistoryKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + Construct(bytes []byte) *BalanceHistoryKey
+        + AddressRefill(addr types.Address) 
+        + TokenIdRefill(tokenId types.TokenTypeId) 
+        + HeightRefill(height uint64) 
+        + EqualAddressAndTokenId(addr types.Address, tokenId types.TokenTypeId) bool
+        + ExtraTokenId() types.TokenTypeId
+        + ExtraHeight() uint64
+
+    }
+    class BalanceKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + AddressRefill(addr types.Address) 
+        + TokenIdRefill(tokenId types.TokenTypeId) 
+
+    }
+    class CallDepthKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + HashRefill(hash types.Hash) 
+
+    }
+    class CodeKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + AddressRefill(addr types.Address) 
+
+    }
+    class ConfirmHeightKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + AddressRefill(addr types.Address) 
+        + HeightRefill(height uint64) 
+
+    }
+    class ContractMetaKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + AddressRefill(addr types.Address) 
+
+    }
+    interface DBKey  {
+        + Bytes() []byte
+        + String() string
+
+    }
+    interface DBKeyAddressRefill  {
+        + AddressRefill(addr types.Address) 
+
+    }
+    interface DBKeyBalance  {
+    }
+    interface DBKeyHashRefill  {
+        + HashRefill(hash types.Hash) 
+
+    }
+    interface DBKeyHeightRefill  {
+        + HeightRefill(height uint64) 
+
+    }
+    interface DBKeyRealKeyRefill  {
+        + KeyRefill(real StorageRealKey) 
+
+    }
+    interface DBKeyStorage  {
+    }
+    interface DBKeyTokenIdRefill  {
+        + TokenIdRefill(tokenId types.TokenTypeId) 
+
+    }
+    class GidContractKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + GidRefill(gid types.Gid) 
+        + AddressRefill(addr types.Address) 
+
+    }
+    class OnRoadKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + AddressRefill(addr types.Address) 
+        + HashRefill(hash types.Hash) 
+
+    }
+    class ReceiveKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + HashRefill(hash types.Hash) 
+
+    }
+    class SnapshotBlockHashKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + HashRefill(hash types.Hash) 
+
+    }
+    class SnapshotBlockHeightKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + HeightRefill(height uint64) 
+
+    }
+    class SnapshotKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + HeightRefill(height uint64) 
+
+    }
+    class StorageHistoryKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + Construct(bytes []byte) *StorageHistoryKey
+        + AddressRefill(addr types.Address) 
+        + KeyRefill(real StorageRealKey) 
+        + HeightRefill(height uint64) 
+        + ExtraKeyAndLen() []byte
+        + ExtraAddress() types.Address
+        + ExtraHeight() uint64
+
+    }
+    class StorageKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + AddressRefill(addr types.Address) 
+        + KeyRefill(real StorageRealKey) 
+        + StorageKeyRefill(bytes []byte) 
+        + KeyLenRefill(len int) 
+
+    }
+    class StorageRealKey << (S,Aquamarine) >> {
+        - len byte
+        - real []byte
+        - cap int
+
+        + Construct(real []byte) StorageRealKey
+        + ConstructFix(all []byte) StorageRealKey
+        + Extra() []byte
+        + String() string
+
+    }
+    class VmLogListKey << (S,Aquamarine) >> {
+        + Bytes() []byte
+        + String() string
+        + HashRefill(hash types.Hash) 
+
+    }
+    class chain_utils.AccountAddressKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.AccountBlockHashKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.AccountBlockHeightKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.AccountIdKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.BalanceHistoryKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.BalanceKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.CallDepthKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.CodeKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.ConfirmHeightKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.ContractMetaKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.GidContractKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.OnRoadKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.ReceiveKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.SnapshotBlockHashKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.SnapshotBlockHeightKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.SnapshotKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.StorageHistoryKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.StorageKey << (T, #FF7700) >>  {
+    }
+    class chain_utils.VmLogListKey << (T, #FF7700) >>  {
+    }
+}
+"chain_utils.DBKey" *-- "chain_utils.DBKeyBalance"
+"chain_utils.DBKeyAddressRefill" *-- "chain_utils.DBKeyBalance"
+"chain_utils.DBKeyTokenIdRefill" *-- "chain_utils.DBKeyBalance"
+"chain_utils.DBKey" *-- "chain_utils.DBKeyStorage"
+"chain_utils.DBKeyAddressRefill" *-- "chain_utils.DBKeyStorage"
+"chain_utils.DBKeyRealKeyRefill" *-- "chain_utils.DBKeyStorage"
+
+"chain_utils.DBKey" <|-- "chain_utils.AccountAddressKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.AccountAddressKey"
+"chain_utils.DBKey" <|-- "chain_utils.AccountBlockHashKey"
+"chain_utils.DBKeyHashRefill" <|-- "chain_utils.AccountBlockHashKey"
+"chain_utils.DBKey" <|-- "chain_utils.AccountBlockHeightKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.AccountBlockHeightKey"
+"chain_utils.DBKeyHeightRefill" <|-- "chain_utils.AccountBlockHeightKey"
+"chain_utils.DBKey" <|-- "chain_utils.AccountIdKey"
+"chain_utils.DBKey" <|-- "chain_utils.BalanceHistoryKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.BalanceHistoryKey"
+"chain_utils.DBKeyHeightRefill" <|-- "chain_utils.BalanceHistoryKey"
+"chain_utils.DBKeyTokenIdRefill" <|-- "chain_utils.BalanceHistoryKey"
+"chain_utils.DBKey" <|-- "chain_utils.BalanceKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.BalanceKey"
+"chain_utils.DBKeyTokenIdRefill" <|-- "chain_utils.BalanceKey"
+"chain_utils.DBKey" <|-- "chain_utils.CallDepthKey"
+"chain_utils.DBKeyHashRefill" <|-- "chain_utils.CallDepthKey"
+"chain_utils.DBKey" <|-- "chain_utils.CodeKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.CodeKey"
+"chain_utils.DBKey" <|-- "chain_utils.ConfirmHeightKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.ConfirmHeightKey"
+"chain_utils.DBKeyHeightRefill" <|-- "chain_utils.ConfirmHeightKey"
+"chain_utils.DBKey" <|-- "chain_utils.ContractMetaKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.ContractMetaKey"
+"chain_utils.DBKey" <|-- "chain_utils.GidContractKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.GidContractKey"
+"chain_utils.DBKey" <|-- "chain_utils.OnRoadKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.OnRoadKey"
+"chain_utils.DBKeyHashRefill" <|-- "chain_utils.OnRoadKey"
+"chain_utils.DBKey" <|-- "chain_utils.ReceiveKey"
+"chain_utils.DBKeyHashRefill" <|-- "chain_utils.ReceiveKey"
+"chain_utils.DBKey" <|-- "chain_utils.SnapshotBlockHashKey"
+"chain_utils.DBKeyHashRefill" <|-- "chain_utils.SnapshotBlockHashKey"
+"chain_utils.DBKey" <|-- "chain_utils.SnapshotBlockHeightKey"
+"chain_utils.DBKeyHeightRefill" <|-- "chain_utils.SnapshotBlockHeightKey"
+"chain_utils.DBKey" <|-- "chain_utils.SnapshotKey"
+"chain_utils.DBKeyHeightRefill" <|-- "chain_utils.SnapshotKey"
+"chain_utils.DBKey" <|-- "chain_utils.StorageHistoryKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.StorageHistoryKey"
+"chain_utils.DBKeyHeightRefill" <|-- "chain_utils.StorageHistoryKey"
+"chain_utils.DBKeyRealKeyRefill" <|-- "chain_utils.StorageHistoryKey"
+"chain_utils.DBKey" <|-- "chain_utils.StorageKey"
+"chain_utils.DBKeyAddressRefill" <|-- "chain_utils.StorageKey"
+"chain_utils.DBKeyRealKeyRefill" <|-- "chain_utils.StorageKey"
+"chain_utils.DBKey" <|-- "chain_utils.VmLogListKey"
+"chain_utils.DBKeyHashRefill" <|-- "chain_utils.VmLogListKey"
+
+namespace consensus {
+    interface APIReader  {
+        + ReadVoteMap(t time.Time) ([]*VoteDetails, *core.HashHeight, error)
+        + ReadSuccessRate(start uint64, end uint64) ([]<font color=blue>map</font>[types.Address]*cdb.Content, error)
+        + ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error)
+
+    }
+    class APISnapshot << (S,Aquamarine) >> {
+        - snapshot *snapshotCs
+
+        + ReadVoteMap(ti time.Time) ([]*VoteDetails, *core.HashHeight, error)
+        + ReadSuccessRate(start uint64, end uint64) ([]<font color=blue>map</font>[types.Address]*cdb.Content, error)
+        + ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error)
+
+    }
+    class ByBalance << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    interface Chain  {
+        + GetGenesisSnapshotBlock() *core.SnapshotBlock
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + Register(listener chain.EventListener) 
+        + UnRegister(listener chain.EventListener) 
+        + GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)
+        + GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
+        + GetAllRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
+        + GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
+        + GetConfirmedBalanceList(addrList []types.Address, tokenID types.TokenTypeId, sbHash types.Hash) (<font color=blue>map</font>[types.Address]*big.Int, error)
+        + GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*core.SnapshotBlock, error)
+        + GetContractMeta(contractAddress types.Address) (*core.ContractMeta, error)
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHash(hash types.Hash) (*core.SnapshotBlock, error)
+        + GetSnapshotHeadersAfterOrEqualTime(endHashHeight *core.HashHeight, startTime *time.Time, producer *types.Address) ([]*core.SnapshotBlock, error)
+        + IsGenesisSnapshotBlock(hash types.Hash) bool
+        + GetRandomSeed(snapshotHash types.Hash, n int) uint64
+        + GetLastUnpublishedSeedSnapshotHeader(producer types.Address, beforeTime time.Time) (*core.SnapshotBlock, error)
+        + NewDb(dbDir string) (*xleveldb.DB, error)
+
+    }
+    interface Consensus  {
+        + API() APIReader
+        + SBPReader() core.SBPStatReader
+
+    }
+    class ConsensusCfg << (S,Aquamarine) >> {
+        + EnablePuppet bool
+
+    }
+    interface DposReader  {
+        + ElectionIndex(index uint64) (*electionResult, error)
+        + GetInfo() *core.GroupInfo
+        + Time2Index(t time.Time) uint64
+        + Index2Time(i uint64) (time.Time, time.Time)
+        + GenProofTime(t uint64) time.Time
+        + VerifyProducer(address types.Address, t time.Time) (bool, error)
+
+    }
+    interface DposVerifier  {
+    }
+    class Event << (S,Aquamarine) >> {
+        + Gid types.Gid
+        + Address types.Address
+        + Stime time.Time
+        + Etime time.Time
+        + Timestamp time.Time
+        + VoteTime time.Time
+        + PeriodStime time.Time
+        + PeriodEtime time.Time
+
+    }
+    interface Life  {
+        + Start() 
+        + Init(cfg *ConsensusCfg) error
+        + Stop() 
+
+    }
+    interface LinkedArray  {
+        + GetByIndex(index uint64) (*cdb.Point, error)
+        + GetByIndexWithProof(index uint64, proofHash types.Hash) (*cdb.Point, error)
+
+    }
+    class MockChain << (S,Aquamarine) >> {
+        - ctrl *gomock.Controller
+        - recorder *MockChainMockRecorder
+
+        + EXPECT() *MockChainMockRecorder
+        + GetAllRegisterList(arg0 types.Hash, arg1 types.Gid) ([]*types.Registration, error)
+        + GetConfirmedBalanceList(arg0 []types.Address, arg1 types.TokenTypeId, arg2 types.Hash) (<font color=blue>map</font>[types.Address]*big.Int, error)
+        + GetConsensusGroupList(arg0 types.Hash) ([]*types.ConsensusGroupInfo, error)
+        + GetContractMeta(arg0 types.Address) (*core.ContractMeta, error)
+        + GetGenesisSnapshotBlock() *core.SnapshotBlock
+        + GetLastUnpublishedSeedSnapshotHeader(arg0 types.Address, arg1 "time.Time) (*core.SnapshotBlock, error)
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetRandomSeed(arg0 types.Hash, arg1 int) uint64
+        + GetRegisterList(arg0 types.Hash, arg1 types.Gid) ([]*types.Registration, error)
+        + GetSnapshotBlockByHash(arg0 types.Hash) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHeight(arg0 uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotHeaderBeforeTime(arg0 *"time.Time) (*core.SnapshotBlock, error)
+        + GetSnapshotHeadersAfterOrEqualTime(arg0 *core.HashHeight, arg1 *"time.Time, arg2 *types.Address) ([]*core.SnapshotBlock, error)
+        + GetVoteList(arg0 types.Hash, arg1 types.Gid) ([]*types.VoteInfo, error)
+        + IsGenesisSnapshotBlock(arg0 types.Hash) bool
+        + NewDb(arg0 string) (*leveldb.DB, error)
+        + Register(arg0 chain.EventListener) 
+        + UnRegister(arg0 chain.EventListener) 
+
+    }
+    class MockChainMockRecorder << (S,Aquamarine) >> {
+        - mock *MockChain
+
+        + GetAllRegisterList(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}) *gomock.Call
+        + GetConfirmedBalanceList(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}, arg2 <font color=blue>interface</font>{}) *gomock.Call
+        + GetConsensusGroupList(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + GetContractMeta(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + GetGenesisSnapshotBlock() *gomock.Call
+        + GetLastUnpublishedSeedSnapshotHeader(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}) *gomock.Call
+        + GetLatestSnapshotBlock() *gomock.Call
+        + GetRandomSeed(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}) *gomock.Call
+        + GetRegisterList(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}) *gomock.Call
+        + GetSnapshotBlockByHash(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + GetSnapshotBlockByHeight(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + GetSnapshotHeaderBeforeTime(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + GetSnapshotHeadersAfterOrEqualTime(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}, arg2 <font color=blue>interface</font>{}) *gomock.Call
+        + GetVoteList(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}) *gomock.Call
+        + IsGenesisSnapshotBlock(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + NewDb(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + Register(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + UnRegister(arg0 <font color=blue>interface</font>{}) *gomock.Call
+
+    }
+    class MockDposReader << (S,Aquamarine) >> {
+        - ctrl *gomock.Controller
+        - recorder *MockDposReaderMockRecorder
+
+        + EXPECT() *MockDposReaderMockRecorder
+        + ElectionIndex(arg0 uint64) (*electionResult, error)
+        + GenVoteTime(arg0 uint64) "time.Time
+        + GetInfo() *core.GroupInfo
+        + Index2Time(arg0 uint64) ("time.Time, "time.Time)
+        + Time2Index(arg0 "time.Time) uint64
+        + VerifyProducer(arg0 types.Address, arg1 "time.Time) (bool, error)
+
+    }
+    class MockDposReaderMockRecorder << (S,Aquamarine) >> {
+        - mock *MockDposReader
+
+        + ElectionIndex(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + GenVoteTime(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + GetInfo() *gomock.Call
+        + Index2Time(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + Time2Index(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + VerifyProducer(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}) *gomock.Call
+
+    }
+    class MockLinkedArray << (S,Aquamarine) >> {
+        - ctrl *gomock.Controller
+        - recorder *MockLinkedArrayMockRecorder
+
+        + EXPECT() *MockLinkedArrayMockRecorder
+        + GetByIndex(arg0 uint64) (*cdb.Point, error)
+        + GetByIndexWithProof(arg0 uint64, arg1 types.Hash) (*cdb.Point, error)
+        + Index2Time(arg0 uint64) ("time.Time, "time.Time)
+        + Time2Index(arg0 "time.Time) uint64
+
+    }
+    class MockLinkedArrayMockRecorder << (S,Aquamarine) >> {
+        - mock *MockLinkedArray
+
+        + GetByIndex(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + GetByIndexWithProof(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}) *gomock.Call
+        + Index2Time(arg0 <font color=blue>interface</font>{}) *gomock.Call
+        + Time2Index(arg0 <font color=blue>interface</font>{}) *gomock.Call
+
+    }
+    class MockRollbackProof << (S,Aquamarine) >> {
+        - ctrl *gomock.Controller
+        - recorder *MockRollbackProofMockRecorder
+
+        + EXPECT() *MockRollbackProofMockRecorder
+        + Proof(arg0 types.Hash, arg1 "time.Time) (*core.SnapshotBlock, error)
+        + ProofEmpty(arg0 "time.Time, arg1 "time.Time) (bool, error)
+        + ProofHash(arg0 "time.Time) (types.Hash, error)
+
+    }
+    class MockRollbackProofMockRecorder << (S,Aquamarine) >> {
+        - mock *MockRollbackProof
+
+        + Proof(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}) *gomock.Call
+        + ProofEmpty(arg0 <font color=blue>interface</font>{}, arg1 <font color=blue>interface</font>{}) *gomock.Call
+        + ProofHash(arg0 <font color=blue>interface</font>{}) *gomock.Call
+
+    }
+    class ProducersEvent << (S,Aquamarine) >> {
+        + Addrs []types.Address
+        + Index uint64
+        + Gid types.Gid
+
+    }
+    interface Reader  {
+        + ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error)
+        + VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error)
+        + VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error)
+
+    }
+    interface RollbackProof  {
+        + Proof(hash types.Hash, t "time.Time) (*core.SnapshotBlock, error)
+        + ProofEmpty(stime "time.Time, etime "time.Time) (bool, error)
+        + ProofHash(t "time.Time) (types.Hash, error)
+
+    }
+    class SBPInfo << (S,Aquamarine) >> {
+        + ExpectedNum int32
+        + FactualNum int32
+
+    }
+    interface Subscriber  {
+        + Subscribe(gid types.Gid, id string, addr *types.Address, fn <font color=blue>func</font>(Event) ) 
+        + UnSubscribe(gid types.Gid, id string) 
+        + SubscribeProducers(gid types.Gid, id string, fn <font color=blue>func</font>(ProducersEvent) ) 
+        + TriggerMineEvent(addr types.Address) error
+
+    }
+    interface Verifier  {
+        + VerifyAccountProducer(block *core.AccountBlock) (bool, error)
+        + VerifyABsProducer(abs <font color=blue>map</font>[types.Gid][]*core.AccountBlock) ([]*core.AccountBlock, error)
+        + VerifySnapshotProducer(block *core.SnapshotBlock) (bool, error)
+
+    }
+    class VoteDetails << (S,Aquamarine) >> {
+        + CurrentAddr types.Address
+        + RegisterList []types.Address
+        + Addr <font color=blue>map</font>[types.Address]*big.Int
+
+    }
+    class chainRw << (S,Aquamarine) >> {
+        - genesisTime time.Time
+        - rw Chain
+        - rollbackLock lock.ChainRollback
+        - hourPoints LinkedArray
+        - dayPoints LinkedArray
+        - periodPoints *periodLinkedArray
+        - dbCache *cdb.ConsensusDB
+        - lruCache *golang-lru.Cache
+        - started <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - snapshotLoadCh <font color=blue>chan</font> *core.SnapshotBlock
+        - wg sync.WaitGroup
+        - log log15.Logger
+        - snapshot *snapshotCs
+
+        - init(cs *snapshotCs) 
+        - genVoteDetails(snapshotHash types.Hash, registration *types.Registration, infos []*types.VoteInfo, id types.TokenTypeId) *VoteDetails
+        - getGid(block *core.AccountBlock) (*types.Gid, error)
+        - checkSnapshotHashValid(startHeight uint64, startHash types.Hash, actual types.Hash, voteTime time.Time) error
+        - getSnapshotVoteCache(hashes types.Hash) ([]types.Address, bool)
+        - updateSnapshotVoteCache(hashes types.Hash, addresses []types.Address) 
+        - getVoteLRUCache(gid types.Gid, hashes types.Hash) ([]types.Address, bool)
+        - updateVoteLRUCache(gid types.Gid, hashes types.Hash, addrArr []types.Address) 
+        - genLruKey(gid types.Gid, hash types.Hash) []byte
+
+        + Start() error
+        + Stop() error
+        + GetSnapshotBeforeTime(t time.Time) (*core.SnapshotBlock, error)
+        + GetSeedsBeforeHashH(hash types.Hash) uint64
+        + CalVotes(info *core.GroupInfo, hashH core.HashHeight) ([]*core.Vote, error)
+        + CalVoteDetails(gid types.Gid, info *core.GroupInfo, block core.HashHeight) ([]*VoteDetails, error)
+        + GetMemberInfo(gid types.Gid) (*core.GroupInfo, error)
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetSuccessRateByHour(index uint64) (<font color=blue>map</font>[types.Address]int32, error)
+        + GetSuccessRateByHour2(index uint64) (<font color=blue>map</font>[types.Address]*cdb.Content, error)
+
+    }
+    class consensus << (S,Aquamarine) >> {
+        - mLog log15.Logger
+        - genesis time.Time
+        - rw *chainRw
+        - rollback lock.ChainRollback
+        - snapshot *snapshotCs
+        - contracts *contractsCs
+        - dposWrapper *dposReader
+        - api APIReader
+        - wg sync.WaitGroup
+        - closed <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - ctx context.Context
+        - cancelFn context.CancelFunc
+        - tg *trigger
+
+        + SBPReader() core.SBPStatReader
+        + API() APIReader
+        + VerifySnapshotProducer(header *core.SnapshotBlock) (bool, error)
+        + VerifyABsProducer(abs <font color=blue>map</font>[types.Gid][]*core.AccountBlock) ([]*core.AccountBlock, error)
+        + VerifyABsProducerByGid(gid types.Gid, blocks []*core.AccountBlock) ([]*core.AccountBlock, error)
+        + VerifyAccountProducer(accountBlock *core.AccountBlock) (bool, error)
+        + ReadByIndex(gid types.Gid, index uint64) ([]*Event, uint64, error)
+        + VoteTimeToIndex(gid types.Gid, t2 time.Time) (uint64, error)
+        + VoteIndexToTime(gid types.Gid, i uint64) (*time.Time, *time.Time, error)
+        + Init(cfg *ConsensusCfg) error
+        + Start() 
+        + Stop() 
+        + OnChainGC(start *core.SnapshotBlock, end *core.SnapshotBlock) error
+        + PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + PrepareInsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + InsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + PrepareDeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + DeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + PrepareDeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + DeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+
+    }
+    class consensus.ByBalance << (T, #FF7700) >>  {
+    }
+    class consensusSubscriber << (S,Aquamarine) >> {
+        - firstSub *sync.Map
+        - secondSub *sync.Map
+
+        - selected(gid types.Gid) *sync.Map
+        - triggerEvent(gid types.Gid, fn <font color=blue>func</font>(*subscribeEvent) ) 
+        - triggerProducerEvent(gid types.Gid, fn <font color=blue>func</font>(*producerSubscribeEvent) ) 
+
+        + Subscribe(gid types.Gid, id string, addr *types.Address, fn <font color=blue>func</font>(Event) ) 
+        + UnSubscribe(gid types.Gid, id string) 
+        + SubscribeProducers(gid types.Gid, id string, fn <font color=blue>func</font>(ProducersEvent) ) 
+        + TriggerMineEvent(addr types.Address) error
+
+    }
+    class contractDposCs << (S,Aquamarine) >> {
+        - rw *chainRw
+        - algo core.Algo
+        - log log15.Logger
+
+        - electionTime(t time.Time) (*electionResult, error)
+        - electionAddrsIndex(index uint64) ([]types.Address, *core.SnapshotBlock, error)
+        - calVotes(block *core.SnapshotBlock) ([]types.Address, error)
+        - verifyAccountsProducer(accountBlocks []*core.AccountBlock) ([]*core.AccountBlock, error)
+        - verifyProducers(blocks []*core.AccountBlock, result <font color=blue>map</font>[types.Address]bool) []*core.AccountBlock
+        - verifyProducer(address types.Address, result *electionResult) bool
+
+        + GetInfo() *core.GroupInfo
+        + ElectionIndex(index uint64) (*electionResult, error)
+        + GenProofTime(idx uint64) time.Time
+        + VerifyAccountProducer(accountBlock *core.AccountBlock) (bool, error)
+        + VerifyAccountProducerLevel1(accBlock *core.AccountBlock) (bool, error)
+        + VerifyProducer(address types.Address, t time.Time) (bool, error)
+
+    }
+    class contractsCs << (S,Aquamarine) >> {
+        - rw *chainRw
+        - contracts <font color=blue>map</font>[types.Gid]*contractDposCs
+        - contractsMu sync.Mutex
+        - log log15.Logger
+
+        - getOrLoadGid(gid types.Gid) (*contractDposCs, error)
+        - reloadGid(gid types.Gid) (*contractDposCs, error)
+        - getForGid(gid types.Gid) *contractDposCs
+
+        + LoadGid(gid types.Gid) error
+        + ElectionTime(gid types.Gid, t time.Time) (*electionResult, error)
+        + ElectionIndex(gid types.Gid, index uint64) (*electionResult, error)
+
+    }
+    class dposReader << (S,Aquamarine) >> {
+        - snapshot DposReader
+        - contracts *contractsCs
+        - log log15.Logger
+
+        - getDposConsensus(gid types.Gid) (DposReader, error)
+
+    }
+    class electionResult << (S,Aquamarine) >> {
+        + Plans []*core.MemberPlan
+        + STime "time.Time
+        + ETime "time.Time
+        + Index uint64
+
+    }
+    class linkedArray << (S,Aquamarine) >> {
+        - prefix byte
+        - rate uint64
+        - db *cdb.ConsensusDB
+        - lowerArr LinkedArray
+        - proof RollbackProof
+        - extraDataFn <font color=blue>func</font>(byte, uint64, types.Hash) (*cdb.VoteContent, error)
+        - log log15.Logger
+
+        - getByIndexWithProofFromDb(index uint64, proofHash types.Hash) (*cdb.Point, bool, error)
+        - getByIndexWithProofFromKernel(index uint64, proofHash types.Hash) (*cdb.Point, error)
+
+        + GetByIndex(index uint64) (*cdb.Point, error)
+        + GetByIndexWithProof(index uint64, proofHash types.Hash) (*cdb.Point, error)
+
+    }
+    class periodLinkedArray << (S,Aquamarine) >> {
+        - periods *golang-lru.Cache
+        - rw Chain
+        - snapshot DposReader
+        - proof RollbackProof
+        - log log15.Logger
+
+        - getByIndexWithProofFromDb(index uint64, proofHash types.Hash) (*cdb.Point, error)
+        - set(index uint64, block *cdb.Point) error
+        - getByIndexWithProofFromChain(index uint64, proofHash types.Hash) (*cdb.Point, error)
+        - genPeriodPoint(index uint64, stime *time.Time, etime *time.Time, proofHash types.Hash, blocks []*core.SnapshotBlock, result *electionResult) (*cdb.Point, error)
+
+        + GetByIndexWithProof(index uint64, proofHash types.Hash) (*cdb.Point, error)
+        + GetByIndex(index uint64) (*cdb.Point, error)
+
+    }
+    class producerSubscribeEvent << (S,Aquamarine) >> {
+        - gid types.Gid
+        - fn <font color=blue>func</font>(ProducersEvent) 
+
+        - trigger(ctx context.Context, result *electionResult, voteTime time.Time) 
+
+    }
+    class rollbackProof << (S,Aquamarine) >> {
+        - rw Chain
+
+        + ProofEmpty(stime "time.Time, etime "time.Time) (bool, error)
+        + ProofHash(t "time.Time) (types.Hash, error)
+        + Proof(hash types.Hash, t "time.Time) (*core.SnapshotBlock, error)
+
+    }
+    class simpleCs << (S,Aquamarine) >> {
+        - algo core.Algo
+        - log log15.Logger
+
+        - verifyProducer(t time.Time, address types.Address, result *electionResult) bool
+
+        + GetInfo() *core.GroupInfo
+        + GenProofTime(h uint64) time.Time
+        + ElectionTime(t time.Time) (*electionResult, error)
+        + ElectionIndex(index uint64) (*electionResult, error)
+        + VerifyProducer(address types.Address, t time.Time) (bool, error)
+
+    }
+    class snapshotCs << (S,Aquamarine) >> {
+        - rw *chainRw
+        - algo core.Algo
+        - log log15.Logger
+
+        - dayVoteStat(b byte, index uint64, proofHash types.Hash) (*cdb.VoteContent, error)
+        - calVotes(proofBlock *core.SnapshotBlock, index uint64) ([]types.Address, error)
+        - triggerLoad(proofBlock *core.SnapshotBlock) 
+        - loadVotes(proofBlock *core.SnapshotBlock) ([]types.Address, error)
+        - genSnapshotProofTimeIndx(idx uint64) (time.Time, uint64)
+        - voteDetailsBeforeTime(t time.Time) ([]*VoteDetails, *core.HashHeight, error)
+        - verifyProducer(t time.Time, address types.Address, result *electionResult) bool
+        - verifyProducerAndSeed(block *core.SnapshotBlock) (bool, error)
+
+        + GetSuccessRateByHour(index uint64) (<font color=blue>map</font>[types.Address]int32, error)
+        + GetInfo() *core.GroupInfo
+        + HourStats(startIndex uint64, endIndex uint64) ([]*core.HourStats, error)
+        + GetHourTimeIndex() core.TimeIndex
+        + PeriodStats(startIndex uint64, endIndex uint64) ([]*core.PeriodStats, error)
+        + GetNodeCount() int
+        + GetPeriodTimeIndex() core.TimeIndex
+        + GetDayTimeIndex() core.TimeIndex
+        + DayStats(startIndex uint64, endIndex uint64) ([]*core.DayStats, error)
+        + ElectionTime(t time.Time) (*electionResult, error)
+        + ElectionIndex(index uint64) (*electionResult, error)
+        + GenProofTime(idx uint64) time.Time
+        + VerifySnapshotProducer(header *core.SnapshotBlock) (bool, error)
+        + VerifyProducer(address types.Address, t time.Time) (bool, error)
+
+    }
+    class subscribeEvent << (S,Aquamarine) >> {
+        - addr *types.Address
+        - gid types.Gid
+        - fn <font color=blue>func</font>(Event) 
+
+        - trigger(ctx context.Context, result *electionResult, voteTime time.Time) 
+        - triggerAll(ctx context.Context, result *electionResult, voteTime time.Time) 
+        - triggerAddr(ctx context.Context, result *electionResult, voteTime time.Time) 
+
+    }
+    interface subscribeTrigger  {
+        - triggerEvent(gid types.Gid, fn <font color=blue>func</font>(*subscribeEvent) ) 
+        - triggerProducerEvent(gid types.Gid, fn <font color=blue>func</font>(*producerSubscribeEvent) ) 
+
+    }
+    class subscriber_puppet << (S,Aquamarine) >> {
+        - snapshot DposReader
+
+        - triggerEvent(gid types.Gid, fn <font color=blue>func</font>(*subscribeEvent) ) 
+
+        + TriggerMineEvent(addr types.Address) error
+
+    }
+    class trigger << (S,Aquamarine) >> {
+        - lock lock.ChainRollback
+        - mLog log15.Logger
+
+        - update(ctx context.Context, gid types.Gid, t DposReader, sub subscribeTrigger) 
+
+    }
+}
+"consensus.Life" *-- "consensus.Consensus"
+"consensus.Reader" *-- "consensus.Consensus"
+"consensus.Subscriber" *-- "consensus.Consensus"
+"consensus.Verifier" *-- "consensus.Consensus"
+"core.Vote" *-- "consensus.VoteDetails"
+"common.LifecycleStatus" *-- "consensus.consensus"
+"consensus.ConsensusCfg" *-- "consensus.consensus"
+"consensus.Subscriber" *-- "consensus.consensus"
+"consensus.subscribeTrigger" *-- "consensus.consensus"
+"core.GroupInfo" *-- "consensus.contractDposCs"
+"core.TimeIndex" *-- "consensus.linkedArray"
+"core.TimeIndex" *-- "consensus.periodLinkedArray"
+"core.GroupInfo" *-- "consensus.simpleCs"
+"core.GroupInfo" *-- "consensus.snapshotCs"
+"consensus.consensusSubscriber" *-- "consensus.subscriber_puppet"
+
+"consensus.APIReader" <|-- "consensus.APISnapshot"
+"core.stateCh" <|-- "consensus.MockChain"
+"core.TimeIndex" <|-- "consensus.MockDposReader"
+"consensus.LinkedArray" <|-- "consensus.MockLinkedArray"
+"core.TimeIndex" <|-- "consensus.MockLinkedArray"
+"consensus.RollbackProof" <|-- "consensus.MockRollbackProof"
+"chain.Consensus" <|-- "consensus.consensus"
+"chain.EventListener" <|-- "consensus.consensus"
+"chain_state.Consensus" <|-- "consensus.consensus"
+"consensus.Consensus" <|-- "consensus.consensus"
+"consensus.Life" <|-- "consensus.consensus"
+"consensus.Reader" <|-- "consensus.consensus"
+"consensus.Verifier" <|-- "consensus.consensus"
+"generator.Consensus" <|-- "consensus.consensus"
+"verifier.cssConsensus" <|-- "consensus.consensus"
+"consensus.Subscriber" <|-- "consensus.consensusSubscriber"
+"consensus.subscribeTrigger" <|-- "consensus.consensusSubscriber"
+"consensus.LinkedArray" <|-- "consensus.linkedArray"
+"consensus.LinkedArray" <|-- "consensus.periodLinkedArray"
+"consensus.RollbackProof" <|-- "consensus.rollbackProof"
+"core.SBPStatReader" <|-- "consensus.snapshotCs"
+
+namespace core {
+    interface Algo  {
+        + ShuffleVotes(votes []*Vote, hashH *core.HashHeight, info *SeedInfo) []*Vote
+        + FilterVotes(context *VoteAlgoContext) []*Vote
+        + FilterSimple(votes []*Vote) ([]*Vote, []*Vote)
+
+    }
+    class BaseStats << (S,Aquamarine) >> {
+        + Index uint64
+        + Stats <font color=blue>map</font>[types.Address]*SbpStats
+
+    }
+    class BigInt << (S,Aquamarine) >> {
+        + MarshalText() ([]byte, error)
+        + MarshalJSON() ([]byte, error)
+
+    }
+    class ByBalance << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class BySuccessRate << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class DayStats << (S,Aquamarine) >> {
+        + Index uint64
+        + Stats <font color=blue>map</font>[string]*SbpStats
+        + VoteSum *BigInt
+        + BlockTotal uint64
+
+    }
+    class GroupInfo << (S,Aquamarine) >> {
+        - seed *big.Int
+
+        + GenesisTime "time.Time
+        + PlanInterval uint64
+
+        + GenPlan(index uint64, members []*Vote) []*MemberPlan
+        + GenPlanByAddress(index uint64, members []types.Address) []*MemberPlan
+        + String() string
+
+    }
+    class HourStats << (S,Aquamarine) >> {
+    }
+    class MemberPlan << (S,Aquamarine) >> {
+        + STime "time.Time
+        + ETime "time.Time
+        + Member types.Address
+        + Name string
+
+    }
+    class PeriodStats << (S,Aquamarine) >> {
+    }
+    interface SBPStatReader  {
+        + DayStats(startIndex uint64, endIndex uint64) ([]*DayStats, error)
+        + GetDayTimeIndex() TimeIndex
+        + HourStats(startIndex uint64, endIndex uint64) ([]*HourStats, error)
+        + GetHourTimeIndex() TimeIndex
+        + PeriodStats(startIndex uint64, endIndex uint64) ([]*PeriodStats, error)
+        + GetPeriodTimeIndex() TimeIndex
+        + GetSuccessRateByHour(index uint64) (<font color=blue>map</font>[types.Address]int32, error)
+        + GetNodeCount() int
+
+    }
+    class SbpStats << (S,Aquamarine) >> {
+        + Index uint64
+        + BlockNum uint64
+        + ExceptedBlockNum uint64
+        + VoteCnt *BigInt
+        + Name string
+
+    }
+    class SeedInfo << (S,Aquamarine) >> {
+        - seeds uint64
+
+    }
+    class SuccessRateVote << (S,Aquamarine) >> {
+        + Rate int32
+
+    }
+    interface TimeIndex  {
+        + Index2Time(index uint64) ("time.Time, "time.Time)
+        + Time2Index(t "time.Time) uint64
+
+    }
+    class Vote << (S,Aquamarine) >> {
+        + Name string
+        + Addr types.Address
+        + Balance *big.Int
+        + Type []VoteType
+
+    }
+    class VoteAlgoContext << (S,Aquamarine) >> {
+        - votes []*Vote
+        - hashH *core.HashHeight
+        - successRate <font color=blue>map</font>[types.Address]int32
+        - seeds *SeedInfo
+        - sbps []*Vote
+
+    }
+    class algo << (S,Aquamarine) >> {
+        - info *GroupInfo
+
+        - findSeedTmp(votes []*Vote, sheight uint64, info *SeedInfo, successRate <font color=blue>map</font>[types.Address]int32) int64
+        - findSeed(votes []*Vote, sheight uint64, info *SeedInfo) int64
+        - calRandCnt(total int, randNum int) int
+        - filterRand(votes []*Vote, hashH *core.HashHeight, seedInfo *SeedInfo) []*Vote
+        - filterRandV2(groupA []*Vote, groupB []*Vote, hashH *core.HashHeight, seedInfo *SeedInfo, successRate <font color=blue>map</font>[types.Address]int32) []*Vote
+        - filterBySuccessRate(groupA []*Vote, groupB []*Vote, height *core.HashHeight, successRate <font color=blue>map</font>[types.Address]int32) ([]*Vote, []*Vote)
+        - checkValid(groupA []*Vote, groupB []*Vote) error
+
+        + ShuffleVotes(votes []*Vote, hashH *core.HashHeight, info *SeedInfo) []*Vote
+        + FilterVotes(context *VoteAlgoContext) []*Vote
+        + FilterSimple(votes []*Vote) ([]*Vote, []*Vote)
+
+    }
+    class core.ByBalance << (T, #FF7700) >>  {
+    }
+    class core.BySuccessRate << (T, #FF7700) >>  {
+    }
+    class core.VoteType << (T, #FF7700) >>  {
+    }
+    interface stateCh  {
+        + GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)
+        + GetVoteList(snapshotHash types.Hash, gid types.Gid) ([]*types.VoteInfo, error)
+        + GetConfirmedBalanceList(addrList []types.Address, tokenId types.TokenTypeId, sbHash types.Hash) (<font color=blue>map</font>[types.Address]*big.Int, error)
+        + GetSnapshotHeaderBeforeTime(timestamp *"time.Time) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+
+    }
+    class timeIndex << (S,Aquamarine) >> {
+        + GenesisTime "time.Time
+        + Interval "time.Duration
+
+        + Index2Time(index uint64) ("time.Time, "time.Time)
+        + Time2Index(t "time.Time) uint64
+
+    }
+}
+"big.Int" *-- "core.BigInt"
+"core.TimeIndex" *-- "core.GroupInfo"
+"types.ConsensusGroupInfo" *-- "core.GroupInfo"
+"core.BaseStats" *-- "core.HourStats"
+"core.BaseStats" *-- "core.PeriodStats"
+"core.Vote" *-- "core.SuccessRateVote"
+
+"core.Algo" <|-- "core.algo"
+"core.TimeIndex" <|-- "core.timeIndex"
+
+namespace generator {
+    interface Consensus  {
+        + SBPReader() core.SBPStatReader
+
+    }
+    class EnvPrepareForGenerator << (S,Aquamarine) >> {
+        + LatestSnapshotHash *types.Hash
+        + LatestSnapshotHeight uint64
+        + LatestAccountHash *types.Hash
+        + LatestAccountHeight uint64
+
+    }
+    class VMGlobalStatus << (S,Aquamarine) >> {
+        - c chain
+        - sb *core.SnapshotBlock
+        - fromHash types.Hash
+        - seed uint64
+        - setSeed bool
+        - randSource helper.Source64
+        - setRandSeed bool
+
+        + Seed() (uint64, error)
+        + Random() (uint64, error)
+        + SnapshotBlock() *core.SnapshotBlock
+
+    }
+    interface chain  {
+        + GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
+        + GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
+        + GetSeed(limitSb *core.SnapshotBlock, fromHash types.Hash) (uint64, error)
+
+    }
+    class generator << (S,Aquamarine) >> {
+        - chain chain
+        - vmDb interfaces.VmDb
+        - vm *vm.VM
+        - log log15.Logger
+
+        - generateBlock(block *core.AccountBlock, fromBlock *core.AccountBlock, producer *types.Address, signFunc interfaces.SignFunc) (*interfaces.GenResult, error)
+        - packReceiveBlockWithSend(sendBlock *core.AccountBlock, difficulty *big.Int) (*core.AccountBlock, error)
+
+        + GenerateWithBlock(block *core.AccountBlock, fromBlock *core.AccountBlock) (*interfaces.GenResult, error)
+        + GenerateWithMessage(message *interfaces.IncomingMessage, producer *types.Address, signFunc interfaces.SignFunc) (*interfaces.GenResult, error)
+        + GenerateWithOnRoad(sendBlock *core.AccountBlock, producer *types.Address, signFunc interfaces.SignFunc, difficulty *big.Int) (*interfaces.GenResult, error)
+        + GetVMDB() interfaces.VmDb
+
+    }
+    interface stateChain  {
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
+
+    }
+}
+
+
+namespace integration {
+    class Account << (S,Aquamarine) >> {
+        - chainInstance chain.Chain
+        - onRoadMu sync.RWMutex
+
+        + Addr types.Address
+        + PrivateKey ed25519.PrivateKey
+        + PublicKey ed25519.PublicKey
+        + OnRoadBlocks <font color=blue>map</font>[types.Hash]*core.AccountBlock
+        + LatestBlock *core.AccountBlock
+
+        - latestHash() types.Hash
+
+        + CreateSendBlock(toAccount *Account) (*interfaces.VmAccountBlock, error)
+        + CreateReceiveBlock() (*interfaces.VmAccountBlock, error)
+        + InsertBlock(vmBlock *interfaces.VmAccountBlock, accounts <font color=blue>map</font>[types.Address]*Account) 
+        + HasOnRoadBlock() bool
+        + AddOnRoadBlock(block *core.AccountBlock) 
+        + DeleteOnRoad(blockHash types.Hash) 
+        + PopOnRoadBlock() *core.AccountBlock
+        + GetLatestHeight() uint64
+
+    }
+}
+
+
+namespace lock {
+    interface ChainInsert  {
+        + RLockInsert() 
+        + RUnLockInsert() 
+        + LockInsert() 
+        + UnLockInsert() 
+
+    }
+    interface ChainRollback  {
+        + RLockRollback() 
+        + RUnLockRollback() 
+        + LockRollback() 
+        + UnLockRollback() 
+
+    }
+    class EasyImpl << (S,Aquamarine) >> {
+        - chainInsertRw sync.RWMutex
+        - chainRollbackRw sync.RWMutex
+
+        + RLockInsert() 
+        + RUnLockInsert() 
+        + LockInsert() 
+        + UnLockInsert() 
+        + RLockRollback() 
+        + RUnLockRollback() 
+        + LockRollback() 
+        + UnLockRollback() 
+
+    }
+}
+
+"lock.ChainInsert" <|-- "lock.EasyImpl"
+"lock.ChainRollback" <|-- "lock.EasyImpl"
+
+namespace onroad {
+    class ContractTaskProcessor << (S,Aquamarine) >> {
+        - taskID int
+        - worker *ContractWorker
+        - log log15.Logger
+
+        - work() 
+        - processOneAddress(task *contractTask) bool
+        - restrictContract(addr types.Address, state inferiorState) 
+
+    }
+    class ContractWorker << (S,Aquamarine) >> {
+        - address types.Address
+        - manager *Manager
+        - gid types.Gid
+        - contractAddressList []types.Address
+        - status int
+        - statusMutex sync.Mutex
+        - isCancel *atomic.Bool
+        - newBlockCond *common.TimeoutCond
+        - wg sync.WaitGroup
+        - contractTaskProcessors []*ContractTaskProcessor
+        - blackList <font color=blue>map</font>[types.Address]inferiorState
+        - blackListMutex sync.RWMutex
+        - workingAddrList <font color=blue>map</font>[types.Address]bool
+        - workingAddrListMutex sync.RWMutex
+        - contractTaskPQueue contractTaskPQueue
+        - ctpMutex sync.RWMutex
+        - selectivePendingCache *sync.Map
+        - log log15.Logger
+
+        - getAndSortAllAddrQuota() 
+        - wakeupOneTp() 
+        - wakeupAllTps() 
+        - pushContractTask(t *contractTask) 
+        - popContractTask() *contractTask
+        - clearWorkingAddrList() 
+        - clearSelectiveBlocksCache() 
+        - addContractIntoWorkingList(addr types.Address) bool
+        - removeContractFromWorkingList(addr types.Address) 
+        - clearContractBlackList() 
+        - restrictContract(addr types.Address, state inferiorState) 
+        - isContractInBlackList(addr types.Address) bool
+        - releaseContract(addr types.Address) (bool, int)
+        - acquireOnRoadBlocks(contractAddr types.Address) *core.AccountBlock
+        - restrictContractCaller(contract types.Address, caller types.Address, state inferiorState) 
+        - releaseContractCallers(contract types.Address, state inferiorState) int
+        - verifyConfirmedTimes(contractAddr *types.Address, fromHash *types.Hash, sbHeight uint64) error
+
+        + Start(accEvent producerevent.AccountStartEvent) 
+        + Stop() 
+        + Close() error
+        + Status() int
+        + GetStakeQuota(addr types.Address) uint64
+        + GetStakeQuotas(beneficialList []types.Address) <font color=blue>map</font>[types.Address]uint64
+
+    }
+    interface JudgeGenesis  {
+        + IsGenesisAccountBlock(block types.Hash) bool
+
+    }
+    class Manager << (S,Aquamarine) >> {
+        - net netReader
+        - producer producer
+        - coinbase interfaces.Account
+        - pool pool
+        - chain chain.Chain
+        - consensus generator.Consensus
+        - contractWorkers <font color=blue>map</font>[types.Gid]*ContractWorker
+        - newContractListener sync.Map
+        - newSnapshotListener sync.Map
+        - onRoadPools sync.Map
+        - unlockLid int
+        - netStateLid int
+        - lastProducerAccEvent *producerevent.AccountStartEvent
+        - log log15.Logger
+
+        - deleteDirect(sendBlock *core.AccountBlock) 
+        - insertBlockToPool(block *interfaces.VmAccountBlock) error
+        - addContractLis(gid types.Gid, f contractReactFunc) 
+        - removeContractLis(gid types.Gid) 
+        - newContractSignalToWorker(gid types.Gid, contract types.Address) 
+        - addSnapshotEventLis(gid types.Gid, f snapshotEventReactFunc) 
+        - removeSnapshotEventLis(gid types.Gid) 
+        - snapshotEventSignalToWorker(gid types.Gid, height uint64) 
+        - prepareOnRoadPool(gid types.Gid) 
+        - netStateChangedFunc(state net.SyncState) 
+        - producerStartEventFunc(accevent producerevent.AccountEvent) 
+        - stopAllWorks() 
+        - resumeContractWorks() 
+
+        + GetOnRoadTotalNumByAddr(gid types.Gid, addr types.Address) (uint64, error)
+        + GetAllCallersFrontOnRoad(gid types.Gid, addr types.Address) ([]*core.AccountBlock, error)
+        + IsFrontOnRoadOfCaller(gid types.Gid, orAddr types.Address, caller types.Address, hash types.Hash) (bool, error)
+        + PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + PrepareDeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + DeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + PrepareInsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + InsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + PrepareDeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + DeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + Init(chain chain.Chain) 
+        + Start() 
+        + Stop() 
+        + Close() error
+        + Chain() chain.Chain
+        + Net() netReader
+        + Producer() producer
+        + Consensus() generator.Consensus
+        + Info() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+
+    }
+    interface Worker  {
+        + Status() int
+        + Start() 
+        + Stop() 
+        + Close() error
+
+    }
+    class callerPendingMap << (S,Aquamarine) >> {
+        - pmap <font color=blue>map</font>[types.Address]*list.List
+        - inferiorList <font color=blue>map</font>[types.Address]inferiorState
+        - addrMutex sync.RWMutex
+
+        - isPendingMapNotSufficient() bool
+        - getOnePending() *core.AccountBlock
+        - addPendingMap(sendBlock *core.AccountBlock) bool
+        - clearPendingMap() 
+        - addIntoInferiorList(caller types.Address, state inferiorState) 
+        - releaseCallerByState(state inferiorState) int
+        - lenOfCallersByState(state inferiorState) int
+        - existInInferiorList(caller types.Address) bool
+        - removeFromInferiorList(caller types.Address) 
+        - isInferiorStateRetry(caller types.Address) bool
+        - isInferiorStateOut(caller types.Address) bool
+
+        + Len() int
+
+    }
+    class contractTask << (S,Aquamarine) >> {
+        + Addr types.Address
+        + Index int
+        + Quota uint64
+
+    }
+    class contractTaskPQueue << (S,Aquamarine) >> {
+        + Push(x <font color=blue>interface</font>{}) 
+        + Pop() <font color=blue>interface</font>{}
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    interface netReader  {
+        + SubscribeSyncStatus(fn <font color=blue>func</font>(net.SyncState) ) int
+        + UnsubscribeSyncStatus(subId int) 
+        + SyncState() net.SyncState
+
+    }
+    class onroad.contractReactFunc << (T, #FF7700) >>  {
+    }
+    class onroad.contractTaskPQueue << (T, #FF7700) >>  {
+    }
+    class onroad.inferiorState << (T, #FF7700) >>  {
+    }
+    class onroad.snapshotEventReactFunc << (T, #FF7700) >>  {
+    }
+    interface pool  {
+        + AddDirectAccountBlock(address types.Address, vmAccountBlock *interfaces.VmAccountBlock) error
+
+    }
+    interface producer  {
+        + SetAccountEventFunc( <font color=blue>func</font>(producerevent.AccountEvent) ) 
+
+    }
+    class "<font color=blue>func</font>(types.Address) " as fontcolorbluefuncfonttypesAddress {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+"chain.EventListener" <|-- "onroad.Manager"
+"verifier.onRoadPool" <|-- "onroad.Manager"
+
+namespace onroad_pool {
+    class OnRoadBlock << (S,Aquamarine) >> {
+        - caller types.Address
+        - orAddr types.Address
+        - hashHeight orHashHeight
+        - block *core.AccountBlock
+
+    }
+    interface OnRoadPool  {
+        + InsertAccountBlocks(orAddr types.Address, blocks []*core.AccountBlock) error
+        + DeleteAccountBlocks(orAddr types.Address, blocks []*core.AccountBlock) error
+        + GetOnRoadTotalNumByAddr(addr types.Address) (uint64, error)
+        + GetFrontOnRoadBlocksByAddr(addr types.Address) ([]*core.AccountBlock, error)
+        + IsFrontOnRoadOfCaller(orAddr types.Address, caller types.Address, hash types.Hash) (bool, error)
+        + Info() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+
+    }
+    class PendingOnRoadList << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class callerCache << (S,Aquamarine) >> {
+        - cache <font color=blue>map</font>[types.Address]*list.List
+        - mu sync.RWMutex
+
+        - initLoad(chain chainReader, caller types.Address, orList []core.HashHeight) error
+        - getFrontTxOfAllCallers() []*orHashHeight
+        - getFrontTxByCaller(caller *types.Address) *orHashHeight
+        - len() int
+        - addTx(caller *types.Address, isCallerContract bool, or *orHashHeight, isWrite bool) error
+        - rmTx(caller *types.Address, isCallerContract bool, or *orHashHeight, isWrite bool) error
+
+    }
+    interface chainReader  {
+        + LoadOnRoad(gid types.Gid) (<font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.Address][]core.HashHeight, error)
+        + GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetCompleteBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+
+    }
+    class contractOnRoadPool << (S,Aquamarine) >> {
+        - gid types.Gid
+        - cache sync.Map
+        - chain chainReader
+        - log log15.Logger
+
+        - loadOnRoad() error
+        - insertOnRoad(orAddr types.Address, caller types.Address, or *orHashHeight, isWrite bool) error
+        - deleteOnRoad(orAddr types.Address, caller types.Address, or *orHashHeight, isWrite bool) error
+        - ledgerBlockListToOnRoad(orAddr types.Address, blocks []*core.AccountBlock) (<font color=blue>map</font>[types.Address]PendingOnRoadList, error)
+
+        + IsFrontOnRoadOfCaller(orAddr types.Address, caller types.Address, hash types.Hash) (bool, error)
+        + GetFrontOnRoadBlocksByAddr(contract types.Address) ([]*core.AccountBlock, error)
+        + GetOnRoadTotalNumByAddr(contract types.Address) (uint64, error)
+        + InsertAccountBlocks(orAddr types.Address, blocks []*core.AccountBlock) error
+        + DeleteAccountBlocks(orAddr types.Address, blocks []*core.AccountBlock) error
+        + Info() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+
+    }
+    class onRoadList << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class onroad_pool.PendingOnRoadList << (T, #FF7700) >>  {
+    }
+    class onroad_pool.onRoadList << (T, #FF7700) >>  {
+    }
+    class orHashHeight << (S,Aquamarine) >> {
+        + Hash types.Hash
+        + Height uint64
+        + SubIndex *uint8
+
+    }
+}
+
+"onroad_pool.OnRoadPool" <|-- "onroad_pool.contractOnRoadPool"
+
+namespace pipeline {
+    class blocks << (S,Aquamarine) >> {
+        - blockDb *block.BlockDB
+        - meta *blocksMeta
+        - dir string
+
+        - location(height uint64) (*file_manager.Location, error)
+
+    }
+    class blocksMeta << (S,Aquamarine) >> {
+        - heights []heightMeta
+        - dir string
+
+        - load() error
+        - generateMeta(blockDb *block.BlockDB) error
+        - hit(height uint64) heightMeta
+
+    }
+    class blocks_pipeline << (S,Aquamarine) >> {
+        - fromDir string
+        - fromBlocks *blocks
+        - chunkCh <font color=blue>chan</font> *core.SnapshotChunk
+        - curChunk *net.Chunk
+
+        - read() *net.Chunk
+
+        + Peek() *net.Chunk
+        + Pop(hash types.Hash) 
+
+    }
+    class heightMeta << (S,Aquamarine) >> {
+        + Height uint64
+
+    }
+}
+"net.ChunkReader" *-- "pipeline.blocks_pipeline"
+"file_manager.Location" *-- "pipeline.heightMeta"
+
+
+namespace pool {
+    class BCPool << (S,Aquamarine) >> {
+        - log log15.Logger
+        - blockpool *blockPool
+        - chainpool *chainPool
+        - tools *tools
+        - version *common.Version
+        - chainTailMu sync.Mutex
+        - chainHeadMu sync.Mutex
+        - limitLongestNum uint64
+        - rstat *recoverStat
+
+        + ID string
+
+        - init(tools *tools) 
+        - initPool() 
+        - rollbackCurrent(blocks []commonBlock) error
+        - checkChain(blocks []commonBlock) error
+        - printf(blocks []commonBlock) string
+        - addBlock(block commonBlock) 
+        - existInPool(hashes types.Hash) bool
+        - loopGenSnippetChains() int
+        - loopAppendChains() int
+        - loopFetchForSnippets() int
+        - loop() 
+        - loopDelUselessChain() 
+        - delForIrreversible(height uint64, hash types.Hash) error
+        - delSnippet(c *snippetChain) 
+        - info() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        - detailChain(id string, height uint64) <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        - checkPool() 
+        - check() 
+        - checkCurrent() 
+
+        + CurrentModifyToChain(target tree.Branch) error
+        + CurrentModifyToEmpty() error
+        + LongerChain(minHeight uint64) []tree.Branch
+        + CurrentChain() tree.Branch
+
+    }
+    interface Blacklist  {
+        + Add(key types.Hash) 
+        + AddAddTimeout(key types.Hash, duration "time.Duration) 
+        + Exists(key types.Hash) bool
+        + Remove(key types.Hash) 
+
+    }
+    interface BlockPool  {
+        + Start() 
+        + Stop() 
+        + Init(s syncer, snapshotV *verifier.SnapshotVerifier, accountV verifier.Verifier, cs consensus.Consensus) 
+
+    }
+    class ByHeight << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class ByTailHeight << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    interface Debug  {
+        + Info() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + AccountBlockInfo(addr types.Address, hash types.Hash) <font color=blue>interface</font>{}
+        + SnapshotBlockInfo(hash types.Hash) <font color=blue>interface</font>{}
+        + Snapshot() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + SnapshotPendingNum() uint64
+        + AccountPendingNum() *big.Int
+        + Account(addr types.Address) <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + SnapshotChainDetail(chainID string, height uint64) <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + AccountChainDetail(addr types.Address, chainID string, height uint64) <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+
+    }
+    interface Pipeline  {
+        + AddPipeline(reader net.ChunkReader) 
+
+    }
+    interface Reader  {
+        + GetIrreversibleBlock() *core.SnapshotBlock
+
+    }
+    interface SnapshotProducerWriter  {
+        + AddDirectSnapshotBlock(block *core.SnapshotBlock) error
+
+    }
+    interface Writer  {
+        + AddDirectAccountBlock(address types.Address, vmAccountBlock *interfaces.VmAccountBlock) error
+
+    }
+    class accBlocksSort << (S,Aquamarine) >> {
+        + Len() int
+        + Ids(i int) []string
+        + Swap(i int, j int) 
+        + Inputs(i int) []string
+
+    }
+    class accountCh << (S,Aquamarine) >> {
+        - address types.Address
+        - rw chainDb
+        - version *common.Version
+        - log log15.Logger
+
+        - insertBlock(b commonBlock) error
+        - head() commonBlock
+        - getBlock(height uint64) commonBlock
+        - getHash(height uint64) *types.Hash
+        - insertBlocks(bs []commonBlock) error
+        - delToHeight(height uint64) ([]commonBlock, <font color=blue>map</font>[types.Address][]commonBlock, error)
+        - getLatestSnapshotBlock() *core.SnapshotBlock
+        - getQuotaUnused() uint64
+        - getConfirmedTimes(abHash types.Hash) (uint64, error)
+        - needSnapshot(addr types.Address) (uint8, error)
+
+    }
+    class accountPool << (S,Aquamarine) >> {
+        - rw *accountCh
+        - loopTime "time.Time
+        - loopFetchTime "time.Time
+        - address types.Address
+        - v *accountVerifier
+        - f *accountSyncer
+        - pool *pool
+        - hashBlacklist Blacklist
+
+        - pendingAccountTo(h *core.HashHeight, sHeight uint64) (*core.HashHeight, error)
+        - verifySuccess(bs *accountPoolBlock) (uint64, error)
+        - findInPool(hash types.Hash, height uint64) bool
+        - findInTree(hash types.Hash, height uint64) tree.Branch
+        - findInTreeDisk(hash types.Hash, height uint64, disk bool) tree.Branch
+        - getCurrentBlock(i uint64) *accountPoolBlock
+        - makePackage(q batch.Batch, info *offsetInfo, max uint64) (uint64, error)
+        - chooseAndSwitchCurrentForMake(info *offsetInfo) tree.Branch
+        - tryInsertItems(p batch.Batch, items []batch.Item, latestSb *core.SnapshotBlock, version uint64) error
+        - checkSnapshotSuccess(block *accountPoolBlock) error
+        - genForSnapshotContents(p batch.Batch, b *snapshotPoolBlock, k types.Address, v *core.HashHeight) (bool, *stack.Stack)
+        - shouldDestroy() bool
+        - checkReset() 
+        - reset() 
+
+        + Init(tools *tools, pool *pool, v *accountVerifier, f *accountSyncer) 
+        + Compact() int
+        + AddDirectBlocks(received *accountPoolBlock) error
+
+    }
+    class accountPoolBlock << (S,Aquamarine) >> {
+        - block *core.AccountBlock
+        - vmBlock interfaces.VmDb
+        - recover *recoverStat
+        - failStat *recoverStat
+        - delStat *recoverStat
+        - failNum int
+
+        + ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
+        + Height() uint64
+        + Hash() types.Hash
+        + PrevHash() types.Hash
+        + Owner() *types.Address
+
+    }
+    class accountSyncer << (S,Aquamarine) >> {
+        - address types.Address
+        - fetcher syncer
+        - log log15.Logger
+
+        - broadcastBlock(block *core.AccountBlock) 
+        - broadcastBlocks(blocks []*core.AccountBlock) 
+        - broadcastReceivedBlocks(received *interfaces.VmAccountBlock, sendBlocks []*interfaces.VmAccountBlock) 
+        - fetch(hashHeight core.HashHeight, prevCnt uint64) 
+        - fetchBySnapshot(hashHeight core.HashHeight, account types.Address, prevCnt uint64, sHeight uint64, sHash types.Hash) 
+        - fetchByHash(hash types.Hash, prevCnt uint64) 
+
+    }
+    class accountVerifier << (S,Aquamarine) >> {
+        - v verifier.Verifier
+        - log log15.Logger
+
+        - verifyAccountData(b *core.AccountBlock) error
+        - verifyAccount(b *accountPoolBlock, latest *core.SnapshotBlock) *poolAccountVerifyStat
+
+    }
+    class blacklist << (S,Aquamarine) >> {
+        - cache *golang-lru.Cache
+        - defaultTimeout "time.Duration
+        - log log15.Logger
+
+        + Add(key types.Hash) 
+        + AddAddTimeout(key types.Hash, duration "time.Duration) 
+        + Exists(key types.Hash) bool
+        + Remove(key types.Hash) 
+
+    }
+    class blockPool << (S,Aquamarine) >> {
+        - freeBlocks <font color=blue>map</font>[types.Hash]commonBlock
+        - compoundBlocks sync.Map
+        - pendingMu sync.Mutex
+
+        - sprint(hash types.Hash) (commonBlock, *string)
+        - containsHash(hash types.Hash) bool
+        - putBlock(hash types.Hash, pool commonBlock) 
+        - compound(w commonBlock) 
+        - delFromCompound(ws <font color=blue>map</font>[uint64]commonBlock) 
+        - delHashFromCompound(hash types.Hash) 
+        - size() int
+
+    }
+    class branchChain << (S,Aquamarine) >> {
+        - rw chainRw
+        - chainID string
+        - v *common.Version
+        - head *core.HashHeight
+        - t tree.Tree
+
+        + RemoveTail(k tree.Knot) error
+        + MatchHead(hash types.Hash) bool
+        + Linked(root tree.Branch) bool
+        + AddTail(k tree.Knot) 
+        + SprintTail() string
+        + SprintHead() string
+        + GetKnotAndBranch(height uint64) (tree.Knot, tree.Branch)
+        + GetHashAndBranch(height uint64) (*types.Hash, tree.Branch)
+        + TailHH() (uint64, types.Hash)
+        + Size() uint64
+        + AddHead(k tree.Knot) error
+        + GetKnot(height uint64, flag bool) tree.Knot
+        + GetHash(height uint64, flag bool) *types.Hash
+        + ContainsKnot(height uint64, hash types.Hash, flag bool) bool
+        + Head() commonBlock
+        + UTime() "time.Time
+        + HeadHH() (uint64, types.Hash)
+        + Root() tree.Branch
+        + ID() string
+        + Type() tree.BranchType
+
+    }
+    class chain << (S,Aquamarine) >> {
+        - heightBlocks <font color=blue>map</font>[uint64]commonBlock
+        - headHeight uint64
+        - tailHeight uint64
+        - chainID string
+
+        - size() uint64
+        - id() string
+
+        + HeadHeight() uint64
+        + ChainID() string
+
+    }
+    interface chainDb  {
+        + Register(listener chain.EventListener) 
+        + UnRegister(listener chain.EventListener) 
+        + InsertAccountBlock(vmAccountBlocks *interfaces.VmAccountBlock) error
+        + GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
+        + GetAccountBlockByHeight(addr types.Address, height uint64) (*core.AccountBlock, error)
+        + GetAccountBlockHashByHeight(addr types.Address, height uint64) (*types.Hash, error)
+        + GetAllUnconfirmedBlocks() []*core.AccountBlock
+        + GetSnapshotHeaderByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHash(hash types.Hash) (*core.SnapshotBlock, error)
+        + GetLatestSnapshotBlock() *core.SnapshotBlock
+        + GetSnapshotHeaderByHash(hash types.Hash) (*core.SnapshotBlock, error)
+        + GetSnapshotHashByHeight(height uint64) (*types.Hash, error)
+        + InsertSnapshotBlock(snapshotBlock *core.SnapshotBlock) ([]*core.AccountBlock, error)
+        + DeleteSnapshotBlocksToHeight(toHeight uint64) ([]*core.SnapshotChunk, error)
+        + DeleteAccountBlocksToHeight(addr types.Address, toHeight uint64) ([]*core.AccountBlock, error)
+        + GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + IsGenesisSnapshotBlock(hash types.Hash) bool
+        + IsGenesisAccountBlock(block types.Hash) bool
+        + GetQuotaUnused(address types.Address) (uint64, error)
+        + GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+        + GetContractMeta(contractAddress types.Address) (*core.ContractMeta, error)
+        + SetConsensus(cs chain.Consensus) 
+        + GetSnapshotHeaderBeforeTime(timestamp *"time.Time) (*core.SnapshotBlock, error)
+        + SetCacheLevelForConsensus(level uint32) 
+
+    }
+    class chainPool << (S,Aquamarine) >> {
+        - poolID string
+        - log log15.Logger
+        - lastestChainIdx int32
+        - snippetChains <font color=blue>map</font>[string]*snippetChain
+        - tree tree.Tree
+        - diskChain *branchChain
+        - chainMu sync.Mutex
+
+        - forkChain(forked tree.Branch, snippet *snippetChain) (tree.Branch, error)
+        - forkFrom(forked tree.Branch, height uint64, hash types.Hash) (tree.Branch, error)
+        - genChainID() string
+        - incChainIdx() int
+        - init() 
+        - fork2(snippet *snippetChain, chains <font color=blue>map</font>[string]tree.Branch, bp *blockPool) (bool, bool, tree.Branch, error)
+        - insertSnippet(c tree.Branch, snippet *snippetChain) error
+        - insert(c tree.Branch, wrapper commonBlock) error
+        - insertNotify(head commonBlock) 
+        - writeBlockToChain(block commonBlock) error
+        - allChain() <font color=blue>map</font>[string]tree.Branch
+
+    }
+    interface chainRw  {
+        - insertBlock(block commonBlock) error
+        - insertBlocks(blocks []commonBlock) error
+        - head() commonBlock
+        - getBlock(height uint64) commonBlock
+        - getHash(height uint64) *types.Hash
+
+    }
+    interface commonBlock  {
+        - checkForkVersion() bool
+        - resetForkVersion() 
+        - forkVersion() uint64
+
+        + Height() uint64
+        + Hash() types.Hash
+        + PrevHash() types.Hash
+        + Source() types.BlockSource
+        + Latency() "time.Duration
+        + ShouldFetch() bool
+        + ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
+
+    }
+    interface commonSyncer  {
+        - fetch(hashHeight core.HashHeight, prevCnt uint64) 
+
+    }
+    class completeSnapshotBlock << (S,Aquamarine) >> {
+        - cur *snapshotPoolBlock
+        - addrM <font color=blue>map</font>[types.Address]*stack.Stack
+
+        - isEmpty() bool
+
+    }
+    class failStat << (S,Aquamarine) >> {
+        - first *"time.Time
+        - update *"time.Time
+        - timeThreshold "time.Duration
+
+        - init(d "time.Duration) *failStat
+        - inc() bool
+        - isFail() bool
+        - clear() 
+
+    }
+    class fetchRequest << (S,Aquamarine) >> {
+        - snapshot bool
+        - chain *types.Address
+        - hash types.Hash
+        - accHeight uint64
+        - prevCnt uint64
+        - snapshotHash *types.Hash
+        - snapshotHeight uint64
+
+        + String() string
+
+    }
+    class forkBlock << (S,Aquamarine) >> {
+        - firstV uint64
+        - v *common.Version
+        - source types.BlockSource
+        - nTime "time.Time
+
+        - forkVersion() uint64
+        - checkForkVersion() bool
+        - resetForkVersion() 
+
+        + Latency() "time.Duration
+        + ShouldFetch() bool
+        + Source() types.BlockSource
+
+    }
+    class irreversibleInfo << (S,Aquamarine) >> {
+        - point *core.SnapshotBlock
+        - proofPoint *core.SnapshotBlock
+        - rollbackV uint64
+
+        + String() string
+
+    }
+    class mockCommonBlock << (S,Aquamarine) >> {
+        - flag string
+        - prevHash types.Hash
+        - height uint64
+        - hash types.Hash
+
+        - checkForkVersion() bool
+        - resetForkVersion() 
+        - forkVersion() uint64
+        - computeHash() types.Hash
+
+        + Height() uint64
+        + Hash() types.Hash
+        + PrevHash() types.Hash
+        + Source() types.BlockSource
+        + Latency() "time.Duration
+        + ShouldFetch() bool
+        + ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
+
+    }
+    class offsetInfo << (S,Aquamarine) >> {
+        - offset *core.HashHeight
+        - quotaUnused uint64
+
+        - quotaEnough(b commonBlock) (uint64, uint64, bool)
+        - quotaSub(b commonBlock) 
+
+    }
+    class pool << (S,Aquamarine) >> {
+        - pendingSc *snapshotPool
+        - pendingAc sync.Map
+        - sync syncer
+        - pipelines []net.ChunkReader
+        - bc chainDb
+        - snapshotVerifier *verifier.SnapshotVerifier
+        - accountVerifier verifier.Verifier
+        - accountSubID int
+        - snapshotSubID int
+        - newAccBlockCond *common.CondTimer
+        - newSnapshotBlockCond *common.CondTimer
+        - worker *worker
+        - version *common.Version
+        - rollbackVersion *common.Version
+        - closed <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - wg sync.WaitGroup
+        - log log15.Logger
+        - stat *recoverStat
+        - hashBlacklist Blacklist
+        - cs consensus.Consensus
+        - printer *snapshotPrinter
+
+        - selfPendingAc(addr types.Address) *accountPool
+        - destroyPendingAc(addr types.Address) 
+        - broadcastUnConfirmedBlocks() 
+        - delUseLessChains() 
+        - destroyAccounts() 
+        - delChainsForIrreversible(info *irreversibleInfo) 
+        - compact() int
+        - snapshotCompact() int
+        - accountsCompact(filterDirty bool) int
+        - checkBlock(block *snapshotPoolBlock) bool
+        - realSnapshotHeight(fc tree.Branch) uint64
+        - fetchForSnapshot(fc tree.Branch) error
+        - snapshotPendingFix(p batch.Batch, snapshot *core.HashHeight, pending *snapshotPending) 
+        - fetchAccounts(accounts <font color=blue>map</font>[types.Address]*core.HashHeight, sHeight uint64, sHash types.Hash) 
+        - forkAccountsFor(accounts <font color=blue>map</font>[types.Address]*core.HashHeight, snapshot *core.HashHeight) 
+        - insert() 
+        - makeQueue() batch.Batch
+        - makeSnapshotBlock(p batch.Batch, info *offsetInfo) (*core.HashHeight, *snapshotPending, *completeSnapshotBlock)
+        - makeQueueFromSnapshotBlock(p batch.Batch, b *completeSnapshotBlock) error
+        - makeQueueFromAccounts(p batch.Batch) 
+        - insertQueue(q batch.Batch) error
+        - insertSnapshotBucketForTree(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error
+        - insertAccountBucketForTree(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error
+        - insertAccountBucket(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error
+        - insertSnapshotBucket(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error
+        - accountExists(hash types.Hash) error
+        - accountHHExists(addr types.Address, height uint64, hash types.Hash) error
+        - snapshotExists(hash types.Hash) error
+        - snapshotHHExists(height uint64, hash types.Hash) error
+        - insertChunks(reader net.ChunkReader, chunks *net.Chunk) bool
+        - insertChunksToPool(chunks []core.SnapshotChunk, source types.BlockSource) 
+        - insertChunksToChain(chunks []core.SnapshotChunk, source types.BlockSource) error
+        - insertSnapshotBucketForChunks(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error
+        - insertAccountsBucketForChunks(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error
+        - checkSnapshotInsert(headHH core.HashHeight, tailHH core.HashHeight, hashes <font color=blue>map</font>[types.Hash]<font color=blue>struct</font>{}) ChainState
+        - checkAccountsInsert(minAddrs <font color=blue>map</font>[types.Address][]*core.HashHeight, hashes <font color=blue>map</font>[types.Hash]<font color=blue>struct</font>{}) ChainState
+        - checkInsert(branch tree.Branch, waitingHeadH core.HashHeight, waitingTailH core.HashHeight, hashes <font color=blue>map</font>[types.Hash]<font color=blue>struct</font>{}) ChainState
+        - insertTo(height uint64) error
+        - insertQueueForFork(q batch.Batch) error
+        - insertSnapshotBucketForFork(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error
+        - insertAccountsBucketForFork(p batch.Batch, l batch.Level, bucket batch.Bucket, version uint64) error
+        - checkTarget(height uint64) error
+        - makeQueueOnly() batch.Batch
+        - checkFork() 
+        - snapshotFork(branch tree.Branch, targetHeight uint64) error
+        - findForkKeyPoint(longest tree.Branch) (*snapshotPoolBlock, error)
+        - snapshotRollback(longest tree.Branch, keyPoint *snapshotPoolBlock) error
+        - checkIrreversiblePrinciple(keyPoint *snapshotPoolBlock) error
+        - updateIrreversibleBlock() error
+        - getLatestIrreversibleBlock(lastProofPoint *core.SnapshotBlock) (*irreversibleInfo, error)
+        - getLatestIrreversible(lastIdx uint64, nodeCnt int, ti core.TimeIndex) (*irreversibleInfo, error)
+        - checkIrreversible(point *core.SnapshotBlock, proofPoint *core.SnapshotBlock, irreversibleCnt uint64) bool
+        - snapshotInsert(targetHeight uint64) error
+        - modifyCurrentAccounts(targetHeight uint64) error
+
+        + AddPipeline(reader net.ChunkReader) 
+        + Snapshot() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + SnapshotPendingNum() uint64
+        + AccountPendingNum() *big.Int
+        + Account(addr types.Address) <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + SnapshotChainDetail(chainID string, height uint64) <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + AccountChainDetail(addr types.Address, chainID string, height uint64) <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + Init(s syncer, snapshotV *verifier.SnapshotVerifier, accountV verifier.Verifier, cs consensus.Consensus) 
+        + Info() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + AccountBlockInfo(addr types.Address, hash types.Hash) <font color=blue>interface</font>{}
+        + SnapshotBlockInfo(hash types.Hash) <font color=blue>interface</font>{}
+        + Start() 
+        + Stop() 
+        + AddSnapshotBlock(block *core.SnapshotBlock, source types.BlockSource) 
+        + AddDirectSnapshotBlock(block *core.SnapshotBlock) error
+        + AddAccountBlock(address types.Address, block *core.AccountBlock, source types.BlockSource) 
+        + AddDirectAccountBlock(address types.Address, block *interfaces.VmAccountBlock) error
+        + AddAccountBlocks(address types.Address, blocks []*core.AccountBlock, source types.BlockSource) error
+        + ForkAccounts(accounts <font color=blue>map</font>[types.Address][]commonBlock) error
+        + ForkAccountTo(addr types.Address, h *core.HashHeight) error
+        + RollbackAccountTo(addr types.Address, hash types.Hash, height uint64) error
+        + GetIrreversibleBlock() *core.SnapshotBlock
+
+    }
+    class pool.ByHeight << (T, #FF7700) >>  {
+    }
+    class pool.ByTailHeight << (T, #FF7700) >>  {
+    }
+    class pool.ChainState << (T, #FF7700) >>  {
+    }
+    class pool.accBlocksSort << (T, #FF7700) >>  {
+    }
+    class poolAccountVerifyStat << (S,Aquamarine) >> {
+        - block *accountPoolBlock
+        - result verifier.VerifyResult
+        - taskList *verifier.AccBlockPendingTask
+        - err error
+
+        - verifyResult() verifier.VerifyResult
+
+    }
+    class poolContext << (S,Aquamarine) >> {
+        - compactDirty bool
+
+        - setCompactDirty(dirty bool) 
+
+    }
+    class poolEventBus << (S,Aquamarine) >> {
+        - snapshotForkChecker *"time.Ticker
+        - accountCompactT *"time.Ticker
+        - snapshotCompactT *"time.Ticker
+        - broadcasterT *"time.Ticker
+        - clearT *"time.Ticker
+        - accDestroyT *"time.Ticker
+        - irreversibleT *"time.Ticker
+        - accContext *poolContext
+        - snapshotContext *poolContext
+        - wait *common.CondTimer
+
+        - newABlockEvent() 
+        - newSBlockEvent() 
+
+    }
+    class poolSnapshotVerifyStat << (S,Aquamarine) >> {
+        - results <font color=blue>map</font>[types.Address]verifier.VerifyResult
+        - result verifier.VerifyResult
+        - task verifyTask
+        - msg string
+
+        - verifyResult() verifier.VerifyResult
+        - errMsg() string
+
+    }
+    class recoverStat << (S,Aquamarine) >> {
+        - num int32
+        - updateTime "time.Time
+        - threshold int32
+        - timeThreshold "time.Duration
+
+        - init(t int32, d "time.Duration) *recoverStat
+        - reset() *recoverStat
+        - inc() bool
+
+    }
+    class snapshotCh << (S,Aquamarine) >> {
+        - bc chainDb
+        - version *common.Version
+        - log log15.Logger
+
+        - getBlock(height uint64) commonBlock
+        - getHash(height uint64) *types.Hash
+        - head() commonBlock
+        - headSnapshot() *core.SnapshotBlock
+        - getSnapshotBlockByHash(hash types.Hash) *core.SnapshotBlock
+        - delToHeight(height uint64) ([]commonBlock, <font color=blue>map</font>[types.Address][]commonBlock, error)
+        - insertBlock(block commonBlock) error
+        - insertSnapshotBlock(b *snapshotPoolBlock) (<font color=blue>map</font>[types.Address][]commonBlock, error)
+        - insertBlocks(bs []commonBlock) error
+
+    }
+    class snapshotPending << (S,Aquamarine) >> {
+        - snapshot *snapshotPoolBlock
+        - addrM <font color=blue>map</font>[types.Address]*core.HashHeight
+
+    }
+    class snapshotPool << (S,Aquamarine) >> {
+        - closed <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - wg sync.WaitGroup
+        - pool *pool
+        - rw *snapshotCh
+        - v *snapshotVerifier
+        - f *snapshotSyncer
+        - nextFetchTime "time.Time
+        - hashBlacklist Blacklist
+        - newSnapshotBlockCond *common.CondTimer
+        - irreversible *irreversibleInfo
+
+        - init(tools *tools, pool *pool) 
+        - checkFork() (tree.Branch, uint64, error)
+        - snapshotFork(longest tree.Branch, current tree.Branch) error
+        - loop() 
+        - loopCompactSnapshot() int
+        - snapshotInsertItems(p batch.Batch, items []batch.Item, version uint64) (<font color=blue>map</font>[types.Address][]commonBlock, batch.Item, error)
+        - snapshotWriteToChain(block *snapshotPoolBlock) (<font color=blue>map</font>[types.Address][]commonBlock, error)
+        - loopFetchForSnapshot() 
+        - getCurrentBlock(i uint64) *snapshotPoolBlock
+        - fetchAccounts(accounts <font color=blue>map</font>[types.Address]*core.HashHeight, sHeight uint64, sHash types.Hash) 
+        - genMaxAccounts(targetHeight uint64) (<font color=blue>map</font>[types.Address]*core.HashHeight, error)
+
+        + Start() 
+        + Stop() 
+        + AddDirectBlock(block *snapshotPoolBlock) (<font color=blue>map</font>[types.Address][]commonBlock, error)
+
+    }
+    class snapshotPoolBlock << (S,Aquamarine) >> {
+        - block *core.SnapshotBlock
+        - lastCheckTime "time.Time
+        - checkResult bool
+        - failStat *failStat
+
+        + ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
+        + Height() uint64
+        + Hash() types.Hash
+        + PrevHash() types.Hash
+        + Owner() *types.Address
+
+    }
+    class snapshotPrinter << (S,Aquamarine) >> {
+        - chunks <font color=blue>chan</font> *core.SnapshotChunk
+        - snapshots <font color=blue>chan</font> *core.SnapshotBlock
+        - closed <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - sync syncer
+
+        - start() 
+        - stop() 
+        - run() 
+        - printStats(chunks []*core.SnapshotChunk) 
+        - printSnapshot(sBlock *core.SnapshotBlock) 
+
+        + PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + PrepareInsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + InsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + PrepareDeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + DeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + PrepareDeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + DeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+
+    }
+    class snapshotSyncer << (S,Aquamarine) >> {
+        - fetcher syncer
+        - log log15.Logger
+
+        - broadcastBlock(block *core.SnapshotBlock) 
+        - fetch(hashHeight core.HashHeight, prevCnt uint64) 
+        - fetchByHash(hash types.Hash, prevCnt uint64) 
+
+    }
+    class snapshotVerifier << (S,Aquamarine) >> {
+        - v sverifier
+
+        - verifySnapshotData(block *core.SnapshotBlock) error
+        - verifySnapshot(block *snapshotPoolBlock) *poolSnapshotVerifyStat
+
+    }
+    class snippetChain << (S,Aquamarine) >> {
+        - tailHash types.Hash
+        - headHash types.Hash
+        - utime "time.Time
+
+        - addTail(w commonBlock) 
+        - deleteTail(newtail commonBlock) 
+        - remTail() commonBlock
+        - merge(snippet *snippetChain) 
+        - info() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        - getBlock(height uint64) commonBlock
+
+    }
+    interface sverifier  {
+        + VerifyNetSb(block *core.SnapshotBlock) error
+        + VerifyReferred(block *core.SnapshotBlock) *verifier.SnapshotBlockVerifyStat
+
+    }
+    interface syncer  {
+    }
+    class timeout << (S,Aquamarine) >> {
+        - timeoutT *"time.Time
+
+        - reset(duration "time.Duration) *timeout
+        - isTimeout() bool
+
+    }
+    class tools << (S,Aquamarine) >> {
+        - fetcher commonSyncer
+        - rw chainRw
+
+    }
+    interface verifyTask  {
+        - done(c chainDb) bool
+        - requests() []fetchRequest
+
+    }
+    class worker << (S,Aquamarine) >> {
+        - p *pool
+        - bus *poolEventBus
+        - closed <font color=blue>chan</font> <font color=blue>struct</font>{}
+
+        - work() 
+        - insertFromChunksReader(reader net.ChunkReader) bool
+        - init() 
+
+    }
+    class "[]*core.AccountBlock" as coreAccountBlock {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+"pool.Debug" *-- "pool.BlockPool"
+"pool.Pipeline" *-- "pool.BlockPool"
+"pool.Reader" *-- "pool.BlockPool"
+"pool.SnapshotProducerWriter" *-- "pool.BlockPool"
+"pool.Writer" *-- "pool.BlockPool"
+"pool.BCPool" *-- "pool.accountPool"
+"pool.poolContext" *-- "pool.accountPool"
+"pool.forkBlock" *-- "pool.accountPoolBlock"
+"lock.EasyImpl" *-- "pool.pool"
+"pool.BCPool" *-- "pool.snapshotPool"
+"pool.forkBlock" *-- "pool.snapshotPoolBlock"
+"pool.chain" *-- "pool.snippetChain"
+
+"pool.chainRw" <|-- "pool.accountCh"
+"batch.Item" <|-- "pool.accountPoolBlock"
+"tree.Knot" <|-- "pool.accountPoolBlock"
+"pool.commonSyncer" <|-- "pool.accountSyncer"
+"pool.Blacklist" <|-- "pool.blacklist"
+"tree.Branch" <|-- "pool.branchChain"
+"tree.BranchBase" <|-- "pool.branchChain"
+"pool.commonBlock" <|-- "pool.mockCommonBlock"
+"tree.Knot" <|-- "pool.mockCommonBlock"
+"onroad.pool" <|-- "pool.pool"
+"pool.BlockPool" <|-- "pool.pool"
+"pool.Debug" <|-- "pool.pool"
+"pool.Pipeline" <|-- "pool.pool"
+"pool.Reader" <|-- "pool.pool"
+"pool.SnapshotProducerWriter" <|-- "pool.pool"
+"pool.Writer" <|-- "pool.pool"
+"pool.chainRw" <|-- "pool.snapshotCh"
+"batch.Item" <|-- "pool.snapshotPoolBlock"
+"tree.Knot" <|-- "pool.snapshotPoolBlock"
+"chain.EventListener" <|-- "pool.snapshotPrinter"
+"pool.commonSyncer" <|-- "pool.snapshotSyncer"
+
+namespace sync_cache {
+    class Reader << (S,Aquamarine) >> {
+        - cache *syncCache
+        - file *os.File
+        - readBuffer []byte
+        - decodeBuffer []byte
+        - item *cacheItem
+
+        + Size() int64
+        + Verified() bool
+        + Verify() 
+        + Read() (*core.AccountBlock, *core.SnapshotBlock, error)
+        + Close() error
+
+    }
+    class cacheItem << (S,Aquamarine) >> {
+        - done bool
+        - verified bool
+        - filename string
+        - size int64
+
+        - dbKey() []byte
+
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class cacheItems << (S,Aquamarine) >> {
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    class syncCache << (S,Aquamarine) >> {
+        - dirName string
+        - indexDB *xleveldb.DB
+        - caches cacheItems
+        - mu sync.RWMutex
+        - log log15.Logger
+
+        - open() error
+        - loadCaches() error
+        - readIndex() error
+        - updateIndex(item *cacheItem) error
+        - createNewFile(item *cacheItem) (*os.File, error)
+        - checkOverlap(segment interfaces.Segment) (int, bool)
+        - findSeg(seg interfaces.Segment) (*cacheItem, bool)
+        - deleteItem(toDelete *cacheItem) 
+        - cleanItem(item *cacheItem) 
+        - toCacheFileName(segment interfaces.Segment) string
+
+        + Close() error
+        + NewReader(segment interfaces.Segment) (interfaces.ChunkReader, error)
+        + NewWriter(segment interfaces.Segment, size int64) (io.WriteCloser, error)
+        + Delete(seg interfaces.Segment) error
+        + Chunks() interfaces.SegmentList
+
+    }
+    class sync_cache.cacheItems << (T, #FF7700) >>  {
+    }
+    class writer << (S,Aquamarine) >> {
+        - cache *syncCache
+        - item *cacheItem
+        - fd *os.File
+
+        + Write(p []byte) (int, error)
+        + Close() error
+
+    }
+}
+"interfaces.Segment" *-- "sync_cache.cacheItem"
+
+
+namespace test_tools {
+    class MockConsensus << (S,Aquamarine) >> {
+        + VerifyABsProducer(abs <font color=blue>map</font>[types.Gid][]*core.AccountBlock) ([]*core.AccountBlock, error)
+        + SBPReader() core.SBPStatReader
+        + VerifyAccountProducer(block *core.AccountBlock) (bool, error)
+
+    }
+    class MockCssVerifier << (S,Aquamarine) >> {
+        + VerifyABsProducer(abs <font color=blue>map</font>[types.Gid][]*core.AccountBlock) ([]*core.AccountBlock, error)
+        + VerifySnapshotProducer(block *core.SnapshotBlock) (bool, error)
+        + VerifyAccountProducer(block *core.AccountBlock) (bool, error)
+
+    }
+}
+
+"chain.Consensus" <|-- "test_tools.MockConsensus"
+"chain_state.Consensus" <|-- "test_tools.MockConsensus"
+"generator.Consensus" <|-- "test_tools.MockConsensus"
+"verifier.cssConsensus" <|-- "test_tools.MockConsensus"
+"consensus.Verifier" <|-- "test_tools.MockCssVerifier"
+
+namespace tree {
+    interface Branch  {
+        + GetKnot(height uint64, flag bool) Knot
+        + GetHash(height uint64, flag bool) *types.Hash
+        + GetKnotAndBranch(height uint64) (Knot, Branch)
+        + GetHashAndBranch(height uint64) (*types.Hash, Branch)
+        + ContainsKnot(height uint64, hash types.Hash, flag bool) bool
+        + HeadHH() (uint64, types.Hash)
+        + TailHH() (uint64, types.Hash)
+        + Linked(root Branch) bool
+        + Size() uint64
+        + Root() Branch
+        + ID() string
+        + Type() BranchType
+
+    }
+    interface BranchBase  {
+        + MatchHead(hash types.Hash) bool
+        + SprintTail() string
+        + SprintHead() string
+        + UTime() "time.Time
+
+    }
+    interface Knot  {
+        + Height() uint64
+        + Hash() types.Hash
+        + PrevHash() types.Hash
+
+    }
+    interface Tree  {
+        + Root() Branch
+        + Main() Branch
+        + Branches() <font color=blue>map</font>[string]Branch
+        + Brothers(b Branch) []Branch
+        + PruneTree() []Branch
+        + FindBranch(height uint64, hash types.Hash) Branch
+        + ForkBranch(b Branch, height uint64, hash types.Hash) Branch
+        + RootHeadAdd(k Knot) error
+        + AddHead(b Branch, k Knot) error
+        + RemoveTail(b Branch, k Knot) error
+        + AddTail(b Branch, k Knot) error
+        + SwitchMainTo(b Branch) error
+        + SwitchMainToEmpty() error
+        + FindForkPointFromMain(target Branch) (Knot, Knot, error)
+        + Init(name string, root Branch) error
+        + Exists(hash types.Hash) bool
+        + Size() uint64
+
+    }
+    class branch << (S,Aquamarine) >> {
+        - root Branch
+        - childrenMu sync.RWMutex
+        - children <font color=blue>map</font>[string]*branch
+
+        - prune(t *tree) 
+        - updateChildrenForRemoveTail(root Branch, t *tree) 
+        - exchangeAllRoot(t *tree) error
+        - exchangeRoot(root *branch, t *tree) error
+        - updateRootSimple(old Branch, new Branch) 
+        - updateRoot(old Branch, new Branch) 
+        - getKnotAndBranch(height uint64) (Knot, Branch)
+        - getHashAndBranch(height uint64) (*types.Hash, Branch)
+        - getKnot(height uint64, flag bool) Knot
+        - contains(height uint64, hash types.Hash, flag bool) bool
+        - localContains(height uint64, hash types.Hash) bool
+        - info() <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        - removeChild(b *branch) 
+        - addChild(b *branch) 
+        - allChildren() []*branch
+        - isGarbage() bool
+        - isLeafBranch() bool
+        - destroy(t *tree) 
+
+        + Size() uint64
+        + GetKnotAndBranch(height uint64) (Knot, Branch)
+        + GetHashAndBranch(height uint64) (*types.Hash, Branch)
+        + AddHead(k Knot) error
+        + RemoveTail(k Knot) error
+        + HeadHH() (uint64, types.Hash)
+        + TailHH() (uint64, types.Hash)
+        + ContainsKnot(height uint64, hash types.Hash, flag bool) bool
+        + GetKnot(height uint64, flag bool) Knot
+        + GetHash(height uint64, flag bool) *types.Hash
+        + ID() string
+        + Type() BranchType
+        + Root() Branch
+        + Linked(root Branch) bool
+        + UTime() "time.Time
+
+    }
+    class branchBase << (S,Aquamarine) >> {
+        - heightBlocks <font color=blue>map</font>[uint64]Knot
+        - headHeight uint64
+        - headHash types.Hash
+        - tailHeight uint64
+        - tailHash types.Hash
+        - id string
+        - heightMu sync.RWMutex
+        - utime "time.Time
+
+        - size() uint64
+        - headHH() (uint64, types.Hash)
+        - tailHH() (uint64, types.Hash)
+        - branchId() string
+        - getHeightBlock(height uint64) Knot
+        - storeSize() uint64
+        - updateHeightBlock(height uint64, b Knot) 
+        - addHead(w Knot) 
+        - removeTail(w Knot) 
+        - removeHead(w Knot) 
+        - addTail(w Knot) 
+
+        + SprintHead() string
+        + SprintTail() string
+        + MatchHead(hash types.Hash) bool
+
+    }
+    class mockBranchRoot << (S,Aquamarine) >> {
+        - chainId string
+        - base *branchBase
+        - headHeight uint64
+
+        - addHead(ks ...Knot) error
+
+        + RemoveTail(k Knot) error
+        + MatchHead(hash types.Hash) bool
+        + Linked(root Branch) bool
+        + AddTail(k Knot) 
+        + SprintTail() string
+        + SprintHead() string
+        + GetKnotAndBranch(height uint64) (Knot, Branch)
+        + GetHashAndBranch(height uint64) (*types.Hash, Branch)
+        + TailHH() (uint64, types.Hash)
+        + Size() uint64
+        + AddHead(k Knot) error
+        + GetKnot(height uint64, flag bool) Knot
+        + GetHash(height uint64, flag bool) *types.Hash
+        + UTime() "time.Time
+        + ContainsKnot(height uint64, hash types.Hash, flag bool) bool
+        + Head() Knot
+        + HeadHH() (uint64, types.Hash)
+        + Root() Branch
+        + ID() string
+        + Type() BranchType
+
+    }
+    class mockKnot << (S,Aquamarine) >> {
+        - flag string
+        - prevHash types.Hash
+        - height uint64
+        - hash types.Hash
+
+        - computeHash() types.Hash
+
+        + Height() uint64
+        + Hash() types.Hash
+        + PrevHash() types.Hash
+
+    }
+    class tree << (S,Aquamarine) >> {
+        - branchMu sync.RWMutex
+        - branchList <font color=blue>map</font>[string]*branch
+        - main *branch
+        - root Branch
+        - idIdx uint32
+        - name string
+        - log log15.Logger
+        - hashes sync.Map
+
+        - knotRemove(k Knot) 
+        - newBranchId() string
+        - longer(b1 *branch, b2 *branch) (*branch, *branch)
+        - findEmptyForHead(headHeight uint64, headHash types.Hash) *branch
+        - removeBranch(b *branch) error
+        - addBranch(b *branch) 
+
+        + FindBranch(height uint64, hash types.Hash) Branch
+        + Init(name string, root Branch) error
+        + Root() Branch
+        + Main() Branch
+        + ForkBranch(b Branch, height uint64, hash types.Hash) Branch
+        + RootHeadAdd(k Knot) error
+        + RootHeadRemove(k Knot) error
+        + AddHead(b Branch, k Knot) error
+        + RemoveTail(b Branch, k Knot) error
+        + AddTail(b Branch, k Knot) error
+        + Exists(hash types.Hash) bool
+        + Size() uint64
+        + SwitchMainTo(b Branch) error
+        + SwitchMainToEmpty() error
+        + FindForkPointFromMain(target Branch) (Knot, Knot, error)
+        + Brothers(b Branch) []Branch
+        + Branches() <font color=blue>map</font>[string]Branch
+        + PruneTree() []Branch
+
+    }
+    class tree.BranchType << (T, #FF7700) >>  {
+    }
+}
+"tree.BranchBase" *-- "tree.Branch"
+"tree.branchBase" *-- "tree.branch"
+
+"tree.Branch" <|-- "tree.branch"
+"tree.Branch" <|-- "tree.mockBranchRoot"
+"tree.BranchBase" <|-- "tree.mockBranchRoot"
+"tree.Knot" <|-- "tree.mockKnot"
+"tree.Tree" <|-- "tree.tree"
+
+namespace verifier {
+    class AccBlockPendingTask << (S,Aquamarine) >> {
+        + AccountTask []*AccountPendingTask
+
+        - pendingHashListToStr() string
+
+    }
+    class AccountHashH << (S,Aquamarine) >> {
+        + Addr *types.Address
+        + Hash *types.Hash
+        + Height *big.Int
+
+    }
+    class AccountPendingTask << (S,Aquamarine) >> {
+        + Addr *types.Address
+        + Hash *types.Hash
+
+    }
+    class AccountVerifier << (S,Aquamarine) >> {
+        - chain accountChain
+        - consensus cssConsensus
+        - orManager onRoadPool
+        - log log15.Logger
+
+        - verifyReferred(block *core.AccountBlock, snapshotHashHeight *core.HashHeight) (VerifyResult, *AccBlockPendingTask, *VerifierError)
+        - verifyConfirmedTimes(recvBlock *core.AccountBlock, sbHeight uint64) error
+        - verifySelf(block *core.AccountBlock) *VerifierError
+        - checkAccountAddress(block *core.AccountBlock) error
+        - verifyDependency(pendingTask *AccBlockPendingTask, block *core.AccountBlock, snapshotHashHeight *core.HashHeight) (VerifyResult, *VerifierError)
+        - verifySequenceOfContractReceive(send *core.AccountBlock) (bool, error)
+        - verifySendBlockIntegrity(block *core.AccountBlock) error
+        - verifyReceiveBlockIntegrity(block *core.AccountBlock) error
+        - verifySignature(block *core.AccountBlock) error
+        - verifyHash(block *core.AccountBlock) error
+        - verifyNonce(block *core.AccountBlock) error
+        - verifyProducerLegality(block *core.AccountBlock) error
+        - vmVerify(block *core.AccountBlock, snapshotHashHeight *core.HashHeight) (*interfaces.VmAccountBlock, *VerifierError)
+        - verifyVMResult(origBlock *core.AccountBlock, genBlock *core.AccountBlock) error
+        - verifyIsReceivedSucceed(block *core.AccountBlock) (bool, error)
+
+        + InitOnRoadPool(manager *onroad.Manager) 
+
+    }
+    class SnapshotBlockVerifyStat << (S,Aquamarine) >> {
+        - result VerifyResult
+        - results <font color=blue>map</font>[types.Address]VerifyResult
+        - errMsg string
+        - accountTasks []*AccountPendingTask
+        - snapshotTask *SnapshotPendingTask
+
+        + ErrMsg() string
+        + VerifyResult() VerifyResult
+        + Results() <font color=blue>map</font>[types.Address]VerifyResult
+
+    }
+    class SnapshotPendingTask << (S,Aquamarine) >> {
+        + Hash *types.Hash
+
+    }
+    class SnapshotVerifier << (S,Aquamarine) >> {
+        - reader chain.Chain
+        - cs consensus.Verifier
+
+        - verifyTimestamp(block *core.SnapshotBlock) error
+        - verifyDataValidity(block *core.SnapshotBlock) error
+        - verifySelf(block *core.SnapshotBlock, stat *SnapshotBlockVerifyStat) error
+        - verifyAccounts(block *core.SnapshotBlock, prev *core.SnapshotBlock, stat *SnapshotBlockVerifyStat) error
+        - getLastSeedBlock(head *core.SnapshotBlock) *core.SnapshotBlock
+        - newVerifyStat(b *core.SnapshotBlock) *SnapshotBlockVerifyStat
+
+        + VerifyNetSb(block *core.SnapshotBlock) error
+        + VerifyReferred(block *core.SnapshotBlock) *SnapshotBlockVerifyStat
+
+    }
+    interface Verifier  {
+        + VerifyNetSnapshotBlock(block *core.SnapshotBlock) error
+        + VerifyNetAccountBlock(block *core.AccountBlock) error
+        + VerifyRPCAccountBlock(block *core.AccountBlock, snapshot *core.SnapshotBlock) (*interfaces.VmAccountBlock, error)
+        + VerifyPoolAccountBlock(block *core.AccountBlock, snapshot *core.SnapshotBlock) (*AccBlockPendingTask, *interfaces.VmAccountBlock, error)
+        + VerifyAccountBlockNonce(block *core.AccountBlock) error
+        + VerifyAccountBlockHash(block *core.AccountBlock) error
+        + VerifyAccountBlockSignature(block *core.AccountBlock) error
+        + VerifyAccountBlockProducerLegality(block *core.AccountBlock) error
+        + VerifySnapshotBlockHash(block *core.SnapshotBlock) error
+        + VerifySnapshotBlockSignature(block *core.SnapshotBlock) error
+        + GetSnapshotVerifier() *SnapshotVerifier
+        + InitOnRoadPool(manager *onroad.Manager) 
+
+    }
+    class VerifierError << (S,Aquamarine) >> {
+        - err string
+        - detail *string
+
+        + Error() string
+        + Detail() string
+
+    }
+    interface accountChain  {
+        + IsReceived(sendBlockHash types.Hash) (bool, error)
+        + GetReceiveAbBySendAb(sendBlockHash types.Hash) (*core.AccountBlock, error)
+        + IsGenesisAccountBlock(block types.Hash) bool
+        + IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, error)
+
+    }
+    interface cssConsensus  {
+        + VerifyAccountProducer(block *core.AccountBlock) (bool, error)
+        + SBPReader() core.SBPStatReader
+
+    }
+    interface onRoadPool  {
+        + IsFrontOnRoadOfCaller(gid types.Gid, orAddr types.Address, caller types.Address, hash types.Hash) (bool, error)
+
+    }
+    class verifier << (S,Aquamarine) >> {
+        - log log15.Logger
+
+        + Sv *SnapshotVerifier
+        + Av *AccountVerifier
+
+        + InitOnRoadPool(manager *onroad.Manager) 
+        + VerifyNetSnapshotBlock(block *core.SnapshotBlock) error
+        + VerifyNetAccountBlock(block *core.AccountBlock) error
+        + VerifyPoolAccountBlock(block *core.AccountBlock, snapshot *core.SnapshotBlock) (*AccBlockPendingTask, *interfaces.VmAccountBlock, error)
+        + VerifyRPCAccountBlock(block *core.AccountBlock, snapshot *core.SnapshotBlock) (*interfaces.VmAccountBlock, error)
+        + VerifyAccountBlockHash(block *core.AccountBlock) error
+        + VerifyAccountBlockSignature(block *core.AccountBlock) error
+        + VerifyAccountBlockNonce(block *core.AccountBlock) error
+        + VerifyAccountBlockProducerLegality(block *core.AccountBlock) error
+        + GetSnapshotVerifier() *SnapshotVerifier
+        + VerifySnapshotBlockHash(block *core.SnapshotBlock) error
+        + VerifySnapshotBlockSignature(block *core.SnapshotBlock) error
+
+    }
+    class verifier.VerifyResult << (T, #FF7700) >>  {
+    }
+}
+
+"pool.sverifier" <|-- "verifier.SnapshotVerifier"
+"verifier.Verifier" <|-- "verifier.verifier"
+
+"__builtin__.[]byte" #.. "chain_utils.AccountAddressKey"
+"__builtin__.[]byte" #.. "chain_utils.AccountBlockHashKey"
+"__builtin__.[]byte" #.. "chain_utils.AccountBlockHeightKey"
+"__builtin__.[]byte" #.. "chain_utils.AccountIdKey"
+"__builtin__.[]byte" #.. "chain_utils.BalanceHistoryKey"
+"__builtin__.[]byte" #.. "chain_utils.BalanceKey"
+"__builtin__.[]byte" #.. "chain_utils.CallDepthKey"
+"__builtin__.[]byte" #.. "chain_utils.CodeKey"
+"__builtin__.[]byte" #.. "chain_utils.ConfirmHeightKey"
+"__builtin__.[]byte" #.. "chain_utils.ContractMetaKey"
+"__builtin__.[]byte" #.. "chain_utils.GidContractKey"
+"__builtin__.[]byte" #.. "chain_utils.OnRoadKey"
+"__builtin__.[]byte" #.. "chain_utils.ReceiveKey"
+"__builtin__.[]byte" #.. "chain_utils.SnapshotBlockHashKey"
+"__builtin__.[]byte" #.. "chain_utils.SnapshotBlockHeightKey"
+"__builtin__.[]byte" #.. "chain_utils.SnapshotKey"
+"__builtin__.[]byte" #.. "chain_utils.StorageHistoryKey"
+"__builtin__.[]byte" #.. "chain_utils.StorageKey"
+"__builtin__.[]byte" #.. "chain_utils.VmLogListKey"
+"__builtin__.int" #.. "onroad.inferiorState"
+"__builtin__.int" #.. "verifier.VerifyResult"
+"__builtin__.uint8" #.. "core.VoteType"
+"__builtin__.uint8" #.. "pool.ChainState"
+"__builtin__.uint8" #.. "tree.BranchType"
+"batch.<font color=blue>func</font>(Batch, Level, Bucket, uint64) error" #.. "batch.BucketExecutorFn"
+"batch.fontcolorbluefuncfonttypesHasherror" #.. "batch.AccountExistsFunc"
+"batch.fontcolorbluefuncfonttypesHasherror" #.. "batch.SnapshotExistsFunc"
+"cdb.typesAddress" #.. "cdb.AddrArr"
+"chain.fontcolorbluefuncfontfilemanagerLocationuint64error" #.. "chain.getSnapshotListFunc"
+"chain.interfacesVoteDetails" #.. "chain.ByBalance"
+"chain_cache.typesQuotaInfo" #.. "chain_cache.quotaInfo"
+"chain_genesis.interfacesVmAccountBlock" #.. "chain_genesis.SortVmBlocks"
+"chain_genesis.[]*tokenInfoForSort" #.. "chain_genesis.byTokenId"
+"chain_genesis.fontcolorbluestructfonttypesTokenTypeIdbigInt" #.. "chain_genesis.SortBalances"
+"chain_state.fontcolorbluemapfonttypesAddressLogItem" #.. "chain_state.SnapshotLog"
+"consensus.[]*VoteDetails" #.. "consensus.ByBalance"
+"core.[]*SuccessRateVote" #.. "core.BySuccessRate"
+"core.[]*Vote" #.. "core.ByBalance"
+"onroad.fontcolorbluefuncfonttypesAddress" #.. "onroad.contractReactFunc"
+"onroad.<font color=blue>func</font>(uint64) " #.. "onroad.snapshotEventReactFunc"
+"onroad.[]*contractTask" #.. "onroad.contractTaskPQueue"
+"onroad_pool.[]*OnRoadBlock" #.. "onroad_pool.PendingOnRoadList"
+"onroad_pool.[]*orHashHeight" #.. "onroad_pool.onRoadList"
+"pool.coreAccountBlock" #.. "pool.accBlocksSort"
+"pool.[]*snippetChain" #.. "pool.ByTailHeight"
+"pool.[]commonBlock" #.. "pool.ByHeight"
+"sync_cache.[]*cacheItem" #.. "sync_cache.cacheItems"
+hide fields
+hide methods
+@enduml

@@ -1,0 +1,143 @@
+@startuml
+namespace derivation {
+    class Key << (S,Aquamarine) >> {
+        + Key []byte
+        + ChainCode []byte
+
+        + Address() (*types.Address, error)
+        + StringPair() (string, string, error)
+        + Derive(i uint32) (*Key, error)
+        + PublicKey() (ed25519.PublicKey, error)
+        + PrivateKey() (ed25519.PrivateKey, error)
+        + SignData(message []byte) ([]byte, ed25519.PublicKey, error)
+        + RawSeed() []byte
+
+    }
+}
+
+
+namespace entropystore {
+    class CryptoStore << (S,Aquamarine) >> {
+        + EntropyStoreFilename string
+
+        + ExtractSeed(passphrase string) ([]byte, error)
+        + ExtractEntropy(passphrase string) ([]byte, error)
+        + StoreEntropy(entropy []byte, primaryAddr types.Address, passphrase string) error
+
+    }
+    class Manager << (S,Aquamarine) >> {
+        - primaryAddr types.Address
+        - ks CryptoStore
+        - maxSearchIndex uint32
+        - unlockedSeed []byte
+        - unlockedEntropy []byte
+        - unlockChangedLis <font color=blue>func</font>(UnlockEvent) 
+        - log log15.Logger
+
+        + IsAddrUnlocked(addr types.Address) bool
+        + IsUnlocked() bool
+        + ListAddress(from uint32, to uint32) ([]types.Address, error)
+        + Unlock(passphrase string) error
+        + Lock() 
+        + FindAddrWithPassphrase(passphrase string, addr types.Address) (*derivation.Key, uint32, error)
+        + FindAddr(addr types.Address) (*derivation.Key, uint32, error)
+        + SignData(a types.Address, data []byte) ([]byte, error)
+        + GetPrivateKey(a types.Address) (ed25519.PrivateKey, error)
+        + SignDataWithPassphrase(addr types.Address, passphrase string, data []byte) ([]byte, error)
+        + DeriveForFullPath(path string) (string, *derivation.Key, error)
+        + DeriveForIndexPath(index uint32) (string, *derivation.Key, error)
+        + DeriveForFullPathWithPassphrase(path string, passphrase string) (string, *derivation.Key, error)
+        + DeriveForIndexPathWithPassphrase(index uint32, passphrase string) (string, *derivation.Key, error)
+        + GetPrimaryAddr() types.Address
+        + GetEntropyStoreFile() string
+        + ExtractMnemonic(passphrase string) (string, error)
+        + SetLockEventListener(lis <font color=blue>func</font>(UnlockEvent) ) 
+        + RemoveUnlockChangeChannel() 
+
+    }
+    class UnlockEvent << (S,Aquamarine) >> {
+        - event string
+
+        + EntropyStoreFile string
+        + PrimaryAddr types.Address
+
+        + String() string
+        + Unlocked() bool
+
+    }
+    class cryptoJSON << (S,Aquamarine) >> {
+        + CipherName string
+        + CipherText string
+        + Nonce string
+        + KDF string
+        + ScryptParams scryptParams
+
+    }
+    class entropyJSON << (S,Aquamarine) >> {
+        + PrimaryAddress string
+        + Crypto cryptoJSON
+        + Version int
+        + Timestamp int64
+
+    }
+    class scryptParams << (S,Aquamarine) >> {
+        + N int
+        + R int
+        + P int
+        + KeyLen int
+        + Salt string
+
+    }
+}
+
+
+namespace wallet {
+    class Account << (S,Aquamarine) >> {
+        - address types.Address
+        - priv ed25519.PrivateKey
+
+        + Address() types.Address
+        + Sign(msg []byte) ([]byte, ed25519.PublicKey, error)
+        + Verify(pub ed25519.PublicKey, message []byte, signdata []byte) error
+        + PrivateKey() (ed25519.PrivateKey, error)
+
+    }
+    class Manager << (S,Aquamarine) >> {
+        - config *config.Wallet
+        - unlockChangedIndex int
+        - entropyStoreManager <font color=blue>map</font>[string]*entropystore.Manager
+        - unlockChangedLis <font color=blue>map</font>[int]<font color=blue>func</font>(entropystore.UnlockEvent) 
+        - mutex sync.Mutex
+        - log log15.Logger
+
+        + ListAllEntropyFiles() []string
+        + Unlock(entropyStore string, passphrase string) error
+        + IsUnlocked(entropyStore string) bool
+        + Lock(entropyStore string) error
+        + GlobalCheckAddrUnlock(targetAdr types.Address) bool
+        + RefreshCache() 
+        + Account(address types.Address) (*Account, error)
+        + AccountAtIndex(entryPath string, target types.Address, index uint32) (*Account, error)
+        + AccountSearch(entryPath *string, target types.Address, passphrase string) (*Account, error)
+        + GlobalFindAddr(targetAdr types.Address) (string, *derivation.Key, uint32, error)
+        + GlobalFindAddrWithPassphrase(targetAdr types.Address, pass string) (string, *derivation.Key, uint32, error)
+        + ListEntropyFilesInStandardDir() ([]string, error)
+        + ExtractMnemonic(entropyStore string, passphrase string) (string, error)
+        + GetEntropyStoreManager(entropyStore string) (*entropystore.Manager, error)
+        + AddEntropyStore(entropyStore string) error
+        + RemoveEntropyStore(entropyStore string) 
+        + RecoverEntropyStoreFromMnemonic(mnemonic string, passphrase string) (*entropystore.Manager, error)
+        + NewMnemonicAndEntropyStore(passphrase string) (string, *entropystore.Manager, error)
+        + GetDataDir() string
+        + Start() error
+        + Stop() 
+        + AddLockEventListener(lis <font color=blue>func</font>(entropystore.UnlockEvent) ) int
+        + RemoveUnlockChangeChannel(id int) 
+        + MatchAddress(EntryPath string, coinbase types.Address, index uint32) error
+
+    }
+}
+"interfaces.Account" *-- "wallet.Account"
+
+
+@enduml

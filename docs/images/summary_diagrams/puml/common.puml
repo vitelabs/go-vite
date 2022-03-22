@@ -1,0 +1,3293 @@
+@startuml
+namespace bloom {
+    class Buckets << (S,Aquamarine) >> {
+        - data []byte
+        - bucketSize uint8
+        - max uint8
+        - count uint
+        - total uint
+
+        - getBits(offset uint, length uint) uint32
+        - setBits(offset uint32, length uint32, bits uint32) 
+
+        + MaxBucketValue() uint8
+        + FullRatio() float64
+        + Set(bucket uint, value uint8) *Buckets
+        + Get(bucket uint) uint32
+        + Reset() *Buckets
+
+    }
+    class Filter << (S,Aquamarine) >> {
+        - buckets []*Buckets
+        - hash hash.Hash64
+        - m uint
+        - k uint
+        - rw sync.RWMutex
+
+        - testHashUnlocked(lower uint32, upper uint32) bool
+        - addHashUnlocked(lower uint32, upper uint32) 
+
+        + Test(data []byte) bool
+        + Add(data []byte) 
+        + TestAndAdd(data []byte) bool
+
+    }
+}
+
+
+namespace cache {
+    class Cache << (S,Aquamarine) >> {
+        - mu sync.RWMutex
+        - mHead unsafe.Pointer
+        - nodes int32
+        - size int32
+        - cacher Cacher
+        - closed bool
+
+        - getBucket(hash uint32) (*mNode, *mBucket)
+        - delete(n *Node) bool
+
+        + Nodes() int
+        + Size() int
+        + Capacity() int
+        + SetCapacity(capacity int) 
+        + Get(ns uint64, key uint64, setFunc <font color=blue>func</font>() (int, Value)) *Handle
+        + Delete(ns uint64, key uint64, onDel <font color=blue>func</font>() ) bool
+        + Evict(ns uint64, key uint64) bool
+        + EvictNS(ns uint64) 
+        + EvictAll() 
+        + Close() error
+        + CloseWeak() error
+
+    }
+    interface Cacher  {
+        + Capacity() int
+        + SetCapacity(capacity int) 
+        + Promote(n *Node) 
+        + Ban(n *Node) 
+        + Evict(n *Node) 
+        + EvictNS(ns uint64) 
+        + EvictAll() 
+        + Close() error
+
+    }
+    class Handle << (S,Aquamarine) >> {
+        - n unsafe.Pointer
+
+        + Value() Value
+        + Release() 
+
+    }
+    class NamespaceGetter << (S,Aquamarine) >> {
+        + Cache *Cache
+        + NS uint64
+
+        + Get(key uint64, setFunc <font color=blue>func</font>() (int, Value)) *Handle
+
+    }
+    class Node << (S,Aquamarine) >> {
+        - r *Cache
+        - hash uint32
+        - ns uint64
+        - mu sync.Mutex
+        - size int
+        - value Value
+        - ref int32
+        - onDel []<font color=blue>func</font>() 
+
+        + CacheData unsafe.Pointer
+
+        - unref() 
+        - unrefLocked() 
+
+        + NS() uint64
+        + Key() uint64
+        + Size() int
+        + Value() Value
+        + Ref() int32
+        + GetHandle() *Handle
+
+    }
+    interface Value  {
+    }
+    class lru << (S,Aquamarine) >> {
+        - mu sync.Mutex
+        - capacity int
+        - used int
+        - recent lruNode
+
+        - reset() 
+
+        + Capacity() int
+        + SetCapacity(capacity int) 
+        + Promote(n *Node) 
+        + Ban(n *Node) 
+        + Evict(n *Node) 
+        + EvictNS(ns uint64) 
+        + EvictAll() 
+        + Close() error
+
+    }
+    class lruNode << (S,Aquamarine) >> {
+        - n *Node
+        - h *Handle
+        - ban bool
+        - next *lruNode
+
+        - insert(at *lruNode) 
+        - remove() 
+
+    }
+    class mBucket << (S,Aquamarine) >> {
+        - mu sync.Mutex
+        - node []*Node
+        - frozen bool
+
+        - freeze() []*Node
+        - get(r *Cache, h *mNode, hash uint32, ns uint64, key uint64, noset bool) (bool, *Node)
+        - delete(r *Cache, h *mNode, hash uint32, ns uint64, key uint64) bool
+
+    }
+    class mNode << (S,Aquamarine) >> {
+        - buckets []unsafe.Pointer
+        - mask uint32
+        - pred unsafe.Pointer
+        - resizeInProgess int32
+        - overflow int32
+        - growThreshold int32
+        - shrinkThreshold int32
+
+        - initBucket(i uint32) *mBucket
+        - initBuckets() 
+
+    }
+}
+
+"util.Releaser" <|-- "cache.Handle"
+"cache.Cacher" <|-- "cache.lru"
+
+namespace common {
+    class CondTimer << (S,Aquamarine) >> {
+        - cd *sync.Cond
+        - notifyNum uint32
+        - closed <font color=blue>chan</font> <font color=blue>struct</font>{}
+
+        + Wait() 
+        + Broadcast() 
+        + Signal() 
+        + Start(t time.Duration) 
+        + Stop() 
+
+    }
+    interface Lifecycle  {
+        + Init() 
+        + Start() 
+        + Stop() 
+        + GetStatus() int32
+
+    }
+    class LifecycleStatus << (S,Aquamarine) >> {
+        + Status int32
+
+        + PreInit() bool
+        + PostInit() bool
+        + PreStart() bool
+        + PostStart() bool
+        + PreStop() bool
+        + PostStop() bool
+        + Stopped() bool
+        + GetStatus() int32
+
+    }
+    class NonBlockLock << (S,Aquamarine) >> {
+        - b int32
+
+        + TryLock() bool
+        + Lock() 
+        + UnLock() bool
+
+    }
+    class TimeoutCond << (S,Aquamarine) >> {
+        - notifyNum uint32
+        - signal <font color=blue>chan</font> uint8
+
+        + L sync.Locker
+
+        + Wait() 
+        + WaitTimeout(t time.Duration) error
+        + Broadcast() 
+        + Signal() 
+
+    }
+    class Version << (S,Aquamarine) >> {
+        - version uint64
+
+        + Inc() 
+        + Val() uint64
+
+    }
+}
+
+
+namespace comparer {
+    interface BasicComparer  {
+        + Compare(a []byte, b []byte) int
+
+    }
+    interface Comparer  {
+        + Name() string
+        + Separator(dst []byte, a []byte, b []byte) []byte
+        + Successor(dst []byte, b []byte) []byte
+
+    }
+    class bytesComparer << (S,Aquamarine) >> {
+        + Compare(a []byte, b []byte) int
+        + Name() string
+        + Separator(dst []byte, a []byte, b []byte) []byte
+        + Successor(dst []byte, b []byte) []byte
+
+    }
+}
+"comparer.BasicComparer" *-- "comparer.Comparer"
+
+"comparer.BasicComparer" <|-- "comparer.bytesComparer"
+"comparer.Comparer" <|-- "comparer.bytesComparer"
+
+namespace config {
+    class AssetContractInfo << (S,Aquamarine) >> {
+        + TokenInfoMap <font color=blue>map</font>[string]*TokenInfo
+        + LogList []*GenesisVmLog
+
+    }
+    class Chain << (S,Aquamarine) >> {
+        + LedgerGcRetain uint64
+        + GenesisFile string
+        + LedgerGc bool
+        + OpenPlugins bool
+        + VmLogWhiteList []types.Address
+        + VmLogAll bool
+
+    }
+    class Config << (S,Aquamarine) >> {
+        + DataDir string
+        + LogLevel string
+
+        + RunLogDir() string
+
+    }
+    class ConsensusGroupInfo << (S,Aquamarine) >> {
+        + NodeCount uint8
+        + Interval int64
+        + PerCount int64
+        + RandCount uint8
+        + RandRank uint8
+        + Repeat uint16
+        + CheckLevel uint8
+        + CountingTokenId types.TokenTypeId
+        + RegisterConditionId uint8
+        + RegisterConditionParam RegisterConditionParam
+        + VoteConditionId uint8
+        + VoteConditionParam VoteConditionParam
+        + Owner types.Address
+        + StakeAmount *big.Int
+        + ExpirationHeight uint64
+
+    }
+    class DexFundContractInfo << (S,Aquamarine) >> {
+        + Owner *types.Address
+
+    }
+    class ForkPoint << (S,Aquamarine) >> {
+        + Height uint64
+        + Version uint32
+
+    }
+    class Genesis << (S,Aquamarine) >> {
+        + GenesisAccountAddress *types.Address
+        + UpgradeCfg *Upgrade
+        + GovernanceInfo *GovernanceContractInfo
+        + AssetInfo *AssetContractInfo
+        + QuotaInfo *QuotaContractInfo
+        + AccountBalanceMap <font color=blue>map</font>[string]<font color=blue>map</font>[string]*big.Int
+        + DexFundInfo *DexFundContractInfo
+
+        + UnmarshalJSON(data []byte) error
+
+    }
+    class GenesisVmLog << (S,Aquamarine) >> {
+        + Data string
+        + Topics []types.Hash
+
+    }
+    class GovernanceContractInfo << (S,Aquamarine) >> {
+        + ConsensusGroupInfoMap <font color=blue>map</font>[string]*ConsensusGroupInfo
+        + RegistrationInfoMap <font color=blue>map</font>[string]<font color=blue>map</font>[string]*RegistrationInfo
+        + HisNameMap <font color=blue>map</font>[string]<font color=blue>map</font>[string]string
+        + VoteStatusMap <font color=blue>map</font>[string]<font color=blue>map</font>[string]string
+
+    }
+    class Net << (S,Aquamarine) >> {
+        + Single bool
+        + Name string
+        + NetID int
+        + ListenInterface string
+        + Port int
+        + FilePort int
+        + PublicAddress string
+        + FilePublicAddress string
+        + DataDir string
+        + PeerKey string
+        + Discover bool
+        + BootNodes []string
+        + BootSeeds []string
+        + StaticNodes []string
+        + MaxPeers int
+        + MaxInboundRatio int
+        + MinPeers int
+        + MaxPendingPeers int
+        + ForwardStrategy string
+        + AccessControl string
+        + AccessAllowKeys []string
+        + AccessDenyKeys []string
+        + BlackBlockHashList []string
+        + WhiteBlockList []string
+        + MineKey ed25519.PrivateKey
+
+        + Init() (ed25519.PrivateKey, error)
+
+    }
+    class NodeReward << (S,Aquamarine) >> {
+        + RewardAddr string
+        + Name string
+        + SecretPub *string
+
+    }
+    class Producer << (S,Aquamarine) >> {
+        - coinbase types.Address
+        - index uint32
+
+        + Producer bool
+        + Coinbase string
+        + EntropyStorePath string
+        + ExternalMiner bool
+
+        + IsMine() bool
+        + GetCoinbase() types.Address
+        + GetIndex() uint32
+        + Parse() error
+
+    }
+    class QuotaContractInfo << (S,Aquamarine) >> {
+        + StakeInfoMap <font color=blue>map</font>[string][]*StakeInfo
+        + StakeBeneficialMap <font color=blue>map</font>[string]*big.Int
+
+    }
+    class RegisterConditionParam << (S,Aquamarine) >> {
+        + StakeAmount *big.Int
+        + StakeToken types.TokenTypeId
+        + StakeHeight uint64
+
+    }
+    class RegistrationInfo << (S,Aquamarine) >> {
+        + BlockProducingAddress *types.Address
+        + StakeAddress *types.Address
+        + Amount *big.Int
+        + ExpirationHeight uint64
+        + RewardTime int64
+        + RevokeTime int64
+        + HistoryAddressList []types.Address
+
+    }
+    class StakeInfo << (S,Aquamarine) >> {
+        + Amount *big.Int
+        + ExpirationHeight uint64
+        + Beneficiary *types.Address
+
+    }
+    class Subscribe << (S,Aquamarine) >> {
+        + IsSubscribe bool
+
+    }
+    class TokenInfo << (S,Aquamarine) >> {
+        + TokenName string
+        + TokenSymbol string
+        + TotalSupply *big.Int
+        + Decimals uint8
+        + Owner types.Address
+        + MaxSupply *big.Int
+        + IsOwnerBurnOnly bool
+        + IsReIssuable bool
+
+    }
+    class Upgrade << (S,Aquamarine) >> {
+        + Level string
+        + Points <font color=blue>map</font>[string]*upgrade.UpgradePoint
+
+        + MakeUpgradeBox() upgrade.UpgradeBox
+
+    }
+    class Vm << (S,Aquamarine) >> {
+        + IsVmTest bool
+        + IsUseVmTestParam bool
+        + IsUseQuotaTestParam bool
+        + IsVmDebug bool
+
+    }
+    class VoteConditionParam << (S,Aquamarine) >> {
+    }
+    class Wallet << (S,Aquamarine) >> {
+        + DataDir string
+        + MaxSearchIndex uint32
+
+    }
+}
+"config.Chain" *-- "config.Config"
+"config.Genesis" *-- "config.Config"
+"config.Net" *-- "config.Config"
+"config.NodeReward" *-- "config.Config"
+"config.Producer" *-- "config.Config"
+"config.Subscribe" *-- "config.Config"
+"config.Vm" *-- "config.Config"
+
+
+namespace db {
+    class MemDB << (S,Aquamarine) >> {
+        - storage *memdb.DB
+        - seq uint64
+        - copyMu sync.RWMutex
+
+        + GetDb() *memdb.DB
+        + GetSeq() uint64
+        + Put(key []byte, value []byte) 
+        + Delete(key []byte) 
+        + Len() int
+        + Size() int
+
+    }
+    class MergedIterator << (S,Aquamarine) >> {
+        - cmp comparer.BasicComparer
+        - isDelete <font color=blue>func</font>([]byte) bool
+        - iters []interfaces.StorageIterator
+        - iterStatus []byte
+        - index int
+        - keys [][]byte
+        - prevKey []byte
+        - err error
+        - directionToNext bool
+
+        - reset() 
+        - step(toNext bool) bool
+
+        + Last() bool
+        + Prev() bool
+        + Next() bool
+        + Seek(seeKey []byte) bool
+        + Key() []byte
+        + Value() []byte
+        + Error() error
+        + Release() 
+
+    }
+}
+
+"leveldb.BatchReplay" <|-- "db.MemDB"
+"iterator.Iterator" <|-- "db.MergedIterator"
+"util.Releaser" <|-- "db.MergedIterator"
+
+namespace errors {
+    class ErrCorrupted << (S,Aquamarine) >> {
+        + Fd storage.FileDesc
+        + Err error
+
+        + Error() string
+
+    }
+    class ErrMissingFiles << (S,Aquamarine) >> {
+        + Fds []storage.FileDesc
+
+        + Error() string
+
+    }
+}
+
+
+namespace filter {
+    interface Buffer  {
+        + Alloc(n int) []byte
+        + Write(p []byte) (int, error)
+        + WriteByte(c byte) error
+
+    }
+    interface Filter  {
+        + Name() string
+        + NewGenerator() FilterGenerator
+        + Contains(filter []byte, key []byte) bool
+
+    }
+    interface FilterGenerator  {
+        + Add(key []byte) 
+        + Generate(b Buffer) 
+
+    }
+    class bloomFilter << (S,Aquamarine) >> {
+        + Name() string
+        + Contains(filter []byte, key []byte) bool
+        + NewGenerator() FilterGenerator
+
+    }
+    class bloomFilterGenerator << (S,Aquamarine) >> {
+        - n int
+        - k uint8
+        - keyHashes []uint32
+
+        + Add(key []byte) 
+        + Generate(b Buffer) 
+
+    }
+    class filter.bloomFilter << (T, #FF7700) >>  {
+    }
+}
+
+"filter.Filter" <|-- "filter.bloomFilter"
+"filter.FilterGenerator" <|-- "filter.bloomFilterGenerator"
+
+namespace helper {
+    interface Source64  {
+        + Seed(seed int64) 
+        + Uint64() uint64
+
+    }
+    class rngSource << (S,Aquamarine) >> {
+        - tap int
+        - feed int
+        - vec []int64
+
+        + Seed(seed int64) 
+        + Uint64() uint64
+
+    }
+}
+
+"helper.Source64" <|-- "helper.rngSource"
+
+namespace hexutil {
+    class Big << (S,Aquamarine) >> {
+        + MarshalText() ([]byte, error)
+        + UnmarshalJSON(input []byte) error
+        + UnmarshalText(input []byte) error
+        + ToInt() *big.Int
+        + String() string
+
+    }
+    class Bytes << (S,Aquamarine) >> {
+        + MarshalText() ([]byte, error)
+        + UnmarshalJSON(input []byte) error
+        + UnmarshalText(input []byte) error
+        + String() string
+
+    }
+    class Uint << (S,Aquamarine) >> {
+        + MarshalText() ([]byte, error)
+        + UnmarshalJSON(input []byte) error
+        + UnmarshalText(input []byte) error
+        + String() string
+
+    }
+    class Uint64 << (S,Aquamarine) >> {
+        + MarshalText() ([]byte, error)
+        + UnmarshalJSON(input []byte) error
+        + UnmarshalText(input []byte) error
+        + String() string
+
+    }
+    class decError << (S,Aquamarine) >> {
+        - msg string
+
+        + Error() string
+
+    }
+    class hexutil.Big << (T, #FF7700) >>  {
+    }
+    class hexutil.Bytes << (T, #FF7700) >>  {
+    }
+    class hexutil.Uint << (T, #FF7700) >>  {
+    }
+    class hexutil.Uint64 << (T, #FF7700) >>  {
+    }
+    class "big.Int" as bigInt {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+
+namespace iterator {
+    interface Array  {
+        + Index(i int) []byte
+
+    }
+    interface ArrayIndexer  {
+        + Get(i int) Iterator
+
+    }
+    interface BasicArray  {
+        + Len() int
+        + Search(key []byte) int
+
+    }
+    interface CommonIterator  {
+        + Valid() bool
+        + Error() error
+
+    }
+    interface ErrorCallbackSetter  {
+        + SetErrorCallback(f <font color=blue>func</font>(error) ) 
+
+    }
+    interface Iterator  {
+        + Key() []byte
+        + Value() []byte
+
+    }
+    interface IteratorIndexer  {
+        + Get() Iterator
+
+    }
+    interface IteratorSeeker  {
+        + First() bool
+        + Last() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Prev() bool
+
+    }
+    class arrayIterator << (S,Aquamarine) >> {
+        - array Array
+        - pos int
+        - key []byte
+
+        - updateKV() 
+
+        + Key() []byte
+        + Value() []byte
+
+    }
+    class arrayIteratorIndexer << (S,Aquamarine) >> {
+        - array ArrayIndexer
+
+        + Get() Iterator
+
+    }
+    class basicArrayIterator << (S,Aquamarine) >> {
+        - array BasicArray
+        - pos int
+        - err error
+
+        + Valid() bool
+        + First() bool
+        + Last() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Prev() bool
+        + Error() error
+
+    }
+    class emptyIterator << (S,Aquamarine) >> {
+        - err error
+
+        - rErr() 
+
+        + Valid() bool
+        + First() bool
+        + Last() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Prev() bool
+        + Key() []byte
+        + Value() []byte
+        + Error() error
+
+    }
+    class indexedIterator << (S,Aquamarine) >> {
+        - index IteratorIndexer
+        - strict bool
+        - data Iterator
+        - err error
+        - errf <font color=blue>func</font>(error) 
+        - closed bool
+
+        - setData() 
+        - clearData() 
+        - indexErr() 
+        - dataErr() bool
+
+        + Valid() bool
+        + First() bool
+        + Last() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Prev() bool
+        + Key() []byte
+        + Value() []byte
+        + Release() 
+        + Error() error
+        + SetErrorCallback(f <font color=blue>func</font>(error) ) 
+
+    }
+    class iterator.dir << (T, #FF7700) >>  {
+    }
+    class mergedIterator << (S,Aquamarine) >> {
+        - cmp comparer.Comparer
+        - iters []Iterator
+        - strict bool
+        - keys [][]byte
+        - index int
+        - dir dir
+        - err error
+        - errf <font color=blue>func</font>(error) 
+        - releaser util.Releaser
+
+        - iterErr(iter Iterator) bool
+        - next() bool
+        - prev() bool
+
+        + Valid() bool
+        + First() bool
+        + Last() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Prev() bool
+        + Key() []byte
+        + Value() []byte
+        + Release() 
+        + SetReleaser(releaser util.Releaser) 
+        + Error() error
+        + SetErrorCallback(f <font color=blue>func</font>(error) ) 
+
+    }
+}
+"iterator.BasicArray" *-- "iterator.Array"
+"iterator.BasicArray" *-- "iterator.ArrayIndexer"
+"iterator.IteratorSeeker" *-- "iterator.CommonIterator"
+"iterator.CommonIterator" *-- "iterator.Iterator"
+"iterator.CommonIterator" *-- "iterator.IteratorIndexer"
+"iterator.basicArrayIterator" *-- "iterator.arrayIterator"
+"iterator.basicArrayIterator" *-- "iterator.arrayIteratorIndexer"
+"util.BasicReleaser" *-- "iterator.basicArrayIterator"
+"util.BasicReleaser" *-- "iterator.emptyIterator"
+"util.BasicReleaser" *-- "iterator.indexedIterator"
+
+"iterator.Iterator" <|-- "iterator.arrayIterator"
+"iterator.IteratorIndexer" <|-- "iterator.arrayIteratorIndexer"
+"iterator.CommonIterator" <|-- "iterator.basicArrayIterator"
+"iterator.IteratorSeeker" <|-- "iterator.basicArrayIterator"
+"iterator.CommonIterator" <|-- "iterator.emptyIterator"
+"iterator.Iterator" <|-- "iterator.emptyIterator"
+"iterator.IteratorSeeker" <|-- "iterator.emptyIterator"
+"iterator.CommonIterator" <|-- "iterator.indexedIterator"
+"iterator.ErrorCallbackSetter" <|-- "iterator.indexedIterator"
+"iterator.Iterator" <|-- "iterator.indexedIterator"
+"iterator.IteratorSeeker" <|-- "iterator.indexedIterator"
+"util.Releaser" <|-- "iterator.indexedIterator"
+"iterator.CommonIterator" <|-- "iterator.mergedIterator"
+"iterator.ErrorCallbackSetter" <|-- "iterator.mergedIterator"
+"iterator.Iterator" <|-- "iterator.mergedIterator"
+"iterator.IteratorSeeker" <|-- "iterator.mergedIterator"
+"util.ReleaseSetter" <|-- "iterator.mergedIterator"
+"util.Releaser" <|-- "iterator.mergedIterator"
+
+namespace journal {
+    interface Dropper  {
+        + Drop(err error) 
+
+    }
+    class ErrCorrupted << (S,Aquamarine) >> {
+        + Size int
+        + Reason string
+
+        + Error() string
+
+    }
+    class Reader << (S,Aquamarine) >> {
+        - r io.Reader
+        - dropper Dropper
+        - strict bool
+        - checksum bool
+        - seq int
+        - i int
+        - n int
+        - last bool
+        - err error
+        - buf []byte
+
+        - corrupt(n int, reason string, skip bool) error
+        - nextChunk(first bool) error
+
+        + Next() (io.Reader, error)
+        + Reset(reader io.Reader, dropper Dropper, strict bool, checksum bool) error
+
+    }
+    class Writer << (S,Aquamarine) >> {
+        - w io.Writer
+        - seq int
+        - f flusher
+        - i int
+        - written int
+        - first bool
+        - pending bool
+        - err error
+        - buf []byte
+
+        - fillHeader(last bool) 
+        - writeBlock() 
+        - writePending() 
+
+        + Close() error
+        + Flush() error
+        + Reset(writer io.Writer) error
+        + Next() (io.Writer, error)
+
+    }
+    interface flusher  {
+        + Flush() error
+
+    }
+    class singleReader << (S,Aquamarine) >> {
+        - r *Reader
+        - seq int
+        - err error
+
+        + Read(p []byte) (int, error)
+        + ReadByte() (byte, error)
+
+    }
+    class singleWriter << (S,Aquamarine) >> {
+        - w *Writer
+        - seq int
+
+        + Write(p []byte) (int, error)
+
+    }
+}
+
+"journal.flusher" <|-- "journal.Writer"
+
+namespace leveldb {
+    class Batch << (S,Aquamarine) >> {
+        - data []byte
+        - index []batchIndex
+        - internalLen int
+
+        - grow(n int) 
+        - appendRec(kt keyType, key []byte, value []byte) 
+        - replayInternal(fn <font color=blue>func</font>(int, keyType, []byte, []byte) error) error
+        - append(p *Batch) 
+        - decode(data []byte, expectedLen int) error
+        - putMem(seq uint64, mdb *memdb.DB) error
+        - revertMem(seq uint64, mdb *memdb.DB) error
+
+        + Put(key []byte, value []byte) 
+        + Delete(key []byte) 
+        + Dump() []byte
+        + Load(data []byte) error
+        + Replay(r BatchReplay) error
+        + Len() int
+        + Size() int
+        + Reset() 
+        + Append(p *Batch) 
+
+    }
+    interface BatchReplay  {
+        + Put(key []byte, value []byte) 
+        + Delete(key []byte) 
+
+    }
+    class DB << (S,Aquamarine) >> {
+        - seq uint64
+        - cWriteDelay int64
+        - cWriteDelayN int32
+        - inWritePaused int32
+        - aliveSnaps int32
+        - s *session
+        - memMu sync.RWMutex
+        - memPool <font color=blue>chan</font> *memdb.DB
+        - mem *memDB
+        - journal *journal.Writer
+        - journalWriter storage.Writer
+        - journalFd storage.FileDesc
+        - frozenJournalFd storage.FileDesc
+        - frozenSeq uint64
+        - snapsMu sync.Mutex
+        - snapsList *list.List
+        - batchPool sync.Pool
+        - writeMergeC <font color=blue>chan</font> writeMerge
+        - writeMergedC <font color=blue>chan</font> bool
+        - writeLockC <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - writeAckC <font color=blue>chan</font> error
+        - writeDelay time.Duration
+        - writeDelayN int
+        - tr *Transaction
+        - compCommitLk sync.Mutex
+        - tcompCmdC <font color=blue>chan</font> cCmd
+        - tcompPauseC <font color=blue>chan</font> <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - mcompCmdC <font color=blue>chan</font> cCmd
+        - compErrC <font color=blue>chan</font> error
+        - compPerErrC <font color=blue>chan</font> error
+        - compErrSetC <font color=blue>chan</font> error
+        - compWriteLocking bool
+        - compStats cStats
+        - memdbMaxLevel int
+        - closeW sync.WaitGroup
+        - closeC <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - closed uint32
+        - closer io.Closer
+
+        - recoverJournal() error
+        - recoverJournalRO() error
+        - get(auxm *memdb.DB, auxt tFiles, key []byte, seq uint64, ro *opt.ReadOptions) ([]byte, error)
+        - has(auxm *memdb.DB, auxt tFiles, key []byte, seq uint64, ro *opt.ReadOptions) (bool, error)
+        - compactionError() 
+        - compactionTransact(name string, t compactionTransactInterface) 
+        - compactionTransactFunc(name string, run <font color=blue>func</font>(*compactionTransactCounter) error, revert <font color=blue>func</font>() error) 
+        - compactionExitTransact() 
+        - compactionCommit(name string, rec *sessionRecord) 
+        - memCompaction() 
+        - tableCompaction(c *compaction, noTrivial bool) 
+        - tableRangeCompaction(level int, umin []byte, umax []byte) error
+        - tableAutoCompaction() 
+        - tableNeedCompaction() bool
+        - pauseCompaction(ch <font color=blue>chan</font> <font color=blue>struct</font>{}) 
+        - compTrigger(compC <font color=blue>chan</font> cCmd) 
+        - compTriggerWait(compC <font color=blue>chan</font> cCmd) error
+        - compTriggerRange(compC <font color=blue>chan</font> cCmd, level int, min []byte, max []byte) error
+        - mCompaction() 
+        - tCompaction() 
+        - newRawIterator(auxm *memDB, auxt tFiles, slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
+        - newIterator(auxm *memDB, auxt tFiles, seq uint64, slice *util.Range, ro *opt.ReadOptions) *dbIter
+        - newRawIterator2(auxm *memdb.DB, auxt tFiles, slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
+        - newIterator2(auxm *memdb.DB, auxt tFiles, seq uint64, slice *util.Range, ro *opt.ReadOptions) *dbIter
+        - iterSamplingRate() int
+        - acquireSnapshot() *snapshotElement
+        - releaseSnapshot(se *snapshotElement) 
+        - minSeq() uint64
+        - newSnapshot() *Snapshot
+        - addSeq(delta uint64) 
+        - sampleSeek(ikey internalKey) 
+        - mpoolPut(mem *memdb.DB) 
+        - mpoolGet(n int) *memDB
+        - mpoolDrain() 
+        - newMem(n int) (*memDB, error)
+        - getMems() *memDB
+        - getEffectiveMem() *memDB
+        - hasFrozenMem() bool
+        - getFrozenMem() *memDB
+        - dropFrozenMem() 
+        - clearMems() 
+        - setClosed() bool
+        - isClosed() bool
+        - ok() error
+        - waitCompaction() error
+        - log(v ...<font color=blue>interface</font>{}) 
+        - logf(format string, v ...<font color=blue>interface</font>{}) 
+        - checkAndCleanFiles() error
+        - writeJournal(batches []*Batch, seq uint64, sync bool) error
+        - rotateMem(n int, wait bool) (*memDB, error)
+        - flush(n int) (*memDB, int, error)
+        - unlockWrite(overflow bool, merged int, err error) 
+        - writeLocked(batch *Batch, ourBatch *Batch, merge bool, sync bool) error
+        - putRec(kt keyType, key []byte, value []byte, wo *opt.WriteOptions) error
+
+        + Get(key []byte, ro *opt.ReadOptions) ([]byte, error)
+        + Get2(key []byte, ro *opt.ReadOptions, auxm *memdb.DB, seq uint64) ([]byte, error)
+        + Has(key []byte, ro *opt.ReadOptions) (bool, error)
+        + NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
+        + NewIterator2(slice *util.Range, ro *opt.ReadOptions, auxm *memdb.DB, seq uint64) iterator.Iterator
+        + GetSnapshot() (*Snapshot, error)
+        + GetProperty(name string) (string, error)
+        + Stats(s *DBStats) error
+        + SizeOf(ranges []util.Range) (Sizes, error)
+        + Close() error
+        + GetSeq() uint64
+        + SetSeq(seq uint64) 
+        + OpenTransaction() (*Transaction, error)
+        + Write(batch *Batch, wo *opt.WriteOptions) error
+        + Put(key []byte, value []byte, wo *opt.WriteOptions) error
+        + Delete(key []byte, wo *opt.WriteOptions) error
+        + CompactRange(r util.Range) error
+        + SetReadOnly() error
+
+    }
+    class DBStats << (S,Aquamarine) >> {
+        + WriteDelayCount int32
+        + WriteDelayDuration time.Duration
+        + WritePaused bool
+        + AliveSnapshots int32
+        + AliveIterators int32
+        + IOWrite uint64
+        + IORead uint64
+        + BlockCacheSize int
+        + OpenedTablesCount int
+        + LevelSizes []int64
+        + LevelTablesCounts []int
+        + LevelRead []int64
+        + LevelWrite []int64
+        + LevelDurations []time.Duration
+
+    }
+    class ErrBatchCorrupted << (S,Aquamarine) >> {
+        + Reason string
+
+        + Error() string
+
+    }
+    class ErrInternalKeyCorrupted << (S,Aquamarine) >> {
+        + Ikey []byte
+        + Reason string
+
+        + Error() string
+
+    }
+    class ErrManifestCorrupted << (S,Aquamarine) >> {
+        + Field string
+        + Reason string
+
+        + Error() string
+
+    }
+    class IComparer << (S,Aquamarine) >> {
+        - ucmp comparer.Comparer
+
+        - uName() string
+        - uCompare(a []byte, b []byte) int
+        - uSeparator(dst []byte, a []byte, b []byte) []byte
+        - uSuccessor(dst []byte, b []byte) []byte
+
+        + Name() string
+        + Compare(a []byte, b []byte) int
+        + Separator(dst []byte, a []byte, b []byte) []byte
+        + Successor(dst []byte, b []byte) []byte
+
+    }
+    interface Reader  {
+        + Get(key []byte, ro *opt.ReadOptions) ([]byte, error)
+        + NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
+
+    }
+    class Sizes << (S,Aquamarine) >> {
+        + Sum() int64
+
+    }
+    class Snapshot << (S,Aquamarine) >> {
+        - db *DB
+        - elem *snapshotElement
+        - mu sync.RWMutex
+        - released bool
+
+        + String() string
+        + Get(key []byte, ro *opt.ReadOptions) ([]byte, error)
+        + Has(key []byte, ro *opt.ReadOptions) (bool, error)
+        + NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
+        + Release() 
+
+    }
+    class Transaction << (S,Aquamarine) >> {
+        - db *DB
+        - lk sync.RWMutex
+        - seq uint64
+        - mem *memDB
+        - tables tFiles
+        - ikScratch []byte
+        - rec sessionRecord
+        - stats cStatStaging
+        - closed bool
+
+        - flush() error
+        - put(kt keyType, key []byte, value []byte) error
+        - setDone() 
+        - discard() 
+
+        + Get(key []byte, ro *opt.ReadOptions) ([]byte, error)
+        + Has(key []byte, ro *opt.ReadOptions) (bool, error)
+        + NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
+        + Put(key []byte, value []byte, wo *opt.WriteOptions) error
+        + Delete(key []byte, wo *opt.WriteOptions) error
+        + Write(b *Batch, wo *opt.WriteOptions) error
+        + Commit() error
+        + Discard() 
+
+    }
+    class atRecord << (S,Aquamarine) >> {
+        - level int
+        - num int64
+        - size int64
+        - imin internalKey
+        - imax internalKey
+
+    }
+    class batchIndex << (S,Aquamarine) >> {
+        - keyType keyType
+        - keyPos int
+        - valuePos int
+
+        - k(data []byte) []byte
+        - v(data []byte) []byte
+        - kv(data []byte) []byte
+
+    }
+    interface byteReader  {
+    }
+    class cAuto << (S,Aquamarine) >> {
+        - ackC <font color=blue>chan</font> error
+
+        - ack(err error) 
+
+    }
+    interface cCmd  {
+        - ack(err error) 
+
+    }
+    class cRange << (S,Aquamarine) >> {
+        - level int
+        - min []byte
+        - ackC <font color=blue>chan</font> error
+
+        - ack(err error) 
+
+    }
+    class cStat << (S,Aquamarine) >> {
+        - duration time.Duration
+        - read int64
+        - write int64
+
+        - add(n *cStatStaging) 
+        - get() (time.Duration, int64)
+
+    }
+    class cStatStaging << (S,Aquamarine) >> {
+        - start time.Time
+        - duration time.Duration
+        - on bool
+        - read int64
+        - write int64
+
+        - startTimer() 
+        - stopTimer() 
+
+    }
+    class cStats << (S,Aquamarine) >> {
+        - lk sync.Mutex
+        - stats []cStat
+
+        - addStat(level int, n *cStatStaging) 
+        - getStat(level int) (time.Duration, int64)
+
+    }
+    class cachedOptions << (S,Aquamarine) >> {
+        - compactionExpandLimit []int
+        - compactionGPOverlaps []int
+        - compactionSourceLimit []int
+        - compactionTableSize []int
+        - compactionTotalSize []int64
+
+        - cache() 
+
+        + GetCompactionExpandLimit(level int) int
+        + GetCompactionGPOverlaps(level int) int
+        + GetCompactionSourceLimit(level int) int
+        + GetCompactionTableSize(level int) int
+        + GetCompactionTotalSize(level int) int64
+
+    }
+    class compaction << (S,Aquamarine) >> {
+        - s *session
+        - v *version
+        - sourceLevel int
+        - levels []tFiles
+        - maxGPOverlaps int64
+        - gp tFiles
+        - gpi int
+        - seenKey bool
+        - gpOverlappedBytes int64
+        - imin internalKey
+        - tPtrs []int
+        - released bool
+        - snapGPI int
+        - snapSeenKey bool
+        - snapGPOverlappedBytes int64
+        - snapTPtrs []int
+
+        - save() 
+        - restore() 
+        - release() 
+        - expand() 
+        - trivial() bool
+        - baseLevelForKey(ukey []byte) bool
+        - shouldStopBefore(ikey internalKey) bool
+        - newIterator() iterator.Iterator
+
+    }
+    class compactionTransactCounter << (S,Aquamarine) >> {
+        - incr() 
+
+    }
+    class compactionTransactFunc << (S,Aquamarine) >> {
+        - runFunc <font color=blue>func</font>(*compactionTransactCounter) error
+        - revertFunc <font color=blue>func</font>() error
+
+        - run(cnt *compactionTransactCounter) error
+        - revert() error
+
+    }
+    interface compactionTransactInterface  {
+        - run(cnt *compactionTransactCounter) error
+        - revert() error
+
+    }
+    class cpRecord << (S,Aquamarine) >> {
+        - level int
+        - ikey internalKey
+
+    }
+    class dbIter << (S,Aquamarine) >> {
+        - db *DB
+        - icmp *IComparer
+        - iter iterator.Iterator
+        - seq uint64
+        - strict bool
+        - smaplingGap int
+        - dir dir
+        - key []byte
+        - value []byte
+        - err error
+        - releaser util.Releaser
+
+        - sampleSeek() 
+        - setErr(err error) 
+        - iterErr() 
+        - next() bool
+        - prev() bool
+
+        + Valid() bool
+        + First() bool
+        + Last() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Prev() bool
+        + Key() []byte
+        + Value() []byte
+        + Release() 
+        + SetReleaser(releaser util.Releaser) 
+        + Error() error
+
+    }
+    class dropper << (S,Aquamarine) >> {
+        - s *session
+        - fd storage.FileDesc
+
+        + Drop(err error) 
+
+    }
+    class dtRecord << (S,Aquamarine) >> {
+        - level int
+        - num int64
+
+    }
+    class fdSorter << (S,Aquamarine) >> {
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    class iFilter << (S,Aquamarine) >> {
+        + Contains(filter []byte, key []byte) bool
+        + NewGenerator() filter.FilterGenerator
+
+    }
+    class iFilterGenerator << (S,Aquamarine) >> {
+        + Add(key []byte) 
+
+    }
+    class iStorage << (S,Aquamarine) >> {
+        - read uint64
+        - write uint64
+
+        - reads() uint64
+        - writes() uint64
+
+        + Open(fd storage.FileDesc) (storage.Reader, error)
+        + Create(fd storage.FileDesc) (storage.Writer, error)
+
+    }
+    class iStorageReader << (S,Aquamarine) >> {
+        - c *iStorage
+
+        + Read(p []byte) (int, error)
+        + ReadAt(p []byte, off int64) (int, error)
+
+    }
+    class iStorageWriter << (S,Aquamarine) >> {
+        - c *iStorage
+
+        + Write(p []byte) (int, error)
+
+    }
+    class internalKey << (S,Aquamarine) >> {
+        - assert() 
+        - ukey() []byte
+        - num() uint64
+        - parseNum() (uint64, keyType)
+
+        + String() string
+
+    }
+    class keyType << (S,Aquamarine) >> {
+        + String() string
+
+    }
+    class leveldb.Sizes << (T, #FF7700) >>  {
+    }
+    class leveldb.compactionTransactCounter << (T, #FF7700) >>  {
+    }
+    class leveldb.dir << (T, #FF7700) >>  {
+    }
+    class leveldb.fdSorter << (T, #FF7700) >>  {
+    }
+    class leveldb.internalKey << (T, #FF7700) >>  {
+    }
+    class leveldb.keyType << (T, #FF7700) >>  {
+    }
+    class leveldb.tFiles << (T, #FF7700) >>  {
+    }
+    class memDB << (S,Aquamarine) >> {
+        - db *DB
+        - ref int32
+
+        - getref() int32
+        - incref() 
+        - decref() 
+
+    }
+    class memdbReleaser << (S,Aquamarine) >> {
+        - once sync.Once
+        - m *memDB
+
+        + Release() 
+
+    }
+    class session << (S,Aquamarine) >> {
+        - stNextFileNum int64
+        - stJournalNum int64
+        - stPrevJournalNum int64
+        - stTempFileNum int64
+        - stSeqNum uint64
+        - stor *iStorage
+        - storLock storage.Locker
+        - o *cachedOptions
+        - icmp *IComparer
+        - tops *tOps
+        - fileRef <font color=blue>map</font>[int64]int
+        - manifest *journal.Writer
+        - manifestWriter storage.Writer
+        - manifestFd storage.FileDesc
+        - stCompPtrs []internalKey
+        - stVersion *version
+        - vmu sync.Mutex
+
+        - setOptions(o *opt.Options) 
+        - close() 
+        - release() 
+        - create() error
+        - recover() error
+        - commit(r *sessionRecord) error
+        - pickMemdbLevel(umin []byte, umax []byte, maxLevel int) int
+        - flushMemdb(rec *sessionRecord, mdb *memdb.DB, maxLevel int) (int, error)
+        - pickCompaction() *compaction
+        - getCompactionRange(sourceLevel int, umin []byte, umax []byte, noLimit bool) *compaction
+        - log(v ...<font color=blue>interface</font>{}) 
+        - logf(format string, v ...<font color=blue>interface</font>{}) 
+        - newTemp() storage.FileDesc
+        - addFileRef(fd storage.FileDesc, ref int) int
+        - version() *version
+        - tLen(level int) int
+        - setVersion(v *version) 
+        - nextFileNum() int64
+        - setNextFileNum(num int64) 
+        - markFileNum(num int64) 
+        - allocFileNum() int64
+        - reuseFileNum(num int64) 
+        - setCompPtr(level int, ik internalKey) 
+        - getCompPtr(level int) internalKey
+        - fillRecord(r *sessionRecord, snapshot bool) 
+        - recordCommited(rec *sessionRecord) 
+        - newManifest(rec *sessionRecord, v *version) error
+        - flushManifest(rec *sessionRecord) error
+
+    }
+    class sessionRecord << (S,Aquamarine) >> {
+        - hasRec int
+        - comparer string
+        - journalNum int64
+        - prevJournalNum int64
+        - nextFileNum int64
+        - seqNum uint64
+        - compPtrs []cpRecord
+        - addedTables []atRecord
+        - deletedTables []dtRecord
+        - scratch []byte
+        - err error
+
+        - has(rec int) bool
+        - setComparer(name string) 
+        - setJournalNum(num int64) 
+        - setPrevJournalNum(num int64) 
+        - setNextFileNum(num int64) 
+        - setSeqNum(num uint64) 
+        - addCompPtr(level int, ikey internalKey) 
+        - resetCompPtrs() 
+        - addTable(level int, num int64, size int64, imin internalKey, imax internalKey) 
+        - addTableFile(level int, t *tFile) 
+        - resetAddedTables() 
+        - delTable(level int, num int64) 
+        - resetDeletedTables() 
+        - putUvarint(w io.Writer, x uint64) 
+        - putVarint(w io.Writer, x int64) 
+        - putBytes(w io.Writer, x []byte) 
+        - encode(w io.Writer) error
+        - readUvarintMayEOF(field string, r io.ByteReader, mayEOF bool) uint64
+        - readUvarint(field string, r io.ByteReader) uint64
+        - readVarint(field string, r io.ByteReader) int64
+        - readBytes(field string, r byteReader) []byte
+        - readLevel(field string, r io.ByteReader) int
+        - decode(r io.Reader) error
+
+    }
+    class snapshotElement << (S,Aquamarine) >> {
+        - seq uint64
+        - ref int
+        - e *list.Element
+
+    }
+    class tFile << (S,Aquamarine) >> {
+        - fd storage.FileDesc
+        - seekLeft int32
+        - size int64
+        - imin internalKey
+
+        - after(icmp *IComparer, ukey []byte) bool
+        - before(icmp *IComparer, ukey []byte) bool
+        - overlaps(icmp *IComparer, umin []byte, umax []byte) bool
+        - consumeSeek() int32
+
+    }
+    class tFiles << (S,Aquamarine) >> {
+        - nums() string
+        - lessByKey(icmp *IComparer, i int, j int) bool
+        - lessByNum(i int, j int) bool
+        - sortByKey(icmp *IComparer) 
+        - sortByNum() 
+        - size() int64
+        - searchMin(icmp *IComparer, ikey internalKey) int
+        - searchMax(icmp *IComparer, ikey internalKey) int
+        - overlaps(icmp *IComparer, umin []byte, umax []byte, unsorted bool) bool
+        - getOverlaps(dst tFiles, icmp *IComparer, umin []byte, umax []byte, overlapped bool) tFiles
+        - getRange(icmp *IComparer) internalKey
+        - newIndexIterator(tops *tOps, icmp *IComparer, slice *util.Range, ro *opt.ReadOptions) iterator.IteratorIndexer
+
+        + Len() int
+        + Swap(i int, j int) 
+
+    }
+    class tFilesArrayIndexer << (S,Aquamarine) >> {
+        - tops *tOps
+        - icmp *IComparer
+        - slice *util.Range
+        - ro *opt.ReadOptions
+
+        + Search(key []byte) int
+        + Get(i int) iterator.Iterator
+
+    }
+    class tFilesSortByKey << (S,Aquamarine) >> {
+        - icmp *IComparer
+
+        + Less(i int, j int) bool
+
+    }
+    class tFilesSortByNum << (S,Aquamarine) >> {
+        + Less(i int, j int) bool
+
+    }
+    class tOps << (S,Aquamarine) >> {
+        - s *session
+        - noSync bool
+        - cache *cache.Cache
+        - bcache *cache.Cache
+        - bpool *util.BufferPool
+
+        - create() (*tWriter, error)
+        - createFrom(src iterator.Iterator) (*tFile, int, error)
+        - open(f *tFile) (*cache.Handle, error)
+        - find(f *tFile, key []byte, ro *opt.ReadOptions) ([]byte, error)
+        - findKey(f *tFile, key []byte, ro *opt.ReadOptions) ([]byte, error)
+        - offsetOf(f *tFile, key []byte) (int64, error)
+        - newIterator(f *tFile, slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
+        - remove(f *tFile) 
+        - close() 
+
+    }
+    class tSet << (S,Aquamarine) >> {
+        - level int
+        - table *tFile
+
+    }
+    class tWriter << (S,Aquamarine) >> {
+        - t *tOps
+        - fd storage.FileDesc
+        - w storage.Writer
+        - tw *table.Writer
+        - first []byte
+
+        - append(key []byte, value []byte) error
+        - empty() bool
+        - close() 
+        - finish() (*tFile, error)
+        - drop() 
+
+    }
+    class tableCompactionBuilder << (S,Aquamarine) >> {
+        - db *DB
+        - s *session
+        - c *compaction
+        - rec *sessionRecord
+        - stat0 *cStatStaging
+        - snapHasLastUkey bool
+        - snapLastUkey []byte
+        - snapLastSeq uint64
+        - snapIter int
+        - snapKerrCnt int
+        - snapDropCnt int
+        - kerrCnt int
+        - dropCnt int
+        - minSeq uint64
+        - strict bool
+        - tableSize int
+        - tw *tWriter
+
+        - appendKV(key []byte, value []byte) error
+        - needFlush() bool
+        - flush() error
+        - cleanup() 
+        - run(cnt *compactionTransactCounter) error
+        - revert() error
+
+    }
+    class tablesScratch << (S,Aquamarine) >> {
+        - added <font color=blue>map</font>[int64]atRecord
+        - deleted <font color=blue>map</font>[int64]<font color=blue>struct</font>{}
+
+    }
+    class version << (S,Aquamarine) >> {
+        - s *session
+        - levels []tFiles
+        - cLevel int
+        - cScore float64
+        - cSeek unsafe.Pointer
+        - closing bool
+        - ref int
+        - released bool
+
+        - incref() 
+        - releaseNB() 
+        - release() 
+        - walkOverlapping(aux tFiles, ikey internalKey, f <font color=blue>func</font>(int, *tFile) bool, lf <font color=blue>func</font>(int) bool) 
+        - get(aux tFiles, ikey internalKey, ro *opt.ReadOptions, noValue bool) ([]byte, bool, error)
+        - sampleSeek(ikey internalKey) bool
+        - getIterators(slice *util.Range, ro *opt.ReadOptions) []iterator.Iterator
+        - newStaging() *versionStaging
+        - spawn(r *sessionRecord) *version
+        - fillRecord(r *sessionRecord) 
+        - tLen(level int) int
+        - offsetOf(ikey internalKey) (int64, error)
+        - pickMemdbLevel(umin []byte, umax []byte, maxLevel int) int
+        - computeCompaction() 
+        - needCompaction() bool
+
+    }
+    class versionReleaser << (S,Aquamarine) >> {
+        - v *version
+        - once bool
+
+        + Release() 
+
+    }
+    class versionStaging << (S,Aquamarine) >> {
+        - base *version
+        - levels []tablesScratch
+
+        - getScratch(level int) *tablesScratch
+        - commit(r *sessionRecord) 
+        - finish() *version
+
+    }
+    class writeMerge << (S,Aquamarine) >> {
+        - sync bool
+        - batch *Batch
+        - keyType keyType
+        - key []byte
+
+    }
+    class "[]storage.FileDesc" as storageFileDesc {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+"opt.Options" *-- "leveldb.cachedOptions"
+"filter.Filter" *-- "leveldb.iFilter"
+"filter.FilterGenerator" *-- "leveldb.iFilterGenerator"
+"storage.Storage" *-- "leveldb.iStorage"
+"storage.Reader" *-- "leveldb.iStorageReader"
+"storage.Writer" *-- "leveldb.iStorageWriter"
+"memdb.DB" *-- "leveldb.memDB"
+"leveldb.tFiles" *-- "leveldb.tFilesArrayIndexer"
+"leveldb.tFiles" *-- "leveldb.tFilesSortByKey"
+"leveldb.tFiles" *-- "leveldb.tFilesSortByNum"
+
+"leveldb.BatchReplay" <|-- "leveldb.Batch"
+"leveldb.Reader" <|-- "leveldb.DB"
+"comparer.BasicComparer" <|-- "leveldb.IComparer"
+"comparer.Comparer" <|-- "leveldb.IComparer"
+"leveldb.Reader" <|-- "leveldb.Snapshot"
+"util.Releaser" <|-- "leveldb.Snapshot"
+"leveldb.Reader" <|-- "leveldb.Transaction"
+"leveldb.cCmd" <|-- "leveldb.cAuto"
+"leveldb.cCmd" <|-- "leveldb.cRange"
+"leveldb.compactionTransactInterface" <|-- "leveldb.compactionTransactFunc"
+"iterator.CommonIterator" <|-- "leveldb.dbIter"
+"iterator.Iterator" <|-- "leveldb.dbIter"
+"iterator.IteratorSeeker" <|-- "leveldb.dbIter"
+"util.ReleaseSetter" <|-- "leveldb.dbIter"
+"util.Releaser" <|-- "leveldb.dbIter"
+"journal.Dropper" <|-- "leveldb.dropper"
+"util.Releaser" <|-- "leveldb.memdbReleaser"
+"iterator.ArrayIndexer" <|-- "leveldb.tFilesArrayIndexer"
+"leveldb.compactionTransactInterface" <|-- "leveldb.tableCompactionBuilder"
+"util.Releaser" <|-- "leveldb.versionReleaser"
+
+namespace math {
+    class HexOrDecimal256 << (S,Aquamarine) >> {
+        + UnmarshalText(input []byte) error
+        + MarshalText() ([]byte, error)
+
+    }
+    class HexOrDecimal64 << (S,Aquamarine) >> {
+        + UnmarshalText(input []byte) error
+        + MarshalText() ([]byte, error)
+
+    }
+    class math.HexOrDecimal256 << (T, #FF7700) >>  {
+    }
+    class math.HexOrDecimal64 << (T, #FF7700) >>  {
+    }
+    class "big.Int" as bigInt {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+
+namespace memdb {
+    class DB << (S,Aquamarine) >> {
+        - cmp comparer.BasicComparer
+        - rnd *rand.Rand
+        - mu sync.RWMutex
+        - kvData []byte
+        - nodeData []int
+        - prevNode []int
+        - maxHeight int
+        - n int
+        - kvSize int
+
+        - randHeight() int
+        - findGE(key []byte, prev bool) (int, bool)
+        - findLT(key []byte) int
+        - findLast() int
+        - copy(newDB *DB) *DB
+
+        + Copy() *DB
+        + Copy2(bytesGetter <font color=blue>func</font>(int) []byte, intGetter <font color=blue>func</font>(int) []int) *DB
+        + Destroy2(putter <font color=blue>func</font>(<font color=blue>interface</font>{}) ) 
+        + Put(key []byte, value []byte) error
+        + Delete(key []byte) error
+        + Contains(key []byte) bool
+        + Get(key []byte) ([]byte, error)
+        + Find(key []byte) ([]byte, error)
+        + NewIterator(slice *util.Range) iterator.Iterator
+        + Capacity() int
+        + Size() int
+        + Free() int
+        + Len() int
+        + Reset() 
+
+    }
+    class dbIter << (S,Aquamarine) >> {
+        - p *DB
+        - slice *util.Range
+        - node int
+        - forward bool
+        - key []byte
+        - err error
+
+        - fill(checkStart bool, checkLimit bool) bool
+
+        + Valid() bool
+        + First() bool
+        + Last() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Prev() bool
+        + Key() []byte
+        + Value() []byte
+        + Error() error
+        + Release() 
+
+    }
+    class globalSource << (S,Aquamarine) >> {
+        - s rand.Source64
+        - mu sync.Mutex
+
+        + Int63() int64
+        + Seed(seed int64) 
+        + Uint64() uint64
+
+    }
+}
+"util.BasicReleaser" *-- "memdb.dbIter"
+
+"iterator.CommonIterator" <|-- "memdb.dbIter"
+"iterator.Iterator" <|-- "memdb.dbIter"
+"iterator.IteratorSeeker" <|-- "memdb.dbIter"
+"util.Releaser" <|-- "memdb.dbIter"
+"helper.Source64" <|-- "memdb.globalSource"
+
+namespace opt {
+    interface Cacher  {
+        + New(capacity int) cache.Cacher
+
+    }
+    class CacherFunc << (S,Aquamarine) >> {
+        + NewFunc <font color=blue>func</font>(int) cache.Cacher
+
+        + New(capacity int) cache.Cacher
+
+    }
+    class Compression << (S,Aquamarine) >> {
+        + String() string
+
+    }
+    class Options << (S,Aquamarine) >> {
+        + AltFilters []filter.Filter
+        + BlockCacher Cacher
+        + BlockCacheCapacity int
+        + BlockRestartInterval int
+        + BlockSize int
+        + CompactionExpandLimitFactor int
+        + CompactionGPOverlapsFactor int
+        + CompactionL0Trigger int
+        + CompactionSourceLimitFactor int
+        + CompactionTableSize int
+        + CompactionTableSizeMultiplier float64
+        + CompactionTableSizeMultiplierPerLevel []float64
+        + CompactionTotalSize int
+        + CompactionTotalSizeMultiplier float64
+        + CompactionTotalSizeMultiplierPerLevel []float64
+        + Comparer comparer.Comparer
+        + Compression Compression
+        + DisableBufferPool bool
+        + DisableBlockCache bool
+        + DisableCompactionBackoff bool
+        + DisableLargeBatchTransaction bool
+        + ErrorIfExist bool
+        + ErrorIfMissing bool
+        + Filter filter.Filter
+        + IteratorSamplingRate int
+        + NoSync bool
+        + NoWriteMerge bool
+        + OpenFilesCacher Cacher
+        + OpenFilesCacheCapacity int
+        + ReadOnly bool
+        + Strict Strict
+        + WriteBuffer int
+        + WriteL0PauseTrigger int
+        + WriteL0SlowdownTrigger int
+
+        + GetAltFilters() []filter.Filter
+        + GetBlockCacher() Cacher
+        + GetBlockCacheCapacity() int
+        + GetBlockRestartInterval() int
+        + GetBlockSize() int
+        + GetCompactionExpandLimit(level int) int
+        + GetCompactionGPOverlaps(level int) int
+        + GetCompactionL0Trigger() int
+        + GetCompactionSourceLimit(level int) int
+        + GetCompactionTableSize(level int) int
+        + GetCompactionTotalSize(level int) int64
+        + GetComparer() comparer.Comparer
+        + GetCompression() Compression
+        + GetDisableBufferPool() bool
+        + GetDisableBlockCache() bool
+        + GetDisableCompactionBackoff() bool
+        + GetDisableLargeBatchTransaction() bool
+        + GetErrorIfExist() bool
+        + GetErrorIfMissing() bool
+        + GetFilter() filter.Filter
+        + GetIteratorSamplingRate() int
+        + GetNoSync() bool
+        + GetNoWriteMerge() bool
+        + GetOpenFilesCacher() Cacher
+        + GetOpenFilesCacheCapacity() int
+        + GetReadOnly() bool
+        + GetStrict(strict Strict) bool
+        + GetWriteBuffer() int
+        + GetWriteL0PauseTrigger() int
+        + GetWriteL0SlowdownTrigger() int
+
+    }
+    class ReadOptions << (S,Aquamarine) >> {
+        + DontFillCache bool
+        + Strict Strict
+
+        + GetDontFillCache() bool
+        + GetStrict(strict Strict) bool
+
+    }
+    class WriteOptions << (S,Aquamarine) >> {
+        + NoWriteMerge bool
+        + Sync bool
+
+        + GetNoWriteMerge() bool
+        + GetSync() bool
+
+    }
+    class opt.Compression << (T, #FF7700) >>  {
+    }
+    class opt.Strict << (T, #FF7700) >>  {
+    }
+}
+
+"opt.Cacher" <|-- "opt.CacherFunc"
+
+namespace storage {
+    class ErrCorrupted << (S,Aquamarine) >> {
+        + Fd FileDesc
+        + Err error
+
+        + Error() string
+
+    }
+    class FileDesc << (S,Aquamarine) >> {
+        + Type FileType
+        + Num int64
+
+        + String() string
+        + Zero() bool
+
+    }
+    class FileType << (S,Aquamarine) >> {
+        + String() string
+
+    }
+    interface Locker  {
+        + Unlock() 
+
+    }
+    interface Reader  {
+    }
+    interface Storage  {
+        + Lock() (Locker, error)
+        + Log(str string) 
+        + SetMeta(fd FileDesc) error
+        + GetMeta() (FileDesc, error)
+        + List(ft FileType) ([]FileDesc, error)
+        + Open(fd FileDesc) (Reader, error)
+        + Create(fd FileDesc) (Writer, error)
+        + Remove(fd FileDesc) error
+        + Rename(oldfd FileDesc, newfd FileDesc) error
+        + Close() error
+
+    }
+    interface Syncer  {
+        + Sync() error
+
+    }
+    interface Writer  {
+    }
+    interface fileLock  {
+        - release() error
+
+    }
+    class fileStorage << (S,Aquamarine) >> {
+        - path string
+        - readOnly bool
+        - mu sync.Mutex
+        - flock fileLock
+        - slock *fileStorageLock
+        - logw *os.File
+        - logSize int64
+        - buf []byte
+        - open int
+        - day int
+
+        - printDay(t time.Time) 
+        - doLog(t time.Time, str string) 
+        - log(str string) 
+
+        + Lock() (Locker, error)
+        + Log(str string) 
+        + SetMeta(fd FileDesc) error
+        + GetMeta() (FileDesc, error)
+        + List(ft FileType) ([]FileDesc, error)
+        + Open(fd FileDesc) (Reader, error)
+        + Create(fd FileDesc) (Writer, error)
+        + Remove(fd FileDesc) error
+        + Rename(oldfd FileDesc, newfd FileDesc) error
+        + Close() error
+
+    }
+    class fileStorageLock << (S,Aquamarine) >> {
+        - fs *fileStorage
+
+        + Unlock() 
+
+    }
+    class fileWrap << (S,Aquamarine) >> {
+        - fs *fileStorage
+        - fd FileDesc
+        - closed bool
+
+        + Sync() error
+        + Close() error
+
+    }
+    class memFile << (S,Aquamarine) >> {
+        - open bool
+
+    }
+    class memReader << (S,Aquamarine) >> {
+        - ms *memStorage
+        - m *memFile
+        - closed bool
+
+        + Close() error
+
+    }
+    class memStorage << (S,Aquamarine) >> {
+        - mu sync.Mutex
+        - slock *memStorageLock
+        - files <font color=blue>map</font>[uint64]*memFile
+        - meta FileDesc
+
+        + Lock() (Locker, error)
+        + Log(str string) 
+        + SetMeta(fd FileDesc) error
+        + GetMeta() (FileDesc, error)
+        + List(ft FileType) ([]FileDesc, error)
+        + Open(fd FileDesc) (Reader, error)
+        + Create(fd FileDesc) (Writer, error)
+        + Remove(fd FileDesc) error
+        + Rename(oldfd FileDesc, newfd FileDesc) error
+        + Close() error
+
+    }
+    class memStorageLock << (S,Aquamarine) >> {
+        - ms *memStorage
+
+        + Unlock() 
+
+    }
+    class memWriter << (S,Aquamarine) >> {
+        - ms *memStorage
+        - closed bool
+
+        + Sync() error
+        + Close() error
+
+    }
+    class plan9FileLock << (S,Aquamarine) >> {
+        - f *os.File
+
+        - release() error
+
+    }
+    class storage.FileType << (T, #FF7700) >>  {
+    }
+    class unixFileLock << (S,Aquamarine) >> {
+        - f *os.File
+        - f *os.File
+
+        - release() error
+        - release() error
+
+    }
+    class windowsFileLock << (S,Aquamarine) >> {
+        - fd syscall.Handle
+
+        - release() error
+
+    }
+}
+"storage.Syncer" *-- "storage.Writer"
+"os.File" *-- "storage.fileWrap"
+"bytes.Buffer" *-- "storage.memFile"
+"bytes.Reader" *-- "storage.memReader"
+"storage.memFile" *-- "storage.memWriter"
+
+"storage.Storage" <|-- "storage.fileStorage"
+"storage.Locker" <|-- "storage.fileStorageLock"
+"storage.Syncer" <|-- "storage.fileWrap"
+"storage.Storage" <|-- "storage.memStorage"
+"storage.Locker" <|-- "storage.memStorageLock"
+"storage.Syncer" <|-- "storage.memWriter"
+"storage.fileLock" <|-- "storage.plan9FileLock"
+"storage.fileLock" <|-- "storage.unixFileLock"
+"storage.fileLock" <|-- "storage.windowsFileLock"
+
+namespace table {
+    class ErrCorrupted << (S,Aquamarine) >> {
+        + Pos int64
+        + Size int64
+        + Kind string
+        + Reason string
+
+        + Error() string
+
+    }
+    class Reader << (S,Aquamarine) >> {
+        - mu sync.RWMutex
+        - fd storage.FileDesc
+        - reader io.ReaderAt
+        - cache *cache.NamespaceGetter
+        - err error
+        - bpool *util.BufferPool
+        - o *opt.Options
+        - cmp comparer.Comparer
+        - filter filter.Filter
+        - verifyChecksum bool
+        - dataEnd int64
+        - metaBH blockHandle
+        - indexBlock *block
+        - filterBlock *filterBlock
+
+        - blockKind(bh blockHandle) string
+        - newErrCorrupted(pos int64, size int64, kind string, reason string) error
+        - newErrCorruptedBH(bh blockHandle, reason string) error
+        - fixErrCorruptedBH(bh blockHandle, err error) error
+        - readRawBlock(bh blockHandle, verifyChecksum bool) ([]byte, error)
+        - readBlock(bh blockHandle, verifyChecksum bool) (*block, error)
+        - readBlockCached(bh blockHandle, verifyChecksum bool, fillCache bool) (*block, util.Releaser, error)
+        - readFilterBlock(bh blockHandle) (*filterBlock, error)
+        - readFilterBlockCached(bh blockHandle, fillCache bool) (*filterBlock, util.Releaser, error)
+        - getIndexBlock(fillCache bool) (*block, util.Releaser, error)
+        - getFilterBlock(fillCache bool) (*filterBlock, util.Releaser, error)
+        - newBlockIter(b *block, bReleaser util.Releaser, slice *util.Range, inclLimit bool) *blockIter
+        - getDataIter(dataBH blockHandle, slice *util.Range, verifyChecksum bool, fillCache bool) iterator.Iterator
+        - getDataIterErr(dataBH blockHandle, slice *util.Range, verifyChecksum bool, fillCache bool) iterator.Iterator
+        - find(key []byte, filtered bool, ro *opt.ReadOptions, noValue bool) ([]byte, error)
+
+        + NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
+        + Find(key []byte, filtered bool, ro *opt.ReadOptions) ([]byte, error)
+        + FindKey(key []byte, filtered bool, ro *opt.ReadOptions) ([]byte, error)
+        + Get(key []byte, ro *opt.ReadOptions) ([]byte, error)
+        + OffsetOf(key []byte) (int64, error)
+        + Release() 
+
+    }
+    class Writer << (S,Aquamarine) >> {
+        - writer io.Writer
+        - err error
+        - cmp comparer.Comparer
+        - filter filter.Filter
+        - compression opt.Compression
+        - blockSize int
+        - dataBlock blockWriter
+        - indexBlock blockWriter
+        - filterBlock filterWriter
+        - pendingBH blockHandle
+        - offset uint64
+        - nEntries int
+        - scratch []byte
+        - comparerScratch []byte
+        - compressionScratch []byte
+
+        - writeBlock(buf *util.Buffer, compression opt.Compression) (blockHandle, error)
+        - flushPendingBH(key []byte) 
+        - finishBlock() error
+
+        + Append(key []byte, value []byte) error
+        + BlocksLen() int
+        + EntriesLen() int
+        + BytesLen() int
+        + Close() error
+
+    }
+    class block << (S,Aquamarine) >> {
+        - bpool *util.BufferPool
+        - bh blockHandle
+        - data []byte
+        - restartsLen int
+        - restartsOffset int
+
+        - seek(cmp comparer.Comparer, rstart int, rlimit int, key []byte) (int, error)
+        - restartIndex(rstart int, rlimit int, offset int) int
+        - restartOffset(index int) int
+        - entry(offset int) ([]byte, int, error)
+
+        + Release() 
+
+    }
+    class blockHandle << (S,Aquamarine) >> {
+        - offset uint64
+
+    }
+    class blockIter << (S,Aquamarine) >> {
+        - tr *Reader
+        - block *block
+        - blockReleaser util.Releaser
+        - releaser util.Releaser
+        - key []byte
+        - offset int
+        - prevOffset int
+        - prevNode []int
+        - prevKeys []byte
+        - restartIndex int
+        - dir dir
+        - riStart int
+        - riLimit int
+        - offsetStart int
+        - offsetRealStart int
+        - offsetLimit int
+        - err error
+
+        - sErr(err error) 
+        - reset() 
+        - isFirst() bool
+        - isLast() bool
+
+        + First() bool
+        + Last() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Prev() bool
+        + Key() []byte
+        + Value() []byte
+        + Release() 
+        + SetReleaser(releaser util.Releaser) 
+        + Valid() bool
+        + Error() error
+
+    }
+    class blockWriter << (S,Aquamarine) >> {
+        - restartInterval int
+        - buf util.Buffer
+        - nEntries int
+        - prevKey []byte
+        - restarts []uint32
+        - scratch []byte
+
+        - append(key []byte, value []byte) 
+        - finish() 
+        - reset() 
+        - bytesLen() int
+
+    }
+    class filterBlock << (S,Aquamarine) >> {
+        - bpool *util.BufferPool
+        - data []byte
+        - oOffset int
+        - baseLg uint
+        - filtersNum int
+
+        - contains(filter filter.Filter, offset uint64, key []byte) bool
+
+        + Release() 
+
+    }
+    class filterWriter << (S,Aquamarine) >> {
+        - generator filter.FilterGenerator
+        - buf util.Buffer
+        - nKeys int
+        - offsets []uint32
+
+        - add(key []byte) 
+        - flush(offset uint64) 
+        - finish() 
+        - generate() 
+
+    }
+    class indexIter << (S,Aquamarine) >> {
+        - tr *Reader
+        - slice *util.Range
+        - fillCache bool
+
+        + Get() iterator.Iterator
+
+    }
+    class table.dir << (T, #FF7700) >>  {
+    }
+}
+"table.blockIter" *-- "table.indexIter"
+
+"leveldb.Reader" <|-- "table.Reader"
+"util.Releaser" <|-- "table.Reader"
+"util.Releaser" <|-- "table.block"
+"iterator.CommonIterator" <|-- "table.blockIter"
+"iterator.Iterator" <|-- "table.blockIter"
+"iterator.IteratorSeeker" <|-- "table.blockIter"
+"util.ReleaseSetter" <|-- "table.blockIter"
+"util.Releaser" <|-- "table.blockIter"
+"util.Releaser" <|-- "table.filterBlock"
+"iterator.IteratorIndexer" <|-- "table.indexIter"
+
+namespace types {
+    class Address << (S,Aquamarine) >> {
+        + SetBytes(b []byte) error
+        + Hex() string
+        + IsZero() bool
+        + Bytes() []byte
+        + String() string
+        + Compare(b Address) int
+        + UnmarshalJSON(input []byte) error
+        + MarshalText() ([]byte, error)
+        + UnmarshalText(input []byte) error
+
+    }
+    class ConsensusGroupInfo << (S,Aquamarine) >> {
+        + Gid Gid
+        + NodeCount uint8
+        + Interval int64
+        + PerCount int64
+        + RandCount uint8
+        + RandRank uint8
+        + Repeat uint16
+        + CheckLevel uint8
+        + CountingTokenId TokenTypeId
+        + RegisterConditionId uint8
+        + RegisterConditionParam []byte
+        + VoteConditionId uint8
+        + VoteConditionParam []byte
+        + Owner Address
+        + StakeAmount *big.Int
+        + ExpirationHeight uint64
+
+        + IsActive() bool
+
+    }
+    class Gid << (S,Aquamarine) >> {
+        + SetBytes(b []byte) error
+        + Bytes() []byte
+        + Hex() string
+        + String() string
+        + UnmarshalJSON(input []byte) error
+        + MarshalText() ([]byte, error)
+
+    }
+    class Hash << (S,Aquamarine) >> {
+        + SetBytes(b []byte) error
+        + Hex() string
+        + Bytes() []byte
+        + String() string
+        + Big() *big.Int
+        + IsZero() bool
+        + Cmp(a Hash) int
+        + UnmarshalJSON(input []byte) error
+        + MarshalText() ([]byte, error)
+
+    }
+    class Quota << (S,Aquamarine) >> {
+        - current uint64
+        - stakeQuotaPerSnapshotBlock uint64
+        - avg uint64
+        - snapshotCurrent uint64
+        - blocked bool
+        - blockReleaseHeight uint64
+
+        + StakeQuotaPerSnapshotBlock() uint64
+        + Current() uint64
+        + SnapshotCurrent() uint64
+        + Avg() uint64
+        + Blocked() bool
+        + BlockReleaseHeight() uint64
+
+    }
+    class QuotaInfo << (S,Aquamarine) >> {
+        + BlockCount uint64
+        + QuotaTotal uint64
+        + QuotaUsedTotal uint64
+
+    }
+    class Registration << (S,Aquamarine) >> {
+        + Name string
+        + BlockProducingAddress Address
+        + RewardWithdrawAddress Address
+        + StakeAddress Address
+        + Amount *big.Int
+        + ExpirationHeight uint64
+        + RewardTime int64
+        + RevokeTime int64
+        + HisAddrList []Address
+
+        + IsActive() bool
+
+    }
+    class StakeInfo << (S,Aquamarine) >> {
+        + Amount *big.Int
+        + ExpirationHeight uint64
+        + Beneficiary Address
+        + IsDelegated bool
+        + DelegateAddress Address
+        + Bid uint8
+        + StakeAddress Address
+        + Id *Hash
+
+    }
+    class TokenInfo << (S,Aquamarine) >> {
+        + TokenName string
+        + TokenSymbol string
+        + TotalSupply *big.Int
+        + Decimals uint8
+        + Owner Address
+        + MaxSupply *big.Int
+        + OwnerBurnOnly bool
+        + IsReIssuable bool
+        + Index uint16
+
+    }
+    class TokenTypeId << (S,Aquamarine) >> {
+        + SetBytes(b []byte) error
+        + Hex() string
+        + Bytes() []byte
+        + String() string
+        + UnmarshalJSON(input []byte) error
+        + MarshalText() ([]byte, error)
+        + UnmarshalText(input []byte) error
+
+    }
+    class VoteInfo << (S,Aquamarine) >> {
+        + VoteAddr Address
+        + SbpName string
+
+    }
+    class types.Address << (T, #FF7700) >>  {
+    }
+    class types.BlockSource << (T, #FF7700) >>  {
+    }
+    class types.Gid << (T, #FF7700) >>  {
+    }
+    class types.Hash << (T, #FF7700) >>  {
+    }
+    class types.TokenTypeId << (T, #FF7700) >>  {
+    }
+}
+
+
+namespace upgrade {
+    interface UpgradeBox  {
+        + UpgradePoints() []*UpgradePoint
+        + AddPoint(version uint32, height uint64) UpgradeBox
+
+    }
+    class UpgradePoint << (S,Aquamarine) >> {
+        + Name string
+        + Height uint64
+        + Version uint32
+
+    }
+    class byVersion << (S,Aquamarine) >> {
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    class upgrade.byVersion << (T, #FF7700) >>  {
+    }
+    class upgradeBox << (S,Aquamarine) >> {
+        - pointMap <font color=blue>map</font>[uint32]*UpgradePoint
+        - heightMap <font color=blue>map</font>[uint64]bool
+        - sortedPoints []*UpgradePoint
+
+        - checkBox() 
+        - initFromArray(points []*UpgradePoint) 
+        - latestPoint() *UpgradePoint
+        - currentPoint(height uint64) *UpgradePoint
+        - activePoints(height uint64) []*UpgradePoint
+        - getUpgradePoint(version uint32) *UpgradePoint
+        - isActive(version uint32, height uint64) bool
+        - isPoint(height uint64) bool
+
+        + AddPoint(version uint32, height uint64) UpgradeBox
+        + UpgradePoints() []*UpgradePoint
+
+    }
+}
+
+"upgrade.UpgradeBox" <|-- "upgrade.upgradeBox"
+
+namespace util {
+    class BasicReleaser << (S,Aquamarine) >> {
+        - releaser Releaser
+        - released bool
+
+        + Released() bool
+        + Release() 
+        + SetReleaser(releaser Releaser) 
+
+    }
+    class Buffer << (S,Aquamarine) >> {
+        - buf []byte
+        - off int
+        - bootstrap []byte
+
+        - grow(n int) int
+        - readSlice(delim byte) ([]byte, error)
+
+        + Bytes() []byte
+        + String() string
+        + Len() int
+        + Truncate(n int) 
+        + Reset() 
+        + Alloc(n int) []byte
+        + Grow(n int) 
+        + Write(p []byte) (int, error)
+        + ReadFrom(r io.Reader) (int64, error)
+        + WriteTo(w io.Writer) (int64, error)
+        + WriteByte(c byte) error
+        + Read(p []byte) (int, error)
+        + Next(n int) []byte
+        + ReadByte() (byte, error)
+        + ReadBytes(delim byte) ([]byte, error)
+
+    }
+    class BufferPool << (S,Aquamarine) >> {
+        - pool []<font color=blue>chan</font> []byte
+        - size []uint32
+        - sizeMiss []uint32
+        - sizeHalf []uint32
+        - baseline []int
+        - baseline0 int
+        - mu sync.RWMutex
+        - closed bool
+        - closeC <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - get uint32
+        - put uint32
+        - half uint32
+        - less uint32
+        - equal uint32
+        - greater uint32
+        - miss uint32
+
+        - poolNum(n int) int
+        - drain() 
+
+        + Get(n int) []byte
+        + Put(b []byte) 
+        + Close() 
+        + String() string
+
+    }
+    class CRC << (S,Aquamarine) >> {
+        + Update(b []byte) CRC
+        + Value() uint32
+
+    }
+    class NoopReleaser << (S,Aquamarine) >> {
+        + Release() 
+
+    }
+    class Range << (S,Aquamarine) >> {
+        + Start []byte
+        + Limit []byte
+
+    }
+    interface ReleaseSetter  {
+        + SetReleaser(releaser Releaser) 
+
+    }
+    interface Releaser  {
+        + Release() 
+
+    }
+    class buffer << (S,Aquamarine) >> {
+        - b []byte
+        - miss int
+
+    }
+    class util.CRC << (T, #FF7700) >>  {
+    }
+}
+
+"util.ReleaseSetter" <|-- "util.BasicReleaser"
+"util.Releaser" <|-- "util.BasicReleaser"
+"filter.Buffer" <|-- "util.Buffer"
+"util.Releaser" <|-- "util.NoopReleaser"
+
+namespace vitepb {
+    class Account << (S,Aquamarine) >> {
+        + AccountId uint64
+        + PublicKey []byte
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetAccountId() uint64
+        + GetPublicKey() []byte
+
+    }
+    class AccountBlock << (S,Aquamarine) >> {
+        + BlockType AccountBlock_BlockType
+        + Hash []byte
+        + Height uint64
+        + PrevHash []byte
+        + AccountAddress []byte
+        + PublicKey []byte
+        + ToAddress []byte
+        + Amount []byte
+        + TokenId []byte
+        + FromBlockHash []byte
+        + Data []byte
+        + Quota uint64
+        + Fee []byte
+        + StateHash []byte
+        + LogHash []byte
+        + Difficulty []byte
+        + Nonce []byte
+        + SendBlockList []*AccountBlock
+        + Signature []byte
+        + QuotaUsed uint64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetBlockType() AccountBlock_BlockType
+        + GetHash() []byte
+        + GetHeight() uint64
+        + GetPrevHash() []byte
+        + GetAccountAddress() []byte
+        + GetPublicKey() []byte
+        + GetToAddress() []byte
+        + GetAmount() []byte
+        + GetTokenId() []byte
+        + GetFromBlockHash() []byte
+        + GetData() []byte
+        + GetQuota() uint64
+        + GetFee() []byte
+        + GetStateHash() []byte
+        + GetLogHash() []byte
+        + GetDifficulty() []byte
+        + GetNonce() []byte
+        + GetSendBlockList() []*AccountBlock
+        + GetSignature() []byte
+        + GetQuotaUsed() uint64
+
+    }
+    class AccountBlockMeta << (S,Aquamarine) >> {
+        + AccountId uint64
+        + Height uint64
+        + ReceiveBlockHeights []uint64
+        + RefSnapshotHeight uint64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetAccountId() uint64
+        + GetHeight() uint64
+        + GetReceiveBlockHeights() []uint64
+        + GetRefSnapshotHeight() uint64
+
+    }
+    class AccountBlock_BlockType << (S,Aquamarine) >> {
+        + String() string
+        + EnumDescriptor() ([]byte, []int)
+
+    }
+    class AccountBlocks << (S,Aquamarine) >> {
+        + Blocks []*AccountBlock
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetBlocks() []*AccountBlock
+
+    }
+    class CacheItem << (S,Aquamarine) >> {
+        + From uint64
+        + To uint64
+        + PrevHash []byte
+        + Hash []byte
+        + Points []*HashHeight
+        + Verified bool
+        + Filename string
+        + Done bool
+        + Size int64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetFrom() uint64
+        + GetTo() uint64
+        + GetPrevHash() []byte
+        + GetHash() []byte
+        + GetPoints() []*HashHeight
+        + GetVerified() bool
+        + GetFilename() string
+        + GetDone() bool
+        + GetSize() int64
+
+    }
+    class CacheItems << (S,Aquamarine) >> {
+        + Items []*CacheItem
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetItems() []*CacheItem
+
+    }
+    class ChunkRequest << (S,Aquamarine) >> {
+        + From uint64
+        + To uint64
+        + PrevHash []byte
+        + EndHash []byte
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetFrom() uint64
+        + GetTo() uint64
+        + GetPrevHash() []byte
+        + GetEndHash() []byte
+
+    }
+    class ChunkResponse << (S,Aquamarine) >> {
+        + From uint64
+        + To uint64
+        + PrevHash []byte
+        + EndHash []byte
+        + Size uint64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetFrom() uint64
+        + GetTo() uint64
+        + GetPrevHash() []byte
+        + GetEndHash() []byte
+        + GetSize() uint64
+
+    }
+    class ConsensusPoint << (S,Aquamarine) >> {
+        + PrevHash []byte
+        + Hash []byte
+        + Contents []*PointContent
+        + Votes []*PointVoteContent
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetPrevHash() []byte
+        + GetHash() []byte
+        + GetContents() []*PointContent
+        + GetVotes() []*PointVoteContent
+
+    }
+    class GetAccountBlocks << (S,Aquamarine) >> {
+        + Address []byte
+        + From *HashHeight
+        + Count uint64
+        + Forward bool
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetAddress() []byte
+        + GetFrom() *HashHeight
+        + GetCount() uint64
+        + GetForward() bool
+
+    }
+    class GetHashHeightList << (S,Aquamarine) >> {
+        + From []*HashHeight
+        + Step uint64
+        + To uint64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetFrom() []*HashHeight
+        + GetStep() uint64
+        + GetTo() uint64
+
+    }
+    class GetSnapshotBlocks << (S,Aquamarine) >> {
+        + From *HashHeight
+        + Count uint64
+        + Forward bool
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetFrom() *HashHeight
+        + GetCount() uint64
+        + GetForward() bool
+
+    }
+    class Handshake << (S,Aquamarine) >> {
+        + Version int64
+        + NetId int64
+        + Name string
+        + ID []byte
+        + Timestamp int64
+        + Genesis []byte
+        + Height uint64
+        + Head []byte
+        + FileAddress []byte
+        + Key []byte
+        + Token []byte
+        + PublicAddress []byte
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetVersion() int64
+        + GetNetId() int64
+        + GetName() string
+        + GetID() []byte
+        + GetTimestamp() int64
+        + GetGenesis() []byte
+        + GetHeight() uint64
+        + GetHead() []byte
+        + GetFileAddress() []byte
+        + GetKey() []byte
+        + GetToken() []byte
+        + GetPublicAddress() []byte
+
+    }
+    class HashHeight << (S,Aquamarine) >> {
+        + Hash []byte
+        + Height uint64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetHash() []byte
+        + GetHeight() uint64
+
+    }
+    class HashHeightList << (S,Aquamarine) >> {
+        + Points []*HashHeightPoint
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetPoints() []*HashHeightPoint
+
+    }
+    class HashHeightPoint << (S,Aquamarine) >> {
+        + Point *HashHeight
+        + Size uint64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetPoint() *HashHeight
+        + GetSize() uint64
+
+    }
+    class NewAccountBlock << (S,Aquamarine) >> {
+        + Block *AccountBlock
+        + TTL int32
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetBlock() *AccountBlock
+        + GetTTL() int32
+
+    }
+    class NewAccountBlockBytes << (S,Aquamarine) >> {
+        + Block []byte
+        + TTL int32
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetBlock() []byte
+        + GetTTL() int32
+
+    }
+    class NewSnapshotBlock << (S,Aquamarine) >> {
+        + Block *SnapshotBlock
+        + TTL int32
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetBlock() *SnapshotBlock
+        + GetTTL() int32
+
+    }
+    class OnroadMeta << (S,Aquamarine) >> {
+        + Num uint64
+        + Amount []byte
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetNum() uint64
+        + GetAmount() []byte
+
+    }
+    class PointContent << (S,Aquamarine) >> {
+        + Address []byte
+        + FNum uint32
+        + ENum uint32
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetAddress() []byte
+        + GetFNum() uint32
+        + GetENum() uint32
+
+    }
+    class PointVoteContent << (S,Aquamarine) >> {
+        + VoteCnt []byte
+        + Name string
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetVoteCnt() []byte
+        + GetName() string
+
+    }
+    class SnapshotBlock << (S,Aquamarine) >> {
+        + Hash []byte
+        + PrevHash []byte
+        + Height uint64
+        + PublicKey []byte
+        + Signature []byte
+        + Timestamp int64
+        + Seed uint64
+        + SeedHash []byte
+        + SnapshotContent []byte
+        + Version uint32
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetHash() []byte
+        + GetPrevHash() []byte
+        + GetHeight() uint64
+        + GetPublicKey() []byte
+        + GetSignature() []byte
+        + GetTimestamp() int64
+        + GetSeed() uint64
+        + GetSeedHash() []byte
+        + GetSnapshotContent() []byte
+        + GetVersion() uint32
+
+    }
+    class SnapshotBlocks << (S,Aquamarine) >> {
+        + Blocks []*SnapshotBlock
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetBlocks() []*SnapshotBlock
+
+    }
+    class State << (S,Aquamarine) >> {
+        + Peers []*State_Peer
+        + Patch bool
+        + Head []byte
+        + Height uint64
+        + Timestamp int64
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetPeers() []*State_Peer
+        + GetPatch() bool
+        + GetHead() []byte
+        + GetHeight() uint64
+        + GetTimestamp() int64
+
+    }
+    class State_Peer << (S,Aquamarine) >> {
+        + ID []byte
+        + Status State_PeerStatus
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetID() []byte
+        + GetStatus() State_PeerStatus
+
+    }
+    class State_PeerStatus << (S,Aquamarine) >> {
+        + String() string
+        + EnumDescriptor() ([]byte, []int)
+
+    }
+    class SyncConnHandshake << (S,Aquamarine) >> {
+        + ID []byte
+        + Timestamp int64
+        + Key []byte
+        + Token []byte
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetID() []byte
+        + GetTimestamp() int64
+        + GetKey() []byte
+        + GetToken() []byte
+
+    }
+    class Trace << (S,Aquamarine) >> {
+        + Hash []byte
+        + Path [][]byte
+        + TTL uint32
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetHash() []byte
+        + GetPath() [][]byte
+        + GetTTL() uint32
+
+    }
+    class VmLog << (S,Aquamarine) >> {
+        + Topics [][]byte
+        + Data []byte
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetTopics() [][]byte
+        + GetData() []byte
+
+    }
+    class VmLogList << (S,Aquamarine) >> {
+        + List []*VmLog
+        + XXX_NoUnkeyedLiteral <font color=blue>struct</font>{}
+        + XXX_unrecognized []byte
+        + XXX_sizecache int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + Descriptor() ([]byte, []int)
+        + XXX_Unmarshal(b []byte) error
+        + XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+        + XXX_Merge(src proto.Message) 
+        + XXX_Size() int
+        + XXX_DiscardUnknown() 
+        + GetList() []*VmLog
+
+    }
+    class vitepb.AccountBlock_BlockType << (T, #FF7700) >>  {
+    }
+    class vitepb.State_PeerStatus << (T, #FF7700) >>  {
+    }
+}
+
+
+"__builtin__.[]byte" #.. "hexutil.Bytes"
+"__builtin__.[]byte" #.. "leveldb.internalKey"
+"__builtin__.[]byte" #.. "types.Address"
+"__builtin__.[]byte" #.. "types.Gid"
+"__builtin__.[]byte" #.. "types.Hash"
+"__builtin__.[]byte" #.. "types.TokenTypeId"
+"__builtin__.[]int64" #.. "leveldb.Sizes"
+"__builtin__.int" #.. "filter.bloomFilter"
+"__builtin__.int" #.. "iterator.dir"
+"__builtin__.int" #.. "leveldb.compactionTransactCounter"
+"__builtin__.int" #.. "leveldb.dir"
+"__builtin__.int" #.. "storage.FileType"
+"__builtin__.int" #.. "table.dir"
+"__builtin__.int32" #.. "vitepb.AccountBlock_BlockType"
+"__builtin__.int32" #.. "vitepb.State_PeerStatus"
+"__builtin__.uint" #.. "hexutil.Uint"
+"__builtin__.uint" #.. "leveldb.keyType"
+"__builtin__.uint" #.. "opt.Compression"
+"__builtin__.uint" #.. "opt.Strict"
+"__builtin__.uint16" #.. "types.BlockSource"
+"__builtin__.uint32" #.. "util.CRC"
+"__builtin__.uint64" #.. "hexutil.Uint64"
+"__builtin__.uint64" #.. "math.HexOrDecimal64"
+"hexutil.bigInt" #.. "hexutil.Big"
+"leveldb.[]*tFile" #.. "leveldb.tFiles"
+"leveldb.storageFileDesc" #.. "leveldb.fdSorter"
+"math.bigInt" #.. "math.HexOrDecimal256"
+"upgrade.[]*UpgradePoint" #.. "upgrade.byVersion"
+hide fields
+hide methods
+@enduml

@@ -1,0 +1,97 @@
+@startuml
+namespace producer {
+    interface Producer  {
+        + SetAccountEventFunc( <font color=blue>func</font>(producerevent.AccountEvent) ) 
+        + Init() error
+        + Start() error
+        + Stop() error
+        + GetCoinBase() types.Address
+        + SnapshotOnce() error
+
+    }
+    interface SnapshotChainRW  {
+        + WriteMiningBlock(block *core.SnapshotBlock) error
+
+    }
+    class producer << (S,Aquamarine) >> {
+        - tools *tools
+        - mining int32
+        - coinbase interfaces.Account
+        - worker *worker
+        - cs consensus.Subscriber
+        - subscriber net.Subscriber
+        - accountFn <font color=blue>func</font>(producerevent.AccountEvent) 
+        - syncState net.SyncState
+        - netSyncId int
+
+        - producerContract(e consensus.Event) 
+
+        + Init() error
+        + Start() error
+        + SnapshotOnce() error
+        + Stop() error
+        + SetAccountEventFunc(accountFn <font color=blue>func</font>(producerevent.AccountEvent) ) 
+        + GetCoinBase() types.Address
+
+    }
+    class producerLifecycle << (S,Aquamarine) >> {
+        + PreDestroy() bool
+        + PostDestroy() bool
+        + PreStart() bool
+        + PostStart() bool
+
+    }
+    class tools << (S,Aquamarine) >> {
+        - log log15.Logger
+        - pool pool.SnapshotProducerWriter
+        - chain chain.Chain
+        - sVerifier *verifier.SnapshotVerifier
+
+        - generateSnapshot(e *consensus.Event, coinbase interfaces.Account, seed uint64, fn <font color=blue>func</font>(*types.Hash) uint64) (*core.SnapshotBlock, error)
+        - insertSnapshot(block *core.SnapshotBlock) error
+        - generateAccounts(head *core.SnapshotBlock) (core.SnapshotContent, error)
+        - getLastSeedBlock(e *consensus.Event, head *core.SnapshotBlock, beforeTime time.Time) *core.SnapshotBlock
+        - checkStableSnapshotChain(header *core.SnapshotBlock) error
+
+    }
+    class worker << (S,Aquamarine) >> {
+        - tools *tools
+        - coinbase interfaces.Account
+        - mu sync.Mutex
+        - wg sync.WaitGroup
+        - seedCache *golang-lru.Cache
+        - log log15.Logger
+
+        - produceSnapshot(e consensus.Event) 
+        - genAndInsert(e *consensus.Event) 
+        - randomSeed() uint64
+        - getSeedByHash(hash *types.Hash) uint64
+        - storeSeedHash(seed uint64, hash *types.Hash) 
+
+        + Init() error
+        + Start() error
+        + Stop() error
+
+    }
+}
+"producer.producerLifecycle" *-- "producer.producer"
+"common.LifecycleStatus" *-- "producer.producerLifecycle"
+"producer.producerLifecycle" *-- "producer.worker"
+
+"producer.Producer" <|-- "producer.producer"
+
+namespace producerevent {
+    interface AccountEvent  {
+    }
+    class AccountStartEvent << (S,Aquamarine) >> {
+        + Gid types.Gid
+        + Address types.Address
+        + Stime time.Time
+        + Etime time.Time
+
+    }
+}
+"producerevent.AccountEvent" *-- "producerevent.AccountStartEvent"
+
+
+@enduml

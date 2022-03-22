@@ -1,0 +1,1621 @@
+@startuml
+namespace api {
+    class AccountBalanceInfo << (S,Aquamarine) >> {
+        + TokenInfo *RpcTokenInfo
+        + Available string
+        + Locked string
+        + VxLocked string
+        + VxUnlocking string
+        + CancellingStake string
+
+    }
+    class AccountBlock << (S,Aquamarine) >> {
+        + BlockType byte
+        + Height string
+        + Hash types.Hash
+        + PrevHash types.Hash
+        + PreviousHash types.Hash
+        + AccountAddress types.Address
+        + Address types.Address
+        + PublicKey []byte
+        + Producer types.Address
+        + FromAddress types.Address
+        + ToAddress types.Address
+        + FromBlockHash types.Hash
+        + SendBlockHash types.Hash
+        + TokenId types.TokenTypeId
+        + Amount *string
+        + Fee *string
+        + Data []byte
+        + Difficulty *string
+        + Nonce []byte
+        + Signature []byte
+        + Quota *string
+        + QuotaByStake *string
+        + QuotaUsed *string
+        + TotalQuota *string
+        + UtUsed *string
+        + LogHash *types.Hash
+        + VmLogHash *types.Hash
+        + SendBlockList []*AccountBlock
+        + TriggeredSendBlockList []*AccountBlock
+        + TokenInfo *RpcTokenInfo
+        + ConfirmedTimes *string
+        + Confirmations *string
+        + ConfirmedHash *types.Hash
+        + FirstSnapshotHash *types.Hash
+        + FirstSnapshotHeight *string
+        + ReceiveBlockHeight *string
+        + ReceiveBlockHash *types.Hash
+        + Timestamp int64
+
+        - addExtraInfo(chain chain.Chain) error
+
+        + RpcToLedgerBlock() (*core.AccountBlock, error)
+        + ComputeHash() (*types.Hash, error)
+
+    }
+    class AccountInfo << (S,Aquamarine) >> {
+        + Address types.Address
+        + BlockCount string
+        + BalanceInfoMap <font color=blue>map</font>[types.TokenTypeId]*BalanceInfo
+
+    }
+    class AgentPledgeParam << (S,Aquamarine) >> {
+        + PledgeAddr types.Address
+        + BeneficialAddr types.Address
+        + Bid uint8
+        + StakeHeight string
+        + Amount string
+
+    }
+    class BalanceInfo << (S,Aquamarine) >> {
+        + TokenInfo *RpcTokenInfo
+        + Balance string
+        + TransactionCount *string
+
+    }
+    class CalcPoWDifficultyParam << (S,Aquamarine) >> {
+        + SelfAddr types.Address
+        + PrevHash types.Hash
+        + BlockType byte
+        + ToAddr *types.Address
+        + Data []byte
+        + UseStakeQuota bool
+        + Multiple uint16
+
+    }
+    class CalcPoWDifficultyResult << (S,Aquamarine) >> {
+        + Quota uint64
+        + QuotaRequired string
+        + Difficulty string
+        + UtRequired string
+        + Qc *string
+        + IsCongestion bool
+
+    }
+    class CalcQuotaRequiredParam << (S,Aquamarine) >> {
+        + SelfAddr types.Address
+        + BlockType byte
+        + ToAddr *types.Address
+        + Data []byte
+
+    }
+    class CalcQuotaRequiredResult << (S,Aquamarine) >> {
+        + QuotaRequired string
+        + TxNumRequired string
+
+    }
+    class CallOffChainMethodParam << (S,Aquamarine) >> {
+        + SelfAddr types.Address
+        + Addr *types.Address
+        + OffChainCode string
+        + OffChainCodeBytes []byte
+        + Code []byte
+        + Data []byte
+        + Height *uint64
+        + SnapshotHash *types.Hash
+
+    }
+    class CandidateInfo << (S,Aquamarine) >> {
+        + Name string
+        + NodeAddr types.Address
+        + VoteNum string
+
+    }
+    class ContractApi << (S,Aquamarine) >> {
+        - chain chain.Chain
+        - vite *vite.Vite
+        - cs consensus.Consensus
+        - log log15.Logger
+
+        + GetCreateContractParams(abiStr string, params []string) ([]byte, error)
+        + GetCreateContractData(param CreateContractDataParam) ([]byte, error)
+        + GetCallContractData(abiStr string, methodName string, params []string) ([]byte, error)
+        + GetCallOffChainData(abiStr string, offChainName string, params []string) ([]byte, error)
+        + GetCreateContractToAddress(selfAddr types.Address, heightStr string, prevHash types.Hash) (*types.Address, error)
+        + String() string
+        + CreateContractAddress(address types.Address, height string, previousHash types.Hash) (*types.Address, error)
+        + GetContractInfo(addr types.Address) (*ContractInfo, error)
+        + CallOffChainMethod(param CallOffChainMethodParam) ([]byte, error)
+        + Query(param QueryParam) ([]byte, error)
+        + GetContractStorage(addr types.Address, prefix string) (<font color=blue>map</font>[string]string, error)
+        + GetQuotaByAccount(addr types.Address) (*QuotaInfo, error)
+        + GetStakeList(address types.Address, pageIndex int, pageSize int) (*StakeInfoList, error)
+        + GetStakeListBySearchKey(snapshotHash types.Hash, lastKey string, size uint64) (*StakeInfoListBySearchKey, error)
+        + GetRequiredStakeAmount(qStr string) (*string, error)
+        + GetDelegatedStakeInfo(params StakeQueryParams) (*StakeInfo, error)
+        + GetSBPList(stakeAddress types.Address) ([]*SBPInfo, error)
+        + GetSBPRewardPendingWithdrawal(name string) (*SBPReward, error)
+        + GetSBPRewardByTimestamp(timestamp int64) (*SBPRewardInfo, error)
+        + GetSBPRewardByCycle(cycle string) (*SBPRewardInfo, error)
+        + GetSBP(name string) (*SBPInfo, error)
+        + GetSBPVoteList() ([]*SBPVoteInfo, error)
+        + GetVotedSBP(addr types.Address) (*VotedSBPInfo, error)
+        + GetSBPVoteDetailsByCycle(cycle string) ([]*VoteDetail, error)
+        + GetTokenInfoList(pageIndex int, pageSize int) (*TokenInfoList, error)
+        + GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error)
+        + GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error)
+
+    }
+    class ContractInfo << (S,Aquamarine) >> {
+        + Code []byte
+        + Gid types.Gid
+        + ConfirmTime uint8
+        + ResponseLatency uint8
+        + SeedCount uint8
+        + RandomDegree uint8
+        + QuotaRatio uint8
+        + QuotaMultiplier uint8
+
+    }
+    class CreateContractDataParam << (S,Aquamarine) >> {
+        + Gid types.Gid
+        + ConfirmTime uint8
+        + SeedCount uint8
+        + QuotaRatio uint8
+        + HexCode string
+        + Params []byte
+
+    }
+    class CreateEntropyFileResponse << (S,Aquamarine) >> {
+        + Mnemonics string
+        + PrimaryAddress types.Address
+        + FilePath string
+
+    }
+    class CreateTransactionParms << (S,Aquamarine) >> {
+        + EntropyFile *string
+        + Address types.Address
+        + ToAddress types.Address
+        + TokenId types.TokenTypeId
+        + Passphrase string
+        + Amount string
+        + Data []byte
+        + Difficulty *string
+
+    }
+    class CreateTransferTxParms << (S,Aquamarine) >> {
+        + EntropystoreFile *string
+        + SelfAddr types.Address
+        + ToAddr types.Address
+        + TokenTypeId types.TokenTypeId
+        + Passphrase string
+        + Amount string
+        + Data []byte
+        + Difficulty *string
+
+    }
+    class DashboardApi << (S,Aquamarine) >> {
+        - v *v2.Vite
+
+        + OsInfo(id *string) <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + ProcessInfo(id *string) <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + RuntimeInfo(id *string) <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + NetId() uint
+
+    }
+    class DataApi << (S,Aquamarine) >> {
+        - chain chain.Chain
+        - log log15.Logger
+
+        + String() string
+        + GetPledgeListByPage(snapshotHash types.Hash, lastKey string, count uint64) (*GetPledgeListByPageResult, error)
+        + GetDexUserFundsByPage(snapshotHash types.Hash, lastAddress string, count int) (*dex.Funds, error)
+        + GetDexPledgeListByPage(snapshotHash types.Hash, lastKey string, count int) (*GetPledgeListByPageResult, error)
+
+    }
+    class Deprecated << (S,Aquamarine) >> {
+        + String() string
+        + Hello() (string, error)
+
+    }
+    class DeriveResult << (S,Aquamarine) >> {
+        + Bip44Path string
+        + Address types.Address
+        + PrivateKey []byte
+
+    }
+    class DexApi << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - chain chain.Chain
+        - log log15.Logger
+
+        + String() string
+        + GetAccountBalanceInfo(addr types.Address, tokenId *types.TokenTypeId) (<font color=blue>map</font>[types.TokenTypeId]*AccountBalanceInfo, error)
+        + GetTokenInfo(token types.TokenTypeId) (*dex.RpcDexTokenInfo, error)
+        + GetMarketInfo(tradeToken types.TokenTypeId, quoteToken types.TokenTypeId) (*dex.NewRpcMarketInfo, error)
+        + GetDividendPoolsInfo() (<font color=blue>map</font>[types.TokenTypeId]*dex.DividendPoolInfo, error)
+        + HasStakedForVIP(address types.Address) (bool, error)
+        + GetStakedForVIP(address types.Address) (*dex.VIPStakingRpc, error)
+        + HasStakedForSVIP(address types.Address) (bool, error)
+        + IsDexStopped() (bool, error)
+        + GetInviteCode(address types.Address) (uint32, error)
+        + GetInviteCodeBinding(address types.Address) (uint32, error)
+        + GetInviter(addresses []types.Address) (<font color=blue>map</font>[types.Address]types.Address, error)
+        + IsInviteCodeValid(code uint32) (bool, error)
+        + IsMarketDelegatedTo(principal types.Address, agent types.Address, tradeToken types.TokenTypeId, quoteToken types.TokenTypeId) (bool, error)
+        + GetMiningInfo(periodId uint64) (*dex.NewRpcVxMineInfo, error)
+        + GetCurrentMiningInfo() (*dex.NewRpcVxMineInfo, error)
+        + GetCurrentFeesValidForMining() (<font color=blue>map</font>[int32]string, error)
+        + GetCurrentStakingValidForMining() (string, error)
+        + GetOrderById(orderIdStr string) (*dex.RpcOrder, error)
+        + GetOrderByTransactionHash(sendHash types.Hash) (*dex.RpcOrder, error)
+        + GetOrdersForMarket(tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool, begin int, end int) (*dex.OrdersRes, error)
+        + GetVIPStakeInfoList(address types.Address, pageIndex int, pageSize int) (*dex.StakeInfoList, error)
+        + GetMiningStakeInfoList(address types.Address, pageIndex int, pageSize int) (*dex.StakeInfoList, error)
+        + IsAutoLockMinedVx(address types.Address) (bool, error)
+        + GetVxUnlockList(address types.Address, pageIndex int, pageSize int) (*dex.VxUnlockList, error)
+        + GetCancelStakeList(address types.Address, pageIndex int, pageSize int) (*dex.CancelStakeList, error)
+        + GetPlaceOrderInfo(address types.Address, tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool) (*dex.PlaceOrderInfo, error)
+
+    }
+    class DexFundApi << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - chain chain.Chain
+        - log log15.Logger
+
+        + String() string
+        + GetAccountFundInfo(addr types.Address, tokenId *types.TokenTypeId) (<font color=blue>map</font>[types.TokenTypeId]*AccountBalanceInfo, error)
+        + GetTokenInfo(token types.TokenTypeId) (*dex.RpcDexTokenInfo, error)
+        + GetMarketInfo(tradeToken types.TokenTypeId, quoteToken types.TokenTypeId) (*dex.RpcMarketInfo, error)
+        + GetCurrentDividendPools() (<font color=blue>map</font>[types.TokenTypeId]*dex.DividendPoolInfo, error)
+        + IsPledgeVip(address types.Address) (bool, error)
+        + IsPledgeSuperVip(address types.Address) (bool, error)
+        + IsViteXStopped() (bool, error)
+        + GetInviterCode(address types.Address) (uint32, error)
+        + GetInviteeCode(address types.Address) (uint32, error)
+        + IsMarketGrantedToAgent(principal types.Address, agent types.Address, tradeToken types.TokenTypeId, quoteToken types.TokenTypeId) (bool, error)
+        + GetCurrentVxMineInfo() (*dex.RpcVxMineInfo, error)
+        + GetCurrentFeesForMine() (<font color=blue>map</font>[int32]string, error)
+        + GetCurrentPledgeForVxSum() (string, error)
+
+    }
+    class DexPrivateApi << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - chain chain.Chain
+        - log log15.Logger
+
+        + String() string
+        + GetOwner() (*types.Address, error)
+        + GetTime() (int64, error)
+        + GetPeriodId() (uint64, error)
+        + GetCurrentDexFees() (*dex.RpcDexFeesByPeriod, error)
+        + GetDexFeesByPeriod(periodId uint64) (*dex.RpcDexFeesByPeriod, error)
+        + GetCurrentOperatorFees(operator types.Address) (*dex.RpcOperatorFeesByPeriod, error)
+        + GetOperatorFeesByPeriod(periodId uint64, operator types.Address) (*dex.RpcOperatorFeesByPeriod, error)
+        + GetAllFeesOfAddress(address types.Address) (*dex.RpcUserFees, error)
+        + GetAllTotalVxBalance() (*dex.RpcVxFunds, error)
+        + GetAllVxBalanceByAddress(address types.Address) (*dex.RpcVxFunds, error)
+        + GetVxPoolBalance() (string, error)
+        + GetVxBurnBalance() (string, error)
+        + GetVIPStakingInfoByAddress(address types.Address) (*dex.VIPStaking, error)
+        + GetCurrentMiningStakingAmountByAddress(address types.Address) (<font color=blue>map</font>[string]string, error)
+        + GetAllMiningStakingInfoByAddress(address types.Address) (*dex.RpcMiningStakings, error)
+        + GetAllMiningStakingInfo() (*dex.RpcMiningStakings, error)
+        + GetDexConfig() (<font color=blue>map</font>[string]string, error)
+        + GetMinThresholdForTradeAndMining() (<font color=blue>map</font>[int]*dex.RpcThresholdForTradeAndMine, error)
+        + GetMarketOrderAmtThreshold() (<font color=blue>map</font>[string]string, error)
+        + GetMakerMiningPool(periodId uint64) (string, error)
+        + GetLastPeriodIdByJobType(bizType uint8) (uint64, error)
+        + GetLastPeriodIdForJobs(bizType uint8) (<font color=blue>map</font>[string]uint64, error)
+        + VerifyDexBalance() (*dex.FundVerifyRes, error)
+        + IsNormalMiningStarted() (bool, error)
+        + GetFirstMiningPeriodId() (uint64, error)
+        + GetLastSettledMakerMiningInfo() (<font color=blue>map</font>[string]uint64, error)
+        + GetMarketInfoById(marketId int32) (*dex.RpcMarketInfo, error)
+        + GetTradeTimestamp() (int64, error)
+        + GetDelegateStakeInfoById(id types.Hash) (*dex.DelegateStakeInfo, error)
+
+    }
+    class DexTradeApi << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - chain chain.Chain
+        - log log15.Logger
+
+        + String() string
+        + GetOrderById(orderIdStr string) (*dex.RpcOrder, error)
+        + GetOrderBySendHash(sendHash types.Hash) (*dex.RpcOrder, error)
+        + GetOrdersFromMarket(tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool, begin int, end int) (*dex.OrdersRes, error)
+        + GetMarketOrders(param MarketOrderParam) (*dex.OrdersRes, error)
+        + GetMarketInfoById(marketId int32) (*dex.RpcMarketInfo, error)
+        + GetTimestamp() (int64, error)
+
+    }
+    class FilterParam << (S,Aquamarine) >> {
+        + AddrRange <font color=blue>map</font>[types.Address]HeightRange
+        + Topics [][]types.Hash
+
+    }
+    class FindAddrResponse << (S,Aquamarine) >> {
+        + EntropyFile string
+        + Index uint32
+
+    }
+    class FindAddrResult << (S,Aquamarine) >> {
+        + EntropyStoreFile string
+        + Index uint32
+
+    }
+    class GcStatus << (S,Aquamarine) >> {
+        + Code uint8
+        + Description string
+        + ClearedHeight uint64
+        + MarkedHeight uint64
+
+    }
+    class GetPledgeListByPageResult << (S,Aquamarine) >> {
+        + PledgeInfoList []*types.StakeInfo
+        + LastKey string
+
+    }
+    class GetPoWDifficultyParam << (S,Aquamarine) >> {
+        + SelfAddr types.Address
+        + PrevHash types.Hash
+        + BlockType byte
+        + ToAddr *types.Address
+        + Data []byte
+        + Multiple uint16
+
+    }
+    class GetPoWDifficultyResult << (S,Aquamarine) >> {
+        + Quota string
+        + Difficulty string
+        + Qc string
+        + IsCongestion bool
+
+    }
+    class GetQuotaRequiredParam << (S,Aquamarine) >> {
+        + SelfAddr types.Address
+        + BlockType byte
+        + ToAddr *types.Address
+        + Data []byte
+
+    }
+    class GetQuotaRequiredResult << (S,Aquamarine) >> {
+        + QuotaRequired string
+
+    }
+    class Health << (S,Aquamarine) >> {
+        - vite *v2.Vite
+
+        + Health() error
+
+    }
+    class HeightRange << (S,Aquamarine) >> {
+        + FromHeight uint64
+        + ToHeight uint64
+
+    }
+    class HexSignedTuple << (S,Aquamarine) >> {
+        + Message string
+        + SignedData string
+        + Pubkey string
+
+    }
+    class IsMayValidKeystoreFileResponse << (S,Aquamarine) >> {
+        + Maybe bool
+        + MayAddress types.Address
+
+    }
+    class IssueParams << (S,Aquamarine) >> {
+        + TokenId types.TokenTypeId
+        + Amount string
+        + Beneficial types.Address
+
+    }
+    class JsonRpc2Error << (S,Aquamarine) >> {
+        + Message string
+        + Code int
+
+        + Error() string
+        + ErrorCode() int
+
+    }
+    class LedgerApi << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - chain chain.Chain
+        - log log15.Logger
+
+        - ledgerChunksToRpcChunks(list []*core.SnapshotChunk) ([]*SnapshotChunk, error)
+        - ledgerChunksToRpcChunksV2(list []*core.SnapshotChunk) ([]*SnapshotChunkV2, error)
+        - ledgerBlockToRpcBlock(block *core.AccountBlock) (*AccountBlock, error)
+        - ledgerBlocksToRpcBlocks(list []*core.AccountBlock) ([]*AccountBlock, error)
+        - ledgerSnapshotBlockToRpcBlock(block *core.SnapshotBlock) (*SnapshotBlock, error)
+        - ledgerSnapshotBlocksToRpcBlocks(list []*core.SnapshotBlock) ([]*SnapshotBlock, error)
+        - getAccountInfoByAddress(addr types.Address) (*core.AccountInfo, error)
+
+        + String() string
+        + GetRawBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetCompleteBlockByHash(blockHash types.Hash) (*AccountBlock, error)
+        + GetBlocksByHashInToken(addr types.Address, originBlockHash *types.Hash, tokenTypeId types.TokenTypeId, count uint64) ([]*AccountBlock, error)
+        + GetSnapshotBlockBeforeTime(timestamp int64) (*SnapshotBlock, error)
+        + GetVmLogListByHash(logHash types.Hash) (core.VmLogList, error)
+        + GetBlocksByHeight(addr types.Address, height <font color=blue>interface</font>{}, count uint64) ([]*AccountBlock, error)
+        + GetSnapshotBlockByHash(hash types.Hash) (*SnapshotBlock, error)
+        + GetSnapshotBlockByHeight(height <font color=blue>interface</font>{}) (*SnapshotBlock, error)
+        + GetSnapshotBlocks(height <font color=blue>interface</font>{}, count int) ([]*SnapshotBlock, error)
+        + GetChunks(startHeight <font color=blue>interface</font>{}, endHeight <font color=blue>interface</font>{}) ([]*SnapshotChunk, error)
+        + GetSnapshotChainHeight() string
+        + GetLatestSnapshotChainHash() *types.Hash
+        + GetLatestSnapshotBlock() (*SnapshotBlock, error)
+        + GetLatestBlock(addr types.Address) (*AccountBlock, error)
+        + GetVmLogList(blockHash types.Hash) (core.VmLogList, error)
+        + GetSeed(snapshotHash types.Hash, fromHash types.Hash) (uint64, error)
+        + GetChainStatus() []interfaces.DBStatus
+        + GetAllUnconfirmedBlocks() []*core.AccountBlock
+        + GetUnconfirmedBlocks(addr types.Address) []*core.AccountBlock
+        + GetConfirmedBalances(snapshotHash types.Hash, addrList []types.Address, tokenIds []types.TokenTypeId) (GetBalancesRes, error)
+        + GetBlockByHash(blockHash types.Hash) (*AccountBlock, error)
+        + GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*AccountBlock, error)
+        + GetBlockByHeight(addr types.Address, height <font color=blue>interface</font>{}) (*AccountBlock, error)
+        + GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*AccountBlock, error)
+        + GetAccountByAccAddr(addr types.Address) (*RpcAccountInfo, error)
+        + GetAccountBlocks(addr types.Address, originBlockHash *types.Hash, tokenTypeId *types.TokenTypeId, count uint64) ([]*AccountBlock, error)
+        + GetAccountBlockByHash(blockHash types.Hash) (*AccountBlock, error)
+        + GetAccountBlockByHeight(addr types.Address, height <font color=blue>interface</font>{}) (*AccountBlock, error)
+        + GetAccountBlocksByAddress(addr types.Address, index int, count int) ([]*AccountBlock, error)
+        + GetAccountBlocksByHeightRange(addr types.Address, start uint64, end uint64) ([]*AccountBlock, error)
+        + GetAccountInfoByAddress(addr types.Address) (*AccountInfo, error)
+        + GetLatestSnapshotHash() *types.Hash
+        + GetLatestAccountBlock(addr types.Address) (*AccountBlock, error)
+        + GetVmLogs(blockHash types.Hash) (core.VmLogList, error)
+        + SendRawTransaction(block *AccountBlock) error
+        + GetUnreceivedBlocksByAddress(address types.Address, index uint64, count uint64) ([]*AccountBlock, error)
+        + GetUnreceivedTransactionSummaryByAddress(address types.Address) (*AccountInfo, error)
+        + GetUnreceivedBlocksInBatch(queryList []PagingQueryBatch) (<font color=blue>map</font>[types.Address][]*AccountBlock, error)
+        + GetUnreceivedTransactionSummaryInBatch(addressList []types.Address) ([]*AccountInfo, error)
+        + GetVmLogsByFilter(param VmLogFilterParam) ([]*Logs, error)
+        + GetPoWDifficulty(param GetPoWDifficultyParam) (*GetPoWDifficultyResult, error)
+        + GetRequiredQuota(param GetQuotaRequiredParam) (*GetQuotaRequiredResult, error)
+        + GetChunksV2(startHeight <font color=blue>interface</font>{}, endHeight <font color=blue>interface</font>{}) ([]*SnapshotChunkV2, error)
+        + GetUpgradeInfo() (<font color=blue>interface</font>{}, error)
+
+    }
+    class LedgerDebugApi << (S,Aquamarine) >> {
+        - unreceived *UnreceivedDebugApi
+
+        + String() string
+
+    }
+    class Logs << (S,Aquamarine) >> {
+        + Log *core.VmLog
+        + AccountBlockHash types.Hash
+        + AccountHeight string
+        + Addr *types.Address
+
+    }
+    class MarketOrderParam << (S,Aquamarine) >> {
+        + TradeToken types.TokenTypeId
+        + QuoteToken types.TokenTypeId
+        + SellBegin int
+        + SellEnd int
+        + BuyBegin int
+        + BuyEnd int
+
+    }
+    class MinerApi << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - chain chain.Chain
+        - cs consensus.Consensus
+
+        + String() string
+        + Mine() error
+
+    }
+    class MintageAPI << (S,Aquamarine) >> {
+        - chain chain.Chain
+        - vite *v2.Vite
+        - log log15.Logger
+
+        + String() string
+        + GetMintData(param MintageParams) ([]byte, error)
+        + GetIssueData(param IssueParams) ([]byte, error)
+        + GetBurnData() ([]byte, error)
+        + GetTransferOwnerData(param TransferOwnerParams) ([]byte, error)
+        + GetChangeTokenTypeData(tokenId types.TokenTypeId) ([]byte, error)
+        + GetTokenInfoList(index int, count int) (*TokenInfoList, error)
+        + GetTokenInfoById(tokenId types.TokenTypeId) (*RpcTokenInfo, error)
+        + GetTokenInfoListByOwner(owner types.Address) ([]*RpcTokenInfo, error)
+
+    }
+    class MintageParams << (S,Aquamarine) >> {
+        + TokenName string
+        + TokenSymbol string
+        + TotalSupply string
+        + Decimals uint8
+        + IsReIssuable bool
+        + MaxSupply string
+        + OwnerBurnOnly bool
+
+    }
+    class NetApi << (S,Aquamarine) >> {
+        - net net.Net
+        - log log15.Logger
+
+        + SyncInfo() SyncInfo
+        + SyncDetail() net.SyncDetail
+        + Peers() net.NodeInfo
+        + PeerCount() int
+        + NodeInfo() net.NodeInfo
+        + Nodes() Nodes
+
+    }
+    class NewStoreResponse << (S,Aquamarine) >> {
+        + Mnemonic string
+        + PrimaryAddr types.Address
+        + Filename string
+
+    }
+    class Nodes << (S,Aquamarine) >> {
+        + Count int
+        + Nodes []*vnode.Node
+
+    }
+    class NormalRequestRawTxParam << (S,Aquamarine) >> {
+        + BlockType byte
+        + Height string
+        + Hash types.Hash
+        + PrevHash types.Hash
+        + PreviousHash types.Hash
+        + AccountAddress types.Address
+        + Address types.Address
+        + PublicKey []byte
+        + ToAddress types.Address
+        + TokenId types.TokenTypeId
+        + Amount string
+        + Data []byte
+        + Difficulty *string
+        + Nonce []byte
+        + Signature []byte
+
+        + LedgerAccountBlock() (*core.AccountBlock, error)
+
+    }
+    class OnroadPagingQuery << (S,Aquamarine) >> {
+        + Addr types.Address
+        + PageNum uint64
+        + PageCount uint64
+
+    }
+    class PagingQueryBatch << (S,Aquamarine) >> {
+        + Address types.Address
+        + PageNumber uint64
+        + PageCount uint64
+
+    }
+    class PeriodStats << (S,Aquamarine) >> {
+        - stime time.Time
+        - etime time.Time
+
+    }
+    class PledgeInfo << (S,Aquamarine) >> {
+        + Amount string
+        + BeneficialAddr types.Address
+        + WithdrawHeight string
+        + WithdrawTime int64
+        + Agent bool
+        + AgentAddress types.Address
+        + Bid uint8
+        + Id *types.Hash
+
+    }
+    class PledgeInfoList << (S,Aquamarine) >> {
+        + TotalPledgeAmount string
+        + Count int
+        + List []*PledgeInfo
+
+    }
+    class PledgeQueryParams << (S,Aquamarine) >> {
+        + PledgeAddr types.Address
+        + AgentAddr types.Address
+        + BeneficialAddr types.Address
+        + Bid uint8
+
+    }
+    class Pow << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - pubKey []byte
+
+        + GetPowNonce(difficulty string, data types.Hash) ([]byte, error)
+        + CancelPow(data types.Hash) error
+        + GetPowNoncePrivate(address types.Address, height uint64, difficulty string, data types.Hash, timestamp uint64, sig []byte, cnt uint64) ([]byte, error)
+
+    }
+    class PrivateOnroadApi << (S,Aquamarine) >> {
+        - ledgerApi *LedgerApi
+
+        + String() string
+        + GetOnroadBlocksByAddress(address types.Address, index uint64, count uint64) ([]*AccountBlock, error)
+        + GetOnroadInfoByAddress(address types.Address) (*RpcAccountInfo, error)
+        + GetOnroadBlocksInBatch(queryList []OnroadPagingQuery) (<font color=blue>map</font>[types.Address][]*AccountBlock, error)
+        + GetOnroadInfoInBatch(addrList []types.Address) ([]*RpcAccountInfo, error)
+
+    }
+    class PublicOnroadApi << (S,Aquamarine) >> {
+        - api *PrivateOnroadApi
+
+        + String() string
+
+    }
+    class QueryParam << (S,Aquamarine) >> {
+        + Addr *types.Address
+        + Data []byte
+        + Height *uint64
+        + SnapshotHash *types.Hash
+
+    }
+    class QuotaAndTxNum << (S,Aquamarine) >> {
+        + QuotaPerSnapshotBlock string
+        + CurrentQuota string
+        + CurrentTxNumPerSec string
+        + CurrentUt string
+        + Utpe string
+        + PledgeAmount string
+
+    }
+    class QuotaApi << (S,Aquamarine) >> {
+        - chain chain.Chain
+        - log log15.Logger
+        - ledgerApi *LedgerApi
+
+        + String() string
+        + GetPledgeData(beneficialAddr types.Address) ([]byte, error)
+        + GetCancelPledgeData(beneficialAddr types.Address, amount string) ([]byte, error)
+        + GetAgentPledgeData(param AgentPledgeParam) ([]byte, error)
+        + GetAgentCancelPledgeData(param AgentPledgeParam) ([]byte, error)
+        + GetQuotaUsedList(addr types.Address) ([]types.QuotaInfo, error)
+        + GetQuotaCoefficient() (*QuotaCoefficientInfo, error)
+        + GetAgentPledgeInfo(params PledgeQueryParams) (*PledgeInfo, error)
+        + GetPledgeAmountByUtps(utps string) (*string, error)
+        + GetPledgeList(addr types.Address, index int, count int) (*PledgeInfoList, error)
+        + GetPledgeBeneficialAmount(addr types.Address) (string, error)
+        + GetPledgeQuota(addr types.Address) (*QuotaAndTxNum, error)
+
+    }
+    class QuotaCoefficientInfo << (S,Aquamarine) >> {
+        + Qc *string
+        + GlobalQuota string
+        + GlobalUt string
+        + IsCongestion bool
+
+    }
+    class QuotaInfo << (S,Aquamarine) >> {
+        + CurrentQuota string
+        + MaxQuota string
+        + StakeAmount *string
+
+    }
+    class Range << (S,Aquamarine) >> {
+        + FromHeight string
+        + ToHeight string
+
+        + ToHeightRange() (*HeightRange, error)
+
+    }
+    class RegistParam << (S,Aquamarine) >> {
+        + Name string
+        + Gid *types.Gid
+
+    }
+    class RegisterApi << (S,Aquamarine) >> {
+        - chain chain.Chain
+        - cs consensus.Consensus
+        - log log15.Logger
+
+        + String() string
+        + GetRegisterData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error)
+        + GetCancelRegisterData(gid types.Gid, name string) ([]byte, error)
+        + GetRewardData(gid types.Gid, name string, beneficialAddr types.Address) ([]byte, error)
+        + GetUpdateRegistrationData(gid types.Gid, name string, nodeAddr types.Address) ([]byte, error)
+        + GetRegistrationList(gid types.Gid, pledgeAddr types.Address) ([]*RegistrationInfo, error)
+        + GetAvailableReward(gid types.Gid, name string) (*Reward, error)
+        + GetRewardByDay(gid types.Gid, timestamp int64) (<font color=blue>map</font>[string]*Reward, error)
+        + GetRewardByIndex(gid types.Gid, indexStr string) (*RewardInfo, error)
+        + GetRegistration(name string, gid types.Gid) (*types.Registration, error)
+        + GetRegisterPledgeAddrList(paramList []*RegistParam) ([]*types.Address, error)
+        + GetCandidateList() ([]*CandidateInfo, error)
+
+    }
+    class RegistrationInfo << (S,Aquamarine) >> {
+        + Name string
+        + NodeAddr types.Address
+        + PledgeAddr types.Address
+        + RewardWithdrawAddress types.Address
+        + PledgeAmount string
+        + WithdrawHeight string
+        + WithdrawTime int64
+        + CancelTime int64
+
+    }
+    class Reward << (S,Aquamarine) >> {
+        + BlockReward string
+        + VoteReward string
+        + TotalReward string
+        + BlockNum string
+        + ExpectedBlockNum string
+        + Drained bool
+
+    }
+    class RewardInfo << (S,Aquamarine) >> {
+        + RewardMap <font color=blue>map</font>[string]*Reward
+        + StartTime int64
+        + EndTime int64
+
+    }
+    class RpcAccountInfo << (S,Aquamarine) >> {
+        + AccountAddress types.Address
+        + TotalNumber string
+        + TokenBalanceInfoMap <font color=blue>map</font>[types.TokenTypeId]*RpcTokenBalanceInfo
+
+    }
+    class RpcTokenBalanceInfo << (S,Aquamarine) >> {
+        + TokenInfo *RpcTokenInfo
+        + TotalAmount string
+        + Number *string
+
+    }
+    class RpcTokenInfo << (S,Aquamarine) >> {
+        + TokenName string
+        + TokenSymbol string
+        + TotalSupply *string
+        + Decimals uint8
+        + Owner types.Address
+        + TokenId types.TokenTypeId
+        + MaxSupply *string
+        + OwnerBurnOnly bool
+        + IsReIssuable bool
+        + Index uint16
+        + IsOwnerBurnOnly bool
+
+    }
+    class SBPInfo << (S,Aquamarine) >> {
+        + Name string
+        + BlockProducingAddress types.Address
+        + RewardWithdrawAddress types.Address
+        + StakeAddr types.Address
+        + StakeAmount string
+        + ExpirationHeight string
+        + ExpirationTime int64
+        + RevokeTime int64
+
+    }
+    class SBPReward << (S,Aquamarine) >> {
+        + BlockReward string
+        + VoteReward string
+        + TotalReward string
+        + BlockNum string
+        + ExpectedBlockNum string
+        + Drained bool
+
+    }
+    class SBPRewardInfo << (S,Aquamarine) >> {
+        + RewardMap <font color=blue>map</font>[string]*SBPReward
+        + StartTime int64
+        + EndTime int64
+        + Cycle string
+
+    }
+    class SBPVoteInfo << (S,Aquamarine) >> {
+        + Name string
+        + BlockProducingAddress types.Address
+        + VoteNum string
+
+    }
+    class SendTxWithPrivateKeyParam << (S,Aquamarine) >> {
+        + SelfAddr *types.Address
+        + ToAddr *types.Address
+        + TokenTypeId types.TokenTypeId
+        + PrivateKey *string
+        + Amount *string
+        + Data []byte
+        + Difficulty *string
+        + PreBlockHash *types.Hash
+        + BlockType byte
+
+    }
+    class SnapshotBlock << (S,Aquamarine) >> {
+        + Producer types.Address
+        + PreviousHash types.Hash
+        + NextSeedHash *types.Hash
+        + SnapshotData core.SnapshotContent
+        + Timestamp int64
+
+    }
+    class SnapshotChunk << (S,Aquamarine) >> {
+        + AccountBlocks []*core.AccountBlock
+        + SnapshotBlock *SnapshotBlock
+
+    }
+    class SnapshotChunkV2 << (S,Aquamarine) >> {
+        + AccountBlocks []*AccountBlock
+        + SnapshotBlock *SnapshotBlock
+
+    }
+    class StakeInfo << (S,Aquamarine) >> {
+        + Amount string
+        + Beneficiary types.Address
+        + ExpirationHeight string
+        + ExpirationTime int64
+        + IsDelegated bool
+        + DelegateAddress types.Address
+        + StakeAddress types.Address
+        + Bid uint8
+        + Id *types.Hash
+
+    }
+    class StakeInfoList << (S,Aquamarine) >> {
+        + StakeAmount string
+        + Count int
+        + StakeList []*StakeInfo
+
+    }
+    class StakeInfoListBySearchKey << (S,Aquamarine) >> {
+        + StakingInfoList []*StakeInfo
+        + LastKey string
+
+    }
+    class StakeQueryParams << (S,Aquamarine) >> {
+        + StakeAddress types.Address
+        + DelegateAddress types.Address
+        + Beneficiary types.Address
+        + Bid uint8
+
+    }
+    class StatsApi << (S,Aquamarine) >> {
+        - cs consensus.Consensus
+        - log log15.Logger
+
+        - reIndex(timeIndex core.TimeIndex) (uint64, uint64)
+
+        + String() string
+        + Time2Index(t *time.Time, level int) uint64
+        + Index2Time(i uint64, level int) <font color=blue>map</font>[string]time.Time
+        + GetHourSBPStats(startIdx uint64, endIdx uint64) ([]<font color=blue>map</font>[string]<font color=blue>interface</font>{}, error)
+        + GetPeriodSBPStats(startIdx uint64, endIdx uint64) ([]*PeriodStats, error)
+        + GetDaySBPStats(startIdx uint64, endIdx uint64) ([]<font color=blue>map</font>[string]<font color=blue>interface</font>{}, error)
+        + GetSBP(idx uint64) (<font color=blue>interface</font>{}, error)
+
+    }
+    class SyncInfo << (S,Aquamarine) >> {
+        + From string
+        + To string
+        + Current string
+        + State uint
+        + Status string
+
+    }
+    class TokenInfoList << (S,Aquamarine) >> {
+        + Count int
+        + List []*RpcTokenInfo
+
+    }
+    class TransferOwnerParams << (S,Aquamarine) >> {
+        + TokenId types.TokenTypeId
+        + NewOwner types.Address
+
+    }
+    class Tx << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - autoTx bool
+
+        - autoSend() 
+
+        + SendRawTx(block *AccountBlock) error
+        + SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock, error)
+        + CalcPoWDifficulty(param CalcPoWDifficultyParam) (*CalcPoWDifficultyResult, error)
+        + CalcQuotaRequired(param CalcQuotaRequiredParam) (*CalcQuotaRequiredResult, error)
+
+    }
+    interface TxParam  {
+        + LedgerAccountBlock() (*core.AccountBlock, error)
+
+    }
+    class UnreceivedDebugApi << (S,Aquamarine) >> {
+        - manager *onroad.Manager
+        - chain chain.Chain
+
+        + GetContractUnreceivedTransactionCount(addr types.Address, gid *types.Gid) (uint64, error)
+        + GetContractUnreceivedFrontBlocks(addr types.Address, gid *types.Gid) ([]*AccountBlock, error)
+
+    }
+    class UtilApi << (S,Aquamarine) >> {
+        - vite *v2.Vite
+
+        + GetPoWNonce(difficulty string, data types.Hash) ([]byte, error)
+
+    }
+    class VmLogFilterParam << (S,Aquamarine) >> {
+        + AddrRange <font color=blue>map</font>[string]*Range
+        + Topics [][]types.Hash
+
+    }
+    class VoteApi << (S,Aquamarine) >> {
+        - chain chain.Chain
+        - cs consensus.Consensus
+        - log log15.Logger
+
+        + String() string
+        + GetVoteData(gid types.Gid, name string) ([]byte, error)
+        + GetCancelVoteData(gid types.Gid) ([]byte, error)
+        + GetVoteInfo(gid types.Gid, addr types.Address) (*VoteInfo, error)
+        + GetVoteDetails(index *uint64) ([]*consensus.VoteDetails, error)
+
+    }
+    class VoteDetail << (S,Aquamarine) >> {
+        + Name string
+        + VoteNum string
+        + CurrentAddr types.Address
+        + HistoryAddrList []types.Address
+        + VoteMap <font color=blue>map</font>[types.Address]string
+
+    }
+    class VoteInfo << (S,Aquamarine) >> {
+        + Name string
+        + NodeStatus uint8
+        + Balance string
+
+    }
+    class VotedSBPInfo << (S,Aquamarine) >> {
+        + Name string
+        + NodeStatus uint8
+        + Balance string
+
+    }
+    class WalletApi << (S,Aquamarine) >> {
+        - wallet *wallet.Manager
+        - chain chain.Chain
+        - pool pool.Writer
+        - consensus generator.Consensus
+
+        + String() string
+        + ListAllEntropyFiles() []string
+        + ListEntropyFilesInStandardDir() ([]string, error)
+        + ListEntropyStoreAddresses(entropyStore string, from uint32, to uint32) ([]types.Address, error)
+        + NewMnemonicAndEntropyStore(passphrase string) (*NewStoreResponse, error)
+        + DeriveByFullPath(entropyStore string, fullpath string) (*DeriveResult, error)
+        + DeriveByIndex(entropyStore string, index uint32) (*DeriveResult, error)
+        + RecoverEntropyStoreFromMnemonic(mnemonic string, newPassphrase string) (*NewStoreResponse, error)
+        + GlobalCheckAddrUnlocked(addr types.Address) bool
+        + IsAddrUnlocked(entropyStore string, addr types.Address) bool
+        + RefreshCache() 
+        + ExtractMnemonic(entropyStore string, passphrase string) (string, error)
+        + FindAddrWithPassphrase(entropyStore string, passphrase string, addr types.Address) (*FindAddrResult, error)
+        + FindAddr(entropyStore string, addr types.Address) (*FindAddrResult, error)
+        + GlobalFindAddr(addr types.Address) (*FindAddrResult, error)
+        + GlobalFindAddrWithPassphrase(addr types.Address, passphrase string) (*FindAddrResult, error)
+        + AddEntropyStore(filename string) error
+        + SignData(addr types.Address, hexMsg string) (*HexSignedTuple, error)
+        + CreateTxWithPassphrase(params CreateTransferTxParms) (*types.Hash, error)
+        + SignDataWithPassphrase(addr types.Address, hexMsg string, passphrase string) (*HexSignedTuple, error)
+        + IsMayValidKeystoreFile(path string) IsMayValidKeystoreFileResponse
+        + GetDataDir() string
+        + GetPrivateKey(entropyStore string, passphrase string) (*string, error)
+        + GetEntropyFilesInStandardDir() ([]string, error)
+        + GetAllEntropyFiles() []string
+        + ExportMnemonic(entropyFile string, passphrase string) (string, error)
+        + Unlock(entropyFile string, passphrase string) error
+        + Lock(entropyFile string) error
+        + DeriveAddressesByIndexRange(entropyFile string, startIndex uint32, endIndex uint32) ([]types.Address, error)
+        + CreateEntropyFile(passphrase string) (*CreateEntropyFileResponse, error)
+        + DeriveAddressByIndex(entropyFile string, index uint32) (*DeriveResult, error)
+        + DeriveAddressByPath(entropyFile string, bip44Path string) (*DeriveResult, error)
+        + RecoverEntropyFile(mnemonics string, passphrase string) (*CreateEntropyFileResponse, error)
+        + IsUnlocked(entropyFile string) bool
+        + FindAddressInEntropyFile(entropyFile string, address types.Address) (*FindAddrResponse, error)
+        + FindAddress(address types.Address) (*FindAddrResponse, error)
+        + CreateTransaction(params CreateTransactionParms) (*types.Hash, error)
+
+    }
+    class api.GetBalancesRes << (T, #FF7700) >>  {
+    }
+    class api.byExpirationHeight << (T, #FF7700) >>  {
+    }
+    class api.byName << (T, #FF7700) >>  {
+    }
+    class api.byRegistrationExpirationHeight << (T, #FF7700) >>  {
+    }
+    class byExpirationHeight << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class byName << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class byRegistrationExpirationHeight << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class hashHeightTime << (S,Aquamarine) >> {
+        + Hash string
+        + Height uint64
+        + Time int64
+
+    }
+    class "<font color=blue>map</font>[types.Address]<font color=blue>map</font>[types.TokenTypeId]*big.Int" as fontcolorbluemapfonttypesAddressfontcolorbluemapfonttypesTokenTypeIdbigInt {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+    class "[]*types.Registration" as typesRegistration {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+    class "[]*types.StakeInfo" as typesStakeInfo {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+"core.PeriodStats" *-- "api.PeriodStats"
+"core.SnapshotBlock" *-- "api.SnapshotBlock"
+
+"api.TxParam" <|-- "api.NormalRequestRawTxParam"
+
+namespace dex {
+    class CancelStake << (S,Aquamarine) >> {
+        + Amount string
+        + ExpirationTime int64
+        + ExpirationPeriod uint64
+
+    }
+    class CancelStakeList << (S,Aquamarine) >> {
+        + CancellingAmount string
+        + Count int
+        + Cancels []*CancelStake
+
+    }
+    class DelegateStakeInfo << (S,Aquamarine) >> {
+        + StakeType int
+        + Address string
+        + Principal string
+        + Amount string
+        + Status int
+
+    }
+    class DividendPoolInfo << (S,Aquamarine) >> {
+        + Amount string
+        + QuoteTokenType int32
+        + TokenInfo *RpcDexTokenInfo
+
+    }
+    class Funds << (S,Aquamarine) >> {
+        + Funds []*SimpleFund
+
+    }
+    class NewRpcMarketInfo << (S,Aquamarine) >> {
+        + MarketId int32
+        + MarketSymbol string
+        + TradeToken string
+        + QuoteToken string
+        + QuoteTokenType int32
+        + TradeTokenDecimals int32
+        + QuoteTokenDecimals int32
+        + TakerOperatorFeeRate int32
+        + MakerOperatorFeeRate int32
+        + AllowMining bool
+        + Valid bool
+        + Owner string
+        + Creator string
+        + Stopped bool
+        + Timestamp int64
+        + StableMarket bool
+
+    }
+    class NewRpcVxMineInfo << (S,Aquamarine) >> {
+        + HistoryMinedSum string
+        + Total string
+        + FeeMineTotal string
+        + FeeMineDetail <font color=blue>map</font>[int32]string
+        + StakingMine string
+        + MakerMine string
+
+    }
+    class OrdersRes << (S,Aquamarine) >> {
+        + Orders []*RpcOrder
+        + Size int
+        + QueryStart core.HashHeight
+        + QueryEnd core.HashHeight
+
+    }
+    class PlaceOrderInfo << (S,Aquamarine) >> {
+        + Available string
+        + MinTradeAmount string
+        + FeeRate int32
+        + Side bool
+        + IsVIP bool
+        + IsSVIP bool
+        + IsInvited bool
+
+    }
+    class RpcDexFeesByPeriod << (S,Aquamarine) >> {
+        + FeesForDividend []*RpcFeesForDividend
+        + FeesForMine []*RpcFeesForMine
+        + LastValidPeriod uint64
+        + FinishDividend bool
+        + FinishMine bool
+
+    }
+    class RpcDexTokenInfo << (S,Aquamarine) >> {
+        + TokenSymbol string
+        + Decimals int32
+        + TokenId types.TokenTypeId
+        + Index int32
+        + Owner types.Address
+        + QuoteTokenType int32
+
+    }
+    class RpcFeeAccount << (S,Aquamarine) >> {
+        + QuoteTokenType int32
+        + BaseAmount string
+        + InviteBonusAmount string
+
+    }
+    class RpcFeesByPeriod << (S,Aquamarine) >> {
+        + UserFees []*RpcFeeAccount
+        + Period uint64
+
+    }
+    class RpcFeesForDividend << (S,Aquamarine) >> {
+        + Token string
+        + DividendPoolAmount string
+        + NotRoll bool
+
+    }
+    class RpcFeesForMine << (S,Aquamarine) >> {
+        + QuoteTokenType int32
+        + BaseAmount string
+        + InviteBonusAmount string
+
+    }
+    class RpcMarketInfo << (S,Aquamarine) >> {
+        + MarketId int32
+        + MarketSymbol string
+        + TradeToken string
+        + QuoteToken string
+        + QuoteTokenType int32
+        + TradeTokenDecimals int32
+        + QuoteTokenDecimals int32
+        + TakerBrokerFeeRate int32
+        + MakerBrokerFeeRate int32
+        + AllowMine bool
+        + Valid bool
+        + Owner string
+        + Creator string
+        + Stopped bool
+        + Timestamp int64
+
+    }
+    class RpcMiningStakingByPeriod << (S,Aquamarine) >> {
+        + Period uint64
+        + Amount string
+
+    }
+    class RpcMiningStakings << (S,Aquamarine) >> {
+        + Pledges []*RpcMiningStakingByPeriod
+
+    }
+    class RpcOperatorFeeAccount << (S,Aquamarine) >> {
+        + Token string
+        + MarketFees []*RpcOperatorMarketFee
+
+    }
+    class RpcOperatorFeesByPeriod << (S,Aquamarine) >> {
+        + OperatorFees []*RpcOperatorFeeAccount
+
+    }
+    class RpcOperatorMarketFee << (S,Aquamarine) >> {
+        + MarketId int32
+        + TakerOperatorFeeRate int32
+        + MakerOperatorFeeRate int32
+        + Amount string
+
+    }
+    class RpcOrder << (S,Aquamarine) >> {
+        + Id string
+        + Address string
+        + MarketId int32
+        + Side bool
+        + Type int32
+        + Price string
+        + TakerFeeRate int32
+        + MakerFeeRate int32
+        + TakerOperatorFeeRate int32
+        + MakerOperatorFeeRate int32
+        + Quantity string
+        + Amount string
+        + LockedBuyFee string
+        + Status int32
+        + CancelReason int32
+        + ExecutedQuantity string
+        + ExecutedAmount string
+        + ExecutedBaseFee string
+        + ExecutedOperatorFee string
+        + RefundToken string
+        + RefundQuantity string
+        + Timestamp int64
+        + Agent string
+        + SendHash string
+        + MarketOrderAmtThreshold string
+
+    }
+    class RpcThresholdForTradeAndMine << (S,Aquamarine) >> {
+        + TradeThreshold string
+        + MineThreshold string
+
+    }
+    class RpcUserFees << (S,Aquamarine) >> {
+        + Fees []*RpcFeesByPeriod
+
+    }
+    class RpcVxFundByPeriod << (S,Aquamarine) >> {
+        + Amount string
+        + Period uint64
+
+    }
+    class RpcVxFunds << (S,Aquamarine) >> {
+        + Funds []*RpcVxFundByPeriod
+
+    }
+    class RpcVxMineInfo << (S,Aquamarine) >> {
+        + HistoryMinedSum string
+        + Total string
+        + FeeMineTotal string
+        + FeeMineDetail <font color=blue>map</font>[int32]string
+        + PledgeMine string
+        + MakerMine string
+
+    }
+    class SimpleAccountInfo << (S,Aquamarine) >> {
+        + Token string
+        + Available string
+        + Locked string
+
+    }
+    class SimpleFund << (S,Aquamarine) >> {
+        + Address string
+        + Accounts []*SimpleAccountInfo
+
+    }
+    class StakeInfo << (S,Aquamarine) >> {
+        + Amount string
+        + Beneficiary string
+        + ExpirationHeight string
+        + ExpirationTime int64
+        + IsDelegated bool
+        + DelegateAddress string
+        + StakeAddress string
+        + Bid uint8
+        + Id string
+        + Principal string
+
+    }
+    class StakeInfoList << (S,Aquamarine) >> {
+        + StakeAmount string
+        + Count int
+        + StakeList []*StakeInfo
+
+    }
+    class VIPStakingRpc << (S,Aquamarine) >> {
+        + Amount string
+        + ExpirationHeight string
+        + ExpirationTime int64
+        + Id string
+
+    }
+    class VxUnlock << (S,Aquamarine) >> {
+        + Amount string
+        + ExpirationTime int64
+        + ExpirationPeriod uint64
+
+    }
+    class VxUnlockList << (S,Aquamarine) >> {
+        + UnlockingAmount string
+        + Count int
+        + Unlocks []*VxUnlock
+
+    }
+}
+
+
+namespace filters {
+    class AccountBlock << (S,Aquamarine) >> {
+        + Hash types.Hash
+        + Removed bool
+
+    }
+    class AccountBlockWithHeight << (S,Aquamarine) >> {
+        + Hash types.Hash
+        + Height uint64
+        + HeightStr string
+        + Removed bool
+
+    }
+    class AccountBlockWithHeightV2 << (S,Aquamarine) >> {
+        + Hash types.Hash
+        + Height string
+        + Removed bool
+
+    }
+    class AccountBlocksMsg << (S,Aquamarine) >> {
+        + Blocks []*AccountBlock
+        + Id rpc.ID
+
+    }
+    class AccountBlocksWithHeightMsg << (S,Aquamarine) >> {
+        + Blocks []*AccountBlockWithHeight
+        + Id rpc.ID
+
+    }
+    class AccountBlocksWithHeightMsgV2 << (S,Aquamarine) >> {
+        + Blocks []*AccountBlockWithHeightV2
+        + Id rpc.ID
+
+    }
+    class AccountChainEvent << (S,Aquamarine) >> {
+        + BlockType byte
+        + FromBlockHash types.Hash
+        + Hash types.Hash
+        + Height uint64
+        + Addr types.Address
+        + ToAddr types.Address
+        + Logs []*core.VmLog
+        + SendBlockList []*SendBlock
+
+    }
+    class ChainSubscribe << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - es *EventSystem
+        - listenIdList []uint64
+        - preDeleteAccountBlocks []*AccountChainEvent
+
+        + Stop() 
+        + PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
+        + PrepareInsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + InsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + PrepareDeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + DeleteAccountBlocks(blocks []*core.AccountBlock) error
+        + PrepareDeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+        + DeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+
+    }
+    class EventSystem << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - chain *ChainSubscribe
+        - install <font color=blue>chan</font> *subscription
+        - uninstall <font color=blue>chan</font> *subscription
+        - acCh <font color=blue>chan</font> []*AccountChainEvent
+        - acDelCh <font color=blue>chan</font> []*AccountChainEvent
+        - sbCh <font color=blue>chan</font> []*SnapshotChainEvent
+        - sbDelCh <font color=blue>chan</font> []*SnapshotChainEvent
+        - stop <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - log log15.Logger
+
+        - eventLoop() 
+        - handleSbEvent(filters <font color=blue>map</font>[FilterType]<font color=blue>map</font>[rpc.ID]*{packageName}subscription, sbEvent []*SnapshotChainEvent, removed bool) 
+        - handleAcEvent(filters <font color=blue>map</font>[FilterType]<font color=blue>map</font>[rpc.ID]*{packageName}subscription, acEvent []*AccountChainEvent, removed bool) 
+        - subscribe(s *subscription) *RpcSubscription
+
+        + Start() 
+        + Stop() 
+        + SubscribeAccountBlocks(ch <font color=blue>chan</font> []*AccountBlock) *RpcSubscription
+        + SubscribeAccountBlocksByAddr(addr types.Address, ch <font color=blue>chan</font> []*AccountBlockWithHeight, ft FilterType) *RpcSubscription
+        + SubscribeOnroadBlocksByAddr(addr types.Address, ch <font color=blue>chan</font> []*OnroadMsg, ft FilterType) *RpcSubscription
+        + SubscribeSnapshotBlocks(ch <font color=blue>chan</font> []*SnapshotBlock, ft FilterType) *RpcSubscription
+        + SubscribeLogs(p *api.FilterParam, ch <font color=blue>chan</font> []*Logs, ft FilterType) *RpcSubscription
+
+    }
+    class Logs << (S,Aquamarine) >> {
+        + Log *core.VmLog
+        + AccountBlockHash types.Hash
+        + AccountHeight string
+        + Addr *types.Address
+        + Removed bool
+
+    }
+    class LogsMsg << (S,Aquamarine) >> {
+        + Logs []*Logs
+        + Id rpc.ID
+
+    }
+    class LogsMsgV2 << (S,Aquamarine) >> {
+        + Logs []*LogsV2
+        + Id rpc.ID
+
+    }
+    class LogsV2 << (S,Aquamarine) >> {
+        + Log *core.VmLog
+        + AccountBlockHash types.Hash
+        + AccountHeight string
+        + Addr *types.Address
+        + Removed bool
+
+    }
+    class OnroadBlocksMsg << (S,Aquamarine) >> {
+        + Blocks []*OnroadMsg
+        + Id rpc.ID
+
+    }
+    class OnroadBlocksMsgV2 << (S,Aquamarine) >> {
+        + Blocks []*OnroadMsgV2
+        + Id rpc.ID
+
+    }
+    class OnroadMsg << (S,Aquamarine) >> {
+        + Hash types.Hash
+        + Closed bool
+        + Removed bool
+
+    }
+    class OnroadMsgV2 << (S,Aquamarine) >> {
+        + Hash types.Hash
+        + Received bool
+        + Removed bool
+
+    }
+    class RpcFilterParam << (S,Aquamarine) >> {
+        + AddrRange <font color=blue>map</font>[string]*api.Range
+        + Topics [][]types.Hash
+
+    }
+    class RpcSubscription << (S,Aquamarine) >> {
+        - sub *subscription
+        - unSubOnce sync.Once
+        - es *EventSystem
+
+        + ID rpc.ID
+
+        + Err() <font color=blue>chan</font> error
+        + Unsubscribe() 
+
+    }
+    class SendBlock << (S,Aquamarine) >> {
+        + Hash types.Hash
+        + ToAddr types.Address
+
+    }
+    class SnapshotBlock << (S,Aquamarine) >> {
+        + Hash types.Hash
+        + Height uint64
+        + HeightStr string
+        + Removed bool
+
+    }
+    class SnapshotBlockV2 << (S,Aquamarine) >> {
+        + Hash types.Hash
+        + Height string
+        + Removed bool
+
+    }
+    class SnapshotBlocksMsg << (S,Aquamarine) >> {
+        + Blocks []*SnapshotBlock
+        + Id rpc.ID
+
+    }
+    class SnapshotBlocksMsgV2 << (S,Aquamarine) >> {
+        + Blocks []*SnapshotBlockV2
+        + Id rpc.ID
+
+    }
+    class SnapshotChainEvent << (S,Aquamarine) >> {
+        + Hash types.Hash
+        + Height uint64
+
+    }
+    class SubscribeApi << (S,Aquamarine) >> {
+        - vite *v2.Vite
+        - log log15.Logger
+        - filterMap <font color=blue>map</font>[rpc.ID]*filter
+        - filterMapMu sync.Mutex
+        - eventSystem *EventSystem
+
+        - timeoutLoop() 
+        - createSnapshotBlockFilter(ft FilterType) (rpc.ID, error)
+        - createAccountBlockFilter() (rpc.ID, error)
+        - createAccountBlockFilterByAddress(addr types.Address, ft FilterType) (rpc.ID, error)
+        - createUnreceivedBlockFilterByAddress(addr types.Address, ft FilterType) (rpc.ID, error)
+        - createVmLogFilter(rangeMap <font color=blue>map</font>[string]*api.Range, topics [][]types.Hash, ft FilterType) (rpc.ID, error)
+        - getChangesByFilterId(id rpc.ID) (<font color=blue>interface</font>{}, error)
+        - createSnapshotBlockSubscription(ctx context.Context, ft FilterType) (*rpc.Subscription, error)
+        - createAccountBlockSubscription(ctx context.Context) (*rpc.Subscription, error)
+        - createAccountBlockSubscriptionByAddress(ctx context.Context, addr types.Address, ft FilterType) (*rpc.Subscription, error)
+        - createUnreceivedBlockSubscriptionByAddress(ctx context.Context, addr types.Address, ft FilterType) (*rpc.Subscription, error)
+        - createVmLogSubscription(ctx context.Context, rangeMap <font color=blue>map</font>[string]*api.Range, topics [][]types.Hash, ft FilterType) (*rpc.Subscription, error)
+
+        + NewSnapshotBlocksFilter() (rpc.ID, error)
+        + CreateSnapshotBlockFilter() (rpc.ID, error)
+        + NewSnapshotBlockFilter() (rpc.ID, error)
+        + NewAccountBlocksFilter() (rpc.ID, error)
+        + CreateAccountBlockFilter() (rpc.ID, error)
+        + NewAccountBlockFilter() (rpc.ID, error)
+        + NewAccountBlocksByAddrFilter(addr types.Address) (rpc.ID, error)
+        + CreateAccountBlockFilterByAddress(addr types.Address) (rpc.ID, error)
+        + NewAccountBlockByAddressFilter(addr types.Address) (rpc.ID, error)
+        + NewOnroadBlocksByAddrFilter(addr types.Address) (rpc.ID, error)
+        + CreateUnreceivedBlockFilterByAddress(addr types.Address) (rpc.ID, error)
+        + NewUnreceivedBlockByAddressFilter(addr types.Address) (rpc.ID, error)
+        + NewLogsFilter(param RpcFilterParam) (rpc.ID, error)
+        + CreateVmLogFilter(param api.VmLogFilterParam) (rpc.ID, error)
+        + NewVmLogFilter(param api.VmLogFilterParam) (rpc.ID, error)
+        + UninstallFilter(id rpc.ID) bool
+        + GetFilterChanges(id rpc.ID) (<font color=blue>interface</font>{}, error)
+        + GetChangesByFilterId(id rpc.ID) (<font color=blue>interface</font>{}, error)
+        + NewSnapshotBlocks(ctx context.Context) (*rpc.Subscription, error)
+        + CreateSnapshotBlockSubscription(ctx context.Context) (*rpc.Subscription, error)
+        + NewSnapshotBlock(ctx context.Context) (*rpc.Subscription, error)
+        + NewAccountBlocks(ctx context.Context) (*rpc.Subscription, error)
+        + CreateAccountBlockSubscription(ctx context.Context) (*rpc.Subscription, error)
+        + NewAccountBlock(ctx context.Context) (*rpc.Subscription, error)
+        + NewAccountBlocksByAddr(ctx context.Context, addr types.Address) (*rpc.Subscription, error)
+        + CreateAccountBlockSubscriptionByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error)
+        + NewAccountBlockByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error)
+        + NewOnroadBlocksByAddr(ctx context.Context, addr types.Address) (*rpc.Subscription, error)
+        + CreateUnreceivedBlockSubscriptionByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error)
+        + NewUnreceivedBlockByAddress(ctx context.Context, addr types.Address) (*rpc.Subscription, error)
+        + NewLogs(ctx context.Context, param RpcFilterParam) (*rpc.Subscription, error)
+        + CreateVmlogSubscription(ctx context.Context, param api.VmLogFilterParam) (*rpc.Subscription, error)
+        + NewVmLog(ctx context.Context, param api.VmLogFilterParam) (*rpc.Subscription, error)
+        + GetLogs(param RpcFilterParam) ([]*Logs, error)
+
+    }
+    class filter << (S,Aquamarine) >> {
+        - typ FilterType
+        - deadline *time.Timer
+        - param api.FilterParam
+        - s *RpcSubscription
+        - blocks []*AccountBlock
+        - blocksWithHeight []*AccountBlockWithHeight
+        - logs []*Logs
+        - snapshotBlocks []*SnapshotBlock
+        - onroadMsgs []*OnroadMsg
+
+    }
+    class filters.FilterType << (T, #FF7700) >>  {
+    }
+    class subscription << (S,Aquamarine) >> {
+        - id rpc.ID
+        - typ FilterType
+        - createTime time.Time
+        - installed <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - err <font color=blue>chan</font> error
+        - param *api.FilterParam
+        - addr types.Address
+        - snapshotBlockCh <font color=blue>chan</font> []*SnapshotBlock
+        - accountBlockCh <font color=blue>chan</font> []*AccountBlock
+        - accountBlockWithHeightCh <font color=blue>chan</font> []*AccountBlockWithHeight
+        - logsCh <font color=blue>chan</font> []*Logs
+        - onroadMsgCh <font color=blue>chan</font> []*OnroadMsg
+
+    }
+}
+
+
+"__builtin__.byte" #.. "filters.FilterType"
+"api.fontcolorbluemapfonttypesAddressfontcolorbluemapfonttypesTokenTypeIdbigInt" #.. "api.GetBalancesRes"
+"api.[]*RpcTokenInfo" #.. "api.byName"
+"api.typesRegistration" #.. "api.byRegistrationExpirationHeight"
+"api.typesStakeInfo" #.. "api.byExpirationHeight"
+@enduml

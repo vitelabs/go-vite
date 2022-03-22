@@ -1,0 +1,119 @@
+@startuml
+namespace vm_db {
+    interface Chain  {
+        + GetQuotaUsedList(address types.Address) []types.QuotaInfo
+        + GetGlobalQuota() types.QuotaInfo
+        + GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, error)
+        + GetContractCode(contractAddr types.Address) ([]byte, error)
+        + GetContractMeta(contractAddress types.Address) (*core.ContractMeta, error)
+        + GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*core.SnapshotBlock, error)
+        + GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+        + GetContractMetaInSnapshot(contractAddress types.Address, snapshotHeight uint64) (*core.ContractMeta, error)
+        + GetSnapshotHeaderByHash(hash types.Hash) (*core.SnapshotBlock, error)
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetAccountBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
+        + GetVmLogList(logHash *types.Hash) (core.VmLogList, error)
+        + GetUnconfirmedBlocks(addr types.Address) []*core.AccountBlock
+        + GetGenesisSnapshotBlock() *core.SnapshotBlock
+        + GetStakeBeneficialAmount(addr types.Address) (*big.Int, error)
+        + GetStorageIterator(address types.Address, prefix []byte) (interfaces.StorageIterator, error)
+        + GetValue(addr types.Address, key []byte) ([]byte, error)
+        + GetCallDepth(sendBlockHash types.Hash) (uint16, error)
+        + GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
+        + GetSeedConfirmedSnapshotBlock(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
+        + GetSeed(limitSb *core.SnapshotBlock, fromHash types.Hash) (uint64, error)
+
+    }
+    class Unsaved << (S,Aquamarine) >> {
+        - contractMetaMap <font color=blue>map</font>[types.Address]*core.ContractMeta
+        - code []byte
+        - logList core.VmLogList
+        - storage *memdb.DB
+        - deletedKeys <font color=blue>map</font>[string]<font color=blue>struct</font>{}
+        - keys <font color=blue>map</font>[string]<font color=blue>struct</font>{}
+        - storageDirty bool
+        - storageCache [][][]byte
+        - balanceMap <font color=blue>map</font>[types.TokenTypeId]*big.Int
+        - rnd *rand.Rand
+
+        + Reset() 
+        + GetStorage() [][][]byte
+        + GetBalanceMap() <font color=blue>map</font>[types.TokenTypeId]*big.Int
+        + GetCode() []byte
+        + GetContractMeta(addr types.Address) *core.ContractMeta
+        + IsDelete(key []byte) bool
+        + SetValue(key []byte, value []byte) 
+        + GetValue(key []byte) ([]byte, bool)
+        + GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, bool)
+        + SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) 
+        + AddLog(log *core.VmLog) 
+        + GetLogList() core.VmLogList
+        + GetLogListHash(snapshotBlockHeight uint64, address types.Address, prevHash types.Hash) *types.Hash
+        + SetContractMeta(addr types.Address, contractMeta *core.ContractMeta) 
+        + SetCode(code []byte) 
+        + NewStorageIterator(prefix []byte) interfaces.StorageIterator
+        + ReleaseRuntime() 
+
+    }
+    class vmDb << (S,Aquamarine) >> {
+        - uns *Unsaved
+        - chain Chain
+        - address *types.Address
+        - isGenesis bool
+        - latestSnapshotBlockHash *types.Hash
+        - latestSnapshotBlock *core.SnapshotBlock
+        - prevAccountBlockHash *types.Hash
+        - prevAccountBlock *core.AccountBlock
+        - callDepth *uint16
+
+        - unsaved() *Unsaved
+
+        + GetUnconfirmedBlocks(address types.Address) []*core.AccountBlock
+        + GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
+        + GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error)
+        + SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) 
+        + GetUnsavedBalanceMap() <font color=blue>map</font>[types.TokenTypeId]*big.Int
+        + GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error)
+        + Address() *types.Address
+        + LatestSnapshotBlock() (*core.SnapshotBlock, error)
+        + PrevAccountBlockHash() types.Hash
+        + PrevAccountBlock() (*core.AccountBlock, error)
+        + GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
+        + GetQuotaUsedList(addr types.Address) []types.QuotaInfo
+        + GetGlobalQuota() types.QuotaInfo
+        + DebugGetStorage() (<font color=blue>map</font>[string][]byte, error)
+        + SetContractMeta(toAddress types.Address, meta *core.ContractMeta) 
+        + GetContractMeta() (*core.ContractMeta, error)
+        + GetContractMetaInSnapshot(contractAddress types.Address, snapshotBlock *core.SnapshotBlock) (*core.ContractMeta, error)
+        + SetContractCode(code []byte) 
+        + GetContractCode() ([]byte, error)
+        + GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *core.SnapshotBlock) ([]byte, error)
+        + GetUnsavedContractMeta() <font color=blue>map</font>[types.Address]*core.ContractMeta
+        + GetUnsavedContractCode() []byte
+        + GetGenesisSnapshotBlock() *core.SnapshotBlock
+        + GetConfirmSnapshotHeader(blockHash types.Hash) (*core.SnapshotBlock, error)
+        + GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetReceiptHash() *types.Hash
+        + Reset() 
+        + Finish() 
+        + GetValue(key []byte) ([]byte, error)
+        + GetOriginalValue(key []byte) ([]byte, error)
+        + SetValue(key []byte, value []byte) error
+        + GetUnsavedStorage() [][][]byte
+        + NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
+        + CanWrite() bool
+        + AddLog(log *core.VmLog) 
+        + GetLogList() core.VmLogList
+        + GetHistoryLogList(logHash *types.Hash) (core.VmLogList, error)
+        + GetLogListHash() *types.Hash
+
+    }
+}
+"interfaces.VmDb" *-- "vm_db.vmDb"
+
+
+hide fields
+hide methods
+@enduml

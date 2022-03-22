@@ -1,0 +1,3046 @@
+@startuml
+namespace abi {
+    class ParamBurn2 << (S,Aquamarine) >> {
+        + Target *big.Int
+        + To []byte
+
+    }
+    class ParamCancelDelegateStake << (S,Aquamarine) >> {
+        + StakeAddress types.Address
+        + Beneficiary types.Address
+        + Amount *big.Int
+        + Bid uint8
+
+    }
+    class ParamCancelRegister << (S,Aquamarine) >> {
+        + Gid types.Gid
+        + SbpName string
+
+    }
+    class ParamCancelStake << (S,Aquamarine) >> {
+        + Beneficiary types.Address
+        + Amount *big.Int
+
+    }
+    class ParamDelegateStake << (S,Aquamarine) >> {
+        + StakeAddress types.Address
+        + Beneficiary types.Address
+        + Bid uint8
+        + StakeHeight uint64
+
+    }
+    class ParamGetTokenInfo << (S,Aquamarine) >> {
+        + TokenId types.TokenTypeId
+        + Bid uint8
+
+    }
+    class ParamIssue << (S,Aquamarine) >> {
+        + TokenName string
+        + TokenSymbol string
+        + TotalSupply *big.Int
+        + Decimals uint8
+        + MaxSupply *big.Int
+        + IsOwnerBurnOnly bool
+        + IsReIssuable bool
+
+    }
+    class ParamReIssue << (S,Aquamarine) >> {
+        + TokenId types.TokenTypeId
+        + Amount *big.Int
+        + ReceiveAddress types.Address
+
+    }
+    class ParamRegister << (S,Aquamarine) >> {
+        + Gid types.Gid
+        + SbpName string
+        + BlockProducingAddress types.Address
+        + RewardWithdrawAddress types.Address
+
+    }
+    class ParamReward << (S,Aquamarine) >> {
+        + Gid types.Gid
+        + SbpName string
+        + ReceiveAddress types.Address
+
+    }
+    class ParamStakeV3 << (S,Aquamarine) >> {
+        + StakeAddress types.Address
+        + Beneficiary types.Address
+        + StakeHeight uint64
+
+    }
+    class ParamTransferOwnership << (S,Aquamarine) >> {
+        + TokenId types.TokenTypeId
+        + NewOwner types.Address
+
+    }
+    class ParamVote << (S,Aquamarine) >> {
+        + Gid types.Gid
+        + SbpName string
+
+    }
+    interface StorageDatabase  {
+        + GetValue(key []byte) ([]byte, error)
+        + NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
+        + Address() *types.Address
+
+    }
+    class VariableRegisterStakeParam << (S,Aquamarine) >> {
+        + StakeAmount *big.Int
+        + StakeToken types.TokenTypeId
+        + StakeHeight uint64
+
+    }
+    class VariableStakeBeneficial << (S,Aquamarine) >> {
+        + Amount *big.Int
+
+    }
+}
+
+
+namespace contracts {
+    interface BuiltinContractMethod  {
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+
+    }
+    class MethodBurn << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodBurn2 << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodCancelDelegateStake << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodCancelStake << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodCancelStakeV3 << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodCancelVote << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDelegateStake << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexAgentDeposit << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexAssignedWithdraw << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexCancelOrderBySendHash << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexCommonAdminConfig << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundBindInviteCode << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundCancelDelegateStakeCallback << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundCancelDelegateStakeCallbackV2 << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundCancelStakeById << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundConfigMarketAgents << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundCreateNewInviter << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundDelegateStakeCallback << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundDelegateStakeCallbackV2 << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundDeposit << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundDexAdminConfig << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundEndorseVx << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundGetTokenInfoCallback << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundLockVxForDividend << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundMarketAdminConfig << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundNotifyTime << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundOpenNewMarket << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundPlaceAgentOrder << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundPlaceOrder << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundSettleMakerMinedVx << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundSettleOrders << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundStakeForMining << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundStakeForPrincipalSVIP << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundStakeForSVIP << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundStakeForVIP << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundSwitchConfig << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundTradeAdminConfig << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundTransferTokenOwnership << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundTriggerPeriodJob << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexFundWithdraw << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexTradeCancelOrder << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexTradeCancelOrderByTransactionHash << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexTradeClearExpiredOrders << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexTradeInnerCancelOrderBySendHash << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexTradePlaceOrder << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexTradeSyncNewMarket << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDexTransfer << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodDisableReIssue << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodGetTokenInfo << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodIssue << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodReIssue << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodRegister << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodRevoke << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodStake << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodStakeV3 << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodTransferOwnership << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodUpdateBlockProducingAddress << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodUpdateRewardWithdrawAddress << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodVote << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class MethodWithdrawReward << (S,Aquamarine) >> {
+        + MethodName string
+
+        + GetFee(block *core.AccountBlock) (*big.Int, error)
+        + GetRefundData(sendBlock *core.AccountBlock, sbHeight uint64) ([]byte, bool)
+        + GetSendQuota(data []byte, gasTable *util.QuotaTable) (uint64, error)
+        + GetReceiveQuota(gasTable *util.QuotaTable) uint64
+        + DoSend(db interfaces.VmDb, block *core.AccountBlock) error
+        + DoReceive(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, vm vmEnvironment) ([]*core.AccountBlock, error)
+
+    }
+    class Reward << (S,Aquamarine) >> {
+        + VoteReward *big.Int
+        + BlockReward *big.Int
+        + TotalReward *big.Int
+        + BlockNum uint64
+        + ExpectedBlockNum uint64
+
+        - add(a *Reward) 
+
+    }
+    class builtinContract << (S,Aquamarine) >> {
+        - m <font color=blue>map</font>[string]BuiltinContractMethod
+        - abi abi.ABIContract
+
+    }
+    class contractsParams << (S,Aquamarine) >> {
+        + StakeHeight uint64
+        + DexVipStakeHeight uint64
+        + DexSuperVipStakeHeight uint64
+
+    }
+    class nodeConfigParams << (S,Aquamarine) >> {
+        - params contractsParams
+
+    }
+    interface vmEnvironment  {
+        + GlobalStatus() util.GlobalStatus
+        + ConsensusReader() util.ConsensusReader
+
+    }
+}
+
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodBurn"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodBurn2"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodCancelDelegateStake"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodCancelStake"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodCancelStakeV3"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodCancelVote"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDelegateStake"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexAgentDeposit"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexAssignedWithdraw"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexCancelOrderBySendHash"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexCommonAdminConfig"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundBindInviteCode"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundCancelDelegateStakeCallback"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundCancelDelegateStakeCallbackV2"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundCancelStakeById"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundConfigMarketAgents"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundCreateNewInviter"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundDelegateStakeCallback"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundDelegateStakeCallbackV2"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundDeposit"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundDexAdminConfig"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundEndorseVx"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundGetTokenInfoCallback"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundLockVxForDividend"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundMarketAdminConfig"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundNotifyTime"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundOpenNewMarket"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundPlaceAgentOrder"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundPlaceOrder"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundSettleMakerMinedVx"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundSettleOrders"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundStakeForMining"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundStakeForPrincipalSVIP"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundStakeForSVIP"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundStakeForVIP"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundSwitchConfig"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundTradeAdminConfig"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundTransferTokenOwnership"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundTriggerPeriodJob"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexFundWithdraw"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexTradeCancelOrder"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexTradeCancelOrderByTransactionHash"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexTradeClearExpiredOrders"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexTradeInnerCancelOrderBySendHash"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexTradePlaceOrder"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexTradeSyncNewMarket"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDexTransfer"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodDisableReIssue"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodGetTokenInfo"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodIssue"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodReIssue"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodRegister"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodRevoke"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodStake"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodStakeV3"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodTransferOwnership"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodUpdateBlockProducingAddress"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodUpdateRewardWithdrawAddress"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodVote"
+"contracts.BuiltinContractMethod" <|-- "contracts.MethodWithdrawReward"
+
+namespace dex {
+    class Account << (S,Aquamarine) >> {
+        + Token types.TokenTypeId
+        + Available *big.Int
+        + Locked *big.Int
+        + VxLocked *big.Int
+        + VxUnlocking *big.Int
+        + CancellingStake *big.Int
+
+        + Serialize() *proto.Account
+        + Deserialize(pb *proto.Account) 
+
+    }
+    class AccountSettleSorter << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class AmountWithToken << (S,Aquamarine) >> {
+        + Token types.TokenTypeId
+        + Amount *big.Int
+        + Deleted bool
+
+    }
+    class AmountWithTokenSorter << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class BurnViteEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class CancelStakes << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class DelegateStakeAddressIndex << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class DelegateStakeInfo << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    interface DexEvent  {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes( []byte) error
+
+    }
+    class DexFeesByPeriod << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class ErrEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class FeeDividendEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class FeeSettleSorter << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class Fund << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(fundData []byte) error
+
+    }
+    class FundSettleSorter << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class FundVerifyItem << (S,Aquamarine) >> {
+        + TokenId types.TokenTypeId
+        + Balance string
+        + Amount string
+        + UserAmount string
+        + FeeAmount string
+        + FeeOccupy string
+        + BalanceMatched bool
+
+    }
+    class FundVerifyRes << (S,Aquamarine) >> {
+        + UserCount int
+        + BalanceMatched bool
+        + VerifyItems <font color=blue>map</font>[types.TokenTypeId]*FundVerifyItem
+
+    }
+    class GrantMarketToAgentEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class InviteRelationEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class MarketEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class MarketInfo << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class Matcher << (S,Aquamarine) >> {
+        - db interfaces.VmDb
+        - fundSettles <font color=blue>map</font>[types.Address]<font color=blue>map</font>[bool]*proto.AccountSettle
+        - feeSettles <font color=blue>map</font>[types.Address]*proto.FeeSettle
+
+        + MarketInfo *MarketInfo
+
+        - doMatchTaker(taker *Order, makerBook *levelDbBook, preHash types.Hash) error
+        - recursiveTakeOrder(taker *Order, maker *Order, makerBook *levelDbBook, modifiedMakers *[]*Order, txs *[]*OrderTx, isDexFeeFork bool) error
+        - handleTakerRes(taker *Order) 
+        - handleModifiedMakers(makers []*Order) 
+        - handleRefund(order *Order) 
+        - emitNewOrder(taker Order) 
+        - emitOrderUpdate(order Order) 
+        - handleTxs(txs []*OrderTx) 
+        - handleTxFundSettle(tx OrderTx) 
+        - updateFundSettle(addressBytes []byte, settle proto.AccountSettle) 
+        - updateFee(address []byte, feeAmt []byte, operatorFee []byte) 
+        - getOrderBookForTaker(takerSide bool) (*levelDbBook, error)
+        - saveOrder(order Order, isTaker bool) 
+        - deleteOrder(order *Order) 
+
+        + MatchOrder(taker *Order, preHash types.Hash) error
+        + GetFundSettles() <font color=blue>map</font>[types.Address]<font color=blue>map</font>[bool]*proto.AccountSettle
+        + GetFees() <font color=blue>map</font>[types.Address]*proto.FeeSettle
+        + GetOrderById(orderId []byte) (*Order, error)
+        + GetOrdersFromMarket(side bool, begin int, end int) ([]*Order, int, error)
+        + CancelOrderById(order *Order) 
+
+    }
+    class MinedVxForInviteeFeeEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class MinedVxForOperationEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class MinedVxForStakingEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class MinedVxForTradeFeeEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class MiningStakings << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class NewOrderEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class OperatorFeeDividendEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class OperatorFeesByPeriod << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class Order << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(orderData []byte) error
+        + SerializeCompact() ([]byte, error)
+        + DeSerializeCompact(orderData []byte, orderId []byte) error
+        + RenderOrderById(orderId []byte) error
+
+    }
+    class OrderTx << (S,Aquamarine) >> {
+        - takerAddress []byte
+        - makerAddress []byte
+        - tradeToken []byte
+        - quoteToken []byte
+
+    }
+    class OrderUpdateEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class ParamAssignedWithdraw << (S,Aquamarine) >> {
+        + Target types.Address
+        + Token types.TokenTypeId
+        + Amount *big.Int
+        + Label []byte
+
+    }
+    class ParamCancelOrderByHash << (S,Aquamarine) >> {
+        + SendHash types.Hash
+        + Principal types.Address
+        + TradeToken types.TokenTypeId
+        + QuoteToken types.TokenTypeId
+
+    }
+    class ParamCancelStakeById << (S,Aquamarine) >> {
+        + Id types.Hash
+
+    }
+    class ParamCommonAdminConfig << (S,Aquamarine) >> {
+        + OperationCode uint8
+        + TradeToken types.TokenTypeId
+        + QuoteToken types.TokenTypeId
+        + Enable bool
+        + Value int32
+        + Amount *big.Int
+        + Address types.Address
+
+    }
+    class ParamConfigMarketAgents << (S,Aquamarine) >> {
+        + ActionType uint8
+        + Agent types.Address
+        + TradeTokens []types.TokenTypeId
+        + QuoteTokens []types.TokenTypeId
+
+    }
+    class ParamDelegateStakeCallback << (S,Aquamarine) >> {
+        + StakeAddress types.Address
+        + Beneficiary types.Address
+        + Amount *big.Int
+        + Bid uint8
+        + Success bool
+
+    }
+    class ParamDelegateStakeCallbackV2 << (S,Aquamarine) >> {
+        + Id types.Hash
+        + Success bool
+
+    }
+    class ParamDexAdminConfig << (S,Aquamarine) >> {
+        + OperationCode uint8
+        + Owner types.Address
+        + TimeOracle types.Address
+        + PeriodJobTrigger types.Address
+        + StopDex bool
+        + MakerMiningAdmin types.Address
+        + Maintainer types.Address
+
+    }
+    class ParamDexCancelOrder << (S,Aquamarine) >> {
+        + OrderId []byte
+
+    }
+    class ParamDexInnerCancelOrder << (S,Aquamarine) >> {
+        + SendHash types.Hash
+        + Owner types.Address
+
+    }
+    class ParamGetTokenInfoCallback << (S,Aquamarine) >> {
+        + TokenId types.TokenTypeId
+        + Bid uint8
+        + Exist bool
+        + Decimals uint8
+        + TokenSymbol string
+        + Index uint16
+        + Owner types.Address
+
+    }
+    class ParamLockVxForDividend << (S,Aquamarine) >> {
+        + ActionType uint8
+        + Amount *big.Int
+
+    }
+    class ParamMarketAdminConfig << (S,Aquamarine) >> {
+        + OperationCode uint8
+        + TradeToken types.TokenTypeId
+        + QuoteToken types.TokenTypeId
+        + MarketOwner types.Address
+        + TakerFeeRate int32
+        + MakerFeeRate int32
+        + StopMarket bool
+
+    }
+    class ParamNotifyTime << (S,Aquamarine) >> {
+        + Timestamp int64
+
+    }
+    class ParamOpenNewMarket << (S,Aquamarine) >> {
+        + TradeToken types.TokenTypeId
+        + QuoteToken types.TokenTypeId
+
+    }
+    class ParamPlaceAgentOrder << (S,Aquamarine) >> {
+        + Principal types.Address
+
+    }
+    class ParamPlaceOrder << (S,Aquamarine) >> {
+        + TradeToken types.TokenTypeId
+        + QuoteToken types.TokenTypeId
+        + Side bool
+        + OrderType uint8
+        + Price string
+        + Quantity *big.Int
+
+    }
+    class ParamSerializedData << (S,Aquamarine) >> {
+        + Data []byte
+
+    }
+    class ParamStakeForMining << (S,Aquamarine) >> {
+        + ActionType uint8
+        + Amount *big.Int
+
+    }
+    class ParamStakeForVIP << (S,Aquamarine) >> {
+        + ActionType uint8
+
+    }
+    class ParamSwitchConfig << (S,Aquamarine) >> {
+        + SwitchType uint8
+        + Enable bool
+
+    }
+    class ParamTradeAdminConfig << (S,Aquamarine) >> {
+        + OperationCode uint8
+        + TradeToken types.TokenTypeId
+        + QuoteToken types.TokenTypeId
+        + AllowMining bool
+        + NewQuoteToken types.TokenTypeId
+        + QuoteTokenType uint8
+        + TokenTypeForTradeThreshold uint8
+        + MinTradeThreshold *big.Int
+        + TokenTypeForMiningThreshold uint8
+        + MinMiningThreshold *big.Int
+
+    }
+    class ParamTransferConfig << (S,Aquamarine) >> {
+        + Target types.Address
+        + Token types.TokenTypeId
+        + Amount *big.Int
+
+    }
+    class ParamTransferTokenOwnership << (S,Aquamarine) >> {
+        + Token types.TokenTypeId
+        + NewOwner types.Address
+
+    }
+    class ParamTriggerPeriodJob << (S,Aquamarine) >> {
+        + PeriodId uint64
+        + BizType uint8
+
+    }
+    class ParamWithdraw << (S,Aquamarine) >> {
+        + Token types.TokenTypeId
+        + Amount *big.Int
+
+    }
+    class PendingNewMarkets << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class PendingSetQuotes << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class PendingTransferTokenOwnerActions << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class PeriodJobWithBizEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class QuoteTokenTypeInfo << (S,Aquamarine) >> {
+        + Decimals int32
+        + DefaultTradeThreshold *big.Int
+        + DefaultMineThreshold *big.Int
+        + DefaultMarketOrderAmtThreshold *big.Int
+
+    }
+    class RevokeMarketFromAgentEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class SerialNo << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    interface SerializableDex  {
+        + Serialize() ([]byte, error)
+        + DeSerialize( []byte) error
+
+    }
+    class SettleMakerMinedVxEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class TokenEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class TokenInfo << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class TransactionEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class TransferAssetEvent << (S,Aquamarine) >> {
+        - toDataBytes() []byte
+
+        + GetTopicId() types.Hash
+        + FromBytes(data []byte) error
+
+    }
+    class UserFees << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(userFeesData []byte) error
+
+    }
+    class VIPStaking << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class VxFunds << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(vxFundsData []byte) error
+
+    }
+    class VxUnlocks << (S,Aquamarine) >> {
+        + Serialize() ([]byte, error)
+        + DeSerialize(data []byte) error
+
+    }
+    class dex.AccountSettleSorter << (T, #FF7700) >>  {
+    }
+    class dex.AmountWithTokenSorter << (T, #FF7700) >>  {
+    }
+    class dex.FeeSettleSorter << (T, #FF7700) >>  {
+    }
+    class dex.FundSettleSorter << (T, #FF7700) >>  {
+    }
+    class levelDbBook << (S,Aquamarine) >> {
+        - db interfaces.VmDb
+        - marketId int32
+        - side bool
+        - iterator interfaces.StorageIterator
+
+        - nextOrder() (*Order, bool)
+        - release() 
+
+    }
+    class mineRate << (S,Aquamarine) >> {
+        - totalRate string
+        - total uint32
+        - fields []mineRateField
+
+    }
+    class mineRateField << (S,Aquamarine) >> {
+        - field int32
+        - rate uint32
+
+    }
+    class "[]*proto.AccountSettle" as protoAccountSettle {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+    class "[]*proto.FeeSettle" as protoFeeSettle {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+    class "[]*proto.FundSettle" as protoFundSettle {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+"proto.BurnVite" *-- "dex.BurnViteEvent"
+"proto.CancelStakes" *-- "dex.CancelStakes"
+"proto.DelegateStakeAddressIndex" *-- "dex.DelegateStakeAddressIndex"
+"proto.DelegateStakeInfo" *-- "dex.DelegateStakeInfo"
+"proto.DexFeesByPeriod" *-- "dex.DexFeesByPeriod"
+"__builtin__.error" *-- "dex.ErrEvent"
+"proto.FeeDividendForVxHolder" *-- "dex.FeeDividendEvent"
+"proto.Fund" *-- "dex.Fund"
+"proto.MarketAgentRelation" *-- "dex.GrantMarketToAgentEvent"
+"proto.InviteRelation" *-- "dex.InviteRelationEvent"
+"proto.MarketInfo" *-- "dex.MarketEvent"
+"proto.MarketInfo" *-- "dex.MarketInfo"
+"proto.MinedVxForFee" *-- "dex.MinedVxForInviteeFeeEvent"
+"proto.MinedVxForOperation" *-- "dex.MinedVxForOperationEvent"
+"proto.MinedVxForStaking" *-- "dex.MinedVxForStakingEvent"
+"proto.MinedVxForFee" *-- "dex.MinedVxForTradeFeeEvent"
+"proto.MiningStakings" *-- "dex.MiningStakings"
+"proto.NewOrderInfo" *-- "dex.NewOrderEvent"
+"proto.OperatorFeeDividend" *-- "dex.OperatorFeeDividendEvent"
+"proto.OperatorFeesByPeriod" *-- "dex.OperatorFeesByPeriod"
+"proto.Order" *-- "dex.Order"
+"proto.Transaction" *-- "dex.OrderTx"
+"proto.OrderUpdateInfo" *-- "dex.OrderUpdateEvent"
+"dex.ParamPlaceOrder" *-- "dex.ParamPlaceAgentOrder"
+"proto.PendingNewMarkets" *-- "dex.PendingNewMarkets"
+"proto.PendingSetQuoteTokenActions" *-- "dex.PendingSetQuotes"
+"proto.PendingTransferTokenOwnerActions" *-- "dex.PendingTransferTokenOwnerActions"
+"proto.PeriodJobForBiz" *-- "dex.PeriodJobWithBizEvent"
+"proto.MarketAgentRelation" *-- "dex.RevokeMarketFromAgentEvent"
+"proto.SerialNo" *-- "dex.SerialNo"
+"proto.SettleMakerMinedVx" *-- "dex.SettleMakerMinedVxEvent"
+"proto.TokenInfo" *-- "dex.TokenEvent"
+"proto.TokenInfo" *-- "dex.TokenInfo"
+"proto.Transaction" *-- "dex.TransactionEvent"
+"proto.TransferAsset" *-- "dex.TransferAssetEvent"
+"proto.UserFees" *-- "dex.UserFees"
+"proto.VIPStaking" *-- "dex.VIPStaking"
+"proto.VxFunds" *-- "dex.VxFunds"
+"proto.VxUnlocks" *-- "dex.VxUnlocks"
+
+"dex.DexEvent" <|-- "dex.BurnViteEvent"
+"dex.SerializableDex" <|-- "dex.CancelStakes"
+"dex.SerializableDex" <|-- "dex.DelegateStakeAddressIndex"
+"dex.SerializableDex" <|-- "dex.DelegateStakeInfo"
+"dex.SerializableDex" <|-- "dex.DexFeesByPeriod"
+"dex.DexEvent" <|-- "dex.ErrEvent"
+"dex.DexEvent" <|-- "dex.FeeDividendEvent"
+"dex.SerializableDex" <|-- "dex.Fund"
+"dex.DexEvent" <|-- "dex.GrantMarketToAgentEvent"
+"dex.DexEvent" <|-- "dex.InviteRelationEvent"
+"dex.DexEvent" <|-- "dex.MarketEvent"
+"dex.SerializableDex" <|-- "dex.MarketInfo"
+"dex.DexEvent" <|-- "dex.MinedVxForInviteeFeeEvent"
+"dex.DexEvent" <|-- "dex.MinedVxForOperationEvent"
+"dex.DexEvent" <|-- "dex.MinedVxForStakingEvent"
+"dex.DexEvent" <|-- "dex.MinedVxForTradeFeeEvent"
+"dex.SerializableDex" <|-- "dex.MiningStakings"
+"dex.DexEvent" <|-- "dex.NewOrderEvent"
+"dex.DexEvent" <|-- "dex.OperatorFeeDividendEvent"
+"dex.SerializableDex" <|-- "dex.OperatorFeesByPeriod"
+"dex.SerializableDex" <|-- "dex.Order"
+"dex.DexEvent" <|-- "dex.OrderUpdateEvent"
+"dex.SerializableDex" <|-- "dex.PendingNewMarkets"
+"dex.SerializableDex" <|-- "dex.PendingSetQuotes"
+"dex.SerializableDex" <|-- "dex.PendingTransferTokenOwnerActions"
+"dex.DexEvent" <|-- "dex.PeriodJobWithBizEvent"
+"dex.DexEvent" <|-- "dex.RevokeMarketFromAgentEvent"
+"dex.SerializableDex" <|-- "dex.SerialNo"
+"dex.DexEvent" <|-- "dex.SettleMakerMinedVxEvent"
+"dex.DexEvent" <|-- "dex.TokenEvent"
+"dex.SerializableDex" <|-- "dex.TokenInfo"
+"dex.DexEvent" <|-- "dex.TransactionEvent"
+"dex.DexEvent" <|-- "dex.TransferAssetEvent"
+"dex.SerializableDex" <|-- "dex.UserFees"
+"dex.SerializableDex" <|-- "dex.VIPStaking"
+"dex.SerializableDex" <|-- "dex.VxFunds"
+"dex.SerializableDex" <|-- "dex.VxUnlocks"
+
+namespace proto {
+    class Account << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Token []byte
+        + Available []byte
+        + Locked []byte
+        + VxLocked []byte
+        + VxUnlocking []byte
+        + CancellingStake []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetToken() []byte
+        + GetAvailable() []byte
+        + GetLocked() []byte
+        + GetVxLocked() []byte
+        + GetVxUnlocking() []byte
+        + GetCancellingStake() []byte
+
+    }
+    class AccountSettle << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + IsTradeToken bool
+        + IncAvailable []byte
+        + ReduceLocked []byte
+        + ReleaseLocked []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetIsTradeToken() bool
+        + GetIncAvailable() []byte
+        + GetReduceLocked() []byte
+        + GetReleaseLocked() []byte
+
+    }
+    class BurnVite << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + BizType int32
+        + Amount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetBizType() int32
+        + GetAmount() []byte
+
+    }
+    class CancelStake << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + PeriodId uint64
+        + Amount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPeriodId() uint64
+        + GetAmount() []byte
+
+    }
+    class CancelStakes << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Cancels []*CancelStake
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetCancels() []*CancelStake
+
+    }
+    class DelegateStakeAddressIndex << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Id []byte
+        + StakeType int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetId() []byte
+        + GetStakeType() int32
+
+    }
+    class DelegateStakeInfo << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + StakeType int32
+        + Address []byte
+        + Principal []byte
+        + Amount []byte
+        + Status int32
+        + SerialNo uint64
+        + Id []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetStakeType() int32
+        + GetAddress() []byte
+        + GetPrincipal() []byte
+        + GetAmount() []byte
+        + GetStatus() int32
+        + GetSerialNo() uint64
+        + GetId() []byte
+
+    }
+    class DexFeesByPeriod << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + FeesForDividend []*FeeForDividend
+        + FeesForMine []*FeeForMine
+        + LastValidPeriod uint64
+        + FinishDividend bool
+        + FinishMine bool
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetFeesForDividend() []*FeeForDividend
+        + GetFeesForMine() []*FeeForMine
+        + GetLastValidPeriod() uint64
+        + GetFinishDividend() bool
+        + GetFinishMine() bool
+
+    }
+    class FeeAccount << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + QuoteTokenType int32
+        + BaseAmount []byte
+        + InviteBonusAmount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetQuoteTokenType() int32
+        + GetBaseAmount() []byte
+        + GetInviteBonusAmount() []byte
+
+    }
+    class FeeDividendForVxHolder << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Address []byte
+        + VxAmount []byte
+        + FeeToken []byte
+        + FeeDividend []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetAddress() []byte
+        + GetVxAmount() []byte
+        + GetFeeToken() []byte
+        + GetFeeDividend() []byte
+
+    }
+    class FeeForDividend << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Token []byte
+        + DividendPoolAmount []byte
+        + NotRoll bool
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetToken() []byte
+        + GetDividendPoolAmount() []byte
+        + GetNotRoll() bool
+
+    }
+    class FeeForMine << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + QuoteTokenType int32
+        + BaseAmount []byte
+        + InviteBonusAmount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetQuoteTokenType() int32
+        + GetBaseAmount() []byte
+        + GetInviteBonusAmount() []byte
+
+    }
+    class FeeSettle << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Address []byte
+        + BaseFee []byte
+        + OperatorFee []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetAddress() []byte
+        + GetBaseFee() []byte
+        + GetOperatorFee() []byte
+
+    }
+    class FeesByPeriod << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Fees []*FeeAccount
+        + Period uint64
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetFees() []*FeeAccount
+        + GetPeriod() uint64
+
+    }
+    class Fund << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Address []byte
+        + Accounts []*Account
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetAddress() []byte
+        + GetAccounts() []*Account
+
+    }
+    class FundSettle << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Address []byte
+        + AccountSettles []*AccountSettle
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetAddress() []byte
+        + GetAccountSettles() []*AccountSettle
+
+    }
+    class InviteRelation << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Inviter []byte
+        + Invitee []byte
+        + InviteCode uint32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetInviter() []byte
+        + GetInvitee() []byte
+        + GetInviteCode() uint32
+
+    }
+    class MarketAgentRelation << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Principal []byte
+        + Agent []byte
+        + MarketId int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPrincipal() []byte
+        + GetAgent() []byte
+        + GetMarketId() int32
+
+    }
+    class MarketInfo << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + MarketId int32
+        + MarketSymbol string
+        + TradeToken []byte
+        + QuoteToken []byte
+        + QuoteTokenType int32
+        + TradeTokenDecimals int32
+        + QuoteTokenDecimals int32
+        + TakerOperatorFeeRate int32
+        + MakerOperatorFeeRate int32
+        + AllowMining bool
+        + Valid bool
+        + Owner []byte
+        + Creator []byte
+        + Stopped bool
+        + Timestamp int64
+        + StableMarket bool
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetMarketId() int32
+        + GetMarketSymbol() string
+        + GetTradeToken() []byte
+        + GetQuoteToken() []byte
+        + GetQuoteTokenType() int32
+        + GetTradeTokenDecimals() int32
+        + GetQuoteTokenDecimals() int32
+        + GetTakerOperatorFeeRate() int32
+        + GetMakerOperatorFeeRate() int32
+        + GetAllowMining() bool
+        + GetValid() bool
+        + GetOwner() []byte
+        + GetCreator() []byte
+        + GetStopped() bool
+        + GetTimestamp() int64
+        + GetStableMarket() bool
+
+    }
+    class MinedVxForFee << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Address []byte
+        + QuoteTokenType int32
+        + FeeAmount []byte
+        + MinedAmount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetAddress() []byte
+        + GetQuoteTokenType() int32
+        + GetFeeAmount() []byte
+        + GetMinedAmount() []byte
+
+    }
+    class MinedVxForOperation << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + BizType int32
+        + Address []byte
+        + Amount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetBizType() int32
+        + GetAddress() []byte
+        + GetAmount() []byte
+
+    }
+    class MinedVxForStaking << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Address []byte
+        + StakedAmount []byte
+        + MinedAmount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetAddress() []byte
+        + GetStakedAmount() []byte
+        + GetMinedAmount() []byte
+
+    }
+    class MiningStakingByPeriod << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Period uint64
+        + Amount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPeriod() uint64
+        + GetAmount() []byte
+
+    }
+    class MiningStakings << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Stakings []*MiningStakingByPeriod
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetStakings() []*MiningStakingByPeriod
+
+    }
+    class NewMarketAction << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + TradeToken []byte
+        + QuoteTokens [][]byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetTradeToken() []byte
+        + GetQuoteTokens() [][]byte
+
+    }
+    class NewOrderInfo << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Order *Order
+        + TradeToken []byte
+        + QuoteToken []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetOrder() *Order
+        + GetTradeToken() []byte
+        + GetQuoteToken() []byte
+
+    }
+    class OperatorFeeAccount << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Token []byte
+        + MarketFees []*OperatorMarketFee
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetToken() []byte
+        + GetMarketFees() []*OperatorMarketFee
+
+    }
+    class OperatorFeeDividend << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Address []byte
+        + MarketId int32
+        + TakerOperatorFeeRate int32
+        + MakerOperatorFeeRate int32
+        + Amount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetAddress() []byte
+        + GetMarketId() int32
+        + GetTakerOperatorFeeRate() int32
+        + GetMakerOperatorFeeRate() int32
+        + GetAmount() []byte
+
+    }
+    class OperatorFeesByPeriod << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + OperatorFees []*OperatorFeeAccount
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetOperatorFees() []*OperatorFeeAccount
+
+    }
+    class OperatorMarketFee << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + MarketId int32
+        + TakerOperatorFeeRate int32
+        + MakerOperatorFeeRate int32
+        + Amount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetMarketId() int32
+        + GetTakerOperatorFeeRate() int32
+        + GetMakerOperatorFeeRate() int32
+        + GetAmount() []byte
+
+    }
+    class Order << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Id []byte
+        + Address []byte
+        + MarketId int32
+        + Side bool
+        + Type int32
+        + Price []byte
+        + TakerFeeRate int32
+        + MakerFeeRate int32
+        + TakerOperatorFeeRate int32
+        + MakerOperatorFeeRate int32
+        + Quantity []byte
+        + Amount []byte
+        + LockedBuyFee []byte
+        + Status int32
+        + CancelReason int32
+        + ExecutedQuantity []byte
+        + ExecutedAmount []byte
+        + ExecutedBaseFee []byte
+        + ExecutedOperatorFee []byte
+        + RefundToken []byte
+        + RefundQuantity []byte
+        + Timestamp int64
+        + Agent []byte
+        + SendHash []byte
+        + MarketOrderAmtThreshold []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetId() []byte
+        + GetAddress() []byte
+        + GetMarketId() int32
+        + GetSide() bool
+        + GetType() int32
+        + GetPrice() []byte
+        + GetTakerFeeRate() int32
+        + GetMakerFeeRate() int32
+        + GetTakerOperatorFeeRate() int32
+        + GetMakerOperatorFeeRate() int32
+        + GetQuantity() []byte
+        + GetAmount() []byte
+        + GetLockedBuyFee() []byte
+        + GetStatus() int32
+        + GetCancelReason() int32
+        + GetExecutedQuantity() []byte
+        + GetExecutedAmount() []byte
+        + GetExecutedBaseFee() []byte
+        + GetExecutedOperatorFee() []byte
+        + GetRefundToken() []byte
+        + GetRefundQuantity() []byte
+        + GetTimestamp() int64
+        + GetAgent() []byte
+        + GetSendHash() []byte
+        + GetMarketOrderAmtThreshold() []byte
+
+    }
+    class OrderUpdateInfo << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Id []byte
+        + TradeToken []byte
+        + QuoteToken []byte
+        + Status int32
+        + CancelReason int32
+        + ExecutedQuantity []byte
+        + ExecutedAmount []byte
+        + ExecutedBaseFee []byte
+        + ExecutedOperatorFee []byte
+        + RefundToken []byte
+        + RefundQuantity []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetId() []byte
+        + GetTradeToken() []byte
+        + GetQuoteToken() []byte
+        + GetStatus() int32
+        + GetCancelReason() int32
+        + GetExecutedQuantity() []byte
+        + GetExecutedAmount() []byte
+        + GetExecutedBaseFee() []byte
+        + GetExecutedOperatorFee() []byte
+        + GetRefundToken() []byte
+        + GetRefundQuantity() []byte
+
+    }
+    class PendingNewMarkets << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + PendingActions []*NewMarketAction
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPendingActions() []*NewMarketAction
+
+    }
+    class PendingSetQuoteTokenActions << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + PendingActions []*SetQuoteTokenAction
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPendingActions() []*SetQuoteTokenAction
+
+    }
+    class PendingTransferTokenOwnerActions << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + PendingActions []*TransferTokenOwnerAction
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPendingActions() []*TransferTokenOwnerAction
+
+    }
+    class PeriodJobForBiz << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Period uint64
+        + BizType int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPeriod() uint64
+        + GetBizType() int32
+
+    }
+    class SerialNo << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + No int32
+        + Timestamp int64
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetNo() int32
+        + GetTimestamp() int64
+
+    }
+    class SetQuoteTokenAction << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Token []byte
+        + QuoteTokenType int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetToken() []byte
+        + GetQuoteTokenType() int32
+
+    }
+    class SettleActions << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + TradeToken []byte
+        + QuoteToken []byte
+        + FundActions []*FundSettle
+        + FeeActions []*FeeSettle
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetTradeToken() []byte
+        + GetQuoteToken() []byte
+        + GetFundActions() []*FundSettle
+        + GetFeeActions() []*FeeSettle
+
+    }
+    class SettleMakerMinedVx << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + PeriodId uint64
+        + Page int32
+        + Finish bool
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPeriodId() uint64
+        + GetPage() int32
+        + GetFinish() bool
+
+    }
+    class TokenInfo << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + TokenId []byte
+        + Decimals int32
+        + Symbol string
+        + Index int32
+        + Owner []byte
+        + QuoteTokenType int32
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetTokenId() []byte
+        + GetDecimals() int32
+        + GetSymbol() string
+        + GetIndex() int32
+        + GetOwner() []byte
+        + GetQuoteTokenType() int32
+
+    }
+    class Transaction << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Id []byte
+        + TakerSide bool
+        + TakerId []byte
+        + MakerId []byte
+        + Price []byte
+        + Quantity []byte
+        + Amount []byte
+        + TakerFee []byte
+        + MakerFee []byte
+        + TakerOperatorFee []byte
+        + MakerOperatorFee []byte
+        + Timestamp int64
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetId() []byte
+        + GetTakerSide() bool
+        + GetTakerId() []byte
+        + GetMakerId() []byte
+        + GetPrice() []byte
+        + GetQuantity() []byte
+        + GetAmount() []byte
+        + GetTakerFee() []byte
+        + GetMakerFee() []byte
+        + GetTakerOperatorFee() []byte
+        + GetMakerOperatorFee() []byte
+        + GetTimestamp() int64
+
+    }
+    class TransferAsset << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + BizType int32
+        + From []byte
+        + To []byte
+        + Token []byte
+        + Amount []byte
+        + Extra []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetBizType() int32
+        + GetFrom() []byte
+        + GetTo() []byte
+        + GetToken() []byte
+        + GetAmount() []byte
+        + GetExtra() []byte
+
+    }
+    class TransferTokenOwnerAction << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Token []byte
+        + Origin []byte
+        + New []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetToken() []byte
+        + GetOrigin() []byte
+        + GetNew() []byte
+
+    }
+    class UserFees << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Fees []*FeesByPeriod
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetFees() []*FeesByPeriod
+
+    }
+    class VIPStaking << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Timestamp int64
+        + StakedTimes int32
+        + StakingHashes [][]byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetTimestamp() int64
+        + GetStakedTimes() int32
+        + GetStakingHashes() [][]byte
+
+    }
+    class VxFundByPeriod << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Period uint64
+        + Amount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPeriod() uint64
+        + GetAmount() []byte
+
+    }
+    class VxFunds << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Funds []*VxFundByPeriod
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetFunds() []*VxFundByPeriod
+
+    }
+    class VxSettleAction << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Address []byte
+        + Amount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetAddress() []byte
+        + GetAmount() []byte
+
+    }
+    class VxSettleActions << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Period uint64
+        + Page int32
+        + Actions []*VxSettleAction
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPeriod() uint64
+        + GetPage() int32
+        + GetActions() []*VxSettleAction
+
+    }
+    class VxUnlock << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + PeriodId uint64
+        + Amount []byte
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetPeriodId() uint64
+        + GetAmount() []byte
+
+    }
+    class VxUnlocks << (S,Aquamarine) >> {
+        - state protoimpl.MessageState
+        - sizeCache protoimpl.SizeCache
+        - unknownFields protoimpl.UnknownFields
+
+        + Unlocks []*VxUnlock
+
+        + Reset() 
+        + String() string
+        + ProtoMessage() 
+        + ProtoReflect() protoreflect.Message
+        + Descriptor() ([]byte, []int)
+        + GetUnlocks() []*VxUnlock
+
+    }
+}
+
+
+namespace quota {
+    class quotaConfigParams << (S,Aquamarine) >> {
+        - difficultyList []*big.Int
+        - stakeAmountList []*big.Int
+        - qcIndexMin uint64
+        - qcIndexMax uint64
+        - qcMap <font color=blue>map</font>[uint64]*big.Int
+        - calcQuotaFunc <font color=blue>func</font>(quotaDb, types.Address, *big.Int, *big.Int, uint64) (uint64, bool, uint64, error)
+
+    }
+    interface quotaDb  {
+        + GetGlobalQuota() types.QuotaInfo
+        + GetQuotaUsedList(address types.Address) []types.QuotaInfo
+        + GetUnconfirmedBlocks(address types.Address) []*core.AccountBlock
+        + GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
+        + GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+
+    }
+}
+
+
+namespace util {
+    interface ConsensusReader  {
+        + GetIndexByStartTime(t int64, genesisTime int64) (uint64, int64, bool)
+        + GetIndexByEndTime(t int64, genesisTime int64) (uint64, int64, bool)
+        + GetIndexByTime(t int64, genesisTime int64) uint64
+        + GetEndTimeByIndex(index uint64) int64
+        + GetConsensusDetailByDay(startIndex uint64, endIndex uint64) ([]*core.DayStats, error)
+
+    }
+    interface GlobalStatus  {
+        + Seed() (uint64, error)
+        + Random() (uint64, error)
+        + SnapshotBlock() *core.SnapshotBlock
+
+    }
+    class IntPool << (S,Aquamarine) >> {
+        - pool *stack
+
+        + Get() *big.Int
+        + GetZero() *big.Int
+        + Put(is ...*big.Int) 
+
+    }
+    class QuotaTable << (S,Aquamarine) >> {
+        + AddQuota uint64
+        + MulQuota uint64
+        + SubQuota uint64
+        + DivQuota uint64
+        + SDivQuota uint64
+        + ModQuota uint64
+        + SModQuota uint64
+        + AddModQuota uint64
+        + MulModQuota uint64
+        + ExpQuota uint64
+        + ExpByteQuota uint64
+        + SignExtendQuota uint64
+        + LtQuota uint64
+        + GtQuota uint64
+        + SltQuota uint64
+        + SgtQuota uint64
+        + EqQuota uint64
+        + IsZeroQuota uint64
+        + AndQuota uint64
+        + OrQuota uint64
+        + XorQuota uint64
+        + NotQuota uint64
+        + ByteQuota uint64
+        + ShlQuota uint64
+        + ShrQuota uint64
+        + SarQuota uint64
+        + Blake2bQuota uint64
+        + Blake2bWordQuota uint64
+        + AddressQuota uint64
+        + BalanceQuota uint64
+        + CallerQuota uint64
+        + CallValueQuota uint64
+        + CallDataLoadQuota uint64
+        + CallDataSizeQuota uint64
+        + CallDataCopyQuota uint64
+        + MemCopyWordQuota uint64
+        + CodeSizeQuota uint64
+        + CodeCopyQuota uint64
+        + ReturnDataSizeQuota uint64
+        + ReturnDataCopyQuota uint64
+        + TimestampQuota uint64
+        + HeightQuota uint64
+        + TokenIDQuota uint64
+        + AccountHeightQuota uint64
+        + PreviousHashQuota uint64
+        + FromBlockHashQuota uint64
+        + SeedQuota uint64
+        + RandomQuota uint64
+        + PopQuota uint64
+        + MloadQuota uint64
+        + MstoreQuota uint64
+        + Mstore8Quota uint64
+        + SloadQuota uint64
+        + SstoreResetQuota uint64
+        + SstoreInitQuota uint64
+        + SstoreCleanQuota uint64
+        + SstoreNoopQuota uint64
+        + SstoreMemQuota uint64
+        + JumpQuota uint64
+        + JumpiQuota uint64
+        + PcQuota uint64
+        + MsizeQuota uint64
+        + JumpdestQuota uint64
+        + PushQuota uint64
+        + DupQuota uint64
+        + SwapQuota uint64
+        + LogQuota uint64
+        + LogTopicQuota uint64
+        + LogDataQuota uint64
+        + CallMinusQuota uint64
+        + MemQuotaDivision uint64
+        + SnapshotQuota uint64
+        + CodeQuota uint64
+        + MemQuota uint64
+        + TxQuota uint64
+        + TxDataQuota uint64
+        + CreateTxRequestQuota uint64
+        + CreateTxResponseQuota uint64
+        + RegisterQuota uint64
+        + UpdateBlockProducingAddressQuota uint64
+        + UpdateRewardWithdrawAddressQuota uint64
+        + RevokeQuota uint64
+        + WithdrawRewardQuota uint64
+        + VoteQuota uint64
+        + CancelVoteQuota uint64
+        + StakeQuota uint64
+        + CancelStakeQuota uint64
+        + DelegateStakeQuota uint64
+        + CancelDelegateStakeQuota uint64
+        + IssueQuota uint64
+        + ReIssueQuota uint64
+        + BurnQuota uint64
+        + TransferOwnershipQuota uint64
+        + DisableReIssueQuota uint64
+        + GetTokenInfoQuota uint64
+        + DexFundDepositQuota uint64
+        + DexFundWithdrawQuota uint64
+        + DexFundOpenNewMarketQuota uint64
+        + DexFundPlaceOrderQuota uint64
+        + DexFundSettleOrdersQuota uint64
+        + DexFundTriggerPeriodJobQuota uint64
+        + DexFundStakeForMiningQuota uint64
+        + DexFundStakeForVipQuota uint64
+        + DexFundStakeForSuperVIPQuota uint64
+        + DexFundDelegateStakeCallbackQuota uint64
+        + DexFundCancelDelegateStakeCallbackQuota uint64
+        + DexFundGetTokenInfoCallbackQuota uint64
+        + DexFundAdminConfigQuota uint64
+        + DexFundTradeAdminConfigQuota uint64
+        + DexFundMarketAdminConfigQuota uint64
+        + DexFundTransferTokenOwnershipQuota uint64
+        + DexFundNotifyTimeQuota uint64
+        + DexFundCreateNewInviterQuota uint64
+        + DexFundBindInviteCodeQuota uint64
+        + DexFundEndorseVxQuota uint64
+        + DexFundSettleMakerMinedVxQuota uint64
+        + DexFundConfigMarketAgentsQuota uint64
+        + DexFundPlaceAgentOrderQuota uint64
+        + DexFundLockVxForDividendQuota uint64
+        + DexFundSwitchConfigQuota uint64
+        + DexFundStakeForPrincipalSuperVIPQuota uint64
+        + DexFundCancelStakeByIdQuota uint64
+        + DexFundDelegateStakeCallbackV2Quota uint64
+        + DexFundDelegateCancelStakeCallbackV2Quota uint64
+        + DexFundCancelOrderBySendHashQuota uint64
+        + DexFundCommonAdminConfigQuota uint64
+        + DexFundTransferQuota uint64
+        + DexFundAgentDepositQuota uint64
+        + DexFundAssignedWithdrawQuota uint64
+
+    }
+    class VMConsensusReader << (S,Aquamarine) >> {
+        - reader sbpStatReader
+
+        - getIndexByTime(t int64) uint64
+        - getStartTimeByIndex(index uint64) int64
+        - getEndTimeByIndex(index uint64) int64
+
+        + GetIndexByStartTime(t int64, genesisTime int64) (uint64, int64, bool)
+        + GetIndexByEndTime(t int64, genesisTime int64) (uint64, int64, bool)
+        + GetIndexByTime(t int64, genesisTime int64) uint64
+        + GetEndTimeByIndex(index uint64) int64
+        + GetConsensusDetailByDay(startIndex uint64, endIndex uint64) ([]*core.DayStats, error)
+
+    }
+    interface dbInterface  {
+        + GetBalance(tokenTypeID *types.TokenTypeId) (*big.Int, error)
+        + SetBalance(tokenTypeID *types.TokenTypeId, amount *big.Int) 
+        + GetValue(key []byte) ([]byte, error)
+        + SetValue(key []byte, value []byte) error
+        + LatestSnapshotBlock() (*core.SnapshotBlock, error)
+        + Address() *types.Address
+        + GetContractCode() ([]byte, error)
+        + GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *core.SnapshotBlock) ([]byte, error)
+
+    }
+    class intPoolPool << (S,Aquamarine) >> {
+        - pools []*IntPool
+        - lock "sync.Mutex
+
+        + Get() *IntPool
+        + Put(ip *IntPool) 
+
+    }
+    interface sbpStatReader  {
+        + DayStats(startIndex uint64, endIndex uint64) ([]*core.DayStats, error)
+        + GetDayTimeIndex() core.TimeIndex
+
+    }
+    class stack << (S,Aquamarine) >> {
+        - data []*big.Int
+
+        - push(d *big.Int) 
+        - pop() *big.Int
+        - len() int
+
+    }
+}
+
+"util.ConsensusReader" <|-- "util.VMConsensusReader"
+
+namespace vm {
+    class VM << (S,Aquamarine) >> {
+        - abort int32
+        - i *interpreter
+        - globalStatus util.GlobalStatus
+        - reader util.ConsensusReader
+        - latestSnapshotHeight uint64
+        - gasTable *util.QuotaTable
+
+        - sendCreate(db interfaces.VmDb, block *core.AccountBlock, useQuota bool, quotaTotal uint64, quotaAddition uint64) (*interfaces.VmAccountBlock, error)
+        - receiveCreate(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, meta *core.ContractMeta) (*interfaces.VmAccountBlock, bool, error)
+        - sendCall(db interfaces.VmDb, block *core.AccountBlock, useQuota bool, quotaTotal uint64, quotaAddition uint64) (*interfaces.VmAccountBlock, error)
+        - receiveCall(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, meta *core.ContractMeta) (*interfaces.VmAccountBlock, bool, error)
+        - sendReward(db interfaces.VmDb, block *core.AccountBlock, useQuota bool, quotaTotal uint64, quotaAddition uint64) (*interfaces.VmAccountBlock, error)
+        - sendRefund(db interfaces.VmDb, block *core.AccountBlock, useQuota bool, quotaTotal uint64, quotaAddition uint64) (*interfaces.VmAccountBlock, error)
+        - receiveReward(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, meta *core.ContractMeta) (*interfaces.VmAccountBlock, bool, error)
+        - receiveRefund(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, meta *core.ContractMeta) (*interfaces.VmAccountBlock, bool, error)
+        - delegateCall(contractAddr types.Address, data []byte, c *contract) ([]byte, error)
+        - updateBlock(db interfaces.VmDb, block *core.AccountBlock, err error, qStakeUsed uint64, qUsed uint64) 
+        - doSendBlockList(db interfaces.VmDb) (interfaces.VmDb, error)
+        - revert(db interfaces.VmDb) 
+
+        + GlobalStatus() util.GlobalStatus
+        + ConsensusReader() util.ConsensusReader
+        + RunV2(db interfaces.VmDb, block *core.AccountBlock, sendBlock *core.AccountBlock, status util.GlobalStatus) (*interfaces.VmAccountBlock, bool, error)
+        + Cancel() 
+        + OffChainReader(db interfaces.VmDb, code []byte, data []byte) ([]byte, error)
+
+    }
+    class bitvec << (S,Aquamarine) >> {
+        - set(pos uint64) 
+        - set8(pos uint64) 
+        - codeSegment(pos uint64) bool
+
+    }
+    class byKey << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class contract << (S,Aquamarine) >> {
+        - jumpdests destinations
+        - data []byte
+        - code []byte
+        - codeAddr types.Address
+        - block *core.AccountBlock
+        - db interfaces.VmDb
+        - sendBlock *core.AccountBlock
+        - quotaLeft uint64
+        - intPool *util.IntPool
+        - returnData []byte
+        - storageModified <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+
+        - getOp(n uint64) opCode
+        - getByte(n uint64) byte
+        - setCallCode(addr types.Address, code []byte) 
+        - run(vm *VM) ([]byte, error)
+
+    }
+    class destinations << (S,Aquamarine) >> {
+        - has(addr types.Address, code []byte, dest *big.Int) bool
+
+    }
+    class interpreter << (S,Aquamarine) >> {
+        - instructionSet []operation
+
+        - runLoop(vm *VM, c *contract) ([]byte, error)
+
+    }
+    class memory << (S,Aquamarine) >> {
+        - store []byte
+        - lastGasCost uint64
+
+        - resize(size uint64) 
+        - len() int
+        - get(offset int64, size int64) []byte
+        - getPtr(offset int64, size int64) []byte
+        - set(offset uint64, size uint64, value []byte) 
+        - set32(offset uint64, val *big.Int) 
+        - print() string
+
+    }
+    class mockDB << (S,Aquamarine) >> {
+        - currentAddr *types.Address
+        - latestSnapshotBlock *core.SnapshotBlock
+        - forkSnapshotBlockMap <font color=blue>map</font>[uint64]*core.SnapshotBlock
+        - prevAccountBlock *core.AccountBlock
+        - quotaInfo []types.QuotaInfo
+        - pledgeBeneficialAmount *big.Int
+        - balanceMap <font color=blue>map</font>[types.TokenTypeId]*big.Int
+        - balanceMapOrigin <font color=blue>map</font>[types.TokenTypeId]*big.Int
+        - storageMap <font color=blue>map</font>[string]string
+        - storageMapOrigin <font color=blue>map</font>[string]string
+        - contractMetaMap <font color=blue>map</font>[types.Address]*core.ContractMeta
+        - contractMetaMapOrigin <font color=blue>map</font>[types.Address]*core.ContractMeta
+        - logList []*core.VmLog
+        - code []byte
+        - genesisBlock *core.SnapshotBlock
+
+        - getContractMetaMap() <font color=blue>map</font>[types.Address]*core.ContractMeta
+        - getStorageMap() <font color=blue>map</font>[string]string
+
+        + Address() *types.Address
+        + LatestSnapshotBlock() (*core.SnapshotBlock, error)
+        + PrevAccountBlock() (*core.AccountBlock, error)
+        + GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
+        + GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
+        + GetQuotaUsedList(addr types.Address) []types.QuotaInfo
+        + GetGlobalQuota() types.QuotaInfo
+        + GetReceiptHash() *types.Hash
+        + Reset() 
+        + Finish() 
+        + GetValue(key []byte) ([]byte, error)
+        + GetOriginalValue(key []byte) ([]byte, error)
+        + SetValue(key []byte, value []byte) error
+        + NewStorageIterator(prefix []byte) (interfaces.StorageIterator, error)
+        + GetUnsavedStorage() [][][]byte
+        + GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error)
+        + SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) 
+        + GetBalanceMap() (<font color=blue>map</font>[types.TokenTypeId]*big.Int, error)
+        + GetUnsavedBalanceMap() <font color=blue>map</font>[types.TokenTypeId]*big.Int
+        + AddLog(log *core.VmLog) 
+        + GetLogList() core.VmLogList
+        + GetHistoryLogList(logHash *types.Hash) (core.VmLogList, error)
+        + GetLogListHash() *types.Hash
+        + GetUnconfirmedBlocks(address types.Address) []*core.AccountBlock
+        + GetGenesisSnapshotBlock() *core.SnapshotBlock
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + GetConfirmSnapshotHeader(blockHash types.Hash) (*core.SnapshotBlock, error)
+        + GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+        + SetContractMeta(toAddr types.Address, meta *core.ContractMeta) 
+        + GetContractMeta() (*core.ContractMeta, error)
+        + GetContractMetaInSnapshot(contractAddress types.Address, snapshotBlock *core.SnapshotBlock) (*core.ContractMeta, error)
+        + SetContractCode(code []byte) 
+        + GetContractCode() ([]byte, error)
+        + GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *core.SnapshotBlock) ([]byte, error)
+        + GetUnsavedContractMeta() <font color=blue>map</font>[types.Address]*core.ContractMeta
+        + GetUnsavedContractCode() []byte
+        + GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error)
+        + DebugGetStorage() (<font color=blue>map</font>[string][]byte, error)
+        + CanWrite() bool
+
+    }
+    class mockDBStorageKv << (S,Aquamarine) >> {
+        - k string
+        - v string
+
+    }
+    class mockIterator << (S,Aquamarine) >> {
+        - index int
+        - items []mockIteratorItem
+
+        + Next() bool
+        + Prev() bool
+        + Last() bool
+        + Key() []byte
+        + Value() []byte
+        + Error() error
+        + Release() 
+        + Seek(key []byte) bool
+
+    }
+    class mockIteratorItem << (S,Aquamarine) >> {
+        - key []byte
+
+    }
+    class mockIteratorSorter << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class opCode << (S,Aquamarine) >> {
+        - isPush() bool
+        - isStaticJump() bool
+
+        + String() string
+
+    }
+    class operation << (S,Aquamarine) >> {
+        - execute executionFunc
+        - gasCost gasFunc
+        - validateStack stackValidationFunc
+        - memorySize memorySizeFunc
+        - halts bool
+        - jumps bool
+        - writes bool
+        - valid bool
+        - reverts bool
+        - returns bool
+
+    }
+    class stack << (S,Aquamarine) >> {
+        - data []*big.Int
+
+        - push(d *big.Int) 
+        - pop() *big.Int
+        - peek() *big.Int
+        - len() int
+        - require(n int) error
+        - back(n int) *big.Int
+        - dup(pool *util.IntPool, n int) 
+        - swap(n int) 
+        - print() string
+
+    }
+    class vm.bitvec << (T, #FF7700) >>  {
+    }
+    class vm.byKey << (T, #FF7700) >>  {
+    }
+    class vm.destinations << (T, #FF7700) >>  {
+    }
+    class vm.executionFunc << (T, #FF7700) >>  {
+    }
+    class vm.mockIteratorSorter << (T, #FF7700) >>  {
+    }
+    class vm.opCode << (T, #FF7700) >>  {
+    }
+    class vmConfig << (S,Aquamarine) >> {
+        - interpreterLog log15.Logger
+        - log log15.Logger
+        - canTransfer <font color=blue>func</font>(interfaces.VmDb, types.TokenTypeId, *big.Int, *big.Int) bool
+        - contractABIMapRW sync.RWMutex
+
+        + IsDebug bool
+        + ContractABIMap <font color=blue>map</font>[types.Address]abi.ABIContract
+
+    }
+    class vmContext << (S,Aquamarine) >> {
+        - sendBlockList []*core.AccountBlock
+
+        + AppendBlock(block *core.AccountBlock) 
+
+    }
+    class "<font color=blue>map</font>[types.Address]bitvec" as fontcolorbluemapfonttypesAddressbitvec {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+"vm.vmContext" *-- "vm.VM"
+
+"contracts.vmEnvironment" <|-- "vm.VM"
+"abi.StorageDatabase" <|-- "vm.mockDB"
+"quota.quotaDb" <|-- "vm.mockDB"
+"util.dbInterface" <|-- "vm.mockDB"
+
+"__builtin__.[]byte" #.. "vm.bitvec"
+"__builtin__.byte" #.. "vm.opCode"
+"dex.[]*AmountWithToken" #.. "dex.AmountWithTokenSorter"
+"dex.protoAccountSettle" #.. "dex.AccountSettleSorter"
+"dex.protoFeeSettle" #.. "dex.FeeSettleSorter"
+"dex.protoFundSettle" #.. "dex.FundSettleSorter"
+"vm.<font color=blue>func</font>(*uint64, *VM, *contract, *memory, *stack) ([]byte, error)" #.. "vm.executionFunc"
+"vm.fontcolorbluemapfonttypesAddressbitvec" #.. "vm.destinations"
+"vm.[]*mockDBStorageKv" #.. "vm.byKey"
+"vm.[]mockIteratorItem" #.. "vm.mockIteratorSorter"
+hide fields
+hide methods
+@enduml

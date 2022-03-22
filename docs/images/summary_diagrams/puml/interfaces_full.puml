@@ -1,0 +1,355 @@
+@startuml
+namespace core {
+    class Account << (S,Aquamarine) >> {
+        + AccountAddress types.Address
+        + AccountId uint64
+        + PublicKey ed25519.PublicKey
+
+        + Proto() *vitepb.Account
+        + DeProto(pb *vitepb.Account) 
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    class AccountBlock << (S,Aquamarine) >> {
+        - producer *types.Address
+
+        + BlockType byte
+        + Hash types.Hash
+        + PrevHash types.Hash
+        + Height uint64
+        + AccountAddress types.Address
+        + PublicKey ed25519.PublicKey
+        + ToAddress types.Address
+        + Amount *big.Int
+        + TokenId types.TokenTypeId
+        + FromBlockHash types.Hash
+        + Data []byte
+        + Quota uint64
+        + QuotaUsed uint64
+        + Fee *big.Int
+        + LogHash *types.Hash
+        + Difficulty *big.Int
+        + Nonce []byte
+        + SendBlockList []*AccountBlock
+        + Signature []byte
+
+        - hashSourceLength() int
+        - hashSource(extraByte []byte) []byte
+
+        + Copy() *AccountBlock
+        + ComputeHash() types.Hash
+        + ComputeSendHash(hostBlock *AccountBlock, index uint8) types.Hash
+        + Producer() types.Address
+        + HashHeight() HashHeight
+        + VerifySignature() bool
+        + Proto() *vitepb.AccountBlock
+        + DeProto(pb *vitepb.AccountBlock) error
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+        + IsSendBlock() bool
+        + IsReceiveBlock() bool
+        + IsGenesisBlock() bool
+
+    }
+    class AccountInfo << (S,Aquamarine) >> {
+        + AccountAddress types.Address
+        + TotalNumber uint64
+        + TokenBalanceInfoMap <font color=blue>map</font>[types.TokenTypeId]*TokenBalanceInfo
+
+    }
+    class ContractMeta << (S,Aquamarine) >> {
+        + Gid types.Gid
+        + SendConfirmedTimes uint8
+        + CreateBlockHash types.Hash
+        + QuotaRatio uint8
+        + SeedConfirmedTimes uint8
+
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    class HashHeight << (S,Aquamarine) >> {
+        + Height uint64
+        + Hash types.Hash
+
+        + Equal(hash types.Hash, height uint64) bool
+        + Proto() *vitepb.HashHeight
+        + DeProto(pb *vitepb.HashHeight) error
+        + Serialize() ([]byte, error)
+        + Deserialize(data []byte) error
+
+    }
+    class HeightRange << (S,Aquamarine) >> {
+        + Start HashHeight
+        + End HashHeight
+
+        + Update(height uint64, hash types.Hash) 
+
+    }
+    interface Serializable  {
+        + Serialize() ([]byte, error)
+        + Deserialize( []byte) error
+
+    }
+    class SnapshotBlock << (S,Aquamarine) >> {
+        - producer *types.Address
+
+        + Hash types.Hash
+        + PrevHash types.Hash
+        + Height uint64
+        + PublicKey ed25519.PublicKey
+        + Signature []byte
+        + Timestamp *time.Time
+        + Seed uint64
+        + SeedHash *types.Hash
+        + SnapshotContent SnapshotContent
+        + Version uint32
+
+        - hashSourceLength() int
+
+        + Mock(height uint64) 
+        + ComputeHash() types.Hash
+        + Producer() types.Address
+        + VerifySignature() bool
+        + Proto() *vitepb.SnapshotBlock
+        + DeProto(pb *vitepb.SnapshotBlock) error
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+
+    }
+    class SnapshotChunk << (S,Aquamarine) >> {
+        + SnapshotBlock *SnapshotBlock
+        + AccountBlocks []*AccountBlock
+
+    }
+    class SnapshotContent << (S,Aquamarine) >> {
+        - bytesList() [][]byte
+        - proto() []byte
+        - deProto(pb []byte) error
+
+    }
+    class SnapshotContentBytesList << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    class TokenBalanceInfo << (S,Aquamarine) >> {
+        + TotalAmount big.Int
+        + Number uint64
+
+    }
+    class VmLog << (S,Aquamarine) >> {
+        + Topics []types.Hash
+        + Data []byte
+
+    }
+    class VmLogList << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+        + Hash(snapshotHeight uint64, address types.Address, prevHash types.Hash) *types.Hash
+        + Proto() *vitepb.VmLogList
+        + Serialize() ([]byte, error)
+        + Deserialize(buf []byte) error
+        + DeProto(pb *vitepb.VmLogList) error
+
+    }
+    class core.SnapshotContent << (T, #FF7700) >>  {
+    }
+    class core.SnapshotContentBytesList << (T, #FF7700) >>  {
+    }
+    class core.VmLogList << (T, #FF7700) >>  {
+    }
+    class "<font color=blue>map</font>[types.Address]*HashHeight" as fontcolorbluemapfonttypesAddressHashHeight {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+"core.Serializable" <|-- "core.Account"
+"core.Serializable" <|-- "core.AccountBlock"
+"core.Serializable" <|-- "core.ContractMeta"
+"core.Serializable" <|-- "core.HashHeight"
+"core.Serializable" <|-- "core.SnapshotBlock"
+"core.Serializable" <|-- "core.VmLogList"
+
+namespace interfaces {
+    interface Account  {
+        + Address() types.Address
+        + Sign(msg []byte) ([]byte, ed25519.PublicKey, error)
+        + Verify(pub ed25519.PublicKey, message []byte, signdata []byte) error
+
+    }
+    interface Batch  {
+        + Put(key []byte, value []byte) 
+        + Delete(key []byte) 
+
+    }
+    interface ChunkReader  {
+        + Read() (*core.AccountBlock, *core.SnapshotBlock, error)
+        + Close() error
+        + Size() int64
+        + Verified() bool
+        + Verify() 
+
+    }
+    class DBStatus << (S,Aquamarine) >> {
+        + Name string
+        + Count uint64
+        + Size uint64
+        + Status string
+
+    }
+    class GenResult << (S,Aquamarine) >> {
+        + VMBlock *VmAccountBlock
+        + IsRetry bool
+        + Err error
+
+    }
+    interface Generator  {
+        + GenerateWithBlock(block *core.AccountBlock, fromBlock *core.AccountBlock) (*GenResult, error)
+        + GenerateWithMessage(message *IncomingMessage, producer *types.Address, signFunc SignFunc) (*GenResult, error)
+        + GenerateWithOnRoad(sendBlock *core.AccountBlock, producer *types.Address, signFunc SignFunc, difficulty *big.Int) (*GenResult, error)
+        + GetVMDB() VmDb
+
+    }
+    class IncomingMessage << (S,Aquamarine) >> {
+        + BlockType byte
+        + AccountAddress types.Address
+        + ToAddress *types.Address
+        + FromBlockHash *types.Hash
+        + TokenId *types.TokenTypeId
+        + Amount *big.Int
+        + Fee *big.Int
+        + Data []byte
+        + Difficulty *big.Int
+
+    }
+    interface LedgerReader  {
+        + Seg() Segment
+        + Size() int
+
+    }
+    class Segment << (S,Aquamarine) >> {
+        + From uint64
+        + Hash types.Hash
+        + PrevHash types.Hash
+        + Points []*core.HashHeight
+
+        + String() string
+        + Equal(seg2 Segment) bool
+
+    }
+    class SegmentList << (S,Aquamarine) >> {
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    interface StateSnapshot  {
+        + GetBalance(tokenId *types.TokenTypeId) (*big.Int, error)
+        + GetValue( []byte) ([]byte, error)
+        + NewStorageIterator(prefix []byte) StorageIterator
+        + Release() 
+
+    }
+    interface StorageIterator  {
+        + Last() bool
+        + Prev() bool
+        + Seek(key []byte) bool
+        + Next() bool
+        + Key() []byte
+        + Value() []byte
+        + Error() error
+        + Release() 
+
+    }
+    interface Store  {
+        + Get( []byte) ([]byte, error)
+        + Has( []byte) (bool, error)
+
+    }
+    interface SyncCache  {
+        + NewWriter(segment Segment, size int64) (io.WriteCloser, error)
+        + Chunks() SegmentList
+        + NewReader(segment Segment) (ChunkReader, error)
+        + Delete(seg Segment) error
+        + Close() error
+
+    }
+    class VmAccountBlock << (S,Aquamarine) >> {
+        + AccountBlock *core.AccountBlock
+        + VmDb VmDb
+
+    }
+    interface VmDb  {
+        + CanWrite() bool
+        + Address() *types.Address
+        + LatestSnapshotBlock() (*core.SnapshotBlock, error)
+        + PrevAccountBlock() (*core.AccountBlock, error)
+        + GetLatestAccountBlock(addr types.Address) (*core.AccountBlock, error)
+        + GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
+        + GetQuotaUsedList(addr types.Address) []types.QuotaInfo
+        + GetGlobalQuota() types.QuotaInfo
+        + GetReceiptHash() *types.Hash
+        + Reset() 
+        + Finish() 
+        + GetValue(key []byte) ([]byte, error)
+        + GetOriginalValue(key []byte) ([]byte, error)
+        + SetValue(key []byte, value []byte) error
+        + NewStorageIterator(prefix []byte) (StorageIterator, error)
+        + GetUnsavedStorage() [][][]byte
+        + GetBalance(tokenTypeId *types.TokenTypeId) (*big.Int, error)
+        + SetBalance(tokenTypeId *types.TokenTypeId, amount *big.Int) 
+        + GetUnsavedBalanceMap() <font color=blue>map</font>[types.TokenTypeId]*big.Int
+        + AddLog(log *core.VmLog) 
+        + GetLogList() core.VmLogList
+        + GetHistoryLogList(logHash *types.Hash) (core.VmLogList, error)
+        + GetLogListHash() *types.Hash
+        + GetUnconfirmedBlocks(address types.Address) []*core.AccountBlock
+        + GetGenesisSnapshotBlock() *core.SnapshotBlock
+        + GetConfirmSnapshotHeader(blockHash types.Hash) (*core.SnapshotBlock, error)
+        + GetConfirmedTimes(blockHash types.Hash) (uint64, error)
+        + GetSnapshotBlockByHeight(height uint64) (*core.SnapshotBlock, error)
+        + SetContractMeta(toAddr types.Address, meta *core.ContractMeta) 
+        + GetContractMeta() (*core.ContractMeta, error)
+        + GetContractMetaInSnapshot(contractAddress types.Address, snapshotBlock *core.SnapshotBlock) (*core.ContractMeta, error)
+        + SetContractCode(code []byte) 
+        + GetContractCode() ([]byte, error)
+        + GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *core.SnapshotBlock) ([]byte, error)
+        + GetUnsavedContractMeta() <font color=blue>map</font>[types.Address]*core.ContractMeta
+        + GetUnsavedContractCode() []byte
+        + GetStakeBeneficialAmount(addr *types.Address) (*big.Int, error)
+        + DebugGetStorage() (<font color=blue>map</font>[string][]byte, error)
+
+    }
+    class VoteDetails << (S,Aquamarine) >> {
+        + CurrentAddr types.Address
+        + RegisterList []types.Address
+        + Addr <font color=blue>map</font>[types.Address]*big.Int
+
+    }
+    class interfaces.SegmentList << (T, #FF7700) >>  {
+    }
+    class interfaces.SignFunc << (T, #FF7700) >>  {
+    }
+    class interfaces.VerifyFunc << (T, #FF7700) >>  {
+    }
+    class "<font color=blue>func</font>([]byte) ([]byte, ed25519.PublicKey, error)" as fontcolorbluefuncfontbytebyteed25519PublicKeyerror {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+    class "<font color=blue>func</font>(ed25519.PublicKey, []byte, []byte) error" as fontcolorbluefuncfonted25519PublicKeybytebyteerror {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+"core.Vote" *-- "interfaces.VoteDetails"
+
+
+"__builtin__.[][]byte" #.. "core.SnapshotContentBytesList"
+"core.fontcolorbluemapfonttypesAddressHashHeight" #.. "core.SnapshotContent"
+"core.[]*VmLog" #.. "core.VmLogList"
+"interfaces.fontcolorbluefuncfontbytebyteed25519PublicKeyerror" #.. "interfaces.SignFunc"
+"interfaces.fontcolorbluefuncfonted25519PublicKeybytebyteerror" #.. "interfaces.VerifyFunc"
+"interfaces.[]Segment" #.. "interfaces.SegmentList"
+@enduml

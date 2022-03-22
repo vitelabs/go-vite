@@ -1,0 +1,149 @@
+@startuml
+namespace node {
+    class Config << (S,Aquamarine) >> {
+        + NetSelect string
+        + DataDir string
+        + KeyStoreDir string
+        + LedgerGcRetain uint64
+        + LedgerGc *bool
+        + OpenPlugins *bool
+        + VmLogWhiteList []types.Address
+        + VmLogAll *bool
+        + GenesisFile string
+        + Single bool
+        + ListenInterface string
+        + Port int
+        + FilePort int
+        + PublicAddress string
+        + FilePublicAddress string
+        + Identity string
+        + NetID int
+        + PeerKey string
+        + Discover bool
+        + MaxPeers int
+        + MinPeers int
+        + MaxInboundRatio int
+        + MaxPendingPeers int
+        + BootNodes []string
+        + BootSeeds []string
+        + StaticNodes []string
+        + AccessControl string
+        + AccessAllowKeys []string
+        + AccessDenyKeys []string
+        + BlackBlockHashList []string
+        + WhiteBlockList []string
+        + ForwardStrategy string
+        + EntropyStorePath string
+        + EntropyStorePassword string
+        + CoinBase string
+        + MinerEnabled bool
+        + ExternalMiner bool
+        + RPCEnabled bool
+        + IPCEnabled bool
+        + WSEnabled bool
+        + TxDexEnable *bool
+        + IPCPath string
+        + HttpHost string
+        + HttpPort int
+        + HttpVirtualHosts []string
+        + WSHost string
+        + WSPort int
+        + HTTPCors []string
+        + WSOrigins []string
+        + PublicModules []string
+        + WSExposeAll bool
+        + HttpExposeAll bool
+        + TestTokenHexPrivKey string
+        + TestTokenTti string
+        + PowServerUrl string
+        + LogLevel string
+        + ErrorLogDir string
+        + VMTestEnabled bool
+        + VMTestParamEnabled bool
+        + QuotaTestParamEnabled bool
+        + VMDebug bool
+        + SubscribeEnabled bool
+        + DashboardTargetURL string
+        + RewardAddr string
+        + MetricsEnable *bool
+        + InfluxDBEnable *bool
+        + InfluxDBEndpoint *string
+        + InfluxDBDatabase *string
+        + InfluxDBUsername *string
+        + InfluxDBPassword *string
+        + InfluxDBHostTag *string
+
+        - makeWalletConfig() *config.Wallet
+        - makeViteConfig() *config.Config
+        - makeNetConfig() *config.Net
+        - makeRewardConfig() *config.NodeReward
+        - makeVmConfig() *config.Vm
+        - makeSubscribeConfig() *config.Subscribe
+        - makeMinerConfig() *config.Producer
+        - makeChainConfig() *config.Chain
+
+        + HTTPEndpoint() string
+        + WSEndpoint() string
+        + SetPrivateKey(privateKey string) 
+        + GetPrivateKey() ed25519.PrivateKey
+        + IPCEndpoint() string
+        + RunLogDir() string
+        + DataDirPathAbs() error
+        + ParseFromFile(filename string) error
+
+    }
+    class Node << (S,Aquamarine) >> {
+        - config *Config
+        - walletConfig *config.Wallet
+        - walletManager *wallet.Manager
+        - viteConfig *config.Config
+        - viteServer *vite.Vite
+        - rpcAPIs []rpc.API
+        - inProcessHandler *rpc.Server
+        - ipcEndpoint string
+        - ipcListener net.Listener
+        - ipcHandler *rpc.Server
+        - httpEndpoint string
+        - httpWhitelist []string
+        - httpListener net.Listener
+        - httpHandler *rpc.Server
+        - wsEndpoint string
+        - wsListener net.Listener
+        - wsHandler *rpc.Server
+        - wsCli *rpc.WebSocketCli
+        - stop <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - lock sync.RWMutex
+        - instanceDirLock flock.Releaser
+
+        - startWallet() error
+        - startVite() error
+        - startRPC() error
+        - stopWallet() error
+        - stopVite() error
+        - stopRPC() error
+        - openDataDir() error
+        - startIPC(apis []rpc.API) error
+        - stopIPC() 
+        - startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string, timeouts rpc.HTTPTimeouts, exposeAll bool) error
+        - stopHTTP() 
+        - startWS(endpoint string, apis []rpc.API, modules []string, wsOrigins []string, exposeAll bool) error
+        - stopWS() 
+        - startInProcess(apis []rpc.API) error
+        - stopInProcess() 
+
+        + Prepare() error
+        + Start() error
+        + Stop() error
+        + Wait() 
+        + Vite() *vite.Vite
+        + Config() *Config
+        + ViteConfig() *config.Config
+        + ViteServer() *vite.Vite
+        + WalletManager() *wallet.Manager
+        + Attach() (*rpc.Client, error)
+
+    }
+}
+
+
+@enduml

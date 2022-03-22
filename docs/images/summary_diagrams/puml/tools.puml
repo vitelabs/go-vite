@@ -1,0 +1,269 @@
+@startuml
+namespace circle {
+    interface Key  {
+    }
+    interface List  {
+        + Size() int
+        + Put(key Key) Key
+        + Traverse( <font color=blue>func</font>(Key) bool) 
+        + TraverseR( <font color=blue>func</font>(Key) bool) 
+        + Reset() 
+
+    }
+    interface Map  {
+        + Get(key Key) (Value, bool)
+        + Put(key Key, value Value) 
+        + Traverse( TraverseFn) 
+        + Size() int
+
+    }
+    interface Value  {
+    }
+    class circle.TraverseFn << (T, #FF7700) >>  {
+    }
+    class circleMap << (S,Aquamarine) >> {
+        - m <font color=blue>map</font>[Key]Value
+        - l List
+
+        + Size() int
+        + Traverse(fn TraverseFn) 
+        + Get(key Key) (Value, bool)
+        + Put(key Key, value Value) 
+
+    }
+    class list << (S,Aquamarine) >> {
+        - front int
+        - rear int
+        - total int
+        - l []Key
+
+        + Reset() 
+        + Traverse(fn <font color=blue>func</font>(Key) bool) 
+        + TraverseR(fn <font color=blue>func</font>(Key) bool) 
+        + Size() int
+        + Put(key Key) Key
+
+    }
+}
+
+"circle.Map" <|-- "circle.circleMap"
+"circle.List" <|-- "circle.list"
+
+namespace list {
+    class Element << (S,Aquamarine) >> {
+        - next *Element
+
+        + Value <font color=blue>interface</font>{}
+
+    }
+    interface List  {
+        + Append(data <font color=blue>interface</font>{}) 
+        + Shift() <font color=blue>interface</font>{}
+        + UnShift(data <font color=blue>interface</font>{}) 
+        + Remove(prev *Element, current *Element) 
+        + Traverse(handler <font color=blue>func</font>(<font color=blue>interface</font>{}) bool) 
+        + Filter(filter <font color=blue>func</font>(<font color=blue>interface</font>{}) bool) 
+        + Size() int
+        + Clear() 
+
+    }
+    class list << (S,Aquamarine) >> {
+        - head *Element
+        - tail *Element
+        - count int
+
+        + Append(data <font color=blue>interface</font>{}) 
+        + Shift() <font color=blue>interface</font>{}
+        + UnShift(data <font color=blue>interface</font>{}) 
+        + Remove(prev *Element, current *Element) 
+        + Traverse(handler <font color=blue>func</font>(<font color=blue>interface</font>{}) bool) 
+        + Filter(filter <font color=blue>func</font>(<font color=blue>interface</font>{}) bool) 
+        + Size() int
+        + Clear() 
+
+    }
+}
+
+"list.List" <|-- "list.list"
+
+namespace mock_conn {
+    class mockConn << (S,Aquamarine) >> {
+        - closed int32
+        - name string
+        - rname string
+        - read <font color=blue>chan</font> byte
+        - write <font color=blue>chan</font> byte
+        - term <font color=blue>chan</font> <font color=blue>struct</font>{}
+        - rtimeout time.Time
+        - wtimeout time.Time
+
+        + Read(b []byte) (int, error)
+        + Write(b []byte) (int, error)
+        + Close() error
+        + LocalAddr() net.Addr
+        + RemoteAddr() net.Addr
+        + SetDeadline(t time.Time) error
+        + SetReadDeadline(t time.Time) error
+        + SetWriteDeadline(t time.Time) error
+
+    }
+    class mockConnAddress << (S,Aquamarine) >> {
+        - name string
+
+        + Network() string
+        + String() string
+
+    }
+}
+
+
+namespace queue {
+    interface Queue  {
+        + Add(v <font color=blue>interface</font>{}) bool
+        + Poll() <font color=blue>interface</font>{}
+        + Size() int
+        + Close() 
+
+    }
+    class blockQueue << (S,Aquamarine) >> {
+        - mu *sync.Mutex
+        - cond *sync.Cond
+        - list list.List
+        - closed bool
+        - max int
+
+        + Poll() <font color=blue>interface</font>{}
+        + Add(v <font color=blue>interface</font>{}) bool
+        + Size() int
+        + Close() 
+
+    }
+}
+
+"queue.Queue" <|-- "queue.blockQueue"
+
+namespace ticket {
+    interface Ticket  {
+        + Take() 
+        + Return() 
+        + Remainder() int
+        + Total() int
+        + Close() error
+        + Reset() 
+
+    }
+    class ticket << (S,Aquamarine) >> {
+        - total int
+        - ch <font color=blue>chan</font> <font color=blue>struct</font>{}
+
+        + _closed int32
+
+        - closed() bool
+
+        + Take() 
+        + Return() 
+        + Remainder() int
+        + Total() int
+        + Close() error
+        + Reset() 
+
+    }
+}
+
+"ticket.Ticket" <|-- "ticket.ticket"
+
+namespace toposort {
+    interface Interface  {
+        + Ids(i int) []string
+        + Inputs(i int) []string
+        + Len() int
+
+    }
+    class byId << (S,Aquamarine) >> {
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    class graph << (S,Aquamarine) >> {
+        - sorted []*node
+        - unsorted <font color=blue>map</font>[string]*node
+
+        - filterZero() []*node
+        - move(n *node) 
+        - unsortedResult() string
+        - tpSort() ([]*node, error)
+
+    }
+    class node << (S,Aquamarine) >> {
+        - id string
+        - alias []string
+        - inputs []string
+        - index int
+        - inputCnt int
+        - outputs []string
+        - sortedIndex int
+
+    }
+    class sortWrap << (S,Aquamarine) >> {
+        - data swapInterface
+        - values []int
+
+        + Len() int
+        + Swap(i int, j int) 
+        + Less(i int, j int) bool
+
+    }
+    interface swapInterface  {
+        + Swap(i int, j int) 
+
+    }
+    class toposort.byId << (T, #FF7700) >>  {
+    }
+}
+"toposort.swapInterface" *-- "toposort.Interface"
+
+"toposort.swapInterface" <|-- "toposort.byId"
+"toposort.swapInterface" <|-- "toposort.sortWrap"
+
+namespace unique_list {
+    interface UniqueList  {
+        + Append(key string, data <font color=blue>interface</font>{}) 
+        + Shift() (string, <font color=blue>interface</font>{})
+        + UnShift(key string, data <font color=blue>interface</font>{}) 
+        + Traverse(handler <font color=blue>func</font>(string, <font color=blue>interface</font>{}) bool) 
+        + Filter(filter <font color=blue>func</font>(string, <font color=blue>interface</font>{}) bool) 
+        + Size() int
+        + Clear() 
+
+    }
+    class element << (S,Aquamarine) >> {
+        - key string
+        - next *element
+
+    }
+    class unique_list << (S,Aquamarine) >> {
+        - m <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        - head *element
+        - tail *element
+
+        - remove(prev *element, current *element) 
+
+        + Append(key string, data <font color=blue>interface</font>{}) 
+        + Shift() (string, <font color=blue>interface</font>{})
+        + UnShift(key string, data <font color=blue>interface</font>{}) 
+        + Traverse(handler <font color=blue>func</font>(string, <font color=blue>interface</font>{}) bool) 
+        + Filter(filter <font color=blue>func</font>(string, <font color=blue>interface</font>{}) bool) 
+        + Size() int
+        + Clear() 
+
+    }
+}
+
+"unique_list.UniqueList" <|-- "unique_list.unique_list"
+
+"circle.<font color=blue>func</font>(Key, Value) bool" #.. "circle.TraverseFn"
+"toposort.[]*node" #.. "toposort.byId"
+hide fields
+hide methods
+@enduml

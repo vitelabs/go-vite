@@ -1,0 +1,53 @@
+@startuml
+namespace monitor {
+    class Msg << (S,Aquamarine) >> {
+        + Cnt int64
+        + Sum int64
+
+        - add(i int64) *Msg
+        - merge(ms *Msg) *Msg
+        - reset() *Msg
+        - snapshot() Msg
+
+        + String() string
+
+    }
+    class durations << (S,Aquamarine) >> {
+        + Len() int
+        + Less(i int, j int) bool
+        + Swap(i int, j int) 
+
+    }
+    class monitor << (S,Aquamarine) >> {
+        - ms sync.Map
+        - r *ring
+
+    }
+    class monitor.durations << (T, #FF7700) >>  {
+    }
+    class ring << (S,Aquamarine) >> {
+        - cap int
+        - datas []<font color=blue>interface</font>{}
+        - i int
+        - mu sync.Mutex
+
+        - add(data <font color=blue>interface</font>{}) *ring
+        - reset() *ring
+        - all() []<font color=blue>interface</font>{}
+        - lastI(i int) int
+        - nextI(i int) int
+
+    }
+    class stat << (S,Aquamarine) >> {
+        + Cnt int64
+        + Avg float64
+
+    }
+    class "[]time.Duration" as timeDuration {
+        'This class was created so that we can correctly have an alias pointing to this name. Since it contains dots that can break namespaces
+    }
+}
+
+
+"monitor.timeDuration" #.. "monitor.durations"
+@enduml
