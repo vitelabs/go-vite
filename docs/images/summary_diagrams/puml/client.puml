@@ -1,0 +1,258 @@
+@startuml
+namespace client {
+    interface AbiClient  {
+        + CallOffChain(methodName string, params ...<font color=blue>interface</font>{}) ([]<font color=blue>interface</font>{}, error)
+
+    }
+    interface Client  {
+        + BuildNormalRequestBlock(params RequestTxParams, prev *core.HashHeight) (*api.AccountBlock, error)
+        + BuildRequestCreateContractBlock(params RequestCreateContractParams, prev *core.HashHeight) (*api.AccountBlock, error)
+        + BuildResponseBlock(params ResponseTxParams, prev *core.HashHeight) (*api.AccountBlock, error)
+        + GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, *big.Int, error)
+        + GetBalanceAll(addr types.Address) (*api.RpcAccountInfo, *api.RpcAccountInfo, error)
+        + SignData(wallet *entropystore.Manager, block *api.AccountBlock) error
+        + SignDataWithPriKey(key *derivation.Key, block *api.AccountBlock) error
+        + SignDataWithEd25519Key(key ed25519.PrivateKey, block *api.AccountBlock) error
+
+    }
+    interface DexClient  {
+        + BuildRequestNewOrderBlock(param *dex.ParamPlaceOrder, selfAddr types.Address, prev *core.HashHeight) (*api.AccountBlock, error)
+        + BuildRequestCancelOrderBlock(param *dex.ParamDexCancelOrder, selfAddr types.Address, prev *core.HashHeight) (*api.AccountBlock, error)
+
+    }
+    class RequestCreateContractParams << (S,Aquamarine) >> {
+        - fee *big.Int
+        - arguments []<font color=blue>interface</font>{}
+        - abiStr string
+        - metaParams api.CreateContractDataParam
+
+        + SelfAddr types.Address
+
+    }
+    class RequestTxParams << (S,Aquamarine) >> {
+        + ToAddr types.Address
+        + SelfAddr types.Address
+        + Amount *big.Int
+        + TokenId types.TokenTypeId
+        + Data []byte
+
+    }
+    class ResponseTxParams << (S,Aquamarine) >> {
+        + SelfAddr types.Address
+        + RequestHash types.Hash
+
+    }
+    interface RpcClient  {
+        + GetClient() *rpc.Client
+
+    }
+    class abiCli << (S,Aquamarine) >> {
+        - cli RpcClient
+        - contractAbi *abi.ABIContract
+        - offchainCode string
+        - contractAddr types.Address
+
+        + CallOffChain(methodName string, params ...<font color=blue>interface</font>{}) ([]<font color=blue>interface</font>{}, error)
+
+    }
+    class client << (S,Aquamarine) >> {
+        - rpc RpcClient
+
+        - getPrev(addr types.Address) (*core.HashHeight, error)
+
+        + BuildNormalRequestBlock(params RequestTxParams, prev *core.HashHeight) (*api.AccountBlock, error)
+        + BuildRequestCreateContractBlock(params RequestCreateContractParams, prev *core.HashHeight) (*api.AccountBlock, error)
+        + BuildResponseBlock(params ResponseTxParams, prev *core.HashHeight) (*api.AccountBlock, error)
+        + GetBalance(addr types.Address, tokenId types.TokenTypeId) (*big.Int, *big.Int, error)
+        + GetBalanceAll(addr types.Address) (*api.RpcAccountInfo, *api.RpcAccountInfo, error)
+        + SignData(wallet *entropystore.Manager, block *api.AccountBlock) error
+        + SignDataWithPriKey(key *derivation.Key, block *api.AccountBlock) error
+        + SignDataWithEd25519Key(key ed25519.PrivateKey, block *api.AccountBlock) error
+        + BuildRequestNewOrderBlock(param *dex.ParamPlaceOrder, selfAddr types.Address, prev *core.HashHeight) (*api.AccountBlock, error)
+        + BuildRequestCancelOrderBlock(param *dex.ParamDexCancelOrder, selfAddr types.Address, prev *core.HashHeight) (*api.AccountBlock, error)
+
+    }
+    class rpcClient << (S,Aquamarine) >> {
+        - cc *rpc.Client
+
+        + GetClient() *rpc.Client
+
+    }
+}
+"client.DexClient" *-- "client.Client"
+"rpc.ContractApi" *-- "client.rpcClient"
+"rpc.DexTradeApi" *-- "client.rpcClient"
+"rpc.LedgerApi" *-- "client.rpcClient"
+"rpc.OnroadApi" *-- "client.rpcClient"
+"rpc.RandomApi" *-- "client.rpcClient"
+"rpc.TxApi" *-- "client.rpcClient"
+
+"client.AbiClient" <|-- "client.abiCli"
+"client.Client" <|-- "client.client"
+"client.DexClient" <|-- "client.client"
+"client.RpcClient" <|-- "client.rpcClient"
+
+namespace main {
+    class DerivationResult << (S,Aquamarine) >> {
+        + Path string
+        + Address string
+        + PrivateKey string
+
+    }
+    class EntropyResult << (S,Aquamarine) >> {
+        + Mnemonic string
+        + EntropyStore string
+
+    }
+    class GoResult << (S,Aquamarine) >> {
+        + Error string
+        + Code int
+        + Data <font color=blue>interface</font>{}
+
+    }
+    class SignDataResult << (S,Aquamarine) >> {
+        + PublicKey string
+        + Data string
+        + Signature string
+
+    }
+}
+
+
+namespace rpc {
+    interface ContractApi  {
+        + CallOffChainMethod(param api.CallOffChainMethodParam) ([]byte, error)
+        + Query(param api.QueryParam) ([]byte, error)
+        + GetCreateContractData(param api.CreateContractDataParam) ([]byte, error)
+        + GetContractStorage(addr types.Address, prefix string) (<font color=blue>map</font>[string]string, error)
+        + GetContractInfo(addr types.Address) (*api.ContractInfo, error)
+        + GetSBPVoteList() ([]*api.SBPVoteInfo, error)
+
+    }
+    interface DexTradeApi  {
+        + GetOrdersFromMarket(tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool, begin int, end int) (*dex.OrdersRes, error)
+
+    }
+    interface LedgerApi  {
+        + GetRawBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetBlockByHash(blockHash types.Hash) (*api.AccountBlock, error)
+        + GetCompleteBlockByHash(blockHash types.Hash) (*api.AccountBlock, error)
+        + GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*api.AccountBlock, error)
+        + GetVmLogListByHash(logHash types.Hash) (core.VmLogList, error)
+        + GetBlocksByHeight(addr types.Address, height <font color=blue>interface</font>{}, count uint64) ([]*api.AccountBlock, error)
+        + GetBlockByHeight(addr types.Address, height <font color=blue>interface</font>{}) (*api.AccountBlock, error)
+        + GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*api.AccountBlock, error)
+        + GetAccountByAccAddr(addr types.Address) (*api.RpcAccountInfo, error)
+        + GetSnapshotBlockByHash(hash types.Hash) (*api.SnapshotBlock, error)
+        + GetSnapshotBlockByHeight(height <font color=blue>interface</font>{}) (*api.SnapshotBlock, error)
+        + GetSnapshotBlocks(height <font color=blue>interface</font>{}, count int) ([]*api.SnapshotBlock, error)
+        + GetChunks(startHeight <font color=blue>interface</font>{}, endHeight <font color=blue>interface</font>{}) ([]*api.SnapshotChunk, error)
+        + GetSnapshotChainHeight() string
+        + GetLatestSnapshotChainHash() *types.Hash
+        + GetLatestBlock(addr types.Address) (*api.AccountBlock, error)
+        + GetVmLogList(blockHash types.Hash) (core.VmLogList, error)
+        + GetUnconfirmedBlocks(addr types.Address) []*core.AccountBlock
+        + GetConfirmedBalances(snapshotHash types.Hash, addrList []types.Address, tokenIds []types.TokenTypeId) (api.GetBalancesRes, error)
+        + GetHourSBPStats(startIdx uint64, endIdx uint64) ([]<font color=blue>map</font>[string]<font color=blue>interface</font>{}, error)
+
+    }
+    interface OnroadApi  {
+        + GetOnroadBlocksByAddress(address types.Address, index uint64, count uint64) ([]*api.AccountBlock, error)
+        + GetOnroadInfoByAddress(address types.Address) (*api.RpcAccountInfo, error)
+        + GetOnroadBlocksInBatch(queryList []api.OnroadPagingQuery) (<font color=blue>map</font>[types.Address][]*api.AccountBlock, error)
+        + GetOnroadInfoInBatch(addrList []types.Address) ([]*api.RpcAccountInfo, error)
+        + GetContractOnRoadFrontBlocks(addr types.Address, gid *types.Gid) ([]*api.AccountBlock, error)
+
+    }
+    interface RandomApi  {
+        + GetRewardByIndex(index uint64) (*api.RewardInfo, error)
+        + GetVoteDetailsByIndex(index uint64) ([]*consensus.VoteDetails, error)
+        + RawCall(method string, params ...<font color=blue>interface</font>{}) (<font color=blue>interface</font>{}, error)
+
+    }
+    interface TxApi  {
+        + SendRawTx(block *api.AccountBlock) error
+        + SendTxWithPrivateKey(param api.SendTxWithPrivateKeyParam) (*api.AccountBlock, error)
+        + CalcPoWDifficulty(param api.CalcPoWDifficultyParam) (*api.CalcPoWDifficultyResult, error)
+
+    }
+    class contractApi << (S,Aquamarine) >> {
+        - cc *rpc.Client
+
+        + GetCreateContractData(param api.CreateContractDataParam) ([]byte, error)
+        + CallOffChainMethod(param api.CallOffChainMethodParam) ([]byte, error)
+        + Query(param api.QueryParam) ([]byte, error)
+        + GetContractStorage(addr types.Address, prefix string) (<font color=blue>map</font>[string]string, error)
+        + GetContractInfo(addr types.Address) (*api.ContractInfo, error)
+        + GetSBPVoteList() ([]*api.SBPVoteInfo, error)
+
+    }
+    class dexTradeApi << (S,Aquamarine) >> {
+        - cc *rpc.Client
+
+        + GetOrdersFromMarket(tradeToken types.TokenTypeId, quoteToken types.TokenTypeId, side bool, begin int, end int) (*dex.OrdersRes, error)
+
+    }
+    class ledgerApi << (S,Aquamarine) >> {
+        - cc *rpc.Client
+
+        + GetRawBlockByHash(blockHash types.Hash) (*core.AccountBlock, error)
+        + GetBlockByHash(blockHash types.Hash) (*api.AccountBlock, error)
+        + GetCompleteBlockByHash(blockHash types.Hash) (*api.AccountBlock, error)
+        + GetBlocksByHash(addr types.Address, originBlockHash *types.Hash, count uint64) ([]*api.AccountBlock, error)
+        + GetVmLogListByHash(logHash types.Hash) (core.VmLogList, error)
+        + GetBlocksByHeight(addr types.Address, height <font color=blue>interface</font>{}, count uint64) ([]*api.AccountBlock, error)
+        + GetBlockByHeight(addr types.Address, height <font color=blue>interface</font>{}) (*api.AccountBlock, error)
+        + GetBlocksByAccAddr(addr types.Address, index int, count int) ([]*api.AccountBlock, error)
+        + GetAccountByAccAddr(addr types.Address) (*api.RpcAccountInfo, error)
+        + GetSnapshotBlockByHash(hash types.Hash) (*api.SnapshotBlock, error)
+        + GetSnapshotBlockByHeight(height <font color=blue>interface</font>{}) (*api.SnapshotBlock, error)
+        + GetSnapshotBlocks(height <font color=blue>interface</font>{}, count int) ([]*api.SnapshotBlock, error)
+        + GetChunks(startHeight <font color=blue>interface</font>{}, endHeight <font color=blue>interface</font>{}) ([]*api.SnapshotChunk, error)
+        + GetSnapshotChainHeight() string
+        + GetLatestSnapshotChainHash() *types.Hash
+        + GetLatestBlock(addr types.Address) (*api.AccountBlock, error)
+        + GetVmLogList(blockHash types.Hash) (core.VmLogList, error)
+        + GetUnconfirmedBlocks(addr types.Address) []*core.AccountBlock
+        + GetConfirmedBalances(snapshotHash types.Hash, addrList []types.Address, tokenIds []types.TokenTypeId) (api.GetBalancesRes, error)
+        + GetHourSBPStats(startIdx uint64, endIdx uint64) ([]<font color=blue>map</font>[string]<font color=blue>interface</font>{}, error)
+
+    }
+    class onroadApi << (S,Aquamarine) >> {
+        - cc *rpc.Client
+
+        + GetOnroadBlocksByAddress(address types.Address, index uint64, count uint64) ([]*api.AccountBlock, error)
+        + GetOnroadInfoByAddress(address types.Address) (*api.RpcAccountInfo, error)
+        + GetOnroadBlocksInBatch(queryList []api.OnroadPagingQuery) (<font color=blue>map</font>[types.Address][]*api.AccountBlock, error)
+        + GetOnroadInfoInBatch(addrList []types.Address) ([]*api.RpcAccountInfo, error)
+        + GetContractOnRoadFrontBlocks(addr types.Address, gid *types.Gid) ([]*api.AccountBlock, error)
+
+    }
+    class randomApi << (S,Aquamarine) >> {
+        - cc *rpc.Client
+
+        + GetRewardByIndex(index uint64) (*api.RewardInfo, error)
+        + GetVoteDetailsByIndex(index uint64) ([]*consensus.VoteDetails, error)
+        + RawCall(method string, params ...<font color=blue>interface</font>{}) (<font color=blue>interface</font>{}, error)
+
+    }
+    class txApi << (S,Aquamarine) >> {
+        - cc *rpc.Client
+
+        + SendRawTx(block *api.AccountBlock) error
+        + SendTxWithPrivateKey(param api.SendTxWithPrivateKeyParam) (*api.AccountBlock, error)
+        + CalcPoWDifficulty(param api.CalcPoWDifficultyParam) (*api.CalcPoWDifficultyResult, error)
+
+    }
+}
+
+"rpc.ContractApi" <|-- "rpc.contractApi"
+"rpc.DexTradeApi" <|-- "rpc.dexTradeApi"
+"rpc.LedgerApi" <|-- "rpc.ledgerApi"
+"rpc.OnroadApi" <|-- "rpc.onroadApi"
+"rpc.RandomApi" <|-- "rpc.randomApi"
+"rpc.TxApi" <|-- "rpc.txApi"
+
+hide fields
+hide methods
+@enduml
