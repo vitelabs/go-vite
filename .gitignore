@@ -49,3 +49,4 @@ workbox-*
 
 # bin/dump_branch_diff
 commits-logs/
+docs/scripts/bin

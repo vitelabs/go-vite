@@ -299,6 +299,16 @@ TODO: create diagram
 
 ### Setup goplantuml <a name="goplantuml"></a>
 
+[GoPlantUML](https://github.com/jfeliu007/goplantuml) is a PlantUML Class Diagram Generator for golang projects. It can generate class diagram text compatible with plantuml with the information of all structures and interfaces as well as the relationship among them.
+
+1. Install goplantuml
+     - go install github.com/jfeliu007/goplantuml/cmd/goplantuml@v1.5.2 
+2. Install Java Runtime Environment
+     - sudo apt update
+     - sudo apt install default-jre
+3. Execute the script to generate all puml diagrams
+     - ./docs/scripts/gen_diagrams.sh
+
 ### Other visualization tools <a name="visualization"></a>
 
 #### GoCity

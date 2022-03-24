@@ -12,11 +12,19 @@ echo $SCRIPT_DIR
 BASE_DIR=$(echo $SCRIPT_DIR | awk -F 'go-vite' '{print $1"go-vite"}')
 echo $BASE_DIR
 
-cd $BASE_DIR
-
-BIN_DIR=~/go/bin/goplantuml
-JAR_DIR=~/Downloads/plantuml.jar
+BIN_DIR=$SCRIPT_DIR/bin
+GO_BIN_DIR=~/go/bin/goplantuml
+JAR_DIR=$BIN_DIR/plantuml-1.2022.2.jar
 DIAGRAMS_DIR=$BASE_DIR/docs/images/summary_diagrams/puml
+
+# Download plantuml jar if it does not exist
+if [ ! -f "$JAR_DIR" ]; then
+    mkdir -p $BIN_DIR
+    cd $BIN_DIR
+    wget -c "https://github.com/plantuml/plantuml/releases/download/v1.2022.2/plantuml-1.2022.2.jar"
+fi
+
+cd $BASE_DIR
 
 # rm -rf $DIAGRAMS_DIR
 
@@ -24,6 +32,11 @@ mkdir -p $DIAGRAMS_DIR
 
 # DIR_BLACKLIST=(bin build client cmd common conf contracts-vite crypto docker docs interfaces ledger log15 monitor net node pow producer rpc rpcapi smart-contract tools version vm vm_db wallet)
 DIR_BLACKLIST=(bin build conf contracts-vite docker docs smart-contract version)
+
+function clean_puml() {
+    # Special case: replace ""net.Conn with "net.Conn
+    sed -i 's/""net.Conn/"net.Conn/' $1
+}
 
 for d in $BASE_DIR/*; do
 	# Skip non-directories
@@ -34,14 +47,13 @@ for d in $BASE_DIR/*; do
 	# Skip if already exists
 	[ -f "$DIAGRAMS_DIR/${dir_name}.puml" ] && continue
 	echo $dir_name
-	$BIN_DIR -recursive ./${dir_name} > $DIAGRAMS_DIR/${dir_name}_full.puml
-	$BIN_DIR -recursive -hide-fields -hide-methods ./${dir_name} > $DIAGRAMS_DIR/${dir_name}.puml
-	# Special case: replace ""net.Conn with "net.Conn
-	sed -i 's/""net.Conn/"net.Conn/' $DIAGRAMS_DIR/${dir_name}_full.puml
-	sed -i 's/""net.Conn/"net.Conn/' $DIAGRAMS_DIR/${dir_name}.puml
+	$GO_BIN_DIR -recursive ./${dir_name} > $DIAGRAMS_DIR/${dir_name}_full.puml
+	$GO_BIN_DIR -recursive -hide-fields -hide-methods ./${dir_name} > $DIAGRAMS_DIR/${dir_name}.puml
+    clean_puml $DIAGRAMS_DIR/${dir_name}_full.puml
+	clean_puml $DIAGRAMS_DIR/${dir_name}.puml
 done
 
-# $BIN_DIR -recursive -hide-fields -hide-methods ./client > $DIAGRAMS_DIR/client.puml
+# $GO_BIN_DIR -recursive -hide-fields -hide-methods ./client > $DIAGRAMS_DIR/client.puml
 
 for puml_file in $DIAGRAMS_DIR/*.puml; do
 	file_name=${puml_file#"$DIAGRAMS_DIR/"}
@@ -49,6 +61,6 @@ for puml_file in $DIAGRAMS_DIR/*.puml; do
 	# Skip if already exists
 	[ -f "$DIAGRAMS_DIR/${dir_name}.png" ] && continue
 	echo $dir_name
-	# vm direcotry has largest size (94406x5318)
+	# vm directory has largest size (94406x5318)
 	java -jar $JAR_DIR -DPLANTUML_LIMIT_SIZE=95000 -verbose $puml_file
 done
