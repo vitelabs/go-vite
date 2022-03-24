@@ -231,7 +231,9 @@ implementation of wallet, private key mnemonic management, and signature and ver
 
 ### User sends a transfer transaction <a name="examples_1"></a>
 
-TODO: create diagram
+<p align="center">
+  <img src="/docs/images/summary_diagrams/call_graphs/send_raw_transaction.png" alt="SendRawTransaction">
+</p>
 
 - rpcapi/api/ledger_v2.go#SendRawTransaction 
   - rpc is the entry point for all access nodes
@@ -307,7 +309,7 @@ TODO: create diagram
      - sudo apt update
      - sudo apt install default-jre
 3. Execute the script to generate all puml diagrams
-     - ./docs/scripts/gen_diagrams.sh
+     - ./docs/scripts/puml_diagrams.sh
 
 ### Other visualization tools <a name="visualization"></a>
 
