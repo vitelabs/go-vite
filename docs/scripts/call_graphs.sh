@@ -30,6 +30,9 @@ rm -rf $DIAGRAMS_DIR
 mkdir -p $DIAGRAMS_DIR
 
 $TOOL_PATH $BASE_DIR -start 'SendRawTransaction' -output $DIAGRAMS_DIR/send_raw_transaction.png -noShow -language 'go'
+# Current limitation: All methods with the same name will be included in the call graph diagram
+# Temporary workaround: Rename the update function in ledger/consensus/trigger.go to ConsensusTriggerUpdate
+# $TOOL_PATH $BASE_DIR -start 'ConsensusTriggerUpdate' -output $DIAGRAMS_DIR/consensus_trigger_update.png -noShow -language 'go'
 
 # Delete .dot files
 rm $DIAGRAMS_DIR/*.dot

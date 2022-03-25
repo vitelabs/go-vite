@@ -43,6 +43,7 @@ Table of Content:
   * [SBP generates a snapshot block](#examples_3)
 * [Appendix](#appendix)
   * [Setup goplantuml](#goplantuml)
+  * [Setup callGraph](#callgraph)
   * [Other visualization tools](#visualization)
 
 ## Directories & packages <a name="directories"></a>
@@ -235,6 +236,8 @@ implementation of wallet, private key mnemonic management, and signature and ver
   <img src="/docs/images/summary_diagrams/call_graphs/send_raw_transaction.png" alt="SendRawTransaction">
 </p>
 
+[[Raw link]](/docs/images/summary_diagrams/call_graphs/send_raw_transaction.png?raw=true)
+
 - rpcapi/api/ledger_v2.go#SendRawTransaction 
   - rpc is the entry point for all access nodes
 - ledger/pool/pool.go#AddDirectAccountBlock 
@@ -251,7 +254,11 @@ implementation of wallet, private key mnemonic management, and signature and ver
 
 ### Generate a receive block for a contract <a name="examples_2"></a>
 
-TODO: create diagram
+<p align="center">
+  <img src="/docs/images/summary_diagrams/call_graphs/consensus_trigger_update.png" alt="ConsensusTriggerUpdate">
+</p>
+
+[[Raw link]](/docs/images/summary_diagrams/call_graphs/consensus_trigger_update.png?raw=true)
 
 - ledger/consensus/trigger.go#update 
   - generates an event that the contract starts to generate blocks and passes it to the downstream
@@ -274,9 +281,9 @@ TODO: create diagram
 - ledger/pool/pool.go#AddDirectAccountBlock 
   - Insert the block directly into the ledger through the pool
 
-### SBP generates a snapshot block <a name="examples_2"></a>
+### SBP generates a snapshot block <a name="examples_3"></a>
 
-TODO: create diagram
+Diagram: see [Generate a receive block for a contract](#examples_2)
 
 - ledger/consensus/trigger.go#update 
   - generates a snapshot block start event and passes it to the downstream
@@ -310,6 +317,18 @@ TODO: create diagram
      - sudo apt install default-jre
 3. Execute the script to generate all puml diagrams
      - ./docs/scripts/puml_diagrams.sh
+
+### Setup callGraph <a name="callgraph"></a>
+
+[callGraph](https://github.com/koknat/callGraph) is a tool to generate static call graphs for multiple languages including golang. A call graph shows how functions call each other within a program. Each oval represents a function, and each arrow indicates a function call.
+
+1. Install GraphViz
+     - sudo apt update
+     - sudo apt install graphviz
+     - sudo apt install make
+     - sudo cpan install GraphViz
+2. Execute the script to generate all call graphs
+     - ./docs/scripts/call_graphs.sh
 
 ### Other visualization tools <a name="visualization"></a>
 
