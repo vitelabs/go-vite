@@ -24,6 +24,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/net/discovery"
 	"github.com/vitelabs/go-vite/v2/net/netool"
 	"github.com/vitelabs/go-vite/v2/net/vnode"
+	_version "github.com/vitelabs/go-vite/v2/version"
 )
 
 var netLog = log15.New("module", "net")
@@ -746,14 +747,15 @@ func (n *net) PeerCount() int {
 func (n *net) Info() NodeInfo {
 	ps := n.peers.info()
 	info := NodeInfo{
-		ID:        n.node.ID,
-		Name:      n.config.Name,
-		NetID:     n.config.NetID,
-		Version:   version,
-		Address:   "",
-		PeerCount: len(ps),
-		Peers:     ps,
-		Height:    n.chain.GetLatestSnapshotBlock().Height,
+		ID:           n.node.ID,
+		Name:         n.config.Name,
+		NetID:        n.config.NetID,
+		Version:      version,
+		BuildVersion: _version.VITE_BUILD_VERSION,
+		Address:      "",
+		PeerCount:    len(ps),
+		Peers:        ps,
+		Height:       n.chain.GetLatestSnapshotBlock().Height,
 		//Nodes:     n.discover.NodesCount(),
 		Latency:               n.broadcaster.Statistic(),
 		BroadCheckFailedRatio: n.broadcaster.rings.failedRatio(),
@@ -772,6 +774,7 @@ type NodeInfo struct {
 	Name                  string           `json:"name"`
 	NetID                 int              `json:"netId"`
 	Version               int              `json:"version"`
+	BuildVersion          string           `json:"buildVersion"`
 	Address               string           `json:"address"`
 	PeerCount             int              `json:"peerCount"`
 	Peers                 []PeerInfo       `json:"peers"`

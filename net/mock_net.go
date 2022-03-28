@@ -5,6 +5,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	"github.com/vitelabs/go-vite/v2/net/vnode"
+	_version "github.com/vitelabs/go-vite/v2/version"
 )
 
 type mockNet struct {
@@ -94,7 +95,11 @@ func (n *mockNet) Start() error {
 }
 
 func (n *mockNet) Info() NodeInfo {
-	return NodeInfo{}
+	info := NodeInfo{
+		Version:      version,
+		BuildVersion: _version.VITE_BUILD_VERSION,
+	}
+	return info
 }
 
 func (n *mockNet) Nodes() []*vnode.Node {
