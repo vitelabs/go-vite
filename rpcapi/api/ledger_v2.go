@@ -448,8 +448,8 @@ func GetLogs(c chain.Chain, rangeMap map[string]*Range, topics [][]types.Hash) (
 		if acc == nil {
 			continue
 		}
-		if startHeight == 0 {
-			startHeight = 1
+		if startHeight == 0 || startHeight > acc.Height {
+			startHeight = acc.Height
 		}
 		if endHeight == 0 || endHeight > acc.Height {
 			endHeight = acc.Height
