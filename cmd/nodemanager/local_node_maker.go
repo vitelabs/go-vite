@@ -7,6 +7,7 @@ import (
 
 	"github.com/vitelabs/go-vite/v2/common"
 	"github.com/vitelabs/go-vite/v2/node"
+	nodeconfig "github.com/vitelabs/go-vite/v2/node/config"
 )
 
 type LocalNodeMaker struct {
@@ -29,8 +30,8 @@ func (maker LocalNodeMaker) MakeNode(ctx *cli.Context) (*node.Node, error) {
 	return node, nil
 }
 
-func (maker LocalNodeMaker) MakeNodeConfig(ctx *cli.Context) (*node.Config, error) {
-	cfg := &node.DefaultNodeConfig
+func (maker LocalNodeMaker) MakeNodeConfig(ctx *cli.Context) (*nodeconfig.Config, error) {
+	cfg := &nodeconfig.DefaultNodeConfig
 	log.Info(fmt.Sprintf("DefaultNodeconfig: %v", cfg))
 
 	// 1: Load config file.
@@ -59,7 +60,7 @@ func (maker LocalNodeMaker) MakeNodeConfig(ctx *cli.Context) (*node.Config, erro
 	return cfg, nil
 }
 
-func makeLocalNodeCfg(ctx *cli.Context, cfg *node.Config) {
+func makeLocalNodeCfg(ctx *cli.Context, cfg *nodeconfig.Config) {
 	// single mode
 	cfg.Single = true
 	// no miner

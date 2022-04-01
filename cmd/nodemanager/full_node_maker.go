@@ -11,6 +11,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/common"
 	"github.com/vitelabs/go-vite/v2/log15"
 	"github.com/vitelabs/go-vite/v2/node"
+	nodeconfig "github.com/vitelabs/go-vite/v2/node/config"
 )
 
 var defaultNodeConfigFileName = "node_config.json"
@@ -34,8 +35,8 @@ func (maker FullNodeMaker) MakeNode(ctx *cli.Context) (*node.Node, error) {
 	return node, nil
 }
 
-func (maker FullNodeMaker) MakeNodeConfig(ctx *cli.Context) (*node.Config, error) {
-	cfg := node.DefaultNodeConfig
+func (maker FullNodeMaker) MakeNodeConfig(ctx *cli.Context) (*nodeconfig.Config, error) {
+	cfg := nodeconfig.DefaultNodeConfig
 	log.Info(fmt.Sprintf("DefaultNodeconfig: %v", cfg))
 
 	// 1: Load config file.
@@ -62,7 +63,7 @@ func (maker FullNodeMaker) MakeNodeConfig(ctx *cli.Context) (*node.Config, error
 }
 
 // SetNodeConfig applies node-related command line flags to the config.
-func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
+func mappingNodeConfig(ctx *cli.Context, cfg *nodeconfig.Config) {
 
 	//Global Config
 	if dataDir := ctx.GlobalString(utils.DataDirFlag.Name); len(dataDir) > 0 {
@@ -165,7 +166,7 @@ func mappingNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 }
 
-func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
+func overrideNodeConfigs(ctx *cli.Context, cfg *nodeconfig.Config) {
 
 	if len(cfg.DataDir) == 0 || cfg.DataDir == "" {
 		cfg.DataDir = common.DefaultDataDir()
@@ -216,7 +217,7 @@ func overrideNodeConfigs(ctx *cli.Context, cfg *node.Config) {
 	}
 }
 
-func loadNodeConfigFromFile(ctx *cli.Context, cfg *node.Config) error {
+func loadNodeConfigFromFile(ctx *cli.Context, cfg *nodeconfig.Config) error {
 
 	configFile := ctx.GlobalString(utils.ConfigFileFlag.Name)
 	if configFile == "" {
@@ -236,7 +237,7 @@ func IsExist(f string) bool {
 	return err == nil || os.IsExist(err)
 }
 
-func makeRunLogFile(cfg *node.Config) {
+func makeRunLogFile(cfg *nodeconfig.Config) {
 	defaultHandler := common.LogHandler(cfg.RunLogDir(), "", "vite.log", cfg.LogLevel)
 	errorHandler := common.LogHandler(cfg.RunLogDir(), "error", "vite.error.log", log15.LvlError.String())
 
