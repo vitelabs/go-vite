@@ -7,6 +7,79 @@ import (
 	"github.com/vitelabs/go-vite/v2/rpcapi/api/filters"
 )
 
+type ApiType uint
+
+const (
+	HEALTH = iota
+	WALLET
+	PRIVATE_ONROAD
+	POW
+	DEBUG
+	CONSENSUSGROUP
+	LEDGER
+	PUBLIC_ONROAD
+	NET
+	CONTRACT
+	REGISTER
+	VOTE
+	MINTAGE
+	PLEDGE
+	DEXFUND
+	DEXTRADE
+	DEX
+	PRIVATE_DEX
+	TX
+	DASHBOARD
+	SUBSCRIBE
+	SBPSTATS
+	UTIL
+	DATA
+	LEDGERDEBUG
+	MINER
+	apiTypeLimit // this will be the last ApiType + 1
+)
+
+var apiTypeStrings = []string{
+	"health",
+	"wallet",
+	"private_onroad",
+	"pow",
+	"debug",
+	"consensusGroup",
+	"ledger",
+	"public_onroad",
+	"net",
+	"contract",
+	"register",
+	"vote",
+	"mintage",
+	"pledge",
+	"dexfund",
+	"dextrade",
+	"dex",
+	"private_dex",
+	"tx",
+	"dashboard",
+	"subscribe",
+	"sbpstats",
+	"util",
+	"data",
+	"ledgerdebug",
+	"miner",
+}
+
+func (at ApiType) name() string {
+	return apiTypeStrings[at]
+}
+
+func (at ApiType) ordinal() int {
+	return int(at)
+}
+
+func (at ApiType) values() *[]string {
+	return &apiTypeStrings
+}
+
 func Init(dir, lvl string, testApi_prikey, testApi_tti string, netId uint, dexAvailable *bool) {
 	api.InitLog(dir, lvl)
 	api.InitTestAPIParams(testApi_prikey, testApi_tti)
@@ -16,184 +89,183 @@ func Init(dir, lvl string, testApi_prikey, testApi_tti string, netId uint, dexAv
 func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 	switch apiModule {
 	// private IPC
-	case "health":
+	case ApiType(HEALTH).name():
 		return rpc.API{
 			Namespace: "health",
 			Version:   "1.0",
 			Service:   api.NewHealthApi(vite),
 			Public:    true,
 		}
-	case "wallet":
+	case ApiType(WALLET).name():
 		return rpc.API{
 			Namespace: "wallet",
 			Version:   "1.0",
 			Service:   api.NewWalletApi(vite),
 			Public:    false,
 		}
-	case "private_onroad":
+	case ApiType(PRIVATE_ONROAD).name():
 		return rpc.API{
 			Namespace: "onroad",
 			Version:   "1.0",
 			Service:   api.NewPrivateOnroadApi(vite),
 			Public:    false,
 		}
-		// public  WS HTTP IPC
-
-	case "pow":
+	// public WS HTTP IPC
+	case ApiType(POW).name():
 		return rpc.API{
 			Namespace: "pow",
 			Version:   "1.0",
 			Service:   api.NewPow(vite),
 			Public:    true,
 		}
-	case "debug":
+	case ApiType(DEBUG).name():
 		return rpc.API{
 			Namespace: "debug",
 			Version:   "1.0",
 			Service:   api.NewDeprecated(),
 			Public:    true,
 		}
-	case "consensusGroup":
+	case ApiType(CONSENSUSGROUP).name():
 		return rpc.API{
 			Namespace: "debug",
 			Version:   "1.0",
 			Service:   api.NewDeprecated(),
 			Public:    true,
 		}
-	case "ledger":
+	case ApiType(LEDGER).name():
 		return rpc.API{
 			Namespace: "ledger",
 			Version:   "1.0",
 			Service:   api.NewLedgerApi(vite),
 			Public:    true,
 		}
-	case "public_onroad":
+	case ApiType(PUBLIC_ONROAD).name():
 		return rpc.API{
 			Namespace: "onroad",
 			Version:   "1.0",
 			Service:   api.NewPublicOnroadApi(vite),
 			Public:    true,
 		}
-	case "net":
+	case ApiType(NET).name():
 		return rpc.API{
 			Namespace: "net",
 			Version:   "1.0",
 			Service:   api.NewNetApi(vite),
 			Public:    true,
 		}
-	case "contract":
+	case ApiType(CONTRACT).name():
 		return rpc.API{
 			Namespace: "contract",
 			Version:   "1.0",
 			Service:   api.NewContractApi(vite),
 			Public:    true,
 		}
-	case "register":
+	case ApiType(REGISTER).name():
 		return rpc.API{
 			Namespace: "register",
 			Version:   "1.0",
 			Service:   api.NewRegisterApi(vite),
 			Public:    true,
 		}
-	case "vote":
+	case ApiType(VOTE).name():
 		return rpc.API{
 			Namespace: "vote",
 			Version:   "1.0",
 			Service:   api.NewVoteApi(vite),
 			Public:    true,
 		}
-	case "mintage":
+	case ApiType(MINTAGE).name():
 		return rpc.API{
 			Namespace: "mintage",
 			Version:   "1.0",
 			Service:   api.NewMintageAPI(vite),
 			Public:    true,
 		}
-	case "pledge":
+	case ApiType(PLEDGE).name():
 		return rpc.API{
 			Namespace: "pledge",
 			Version:   "1.0",
 			Service:   api.NewQuotaApi(vite),
 			Public:    true,
 		}
-	case "dexfund":
+	case ApiType(DEXFUND).name():
 		return rpc.API{
 			Namespace: "dexfund",
 			Version:   "1.0",
 			Service:   api.NewDexFundApi(vite),
 			Public:    true,
 		}
-	case "dextrade":
+	case ApiType(DEXTRADE).name():
 		return rpc.API{
 			Namespace: "dextrade",
 			Version:   "1.0",
 			Service:   api.NewDexTradeApi(vite),
 			Public:    true,
 		}
-	case "dex":
+	case ApiType(DEX).name():
 		return rpc.API{
 			Namespace: "dex",
 			Version:   "1.0",
 			Service:   api.NewDexApi(vite),
 			Public:    true,
 		}
-	case "private_dex":
+	case ApiType(PRIVATE_DEX).name():
 		return rpc.API{
 			Namespace: "dex",
 			Version:   "1.0",
 			Service:   api.NewDexPrivateApi(vite),
 			Public:    false,
 		}
-	case "tx":
+	case ApiType(TX).name():
 		return rpc.API{
 			Namespace: "tx",
 			Version:   "1.0",
 			Service:   api.NewTxApi(vite),
 			Public:    true,
 		}
-	case "dashboard":
+	case ApiType(DASHBOARD).name():
 		return rpc.API{
 			Namespace: "dashboard",
 			Version:   "1.0",
 			Service:   api.NewDashboardApi(vite),
 			Public:    true,
 		}
-	case "subscribe":
+	case ApiType(SUBSCRIBE).name():
 		return rpc.API{
 			Namespace: "subscribe",
 			Version:   "1.0",
 			Service:   filters.NewSubscribeApi(vite),
 			Public:    true,
 		}
-	case "sbpstats":
+	case ApiType(SBPSTATS).name():
 		return rpc.API{
 			Namespace: "sbpstats",
 			Version:   "1.0",
 			Service:   api.NewStatsApi(vite),
 			Public:    true,
 		}
-	case "util":
+	case ApiType(UTIL).name():
 		return rpc.API{
 			Namespace: "util",
 			Version:   "1.0",
 			Service:   api.NewUtilApi(vite),
 			Public:    true,
 		}
-	case "data":
+	case ApiType(DATA).name():
 		return rpc.API{
 			Namespace: "data",
 			Version:   "1.0",
 			Service:   api.NewDataApi(vite),
 			Public:    true,
 		}
-	case "ledgerdebug":
+	case ApiType(LEDGERDEBUG).name():
 		return rpc.API{
 			Namespace: "ledgerdebug",
 			Version:   "1.0",
 			Service:   api.NewLedgerDebugApi(vite),
 			Public:    false,
 		}
-	case "miner":
+	case ApiType(MINER).name():
 		return rpc.API{
 			Namespace: "miner",
 			Version:   "1.0",
@@ -235,5 +307,5 @@ func MergeApis(first map[string]rpc.API, second map[string]rpc.API) []rpc.API {
 }
 
 func GetPublicApis(vite *vite.Vite) map[string]rpc.API {
-	return GetApis(vite, "ledger", "net", "contract", "util", "health")
+	return GetApis(vite, ApiType(LEDGER).name(), ApiType(NET).name(), ApiType(CONTRACT).name(), ApiType(UTIL).name(), ApiType(HEALTH).name())
 }

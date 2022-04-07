@@ -19,12 +19,13 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"github.com/vitelabs/go-vite/v2/rpcapi/api"
 	"reflect"
 	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/vitelabs/go-vite/v2/rpcapi/api"
 
 	mapset "github.com/deckarep/golang-set"
 	log "github.com/vitelabs/go-vite/v2/log15"
@@ -70,6 +71,28 @@ func (s *RPCService) Modules() map[string]string {
 	modules := make(map[string]string)
 	for name := range s.server.services {
 		modules[name] = "1.0"
+	}
+	return modules
+}
+
+// Methods returns the list of RPC services with their method names
+func (s *Server) Methods() map[string][]string {
+	modules := make(map[string][]string)
+	for svcName, svc := range s.services {
+		for name := range svc.callbacks {
+			modules[svcName] = append(modules[svcName], name)
+		}
+	}
+	return modules
+}
+
+// Subscriptions returns the list of RPC services with their subscription names
+func (s *Server) Subscriptions() map[string][]string {
+	modules := make(map[string][]string)
+	for svcName, svc := range s.services {
+		for name := range svc.subscriptions {
+			modules[svcName] = append(modules[svcName], name)
+		}
 	}
 	return modules
 }

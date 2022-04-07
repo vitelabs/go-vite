@@ -1,4 +1,4 @@
-package node
+package nodeconfig
 
 import (
 	"encoding/json"
@@ -24,7 +24,7 @@ func TestChainConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	configchain := config.makeChainConfig()
+	configchain := config.MakeChainConfig()
 	if len(configchain.VmLogWhiteList) != 1 {
 		t.Fatal("length must be 1")
 	}
@@ -40,7 +40,7 @@ func TestChainConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	configchainB := configB.makeChainConfig()
+	configchainB := configB.MakeChainConfig()
 
 	if configchainB.VmLogAll != true {
 		t.Fatal("VmLogAll must be true ")

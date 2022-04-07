@@ -1,4 +1,4 @@
-package node
+package nodeconfig
 
 import (
 	"encoding/hex"
@@ -117,25 +117,25 @@ type Config struct {
 	InfluxDBHostTag  *string `json:"InfluxDBHostTag"`
 }
 
-func (c *Config) makeWalletConfig() *config.Wallet {
+func (c *Config) MakeWalletConfig() *config.Wallet {
 	return &config.Wallet{DataDir: c.KeyStoreDir}
 }
 
-func (c *Config) makeViteConfig() *config.Config {
+func (c *Config) MakeViteConfig() *config.Config {
 	return &config.Config{
-		Chain:      c.makeChainConfig(),
-		Producer:   c.makeMinerConfig(),
+		Chain:      c.MakeChainConfig(),
+		Producer:   c.MakeMinerConfig(),
 		DataDir:    c.DataDir,
-		Net:        c.makeNetConfig(),
-		Vm:         c.makeVmConfig(),
-		Subscribe:  c.makeSubscribeConfig(),
-		NodeReward: c.makeRewardConfig(),
+		Net:        c.MakeNetConfig(),
+		Vm:         c.MakeVmConfig(),
+		Subscribe:  c.MakeSubscribeConfig(),
+		NodeReward: c.MakeRewardConfig(),
 		Genesis:    config.MakeGenesisConfig(c.GenesisFile),
 		LogLevel:   c.LogLevel,
 	}
 }
 
-func (c *Config) makeNetConfig() *config.Net {
+func (c *Config) MakeNetConfig() *config.Net {
 	datadir := filepath.Join(c.DataDir, config.DefaultNetDirName)
 
 	return &config.Net{
@@ -167,14 +167,14 @@ func (c *Config) makeNetConfig() *config.Net {
 	}
 }
 
-func (c *Config) makeRewardConfig() *config.NodeReward {
+func (c *Config) MakeRewardConfig() *config.NodeReward {
 	return &config.NodeReward{
 		RewardAddr: c.RewardAddr,
 		Name:       c.Identity,
 	}
 }
 
-func (c *Config) makeVmConfig() *config.Vm {
+func (c *Config) MakeVmConfig() *config.Vm {
 	return &config.Vm{
 		IsVmTest:            c.VMTestEnabled,
 		IsUseVmTestParam:    c.VMTestParamEnabled,
@@ -183,12 +183,12 @@ func (c *Config) makeVmConfig() *config.Vm {
 	}
 }
 
-func (c *Config) makeSubscribeConfig() *config.Subscribe {
+func (c *Config) MakeSubscribeConfig() *config.Subscribe {
 	return &config.Subscribe{
 		IsSubscribe: c.SubscribeEnabled,
 	}
 }
-func (c *Config) makeMinerConfig() *config.Producer {
+func (c *Config) MakeMinerConfig() *config.Producer {
 	cfg := &config.Producer{
 		Producer:         c.MinerEnabled,
 		Coinbase:         c.CoinBase,
@@ -202,7 +202,7 @@ func (c *Config) makeMinerConfig() *config.Producer {
 	return cfg
 }
 
-func (c *Config) makeChainConfig() *config.Chain {
+func (c *Config) MakeChainConfig() *config.Chain {
 
 	// is open ledger gc
 	ledgerGc := true

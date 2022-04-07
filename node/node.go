@@ -17,6 +17,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/config"
 	"github.com/vitelabs/go-vite/v2/log15"
 	"github.com/vitelabs/go-vite/v2/monitor"
+	nodeconfig "github.com/vitelabs/go-vite/v2/node/config"
 	"github.com/vitelabs/go-vite/v2/pow"
 	"github.com/vitelabs/go-vite/v2/pow/remote"
 	"github.com/vitelabs/go-vite/v2/rpc"
@@ -31,7 +32,7 @@ var (
 
 // Node is chain container that manages p2p、rpc、vite modules
 type Node struct {
-	config *Config
+	config *nodeconfig.Config
 
 	//wallet
 	walletConfig  *config.Wallet
@@ -66,11 +67,11 @@ type Node struct {
 	instanceDirLock flock.Releaser // prevents concurrent use of instance directory
 }
 
-func New(conf *Config) (*Node, error) {
+func New(conf *nodeconfig.Config) (*Node, error) {
 	return &Node{
 		config:       conf,
-		walletConfig: conf.makeWalletConfig(),
-		viteConfig:   conf.makeViteConfig(),
+		walletConfig: conf.MakeWalletConfig(),
+		viteConfig:   conf.MakeViteConfig(),
 		ipcEndpoint:  conf.IPCEndpoint(),
 		httpEndpoint: conf.HTTPEndpoint(),
 		wsEndpoint:   conf.WSEndpoint(),
@@ -224,7 +225,7 @@ func (node *Node) Vite() *vite.Vite {
 	return node.viteServer
 }
 
-func (node *Node) Config() *Config {
+func (node *Node) Config() *nodeconfig.Config {
 	return node.config
 }
 
