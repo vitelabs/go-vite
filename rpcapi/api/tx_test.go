@@ -60,14 +60,14 @@ func TestTx_SendRawTx_VerifyHashAndSig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prevHash, err := types.HexToHash("")
+	prevHash, err := types.HexToHash("0000000000000000000000000000000000000000000000000000000000000000")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	fmt.Printf("zero-tkId %v zero-addr %v\n", zeroTkId, zeroAddr)
 
-	addr, err := types.HexToAddress("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
+	addr, err := types.HexToAddress("vite_6c1032417f80329f3abe0a024fa3a7aa0e952b0fded2262f6f")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestTx_SendRawTx_VerifyHashAndSig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	privkey, err := ed25519.HexToPrivateKey("")
+	privkey, err := ed25519.HexToPrivateKey("44e9768b7d8320a282e75337df8fc1f12a4f000b9f9906ddb886c6823bb599addfda7318e7824d25aae3c749c1cbd4e72ce9401653c66479554a05a2e3cb4f88")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,6 +88,7 @@ func TestTx_SendRawTx_VerifyHashAndSig(t *testing.T) {
 
 	address := types.PubkeyToAddress(pubKey)
 	if address != addr {
+		fmt.Printf("expected address: %s / actual address: %s\n", addr, address)
 		t.Fatal("publicKey doesn't match address")
 	}
 
@@ -108,6 +109,9 @@ func TestTx_SendRawTx_VerifyHashAndSig(t *testing.T) {
 	}
 
 	hashData := block.ComputeHash()
+	if hashData.IsZero() {
+		t.Fatal("compute hash failed")
+	}
 
 	signData := ed25519.Sign(privkey, hashData.Bytes())
 	signBase64 := base64.StdEncoding.EncodeToString(signData)
@@ -115,17 +119,13 @@ func TestTx_SendRawTx_VerifyHashAndSig(t *testing.T) {
 
 	fmt.Printf("sig=%v\n pub=%v\n hash=%v\n", signBase64, pubKeyBase64, hashData)
 
-	/*	if block.ComputeHash() != hash {
-			t.Fatal("compute hash failed")
-		}
-
-		isVerified, verifyErr := crypto.VerifySig(pubSlice, hash.Bytes(), sigSlice)
-		if verifyErr != nil {
-			t.Fatal(verifyErr)
-		}
-		if !isVerified {
-			t.Fatal("verify hash failed")
-		}*/
+	isVerified, verifyErr := crypto.VerifySig(pubKey, hashData.Bytes(), signData)
+	if verifyErr != nil {
+		t.Fatal(verifyErr)
+	}
+	if !isVerified {
+		t.Fatal("verify hash failed")
+	}
 }
 
 func TestTx_Auto(t *testing.T) {

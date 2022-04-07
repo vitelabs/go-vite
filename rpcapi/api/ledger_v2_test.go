@@ -1,4 +1,4 @@
-package filters
+package api
 
 import (
 	"testing"
@@ -59,7 +59,7 @@ func TestGetHeightPage(t *testing.T) {
 			if index > len(testCase.resultList)-1 {
 				t.Fatalf("%vth testcase, current index %v, expected finish", i, index)
 			}
-			offset, count, finish := GetHeightPage(startHeight, endHeight, getAccountBlocksCount)
+			offset, count, finish := getHeightPage(startHeight, endHeight, 100)
 			startHeight = offset + 1
 			if result := testCase.resultList[index]; offset != result.offset || count != result.count || finish != result.finish {
 				t.Fatalf("%vth testcase, index %v, expected [%v,%v,%v], got [%v,%v,%v]", i, index, result.offset, result.count, result.finish, offset, count, finish)
