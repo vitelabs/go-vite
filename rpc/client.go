@@ -359,7 +359,12 @@ func (c *Client) BatchCallContext(ctx context.Context, b []BatchElem) error {
 	if c.isHTTP {
 		err = c.sendBatchHTTP(ctx, op, msgs)
 	} else {
-		err = c.send(ctx, op, msgs)
+		for i := range msgs {
+			err = c.send(ctx, op, msgs[i])
+			if err != nil {
+				break
+			}
+		}
 	}
 
 	// Wait for all responses to come back.
