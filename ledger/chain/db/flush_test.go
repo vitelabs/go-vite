@@ -15,7 +15,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/ledger/chain/test_tools"
 )
 
-func newStore(dirName string, clear bool) *Store {
+func newStore(dirName string, clear bool) (*Store, string) {
 	tempDir := path.Join(test_tools.DefaultDataDir(), dirName)
 	fmt.Printf("tempDir: %s\n", tempDir)
 	if clear {
@@ -27,11 +27,20 @@ func newStore(dirName string, clear bool) *Store {
 		panic(err)
 	}
 
-	return store
+	return store, tempDir
+}
+
+func clearStore(tempDir string) {
+	err := os.RemoveAll(tempDir)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func TestRedoLog(t *testing.T) {
-	store := newStore(t.Name(), true)
+	store, tempDir := newStore(t.Name(), true)
+	defer clearStore(tempDir)
+
 	var mu sync.RWMutex
 	flusher, err := chain_flusher.NewFlusher([]chain_flusher.Storage{store}, &mu, path.Join(test_tools.DefaultDataDir(), t.Name()))
 	// assert flusher
@@ -40,7 +49,9 @@ func TestRedoLog(t *testing.T) {
 }
 
 func TestFlush(t *testing.T) {
-	store := newStore(t.Name(), true)
+	store, tempDir := newStore(t.Name(), true)
+	defer clearStore(tempDir)
+
 	batch := store.NewBatch()
 
 	batch.Put([]byte("key1"), []byte("value1"))
@@ -126,7 +137,9 @@ func TestFlush(t *testing.T) {
 }
 
 func TestRecover(t *testing.T) {
-	store := newStore(t.Name(), true)
+	store, tempDir := newStore(t.Name(), true)
+	defer clearStore(tempDir)
+
 	batch := store.NewBatch()
 
 	batch.Put([]byte("key1"), []byte("value1"))
