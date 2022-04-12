@@ -16,7 +16,7 @@ import (
 func TestCreateContractAddress(t *testing.T) {
 	addr := CreateContractAddress([]byte{1, 2, 3}, []byte{1, 2, 3})
 	fmt.Println(addr)
-	if _, err := ValidHexAddress(addr.String()); err == nil {
+	if _, err := ValidHexAddress(addr.String()); err != nil {
 		t.Fatal("Not valid")
 	}
 }
