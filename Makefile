@@ -1,5 +1,6 @@
 .PHONY: all clean
 .PHONY: gvite-linux-amd64
+.PHONY: gvite-linux-arm64
 .PHONY: gvite-darwin
 .PHONY: gvite-windows
 .PHONY: build_version build
@@ -46,6 +47,15 @@ build_linux_amd64:
 	@ls -d $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/gvite
 	@echo "Build linux version done."
 
+build_linux_arm64:
+	env GOOS=linux GO111MODULE=on GOARCH=arm64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux-arm64/gvite $(MAIN)
+
+	@cp $(shell pwd)/conf/node_config.json $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux-arm64/node_config.json
+	@cp $(shell pwd)/bin/bootstrap_linux $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux-arm64/bootstrap
+
+	@ls -d $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux-arm64/gvite
+	@echo "Build linux-arm64 version done."	
+
 build_darwin:
 	env GOOS=darwin GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-darwin/gvite $(MAIN)
 
@@ -66,11 +76,13 @@ gvite-darwin: build_version build_darwin
 
 gvite-linux: build_version build_linux_amd64
 
+gvite-linux-arm64: build_version build_linux_arm64
+
 gvite-windows: build_version build_windows
 
 gvite: build_version build
 
-all: gvite-windows gvite-darwin gvite-linux
+all: gvite-windows gvite-darwin gvite-linux gvite-linux-arm64
 
 clean:
 	rm -r $(BUILD_ROOT_DIR)/
