@@ -362,6 +362,9 @@ func (l *LedgerApi) GetUnreceivedTransactionSummaryInBatch(addressList []types.A
 type VmLogFilterParam struct {
 	AddrRange map[string]*Range `json:"addressHeightRange"`
 	Topics    [][]types.Hash    `json:"topics"`
+
+	PageIndex uint64 `json:"pageIndex"`
+	PageSize  uint64 `json:"pageSize"`
 }
 type Range struct {
 	FromHeight string `json:"fromHeight"`
@@ -430,14 +433,26 @@ type Logs struct {
 }
 
 func (l *LedgerApi) GetVmLogsByFilter(param VmLogFilterParam) ([]*Logs, error) {
-	return GetLogs(l.chain, param.AddrRange, param.Topics)
+	return GetLogs(l.chain, param.AddrRange, param.Topics, param.PageIndex, param.PageSize)
 }
-func GetLogs(c chain.Chain, rangeMap map[string]*Range, topics [][]types.Hash) ([]*Logs, error) {
+func GetLogs(c chain.Chain, rangeMap map[string]*Range, topics [][]types.Hash, pageIndex uint64, pageSize uint64) ([]*Logs, error) {
 	filterParam, err := ToFilterParam(rangeMap, topics)
 	if err != nil {
 		return nil, err
 	}
+
+	maxSize := uint64(1000)
+	if pageSize > maxSize {
+		return nil, fmt.Errorf("pageSize must be less than %d", maxSize)
+	}
+	if pageSize == 0 {
+		pageSize = maxSize
+	}
+
+	skipCount := uint64(pageIndex * pageSize)
+
 	var logs []*Logs
+	var maxSizeReached bool
 	for addr, hr := range filterParam.AddrRange {
 		startHeight := hr.FromHeight
 		endHeight := hr.ToHeight
@@ -472,12 +487,23 @@ func GetLogs(c chain.Chain, rangeMap map[string]*Range, topics [][]types.Hash) (
 					}
 					for _, l := range list {
 						if FilterLog(filterParam, l) {
+							if skipCount > 0 {
+								skipCount--
+								continue
+							}
 							logs = append(logs, &Logs{l, blocks[i-1].Hash, Uint64ToString(blocks[i-1].Height), &addr})
+							if uint64(len(logs)) >= pageSize {
+								maxSizeReached = true
+								break
+							}
 						}
+					}
+					if maxSizeReached {
+						break
 					}
 				}
 			}
-			if finish {
+			if finish || maxSizeReached {
 				break
 			}
 		}
@@ -492,6 +518,7 @@ func getHeightPage(start uint64, end uint64, count uint64) (uint64, uint64, bool
 	}
 	return start + count - 1, count, false
 }
+
 func FilterLog(filter *FilterParam, l *ledger.VmLog) bool {
 	if len(l.Topics) < len(filter.Topics) {
 		return false
