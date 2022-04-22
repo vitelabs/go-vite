@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"strings"
 
 	"github.com/vitelabs/go-vite/v2/common/types"
 )
@@ -20,6 +21,21 @@ type ABIContract struct {
 	Variables   map[string]Variable
 }
 
+// ABIError holds ABI spec of Error(string message)
+var ABIError = initABIError()
+
+func initABIError() Method {
+	stringType, _ := NewType("string")
+	inputs := Arguments{Argument{
+		Name: "message",
+		Type: stringType,
+		Indexed: false,
+	}}
+	outputs := Arguments{}
+
+	return newMethod("Error", inputs, outputs)
+}
+
 // JSONToABIContract returns a parsed ABI interface and error if it failed.
 func JSONToABIContract(reader io.Reader) (ABIContract, error) {
 	dec := json.NewDecoder(reader)
@@ -30,6 +46,11 @@ func JSONToABIContract(reader io.Reader) (ABIContract, error) {
 	}
 
 	return abi, nil
+}
+
+func ParseABI(json string) ABIContract {
+	abi, _ := JSONToABIContract(strings.NewReader(json))
+	return abi
 }
 
 func (abi ABIContract) PackMethod(name string, args ...interface{}) ([]byte, error) {
@@ -95,6 +116,14 @@ func (abi ABIContract) PackEvent(name string, args ...interface{}) (topics []typ
 		return nil, nil, errEventNotFound(name)
 	}
 	return e.Pack(args...)
+}
+
+func PackError(message string) ([]byte, error) {
+	arguments, err := ABIError.Inputs.Pack(message)
+	if err != nil {
+		return nil, err
+	}
+	return append(ABIError.Id(), arguments...), nil
 }
 
 // UnpackMethod output in v according to the abi specification
@@ -210,7 +239,7 @@ func (abi *ABIContract) UnmarshalJSON(data []byte) error {
 			abi.Constructor = newMethod("", field.Inputs, nil)
 			// empty defaults to function according to the abi spec
 		case "function", "":
-			abi.Methods[field.Name] = newMethod(field.Name, field.Inputs, nil)
+			abi.Methods[field.Name] = newMethod(field.Name, field.Inputs, field.Outputs)
 		case "callback":
 			name := getCallBackName(field.Name)
 			abi.Callbacks[name] = newMethod(name, field.Inputs, nil)

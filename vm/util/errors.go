@@ -3,6 +3,7 @@ package util
 import "errors"
 
 var (
+	ErrAccessDenied        		 = errors.New("access denied")
 	ErrInvalidMethodParam        = errors.New("invalid method param")
 	ErrInvalidQuotaMultiplier    = errors.New("invalid quota multiplier")
 	ErrRewardIsNotDrained        = errors.New("reward is not drained")

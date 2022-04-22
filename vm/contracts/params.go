@@ -18,10 +18,10 @@ const (
 
 	registrationNameLengthMax int = 40
 
-	tokenNameLengthMax   int = 40 // Maximum length of a token name(include)
-	tokenSymbolLengthMax int = 10 // Maximum length of a token symbol(include)
+	TokenNameLengthMax   int = 40 // Maximum length of a token name(include)
+	TokenSymbolLengthMax int = 10 // Maximum length of a token symbol(include)
 
-	tokenNameIndexMax uint16 = 1000
+	TokenNameIndexMax uint16 = 1000
 	rewardTimeLimit   int64  = 3600 // Cannot get snapshot block reward of current few blocks, for latest snapshot block could be reverted
 
 	stakeHeightMax uint64 = 3600 * 24 * 365

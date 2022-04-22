@@ -259,11 +259,11 @@ func TestDexFund(t *testing.T) {
 	}
 }
 
-func executeActions(testCase *DexFundCase, vm *VM, db *testDatabase, t *testing.T) {
+func executeActions(testCase *DexFundCase, vm *VM, db *TestDatabase, t *testing.T) {
 	if testCase.AssetActions != nil {
 		for _, action := range testCase.AssetActions {
 			sendBlock := newSendBlock(action.Address, types.AddressDexFund)
-			db.addr = action.Address
+			db.Addr = action.Address
 
 			var (
 				vmSendBlock *interfaces.VmAccountBlock
@@ -285,7 +285,7 @@ func executeActions(testCase *DexFundCase, vm *VM, db *testDatabase, t *testing.
 				vmSendBlock, _, err = vm.RunV2(db, sendBlock, nil, nil)
 			}
 			helper.ErrFailf(t, err, "vm.RunV2 handle send result err %v", err)
-			db.addr = types.AddressDexFund
+			db.Addr = types.AddressDexFund
 			_, _, err = vm.RunV2(db, newRecBlock(types.AddressDexFund), vmSendBlock.AccountBlock, nil)
 			//fmt.Printf("handle receive runVm err %v\n", err)
 			helper.ErrFailf(t, err, "vm.RunV2 handle receive result err %v", err)
@@ -356,9 +356,9 @@ func checkPlaceOrder(t *testing.T, po *PlacedOrder, od *dex.Order) {
 	assert.Equal(t, po.Status, od.Status)
 }
 
-func doAction(name string, db *testDatabase, vm *VM, from, to types.Address, data []byte, t *testing.T) []*ledger.AccountBlock {
+func doAction(name string, db *TestDatabase, vm *VM, from, to types.Address, data []byte, t *testing.T) []*ledger.AccountBlock {
 	sendBlock := newSendBlock(from, to)
-	db.addr = from
+	db.Addr = from
 	var (
 		vmSendBlock, sendCreateBlock *interfaces.VmAccountBlock
 		err                          error
@@ -368,7 +368,7 @@ func doAction(name string, db *testDatabase, vm *VM, from, to types.Address, dat
 
 	//fmt.Printf("executeActions send runVm err %v\n", err)
 	assert.True(t, err == nil, name+" vm.RunV2 handle send result err not nil")
-	db.addr = to
+	db.Addr = to
 	sendCreateBlock, _, err = vm.RunV2(db, newRecBlock(to), vmSendBlock.AccountBlock, nil)
 
 	//fmt.Printf("handle receive runVm err %v\n", err)
@@ -393,8 +393,8 @@ func newRecBlock(to types.Address) *ledger.AccountBlock {
 	return rcBlock
 }
 
-func executeChecks(testCase *DexFundCase, db *testDatabase, t *testing.T) {
-	db.addr = types.AddressDexFund
+func executeChecks(testCase *DexFundCase, db *TestDatabase, t *testing.T) {
+	db.Addr = types.AddressDexFund
 	if testCase.CheckBalances != nil {
 		for idx, bc := range testCase.CheckBalances {
 			fund, ok := dex.GetFund(db, bc.Address)
@@ -424,9 +424,9 @@ func executeChecks(testCase *DexFundCase, db *testDatabase, t *testing.T) {
 		}
 	}
 	if testCase.CheckEvents != nil {
-		assert.Equal(t, len(testCase.CheckEvents), len(db.logList))
+		assert.Equal(t, len(testCase.CheckEvents), len(db.LogList))
 		for i, ev := range testCase.CheckEvents {
-			log := db.logList[i]
+			log := db.LogList[i]
 			assert.Equal(t, getTopicId(ev.TopicName), log.Topics[0])
 			if ev.Transfer != nil {
 				ae := &dex.TransferAssetEvent{}
@@ -454,7 +454,7 @@ func executeChecks(testCase *DexFundCase, db *testDatabase, t *testing.T) {
 	}
 }
 
-func generateDb(caseName string, globalEnv *GlobalEnv, t *testing.T) *testDatabase {
+func generateDb(caseName string, globalEnv *GlobalEnv, t *testing.T) *TestDatabase {
 	var currentTime time.Time
 	if globalEnv.SbTime > 0 {
 		currentTime = time.Unix(globalEnv.SbTime, 0)
@@ -472,43 +472,43 @@ func generateDb(caseName string, globalEnv *GlobalEnv, t *testing.T) *testDataba
 		}
 		latestSnapshotBlock.Hash = sbHash
 	}
-	var db *testDatabase
+	var db *TestDatabase
 	var newDbErr error
 	viteTotalSupply := new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18))
-	db, _, _, _, _, _ = prepareDb(viteTotalSupply)
+	db, _, _, _, _, _ = PrepareDb(viteTotalSupply)
 	t2 := time.Unix(1600663514, 0)
 	snapshot20 := &ledger.SnapshotBlock{Height: 2000, Timestamp: &t2, Hash: types.DataHash([]byte{10, 2})}
-	db.snapshotBlockList = append(db.snapshotBlockList, snapshot20)
+	db.SnapshotBlockList = append(db.SnapshotBlockList, snapshot20)
 	if newDbErr != nil {
 		t.Fatal("new mock db failed", "name", caseName)
 	}
 
 	if len(globalEnv.Quotas) > 0 {
-		db.storageMap[types.AddressQuota] = make(map[string][]byte, 0)
+		db.StorageMap[types.AddressQuota] = make(map[string][]byte, 0)
 		for _, qt := range globalEnv.Quotas {
 			data, packErr := abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 			assert.True(t, packErr == nil)
 			key := ToKey(abi.GetStakeBeneficialKey(qt.Address))
-			db.storageMap[types.AddressQuota][key] = data
+			db.StorageMap[types.AddressQuota][key] = data
 		}
 	}
 
 	if len(globalEnv.Balances) > 0 {
 		for _, balance := range globalEnv.Balances {
-			db.balanceMap[balance.Address] = make(map[types.TokenTypeId]*big.Int)
+			db.BalanceMap[balance.Address] = make(map[types.TokenTypeId]*big.Int)
 			for _, bl := range balance.Balances {
-				db.balanceMap[balance.Address][bl.TokenId] = bl.Amount
+				db.BalanceMap[balance.Address][bl.TokenId] = bl.Amount
 			}
 		}
 	}
 	return db
 }
 
-func initFundDb(dexFundCase *DexFundCase, t *testing.T) *testDatabase {
+func initFundDb(dexFundCase *DexFundCase, t *testing.T) *TestDatabase {
 	db := generateDb(dexFundCase.Name, &dexFundCase.GlobalEnv, t)
 	if dexFundCase.DexFundStorage != nil {
-		db.storageMap[types.AddressDexFund] = make(map[string][]byte, 0)
-		db.addr = types.AddressDexFund
+		db.StorageMap[types.AddressDexFund] = make(map[string][]byte, 0)
+		db.Addr = types.AddressDexFund
 		if dexFundCase.DexFundStorage.Funds != nil {
 			for _, fd := range dexFundCase.DexFundStorage.Funds {
 				fund := &dex.Fund{}
@@ -573,8 +573,8 @@ func toDexMarketStorage(mk *MarketStorage) *dex.MarketInfo {
 	return mkInfo
 }
 
-func saveToStorage(db *testDatabase, key []byte, value []byte) {
-	db.storageMap[types.AddressDexFund][ToKey(key)] = value
+func saveToStorage(db *TestDatabase, key []byte, value []byte) {
+	db.StorageMap[types.AddressDexFund][ToKey(key)] = value
 }
 
 func getTopicId(name string) types.Hash {

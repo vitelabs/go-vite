@@ -21,6 +21,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/log15"
 	"github.com/vitelabs/go-vite/v2/monitor"
 	"github.com/vitelabs/go-vite/v2/vm/abi"
+	"github.com/vitelabs/go-vite/v2/vm/builtin"
 	"github.com/vitelabs/go-vite/v2/vm/contracts"
 	"github.com/vitelabs/go-vite/v2/vm/quota"
 	"github.com/vitelabs/go-vite/v2/vm/util"
@@ -156,6 +157,18 @@ func (vm *VM) GlobalStatus() util.GlobalStatus {
 // ConsensusReader is a getter method.
 func (vm *VM) ConsensusReader() util.ConsensusReader {
 	return vm.reader
+}
+
+func (vm *VM) Chain() vm_db.Chain {
+	return vm.chain
+}
+
+func (vm *VM) SetOrigin(origin *ledger.AccountBlock)  {
+	vm.vmContext.originSendBlock = origin
+}
+
+func (vm *VM) GetOrigin() *ledger.AccountBlock {
+	return vm.vmContext.originSendBlock
 }
 
 // RunV2 method executes an account block, checks parameters,
@@ -460,7 +473,19 @@ func (vm *VM) sendCall(db interfaces.VmDb, block *ledger.AccountBlock, useQuota 
 	defer monitor.LogTimerConsuming([]string{"vm", "sendCall"}, time.Now())
 	// check can make transaction
 	quotaLeft := quotaTotal
-	if p, ok, err := contracts.GetBuiltinContractMethod(block.ToAddress, block.Data, vm.latestSnapshotHeight); ok {
+	nodeConfig.log.Debug("sendCall", "addr", block.ToAddress.String(), "data", hex.EncodeToString(block.Data))
+	if builtin.Exists(block.ToAddress, block.Data, vm.latestSnapshotHeight) {
+		nodeConfig.log.Debug("builtin2")
+		if !nodeConfig.canTransfer(db, block.TokenId, block.Amount, block.Fee) {
+			return nil, util.ErrInsufficientBalance
+		}
+		// do not charge additional quota for send blocks
+		// update balance
+		if !util.SubBalance(db, &block.TokenId, block.Amount) {
+			return nil, util.ErrInsufficientBalance
+		}
+	} else if p, ok, err := contracts.GetBuiltinContractMethod(block.ToAddress, block.Data, vm.latestSnapshotHeight); ok {
+		// send request to built-in contracts
 		if err != nil {
 			return nil, err
 		}
@@ -493,6 +518,7 @@ func (vm *VM) sendCall(db interfaces.VmDb, block *ledger.AccountBlock, useQuota 
 			return nil, util.ErrInsufficientBalance
 		}
 	} else {
+		// send to other addresses
 		block.Fee = helper.Big0
 		if useQuota {
 			quotaLeft, err = useQuotaForSend(block, db, quotaLeft, vm.gasTable)
@@ -537,7 +563,36 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 		vm.updateBlock(db, block, util.ErrDepth, 0, 0)
 		return &interfaces.VmAccountBlock{block, db}, noRetry, util.ErrDepth
 	}
-	if p, ok, _ := contracts.GetBuiltinContractMethod(block.AccountAddress, sendBlock.Data, vm.latestSnapshotHeight); ok {
+	if builtin.Exists(block.AccountAddress, sendBlock.Data, vm.latestSnapshotHeight) {
+		quotaUsed := big.NewInt(0).Uint64()
+		blockListToSend, err := builtin.Execute(db, block, sendBlock, vm)
+		if err == nil {
+			vm.updateBlock(db, block, err, quotaUsed, quotaUsed)
+			vm.vmContext.sendBlockList = blockListToSend
+			if db, err = vm.doSendBlockList(db); err == nil {
+				block.Data = getReceiveCallData(db, err)
+				return mergeReceiveBlock(db, block, vm.sendBlockList), noRetry, nil
+			}
+		}
+		vm.revert(db)
+		errorData, e := abi.PackError(err.Error())
+		util.DealWithErr(e)
+		refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, true, ledger.BlockTypeSendRefund, errorData)
+		vm.updateBlock(db, block, err, quotaUsed, quotaUsed)
+		if refundFlag {
+			var refundErr error
+			if db, refundErr = vm.doSendBlockList(db); refundErr != nil {
+				monitor.LogEvent("vm", "impossibleReceiveError")
+				nodeConfig.log.Error("Impossible receive error", "err", refundErr, "fromhash", sendBlock.Hash)
+				return nil, retry, err
+			}
+			block.Data = getReceiveCallData(db, err)
+			return mergeReceiveBlock(db, block, vm.sendBlockList), noRetry, err
+		}
+		block.Data = getReceiveCallData(db, err)
+		return &interfaces.VmAccountBlock{block, db}, noRetry, err
+
+	} else if p, ok, _ := contracts.GetBuiltinContractMethod(block.AccountAddress, sendBlock.Data, vm.latestSnapshotHeight); ok {
 		// check quota
 		quotaUsed := p.GetReceiveQuota(vm.gasTable)
 		if quotaUsed > 0 {
@@ -739,7 +794,7 @@ func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock 
 		// load execution context
 		originContext, err := db.GetExecutionContext(&originSendBlock.Hash)
 
-		if err == nil && originSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
+		if err == nil && originContext != nil && originSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
 			callback := originContext.CallbackId
 			var data []byte
 			// append callback id

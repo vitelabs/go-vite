@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"log"
 	"math/big"
 	"reflect"
@@ -858,6 +859,14 @@ func TestPackEvents(t *testing.T) {
 
 	// args = append(args, Argument)
 
+}
+
+func TestPackError(t *testing.T) {
+	b, err := PackError("something wrong")
+	assert.NoError(t, err)
+	got := hex.EncodeToString(b)
+	want := "4b2bae7e0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f736f6d657468696e672077726f6e670000000000000000000000000000000000"
+	assert.Equal(t, want, got)
 }
 
 type caseArgs struct {

@@ -543,7 +543,7 @@ func gasReceiveCreate(block *ledger.AccountBlock, meta *ledger.ContractMeta, gas
 }
 
 func gasUserSendCall(block *ledger.AccountBlock, gasTable *util.QuotaTable, sbHeight uint64) (uint64, error) {
-	if types.IsBuiltinContractAddrInUse(block.ToAddress) {
+	if !upgrade.IsVersion11Upgrade(sbHeight) && types.IsBuiltinContractAddrInUse(block.ToAddress) {
 		method, ok, err := contracts.GetBuiltinContractMethod(block.ToAddress, block.Data, sbHeight)
 		if !ok || err != nil {
 			return 0, util.ErrAbiMethodNotFound

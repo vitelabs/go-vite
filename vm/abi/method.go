@@ -1,6 +1,7 @@
 package abi
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strings"
 
@@ -48,9 +49,13 @@ func (method Method) String() string {
 	for i, input := range method.Inputs {
 		inputs[i] = fmt.Sprintf("%v %v", input.Type, input.Name)
 	}
-	return fmt.Sprintf("onMessage %v(%v)", method.Name, strings.Join(inputs, ", "))
+	return fmt.Sprintf("function %v(%v)", method.Name, strings.Join(inputs, ", "))
 }
 
 func (method Method) Id() []byte {
 	return method.id
+}
+
+func (method Method) IdUint() uint32 {
+	return binary.BigEndian.Uint32(method.id)
 }

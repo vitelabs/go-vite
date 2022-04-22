@@ -58,8 +58,8 @@ func (p *MethodIssue) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) err
 //  verify the parameter & check fork point
 func checkToken(param abi.ParamIssue, sbHeight uint64) error {
 	if param.TotalSupply.Cmp(helper.Tt256m1) > 0 ||
-		len(param.TokenName) == 0 || len(param.TokenName) > tokenNameLengthMax ||
-		len(param.TokenSymbol) == 0 || len(param.TokenSymbol) > tokenSymbolLengthMax {
+		len(param.TokenName) == 0 || len(param.TokenName) > TokenNameLengthMax ||
+		len(param.TokenSymbol) == 0 || len(param.TokenSymbol) > TokenSymbolLengthMax {
 		return util.ErrInvalidMethodParam
 	}
 
@@ -105,7 +105,7 @@ func (p *MethodIssue) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, 
 		abi.ABIAsset.UnpackVariable(nextIndexPtr, abi.VariableNameTokenIndex, nextV)
 		nextIndex = *nextIndexPtr
 	}
-	if nextIndex == tokenNameIndexMax {
+	if nextIndex == TokenNameIndexMax {
 		return nil, util.ErrInvalidMethodParam
 	}
 

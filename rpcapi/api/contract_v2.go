@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/hex"
+	"github.com/vitelabs/go-vite/v2/vm/builtin"
 	"sort"
 	"time"
 
@@ -210,11 +211,18 @@ func (c *ContractApi) Query(param QueryParam) ([]byte, error) {
 		return nil, err
 	}
 
+	sb, err :=  db.LatestSnapshotBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	if builtin.Exists(*param.Addr, param.Data, sb.Height) {
+		// query built-in contracts
+		return builtin.Query(db, *param.Addr, param.Data)
+	}
 	_, code := util.GetContractCode(db, param.Addr, nil)
 
 	res, err := vm.NewVM(nil, nil).OffChainReader(db, code, param.Data)
-	log.Debug("call contract", "\nparam", param, "\ncode", hex.EncodeToString(code), "\nresult", res)
-
 	return res, err
 }
 

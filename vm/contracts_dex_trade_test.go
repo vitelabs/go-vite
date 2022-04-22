@@ -145,8 +145,8 @@ func TestDexTrade(t *testing.T) {
 	}
 }
 
-func executeTradeActions(testCase *DexTradeCase, vm *VM, db *testDatabase, t *testing.T) {
-	db.addr = types.AddressDexTrade
+func executeTradeActions(testCase *DexTradeCase, vm *VM, db *TestDatabase, t *testing.T) {
+	db.Addr = types.AddressDexTrade
 	if testCase.MarketActions != nil {
 		for _, ma := range testCase.MarketActions {
 			mk := toDexMarketStorage(ma)
@@ -165,8 +165,8 @@ func executeTradeActions(testCase *DexTradeCase, vm *VM, db *testDatabase, t *te
 	}
 }
 
-func executeTradeChecks(testCase *DexTradeCase, db *testDatabase, t *testing.T) {
-	db.addr = types.AddressDexTrade
+func executeTradeChecks(testCase *DexTradeCase, db *TestDatabase, t *testing.T) {
+	db.Addr = types.AddressDexTrade
 	if testCase.CheckBooks != nil {
 		for _, cb := range testCase.CheckBooks {
 			mc, err := dex.NewMatcher(db, cb.MarketId)
@@ -196,9 +196,9 @@ func executeTradeChecks(testCase *DexTradeCase, db *testDatabase, t *testing.T) 
 		}
 	}
 	if testCase.CheckEvents != nil {
-		assert.Equal(t, len(testCase.CheckEvents), len(db.logList))
+		assert.Equal(t, len(testCase.CheckEvents), len(db.LogList))
 		for i, cev := range testCase.CheckEvents {
-			log := db.logList[i]
+			log := db.LogList[i]
 			assert.Equal(t, getTopicId(cev.TopicName), log.Topics[0])
 			if cev.NewOrder != nil {
 				no := &dex.NewOrderEvent{}
@@ -239,11 +239,11 @@ func executeTradeChecks(testCase *DexTradeCase, db *testDatabase, t *testing.T) 
 	}
 }
 
-func initTradeDb(dexTradeCase *DexTradeCase, t *testing.T) *testDatabase {
+func initTradeDb(dexTradeCase *DexTradeCase, t *testing.T) *TestDatabase {
 	db := generateDb(dexTradeCase.Name, &dexTradeCase.GlobalEnv, t)
 	if dexTradeCase.DexTradeStorage != nil {
-		db.storageMap[types.AddressDexTrade] = make(map[string][]byte, 0)
-		db.addr = types.AddressDexTrade
+		db.StorageMap[types.AddressDexTrade] = make(map[string][]byte, 0)
+		db.Addr = types.AddressDexTrade
 		if dexTradeCase.DexTradeStorage.Markets != nil {
 			for _, mk := range dexTradeCase.DexTradeStorage.Markets {
 				mkInfo := toDexMarketStorage(mk)
@@ -253,7 +253,7 @@ func initTradeDb(dexTradeCase *DexTradeCase, t *testing.T) *testDatabase {
 		if dexTradeCase.DexTradeStorage.Timestamp > 0 {
 			dex.SetTradeTimestamp(db, dexTradeCase.DexTradeStorage.Timestamp)
 			// save dexFund storage to dexTrade storage only for orderId compose
-			db.storageMap[types.AddressDexTrade][ToKey([]byte("tts:"))] = dex.Uint64ToBytes(uint64(dexTradeCase.DexTradeStorage.Timestamp))
+			db.StorageMap[types.AddressDexTrade][ToKey([]byte("tts:"))] = dex.Uint64ToBytes(uint64(dexTradeCase.DexTradeStorage.Timestamp))
 		}
 		if dexTradeCase.DexTradeStorage.Orders != nil {
 			for _, o := range dexTradeCase.DexTradeStorage.Orders {
@@ -265,7 +265,7 @@ func initTradeDb(dexTradeCase *DexTradeCase, t *testing.T) *testDatabase {
 	return db
 }
 
-func toDexOrder(db *testDatabase, o *OrderStorage) *dex.Order {
+func toDexOrder(db *TestDatabase, o *OrderStorage) *dex.Order {
 	od := &dex.Order{}
 	od.Id = dex.ComposeOrderId(db, o.MarketId, o.Side, o.Price)
 	od.Address = o.Address.Bytes()
@@ -316,12 +316,12 @@ func toDexOrder(db *testDatabase, o *OrderStorage) *dex.Order {
 	return od
 }
 
-func saveOrder(db *testDatabase, order *dex.Order, isTaker bool) {
+func saveOrder(db *TestDatabase, order *dex.Order, isTaker bool) {
 	orderId := order.Id
 	if data, err := order.SerializeCompact(); err != nil {
 		panic(err)
 	} else {
-		db.storageMap[types.AddressDexTrade][ToKey(orderId)] = data
+		db.StorageMap[types.AddressDexTrade][ToKey(orderId)] = data
 	}
 	if isTaker && len(order.SendHash) > 0 {
 		dex.SaveHashMapOrderId(db, order.SendHash, orderId)
