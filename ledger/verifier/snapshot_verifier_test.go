@@ -1,5 +1,6 @@
 package verifier
 
+/*
 import (
 	"fmt"
 	"testing"
@@ -188,6 +189,7 @@ func TestContractProducerVerify4(t *testing.T) {
 	fmt.Println(c.GetLatestSnapshotBlock())
 
 }
+*/
 
 //time:2018-11-08 12:13:24 +0800 CST:account:vite_00000000000000000000000000000000000000056ad6d26692:height:1:snapshotHeight:0:result:false:error:%!s(<nil>)
 //time:2018-11-08 12:13:24 +0800 CST:account:vite_00000000000000000000000000000000000000042d7ef71894:height:1:snapshotHeight:2:result:false:error:%!s(<nil>)

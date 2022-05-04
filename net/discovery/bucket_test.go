@@ -74,11 +74,12 @@ func TestBuck_reset(t *testing.T) {
 	}
 
 	var index = 0
-	bkt.iterate(func(node *Node) {
+	bkt.iterate(func(node *Node) bool {
 		if node != nodes[index] {
 			t.Fail()
 		}
 		index++
+		return false
 	})
 }
 
@@ -142,11 +143,12 @@ func TestBuck_remove(t *testing.T) {
 			}
 
 			var j = i
-			bkt.iterate(func(node *Node) {
+			bkt.iterate(func(node *Node) bool {
 				if node != nodes[j] {
 					t.Fail()
 				}
 				j++
+				return false
 			})
 		}
 	}
@@ -169,11 +171,12 @@ func TestBuck_remove(t *testing.T) {
 	}
 
 	i = 0
-	bkt.iterate(func(node *Node) {
+	bkt.iterate(func(node *Node) bool {
 		if node != nodes[i] {
 			t.Fail()
 		}
 		i++
+		return false
 	})
 }
 
