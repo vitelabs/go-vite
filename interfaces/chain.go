@@ -9,6 +9,20 @@ import (
 	"github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
+type EventListener interface {
+	PrepareInsertAccountBlocks(blocks []*VmAccountBlock) error
+	InsertAccountBlocks(blocks []*VmAccountBlock) error
+
+	PrepareInsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+	InsertSnapshotBlocks(chunks []*core.SnapshotChunk) error
+
+	PrepareDeleteAccountBlocks(blocks []*core.AccountBlock) error
+	DeleteAccountBlocks(blocks []*core.AccountBlock) error
+
+	PrepareDeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+	DeleteSnapshotBlocks(chunks []*core.SnapshotChunk) error
+}
+
 type StorageIterator interface {
 	Last() bool
 	Prev() bool
