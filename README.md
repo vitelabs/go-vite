@@ -94,6 +94,8 @@ Please make sure your contributions adhere to our coding guidelines:
 - Code must adhere to the official Go [formatting](https://golang.org/doc/effective_go.html#formatting) guidelines.
 - Code must be documented adhering to the official Go [commentary](https://golang.org/doc/effective_go.html#commentary) guidelines.
 - Pull requests need to be based on and opened against the `master` branch.
+- Open an issue before submitting a PR for non-breaking changes.
+- Publish a VEP proposal before submitting a PR for breaking changes.
 
 ## License
 
