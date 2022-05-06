@@ -75,6 +75,9 @@ func (s *SubscribeApi) timeoutLoop() {
 type RpcFilterParam struct {
 	AddrRange map[string]*api.Range `json:"addrRange"`
 	Topics    [][]types.Hash        `json:"topics"`
+
+	PageIndex uint64 `json:"pageIndex"`
+	PageSize  uint64 `json:"pageSize"`
 }
 
 type AccountBlock struct {
@@ -720,7 +723,7 @@ func (s *SubscribeApi) createVmLogSubscription(ctx context.Context, rangeMap map
 
 // Deprecated: use ledger_getVmLogsByFilter instead
 func (s *SubscribeApi) GetLogs(param RpcFilterParam) ([]*Logs, error) {
-	logs, err := api.GetLogs(s.vite.Chain(), param.AddrRange, param.Topics)
+	logs, err := api.GetLogs(s.vite.Chain(), param.AddrRange, param.Topics, param.PageIndex, param.PageSize)
 	if err != nil {
 		return nil, err
 	}
