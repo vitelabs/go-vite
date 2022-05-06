@@ -2,38 +2,56 @@ package chain_db
 
 import (
 	"bytes"
+	"fmt"
+	"os"
 	"path"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/vitelabs/go-vite/v2/common/db/xleveldb"
-	"github.com/vitelabs/go-vite/v2/ledger/chain/flusher"
+	leveldb "github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	chain_flusher "github.com/vitelabs/go-vite/v2/ledger/chain/flusher"
 	"github.com/vitelabs/go-vite/v2/ledger/chain/test_tools"
 )
 
-func newStore() *Store {
-	store, err := NewStore(path.Join(test_tools.DefaultDataDir(), "test_store", "store"), "store")
+func newStore(dirName string, clear bool) (*Store, string) {
+	tempDir := path.Join(test_tools.DefaultDataDir(), dirName)
+	fmt.Printf("tempDir: %s\n", tempDir)
+	if clear {
+		os.RemoveAll(tempDir)
+	}
+	dataDir := path.Join(tempDir, "test_store")
+	store, err := NewStore(dataDir, "test_store")
 	if err != nil {
 		panic(err)
 	}
 
-	return store
+	return store, tempDir
+}
+
+func clearStore(tempDir string) {
+	err := os.RemoveAll(tempDir)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func TestRedoLog(t *testing.T) {
-	store := newStore()
+	store, tempDir := newStore(t.Name(), true)
+	defer clearStore(tempDir)
+
 	var mu sync.RWMutex
-	flusher, err := chain_flusher.NewFlusher([]chain_flusher.Storage{store}, &mu, path.Join(test_tools.DefaultDataDir(), "test_store"))
+	flusher, err := chain_flusher.NewFlusher([]chain_flusher.Storage{store}, &mu, path.Join(test_tools.DefaultDataDir(), t.Name()))
 	// assert flusher
 	assert.NoError(t, err)
 	flusher.Flush()
-
 }
 
 func TestFlush(t *testing.T) {
-	store := newStore()
+	store, tempDir := newStore(t.Name(), true)
+	defer clearStore(tempDir)
+
 	batch := store.NewBatch()
 
 	batch.Put([]byte("key1"), []byte("value1"))
@@ -119,7 +137,9 @@ func TestFlush(t *testing.T) {
 }
 
 func TestRecover(t *testing.T) {
-	store := newStore()
+	store, tempDir := newStore(t.Name(), true)
+	defer clearStore(tempDir)
+
 	batch := store.NewBatch()
 
 	batch.Put([]byte("key1"), []byte("value1"))
@@ -190,7 +210,6 @@ func TestRecover(t *testing.T) {
 	v3, err := store.db.Get([]byte("key3"), nil)
 	assert.NoError(t, err)
 	assert.Equal(t, v3, []byte("value3"))
-
 }
 
 const (

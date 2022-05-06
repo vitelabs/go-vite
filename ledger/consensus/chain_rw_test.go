@@ -1,17 +1,16 @@
 package consensus
 
 import (
-	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/vitelabs/go-vite/v2/common/config"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	"github.com/vitelabs/go-vite/v2/ledger/chain"
-	"github.com/vitelabs/go-vite/v2/ledger/chain/test_tools"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/lock"
+	"github.com/vitelabs/go-vite/v2/ledger/test_tools"
 	"github.com/vitelabs/go-vite/v2/log15"
 )
 
@@ -38,44 +37,21 @@ func GetConsensusGroupList() ([]*types.ConsensusGroupInfo, error) {
 	return []*types.ConsensusGroupInfo{info}, nil
 }
 
-func testDataDir() string {
-	return "testdata-consensus"
-}
-
-func prepareChain() chain.Chain {
-	clearChain(nil)
-
-	c, err := test_tools.NewChainInstanceFromDir(testDataDir(), false, "")
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
-
-func clearChain(c chain.Chain) {
-	if c != nil {
-		c.Stop()
-	}
-	err := os.RemoveAll(testDataDir())
-	if err != nil {
-		panic(err)
-	}
-}
-
 func Test_chainRw(t *testing.T) {
-	c := prepareChain()
-	defer clearChain(c)
-
+	c, tempDir := test_tools.NewTestChainInstance(t, true, nil)
+	defer test_tools.ClearChain(c, tempDir)
 }
 
 func TestChainRw_GetMemberInfo(t *testing.T) {
+	c, tempDir := test_tools.NewTestChainInstance(t, true, nil)
+	defer test_tools.ClearChain(c, tempDir)
+
 	ctrl := gomock.NewController(t)
 	// Assert that Bar() is invoked.
 	defer ctrl.Finish()
 
-	dir := "testdata-consensus"
-	db := NewDb(t, dir)
-	defer ClearDb(t, dir)
+	db := NewDb(t, tempDir)
+	defer ClearDb(t, tempDir)
 
 	mch := NewMockChain(ctrl)
 	genesisBlock := &ledger.SnapshotBlock{Height: uint64(1), Timestamp: &simpleGenesis}
@@ -97,8 +73,9 @@ func TestChainRw_GetMemberInfo(t *testing.T) {
 }
 
 func TestChainRw_GetMemberInfo2(t *testing.T) {
-	c := prepareChain()
-	defer clearChain(c)
+	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	defer test_tools.ClearChain(c, tempDir)
+
 	genesis := c.GetGenesisSnapshotBlock()
 	infos, err := c.GetConsensusGroupList(genesis.Hash)
 	if err != nil {

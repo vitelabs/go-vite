@@ -157,7 +157,7 @@ func TestAccountBlock_ComputeHash(t *testing.T) {
 	}
 	fmt.Printf("%s\n", str)
 
-	if block.ComputeHash().String() != "6d54436d78a3bae0b4aacbeb91a0af3c666c6ed3339fbcc6610e12844736d091" {
+	if block.ComputeHash().String() != "57410f8496598113220fd7f8780cedec5f23f13bbe0d4852e1c0e782092b3a46" {
 		t.Fatal(block.ComputeHash().String())
 	}
 

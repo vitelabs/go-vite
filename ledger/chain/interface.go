@@ -18,20 +18,6 @@ import (
 	"github.com/vitelabs/go-vite/v2/vm/contracts/dex"
 )
 
-type EventListener interface {
-	PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
-	InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
-
-	PrepareInsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
-	InsertSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
-
-	PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error
-	DeleteAccountBlocks(blocks []*ledger.AccountBlock) error
-
-	PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
-	DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
-}
-
 type Consensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
 	SBPReader() core.SBPStatReader
@@ -53,8 +39,8 @@ type Chain interface {
 	/*
 	*	Event Manager
 	 */
-	Register(listener EventListener)
-	UnRegister(listener EventListener)
+	Register(listener interfaces.EventListener)
+	UnRegister(listener interfaces.EventListener)
 
 	/*
 	 *	C(Create)

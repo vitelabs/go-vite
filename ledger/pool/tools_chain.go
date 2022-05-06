@@ -18,8 +18,8 @@ type chainDb interface {
 	/*
 	*	Event Manager
 	 */
-	Register(listener ch.EventListener)
-	UnRegister(listener ch.EventListener)
+	Register(listener interfaces.EventListener)
+	UnRegister(listener interfaces.EventListener)
 	InsertAccountBlock(vmAccountBlocks *interfaces.VmAccountBlock) error
 	GetLatestAccountBlock(addr types.Address) (*ledger.AccountBlock, error)
 	GetAccountBlockByHeight(addr types.Address, height uint64) (*ledger.AccountBlock, error)

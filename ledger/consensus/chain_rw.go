@@ -7,13 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	"github.com/vitelabs/go-vite/v2/ledger/chain"
+
 	"github.com/vitelabs/go-vite/v2/ledger/consensus/cdb"
 	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/lock"
@@ -28,8 +29,8 @@ type Chain interface {
 	/*
 	*	Event Manager
 	 */
-	Register(listener chain.EventListener)
-	UnRegister(listener chain.EventListener)
+	Register(listener interfaces.EventListener)
+	UnRegister(listener interfaces.EventListener)
 
 	GetConsensusGroupList(snapshotHash types.Hash) ([]*types.ConsensusGroupInfo, error)                                                 // Get all consensus group
 	GetRegisterList(snapshotHash types.Hash, gid types.Gid) ([]*types.Registration, error)                                              // Get register for consensus group

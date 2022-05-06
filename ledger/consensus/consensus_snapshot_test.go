@@ -12,13 +12,16 @@ import (
 	"github.com/vitelabs/go-vite/v2/common"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	"github.com/vitelabs/go-vite/v2/ledger/chain/test_tools"
 	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/lock"
+	"github.com/vitelabs/go-vite/v2/ledger/test_tools"
 	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 func TestSnapshotCs_ElectionIndex(t *testing.T) {
+	c, tempDir := test_tools.NewTestChainInstance(t, true, nil)
+	defer test_tools.ClearChain(c, tempDir)
+
 	ctrl := gomock.NewController(t)
 	// Assert that Bar() is invoked.
 	defer ctrl.Finish()
@@ -27,8 +30,8 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 	mock_chain.EXPECT().GetGenesisSnapshotBlock().Return(&ledger.SnapshotBlock{
 		Timestamp: &simpleGenesis,
 	})
-	db := NewDb(t, UnitTestDir)
-	defer ClearDb(t, UnitTestDir)
+	db := NewDb(t, tempDir)
+	defer ClearDb(t, tempDir)
 	mock_chain.EXPECT().NewDb(gomock.Any()).Return(db, nil)
 
 	group := types.ConsensusGroupInfo{
@@ -142,8 +145,10 @@ func TestSnapshotCs_ElectionIndex(t *testing.T) {
 }
 
 func TestSnapshotCs_Tools(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect ledger data.")
+
 	dir := "/Users/jie/Documents/vite/src/github.com/vitelabs/cluster1/ledger_datas/ledger_1/devdata"
-	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
+	c, err := test_tools.NewChainInstanceFromDir(dir, false, GenesisJson)
 	if err != nil {
 		assert.FailNow(t, err.Error())
 	}
@@ -170,6 +175,8 @@ func TestNumber(t *testing.T) {
 }
 
 func TestChainSnapshotAAAA(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect ledger data.")
+
 	dir := "/Users/jie/Library/GVite/maindata"
 
 	c, err := test_tools.NewChainInstanceFromDir(dir, false, "")

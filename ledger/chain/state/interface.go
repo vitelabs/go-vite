@@ -13,20 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 )
 
-type EventListener interface {
-	PrepareInsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
-	InsertAccountBlocks(blocks []*interfaces.VmAccountBlock) error
-
-	PrepareInsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error
-	InsertSnapshotBlocks(snapshotBlocks []*ledger.SnapshotBlock) error
-
-	PrepareDeleteAccountBlocks(blocks []*ledger.AccountBlock) error
-	DeleteAccountBlocks(blocks []*ledger.AccountBlock) error
-
-	PrepareDeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
-	DeleteSnapshotBlocks(chunks []*ledger.SnapshotChunk) error
-}
-
 type Consensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
 	SBPReader() core.SBPStatReader

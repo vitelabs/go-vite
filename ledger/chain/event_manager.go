@@ -24,7 +24,7 @@ const (
 )
 
 type eventManager struct {
-	listenerList []EventListener
+	listenerList []interfaces.EventListener
 
 	chain        *chain
 	maxHandlerId uint32
@@ -35,7 +35,7 @@ func newEventManager(chain *chain) *eventManager {
 	return &eventManager{
 		chain:        chain,
 		maxHandlerId: 0,
-		listenerList: make([]EventListener, 0),
+		listenerList: make([]interfaces.EventListener, 0),
 	}
 }
 
@@ -150,14 +150,14 @@ func (em *eventManager) TriggerDeleteSbs(eventType byte, chunks []*ledger.Snapsh
 	return nil
 }
 
-func (em *eventManager) Register(listener EventListener) {
+func (em *eventManager) Register(listener interfaces.EventListener) {
 	em.mu.Lock()
 	defer em.mu.Unlock()
 
 	em.listenerList = append(em.listenerList, listener)
 }
 
-func (em *eventManager) UnRegister(listener EventListener) {
+func (em *eventManager) UnRegister(listener interfaces.EventListener) {
 	em.mu.Lock()
 	defer em.mu.Unlock()
 
@@ -169,10 +169,10 @@ func (em *eventManager) UnRegister(listener EventListener) {
 	}
 }
 
-func (c *chain) Register(listener EventListener) {
+func (c *chain) Register(listener interfaces.EventListener) {
 	c.em.Register(listener)
 }
 
-func (c *chain) UnRegister(listener EventListener) {
+func (c *chain) UnRegister(listener interfaces.EventListener) {
 	c.em.UnRegister(listener)
 }

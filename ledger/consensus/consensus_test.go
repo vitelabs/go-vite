@@ -1,9 +1,7 @@
 package consensus
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -12,36 +10,14 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/config"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	"github.com/vitelabs/go-vite/v2/ledger/chain"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/lock"
+	"github.com/vitelabs/go-vite/v2/ledger/test_tools"
 	"github.com/vitelabs/go-vite/v2/log15"
-	"github.com/vitelabs/go-vite/v2/vm/quota"
 )
 
-func NewChainInstanceFromDir(dirName string, clear bool, genesis string) (chain.Chain, error) {
-	if clear {
-		os.RemoveAll(dirName)
-	}
-	quota.InitQuotaConfig(false, true)
-	genesisConfig := &config.Genesis{}
-	json.Unmarshal([]byte(genesis), genesisConfig)
-
-	chainInstance := chain.NewChain(dirName, &config.Chain{}, genesisConfig)
-
-	if err := chainInstance.Init(); err != nil {
-		return nil, err
-	}
-	chainInstance.Start()
-	return chainInstance, nil
-}
-
 func TestContractDposCs_ElectionIndexReader(t *testing.T) {
-	return
-	dir := UnitTestDir
-	genesisJson := GenesisJson
-	c, err := NewChainInstanceFromDir(dir, false, genesisJson)
-
-	assert.NoError(t, err)
+	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	defer test_tools.ClearChain(c, tempDir)
 
 	rw := newChainRw(c, log15.New(), &lock.EasyImpl{})
 	groupInfo, err := rw.GetMemberInfo(types.DELEGATE_GID)
@@ -70,19 +46,12 @@ func TestContractDposCs_ElectionIndexReader(t *testing.T) {
 			vs += fmt.Sprintf("\t\t[%s][%s][%s]\n", v.STime, v.ETime, v.Member)
 		}
 		t.Log(i, len(result.Plans), hashes, result.STime, result.ETime, vs)
-
 	}
-
 }
 
 func TestConsensus(t *testing.T) {
-	return
-	dir := UnitTestDir
-	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
+	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	defer test_tools.ClearChain(c, tempDir)
 
 	index := uint64(291471)
 	cs := NewConsensus(c, &lock.EasyImpl{})
@@ -109,17 +78,11 @@ func TestConsensus(t *testing.T) {
 	addresses := types.PubkeyToAddress([]byte{59, 245, 248, 162, 33, 219, 95, 240, 171, 227, 160, 56, 42, 147, 223, 34, 252, 232, 23, 156, 236, 11, 73, 135, 153, 172, 56, 81, 90, 193, 39, 82})
 
 	t.Log(addresses)
-
 }
 
 func TestChainSnapshot(t *testing.T) {
-	return
-	dir := UnitTestDir
-	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
+	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	defer test_tools.ClearChain(c, tempDir)
 
 	prev := c.GetLatestSnapshotBlock()
 
@@ -141,24 +104,19 @@ func TestChainSnapshot(t *testing.T) {
 		fmt.Printf("height:%d, hash:%s, producer:%s, t:%s, vs:%s\n", block.Height, block.Hash, block.Producer(), block.Timestamp, vs)
 		//fmt.Printf("%+v\n", block)
 	}
-
 }
 
 func TestChainAcc(t *testing.T) {
-	return
-	dir := UnitTestDir
-	c, err := NewChainInstanceFromDir(dir, false, GenesisJson)
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-	addr := types.HexToAddressPanic("vite_00000000000000000000000000000000000000042d7ef71894")
+	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	defer test_tools.ClearChain(c, tempDir)
+
+	addr := types.HexToAddressPanic("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
 	prev, err := c.GetLatestAccountBlock(addr)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, prev)
 	t.Log(prev)
-	return
+	t.Logf("prev.Height: %d\n", prev.Height)
 
 	for i := uint64(1); i <= prev.Height; i++ {
 		block, err := c.GetAccountBlockByHeight(addr, i)
@@ -178,23 +136,8 @@ func TestChainAcc(t *testing.T) {
 }
 
 func TestChainAll(t *testing.T) {
-	return
-	dir := UnitTestDir
-	genesisJson := GenesisJson
-	c, err := NewChainInstanceFromDir(dir, false, genesisJson)
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-	}
-
-	//block, e := c.GetSnapshotHeaderByHash(types.HexToHashPanic("35484e694fc9318c3de98311a95b92918a5c4a0d2a392493ee534b82d71923b6"))
-	//
-	//if e != nil {
-	//	t.Error(e)
-	//	t.FailNow()
-	//}
-	//t.Log(block)
-	//return
+	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	defer test_tools.ClearChain(c, tempDir)
 
 	prev := c.GetLatestSnapshotBlock()
 	assert.NotNil(t, prev)
