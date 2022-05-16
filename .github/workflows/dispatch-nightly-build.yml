@@ -1,0 +1,30 @@
+name: dispatch-nightly-build
+
+on:
+  push:
+    branches:    
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Read buildversion
+      id: buildversion
+      uses: juliangruber/read-file-action@v1
+      with:
+        path: ./version/buildversion
+
+    - name: Echo buildversion
+      # trim buildversion and set environment variable
+      run: echo "${{ steps.buildversion.outputs.content }}" | xargs | echo "buildversion=$(</dev/stdin)" >> $GITHUB_ENV 
+
+    - name: Repository Dispatch
+      uses: peter-evans/repository-dispatch@v2
+      with:
+        token: ${{ secrets.WORKFLOW_PUBLIC_REPO_PAT }}
+        repository: vitelabs/go-vite-nightly
+        event-type: nightly-build-event
+        client-payload: '{"branch": "master", "tag": "${{ env.buildversion }}"}'
