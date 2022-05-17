@@ -2,7 +2,6 @@ package upgrade
 
 import (
 	"fmt"
-	"testing"
 
 	"github.com/vitelabs/go-vite/v2/common"
 	"github.com/vitelabs/go-vite/v2/log15"
@@ -35,8 +34,8 @@ func cleanupUpgradeBox() {
 	upgrade = nil
 }
 
-func CleanupUpgradeBox(t *testing.T) {
-	t.Log("clean up upgrade box")
+func CleanupUpgradeBox() {
+	log.Info("clean up upgrade box")
 	cleanupUpgradeBox()
 }
 

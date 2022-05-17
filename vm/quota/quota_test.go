@@ -16,7 +16,7 @@ import (
 )
 
 func initForkPointsForQuotaTest(t *testing.T) {
-	upgrade.CleanupUpgradeBox(t)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(
 		upgrade.NewEmptyUpgradeBox().
 			AddPoint(1, 100).

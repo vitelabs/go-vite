@@ -33,7 +33,7 @@ func genConsensus(c chain.Chain, pool pool.BlockPool, t *testing.T) consensus.Co
 }
 
 func TestSnapshot(t *testing.T) {
-	upgrade.CleanupUpgradeBox(t)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewLatestUpgradeBox())
 
 	tmpDir, _ := ioutil.TempDir("", "")
@@ -85,7 +85,7 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestProducer_Init(t *testing.T) {
-	upgrade.CleanupUpgradeBox(t)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox())
 	tmpDir, _ := ioutil.TempDir("", "")
 	c := chain.NewChain(tmpDir, nil, config.MockGenesis())
