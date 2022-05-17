@@ -10,22 +10,42 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vitelabs/go-vite/v2/common/db/xleveldb"
+	leveldb "github.com/vitelabs/go-vite/v2/common/db/xleveldb"
 	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/storage"
 	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/v2/common/helper"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/crypto"
 	"github.com/vitelabs/go-vite/v2/ledger/chain/test_tools"
-	"github.com/vitelabs/go-vite/v2/ledger/chain/utils"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
-func TestStore(t *testing.T) {
-
-	store, err := NewStore(path.Join(test_tools.DefaultDataDir(), "test_store"), "storeTest")
-	if err != nil {
-		t.Fatal(err)
+func NewTestStore(dirName string, clear bool) (*Store, string) {
+	tempDir := path.Join(test_tools.DefaultDataDir(), dirName)
+	fmt.Printf("tempDir: %s\n", tempDir)
+	if clear {
+		os.RemoveAll(tempDir)
 	}
+	dataDir := path.Join(tempDir, "test_store")
+	store, err := NewStore(dataDir, "test_store")
+	if err != nil {
+		panic(err)
+	}
+
+	return store, tempDir
+}
+
+func ClearTestStore(tempDir string) {
+	err := os.RemoveAll(tempDir)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestStore(t *testing.T) {
+	store, tempDir := NewTestStore(t.Name(), true)
+	defer ClearTestStore(tempDir)
+	
 	writeBlock(store, 1)
 	queryBlock(store, 1)
 
@@ -51,15 +71,11 @@ func TestStore(t *testing.T) {
 	queryBlock(store, 2)
 	queryBlock(store, 3)
 	queryBlock(store, 4)
-
 }
 
 func TestSeekToLastAndPrev(t *testing.T) {
-
-	store, err := NewStore(path.Join(test_tools.DefaultDataDir(), "test_store"), "storeTest")
-	if err != nil {
-		t.Fatal(err)
-	}
+	store, tempDir := NewTestStore(t.Name(), true)
+	defer ClearTestStore(tempDir)
 
 	batch := new(leveldb.Batch)
 
@@ -84,11 +100,8 @@ func TestSeekToLastAndPrev(t *testing.T) {
 }
 
 func TestPutAndDelete(t *testing.T) {
-
-	store, err := NewStore(path.Join(test_tools.DefaultDataDir(), "test_store"), "storeTest")
-	if err != nil {
-		t.Fatal(err)
-	}
+	store, tempDir := NewTestStore(t.Name(), true)
+	defer ClearTestStore(tempDir)
 
 	batch := new(leveldb.Batch)
 
@@ -106,7 +119,7 @@ func TestPutAndDelete(t *testing.T) {
 	batch.Delete(chain_utils.Uint64ToBytes(7))
 
 	store.WriteDirectly(batch)
-	value, err := store.Get(chain_utils.Uint64ToBytes(7))
+	value, _ := store.Get(chain_utils.Uint64ToBytes(7))
 	fmt.Println(value)
 
 	iter := store.NewIterator(nil)
@@ -117,18 +130,19 @@ func TestPutAndDelete(t *testing.T) {
 }
 
 func TestIterator(t *testing.T) {
-	store, err := NewStore("test_mem", "123")
-	if err != nil {
-		panic(err)
-	}
+	store, tempDir := NewTestStore(t.Name(), true)
+	defer ClearTestStore(tempDir)
+
+	maxIterations := 10
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 	count := uint64(0)
+
 	go func() {
 		defer wg.Done()
 
-		for {
+		for count <= uint64(maxIterations) {
 			batch := new(leveldb.Batch)
 			count++
 			batch.Put(chain_utils.Uint64ToBytes(count), chain_utils.Uint64ToBytes(count))
@@ -142,6 +156,7 @@ func TestIterator(t *testing.T) {
 		}
 
 	}()
+
 	go func() {
 		defer wg.Done()
 
@@ -157,11 +172,15 @@ func TestIterator(t *testing.T) {
 			}
 
 			fmt.Println("check ", prev)
+
+			if count >= uint64(maxIterations) {
+				break
+			}
 		}
 
 	}()
-	wg.Wait()
 
+	wg.Wait()
 }
 
 func TestIterator2(t *testing.T) {
@@ -176,11 +195,10 @@ func TestIterator2(t *testing.T) {
 }
 
 func TestIterator3(t *testing.T) {
-	os.RemoveAll("test_mem")
-	store, err := NewStore("test_mem", "123")
-	if err != nil {
-		panic(err)
-	}
+	store, tempDir := NewTestStore(t.Name(), true)
+	defer ClearTestStore(tempDir)
+
+	const maxDuration = 2 * time.Second
 
 	//batch2 := new(leveldb.Batch)
 	//
@@ -191,7 +209,12 @@ func TestIterator3(t *testing.T) {
 
 	//store.memDb = db.NewMemDB()
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		time.Sleep(maxDuration)
+	}()
+
 	go func() {
 		defer wg.Done()
 		for {
@@ -205,6 +228,7 @@ func TestIterator3(t *testing.T) {
 			flushToDisk(store)
 		}
 	}()
+
 	time.Sleep(10 * time.Millisecond)
 
 	go func() {
@@ -216,11 +240,9 @@ func TestIterator3(t *testing.T) {
 			}
 			iter.Release()
 		}
-
 	}()
 
 	wg.Wait()
-
 }
 
 func writeKv(batch *leveldb.Batch, key uint64, value uint64) {
@@ -228,6 +250,8 @@ func writeKv(batch *leveldb.Batch, key uint64, value uint64) {
 }
 
 func flushToDisk(store *Store) {
+	fmt.Println("flushToDisk")
+
 	// mock flush
 	store.Prepare()
 
@@ -259,7 +283,7 @@ func writeBlock(store *Store, blockIndex int) {
 
 func snapshot(store *Store, blockIndexList []int) {
 	batch := store.NewBatch()
-	blockHashList := make([]types.Hash, len(blockIndexList))
+	blockHashList := make([]types.Hash, 0)
 	for _, blockIndex := range blockIndexList {
 		blockHash, _ := types.BytesToHash(crypto.Hash256([]byte(fmt.Sprintf("blockHash%d", blockIndex))))
 
@@ -286,5 +310,4 @@ func Test_map(t *testing.T) {
 	delete(a, 1)
 	delete(a, 2)
 	a[4] = 3
-
 }
