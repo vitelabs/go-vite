@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/vitelabs/go-vite/v2/common/config"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/common/upgrade"
@@ -160,7 +161,7 @@ var GenesisJson = `{
 }
 `
 
-func NewChainInstance(dirName string, clear bool) (*chain, error) {
+func NewChainInstance(t gomock.TestReporter, dirName string, clear bool) (*chain, error) {
 	var dataDir string
 
 	if path.IsAbs(dirName) {
@@ -181,8 +182,13 @@ func NewChainInstance(dirName string, clear bool) (*chain, error) {
 	if err := chainInstance.Init(); err != nil {
 		return nil, err
 	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	// mock consensus
-	chainInstance.SetConsensus(&test_tools.MockConsensus{})
+	// chainInstance.SetConsensus(&test_tools.MockConsensus{})
+	chainInstance.SetConsensus(test_tools.NewMockConsensus(ctrl))
 
 	chainInstance.Start()
 	return chainInstance, nil
@@ -192,14 +198,14 @@ func Clear(c *chain) error {
 	return os.RemoveAll(c.dataDir)
 }
 
-func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
+func SetUp(t gomock.TestReporter, accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
 	// set fork point
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 10000000))
 
 	// test quota
 	quota.InitQuotaConfig(true, true)
 
-	chainInstance, err := NewChainInstance("unit_test/devdata", false)
+	chainInstance, err := NewChainInstance(t, "unit_test/devdata", false)
 	if err != nil {
 		panic(err)
 	}
@@ -230,7 +236,7 @@ func TestChain(t *testing.T) {
 	//testPanic(t, accounts, snapshotBlockList)
 
 	// test insert
-	chainInstance, accounts, snapshotBlockList := SetUp(20, 500, 10)
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 20, 500, 10)
 
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
@@ -291,14 +297,14 @@ func testChainAllNoTesting(chainInstance *chain, accounts map[types.Address]*Acc
 }
 
 func TestCheckHash(t *testing.T) {
-	chainInstance, _, _ := SetUp(0, 0, 0)
+	chainInstance, _, _ := SetUp(t, 0, 0, 0)
 	if err := chainInstance.CheckHash(); err != nil {
 		panic(err)
 	}
 }
 
 func TestCheckHash2(t *testing.T) {
-	chainInstance, _, _ := SetUp(0, 0, 0)
+	chainInstance, _, _ := SetUp(t, 0, 0, 0)
 	hash, err := types.HexToHash("3cc090aaaa241b3ff480cd461a1fb220fd429717855b5c990d1cb34dd1cef6c1")
 	if err != nil {
 		t.Fatal(err)
@@ -413,7 +419,7 @@ func loadData(chainInstance *chain) (map[types.Address]*Account, []*ledger.Snaps
 */
 func TestChainForkRollBack(t *testing.T) {
 
-	c, accountMap, _ := SetUp(3, 100, 2)
+	c, accountMap, _ := SetUp(t, 3, 100, 2)
 	curSnapshotBlock := c.GetLatestSnapshotBlock()
 	fmt.Println(curSnapshotBlock.Height)
 	TearDown(c)
@@ -422,7 +428,7 @@ func TestChainForkRollBack(t *testing.T) {
 	height := uint64(30)
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, height))
 
-	c, accountMap, _ = SetUp(10, 0, 0)
+	c, accountMap, _ = SetUp(t, 10, 0, 0)
 
 	defer func() {
 		TearDown(c)

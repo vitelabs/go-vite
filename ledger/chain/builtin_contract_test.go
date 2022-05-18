@@ -11,11 +11,11 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	"github.com/vitelabs/go-vite/v2/ledger/chain/utils"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
 func TestChain_builtInContract(t *testing.T) {
-	chainInstance, accounts, snapshotBlockList := SetUp(17, 2654, 9)
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 17, 2654, 9)
 
 	testBuiltInContract(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)
@@ -99,7 +99,7 @@ func testBuiltInContractNoTesting(chainInstance *chain, accounts map[types.Addre
 
 func TestVoteList(t *testing.T) {
 
-	chainInstance, err := NewChainInstance("/Users/liyanda/test_ledger/ledger4/devdata", false)
+	chainInstance, err := NewChainInstance(t, "/Users/liyanda/test_ledger/ledger4/devdata", false)
 	if err != nil {
 		panic(err)
 	}
