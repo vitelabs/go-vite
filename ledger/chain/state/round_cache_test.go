@@ -18,6 +18,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/memdb"
 	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/util"
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
@@ -672,6 +673,9 @@ func TestRoundCache(t *testing.T) {
 	// Assert that Bar() is invoked.
 	defer ctrl.Finish()
 
+	upgrade.CleanupUpgradeBox()
+	upgrade.InitUpgradeBox(upgrade.NewLatestUpgradeBox())
+
 	// mock data
 	mockData := NewMockData(append(createAddrList(19), types.AddressGovernance), 90)
 
@@ -775,7 +779,7 @@ func TestRoundCache(t *testing.T) {
 
 	testDeleteSnapshots(20, 3)
 
-	for j := 0; j < 10; j++ {
+	for j := 0; j < 2; j++ {
 		fmt.Printf("Test %d.1\n", j)
 		for i := 0; i < 60; i++ {
 			randNum := rand.Intn(100)
