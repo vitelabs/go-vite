@@ -173,15 +173,16 @@ func (bDB *BlockDB) ReadUnit(location *chain_file_manager.Location) (*ledger.Sna
 	return nil, nil, nextLocation, nil
 }
 
-func (bDB *BlockDB) ReadChunk(location *chain_file_manager.Location) (*ledger.SnapshotChunk, *chain_file_manager.Location, error) {
+func (bDB *BlockDB) ReadChunk(location chain_file_manager.Location) (*ledger.SnapshotChunk, *chain_file_manager.Location, error) {
+	cur := &location
 	var accBlocks []*ledger.AccountBlock
 
 	for {
-		sb, ab, next, err := bDB.ReadUnit(location)
+		sb, ab, next, err := bDB.ReadUnit(cur)
 		if err != nil {
 			return nil, nil, err
 		}
-		location = next
+		cur = next
 
 		if ab != nil {
 			accBlocks = append(accBlocks, ab)
