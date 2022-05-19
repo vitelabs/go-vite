@@ -9,7 +9,6 @@ import (
 
 	chain_block "github.com/vitelabs/go-vite/v2/ledger/chain/block"
 	chain_file_manager "github.com/vitelabs/go-vite/v2/ledger/chain/file_manager"
-	"github.com/vitelabs/go-vite/v2/log15"
 )
 
 type blocks struct {
@@ -31,6 +30,7 @@ func newBlocks(dir string, filesize int64) (*blocks, error) {
 
 	if err := bs.meta.load(); err != nil {
 		if err = bs.meta.generateMeta(bs.blockDb); err != nil {
+			log.Warn("rebuild the block meta info error", "err", err)
 			return nil, err
 		}
 	}
@@ -41,9 +41,9 @@ func (bs blocks) location(height uint64) (*chain_file_manager.Location, error) {
 	start, _ := bs.meta.hit(height)
 	cur := start.Location
 	for {
-		chunk, location, err := bs.blockDb.ReadChunk(&cur)
+		chunk, location, err := bs.blockDb.ReadChunk(cur)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read chunk error, %s", err.Error())
 		}
 		if chunk.SnapshotBlock.Height == height {
 			return &cur, nil
@@ -93,7 +93,6 @@ func (bMeta *blocksMeta) load() error {
 }
 
 func (bMeta *blocksMeta) generateMeta(blockDb *chain_block.BlockDB) error {
-	log := log15.New("module", "ledger/pipeline")
 	i := uint64(0)
 	step := uint64(1000)
 
@@ -126,6 +125,11 @@ func (bMeta *blocksMeta) generateMeta(blockDb *chain_block.BlockDB) error {
 			current = location
 		} else {
 			location, err := blockDb.GetNextLocation(current)
+
+			if i > 400 {
+				break
+			}
+
 			if err != nil {
 				return err
 			}

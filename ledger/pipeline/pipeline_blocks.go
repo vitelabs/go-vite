@@ -10,6 +10,10 @@ import (
 	"github.com/vitelabs/go-vite/v2/net"
 )
 
+var (
+	log = log15.New("module", "ledger/pipeline")
+)
+
 type blocks_pipeline struct {
 	net.ChunkReader
 
@@ -35,6 +39,7 @@ func newBlocksPipeline(fromDir string, fileSize int64) (*blocks_pipeline, error)
 func newBlocksPipelineWithRun(fromDir string, height uint64, fileSize int64) (*blocks_pipeline, error) {
 	p, err := newBlocksPipeline(fromDir, fileSize)
 	if err != nil {
+		log.Error("new blocks pipeline fail.", "err", err)
 		return nil, err
 	}
 	p.chunkCh = make(chan *core.SnapshotChunk, 1000)
@@ -45,16 +50,16 @@ func newBlocksPipelineWithRun(fromDir string, height uint64, fileSize int64) (*b
 
 	location, err := p.fromBlocks.location(height)
 	if err != nil {
+		log.Error("new blocks pipeline fail. read location fail", "err", err)
 		return nil, err
 	}
 
 	go func() {
 		defer close(p.chunkCh)
-		log := log15.New("module", "pipeline")
 		for {
-			chunk, next, err := p.fromBlocks.blockDb.ReadChunk(location)
+			chunk, next, err := p.fromBlocks.blockDb.ReadChunk(*location)
 			if err != nil {
-				log.Error("msg", "pipeline end", err)
+				log.Error("read chunk fail.", "err", err, "location", location, "height", height)
 				return
 			}
 			log.Debug(fmt.Sprintf("pipeline chunk to %d", chunk.SnapshotBlock.Height))
@@ -89,8 +94,8 @@ func (p *blocks_pipeline) read() *net.Chunk {
 		}
 		select {
 		case chunk, ok := <-p.chunkCh:
-			if !ok {
-				return nil
+			if !ok && chunk == nil {
+				return net.NewChunk(chunks, types.Local)
 			}
 			chunks = append(chunks, *chunk)
 		default:

@@ -52,9 +52,10 @@ func exportLedgerAction(ctx *cli.Context) error {
 	if err := node.Start(); err != nil {
 		return err
 	}
+	log.Info("load ledger", "from", fromDir)
 	pipe, err := pipeline.NewBlocksPipeline(fromDir, node.Vite().Chain().GetLatestSnapshotBlock().Height)
 	if err != nil {
-		log.Error("create blocks pipeline fail", err)
+		log.Error("create blocks pipeline fail", "error", err, "fromDir", fromDir)
 		node.Stop()
 		return err
 	}
