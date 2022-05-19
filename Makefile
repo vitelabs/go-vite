@@ -39,7 +39,7 @@ test:
 	GO111MODULE=on go test ./wallet
 
 build_linux_amd64:
-	env GOOS=linux GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/gvite $(MAIN)
+	env GOOS=linux CGO_ENABLED=0 GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/gvite $(MAIN)
 
 	@cp $(shell pwd)/conf/node_config.json $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/node_config.json
 	@cp $(shell pwd)/bin/bootstrap_linux $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/bootstrap
@@ -48,7 +48,7 @@ build_linux_amd64:
 	@echo "Build linux version done."
 
 build_linux_arm64:
-	env GOOS=linux GO111MODULE=on GOARCH=arm64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux-arm64/gvite $(MAIN)
+	env GOOS=linux CGO_ENABLED=0 GO111MODULE=on GOARCH=arm64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux-arm64/gvite $(MAIN)
 
 	@cp $(shell pwd)/conf/node_config.json $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux-arm64/node_config.json
 	@cp $(shell pwd)/bin/bootstrap_linux $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux-arm64/bootstrap
@@ -57,7 +57,7 @@ build_linux_arm64:
 	@echo "Build linux-arm64 version done."	
 
 build_darwin:
-	env GOOS=darwin GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-darwin/gvite $(MAIN)
+	env GOOS=darwin CGO_ENABLED=0 GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-darwin/gvite $(MAIN)
 
 	@cp  $(shell pwd)/conf/node_config.json $(BUILD_DIR)/gvite-$(VITE_VERSION)-darwin/node_config.json
 	@ls -d $(BUILD_DIR)/gvite-$(VITE_VERSION)-darwin/gvite
@@ -65,7 +65,7 @@ build_darwin:
 
 
 build_windows:
-	env GOOS=windows GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/gvite-windows-amd64.exe $(MAIN)
+	env GOOS=windows CGO_ENABLED=0 GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/gvite-windows-amd64.exe $(MAIN)
 
 	@cp  $(shell pwd)/conf/node_config.json $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/node_config.json
 	@ls -d $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/gvite-windows-amd64.exe
