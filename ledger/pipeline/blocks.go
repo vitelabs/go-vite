@@ -126,10 +126,6 @@ func (bMeta *blocksMeta) generateMeta(blockDb *chain_block.BlockDB) error {
 		} else {
 			location, err := blockDb.GetNextLocation(current)
 
-			if i > 400 {
-				break
-			}
-
 			if err != nil {
 				return err
 			}
