@@ -53,7 +53,6 @@ func init() {
 	seedToChild[TestSeed] = testTuples
 
 	testSeedStoreManager, _ = entropystore.StoreNewEntropy(utFilePath, TestMnemonic, "123456", entropystore.DefaultMaxIndex)
-
 }
 
 func GetManagerFromStoreNewSeed() *entropystore.Manager {
@@ -67,7 +66,6 @@ func GetManagerFromStoreNewSeed() *entropystore.Manager {
 	manager, e := entropystore.StoreNewEntropy(utFilePath, mnemonic, "123456", entropystore.DefaultMaxIndex)
 	if e != nil {
 		panic(e)
-		return nil
 	}
 
 	return manager
@@ -113,7 +111,6 @@ func TestManager_FindAddr(t *testing.T) {
 	if e != walleterrors.ErrAddressNotFound {
 		t.Fatal(e)
 	}
-
 }
 
 func TestManager_LockAndUnlock(t *testing.T) {
@@ -165,7 +162,6 @@ func TestManager_LockAndUnlock(t *testing.T) {
 	}
 
 	sm.Lock()
-
 }
 
 func TestFindAddrFromSeed(t *testing.T) {
@@ -183,11 +179,10 @@ func TestMapDelete(t *testing.T) {
 	for k, v := range m {
 		fmt.Println(k, v)
 	}
-	for k, _ := range m {
+	for k := range m {
 		delete(m, k)
 	}
 	for k, v := range m {
 		fmt.Println(k, v)
 	}
-
 }
