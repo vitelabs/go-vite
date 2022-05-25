@@ -27,7 +27,6 @@ func testBuiltInContract(t *testing.T, chainInstance *chain, accounts map[types.
 	})
 
 	t.Run("ConcurrentWrite", func(t *testing.T) {
-		return
 		var mu sync.RWMutex
 		var wg sync.WaitGroup
 
@@ -35,7 +34,7 @@ func testBuiltInContract(t *testing.T, chainInstance *chain, accounts map[types.
 
 		wg.Add(2)
 		testCount := 0
-		const maxTestCount = 100
+		const maxTestCount = 10
 		go func() {
 			defer wg.Done()
 			for testCount < maxTestCount {
@@ -98,6 +97,7 @@ func testBuiltInContractNoTesting(chainInstance *chain, accounts map[types.Addre
 }
 
 func TestVoteList(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect ledger vote data.")
 
 	chainInstance, err := NewChainInstance(t, "/Users/liyanda/test_ledger/ledger4/devdata", false)
 	if err != nil {

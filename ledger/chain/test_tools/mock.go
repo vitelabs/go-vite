@@ -13,18 +13,17 @@ type MockConsensus struct{
 	sbpReader *core.MockSBPStatReader
 }
 
-func NewMockConsensus(ctrl *gomock.Controller) *MockConsensus {
+func NewMockConsensus(genesisTime *time.Time, ctrl *gomock.Controller) *MockConsensus {
 	mock := &MockConsensus{}
 	mock.sbpReader = core.NewMockSBPStatReader(ctrl)
-	genesis := time.Unix(1552708800, 0)
-	//genesis := time.Now()
+	genesis := time.Unix(genesisTime.Unix(), 0)
 	ti := core.NewTimeIndex(genesis, time.Hour*24)
 	mock.sbpReader.EXPECT().GetPeriodTimeIndex().Return(ti).AnyTimes()
 	return mock
 }
 
 func (c *MockConsensus) VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 func (c *MockConsensus) SBPReader() core.SBPStatReader {

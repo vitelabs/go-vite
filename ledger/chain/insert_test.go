@@ -105,7 +105,7 @@ func TestInsertAccountBlocks(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 10000000; i++ {
+		for i := 0; i < 100; i++ {
 			num := rand.Intn(100)
 
 			if num > 90 && len(snapshotBlockList) > 0 {

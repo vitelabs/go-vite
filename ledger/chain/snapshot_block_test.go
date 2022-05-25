@@ -549,7 +549,7 @@ func checkSnapshotBlocks(snapshotBlockList []*ledger.SnapshotBlock,
 
 		blocksLen := len(blocks)
 		if blocksLen != (end - start + 1) {
-			panic("error")
+			panic(fmt.Sprintf("blocksLen is %d, end is %d, start is %d\n", blocksLen, end, start))
 		}
 
 		var prevBlock *ledger.SnapshotBlock

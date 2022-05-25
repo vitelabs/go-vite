@@ -188,7 +188,7 @@ func NewChainInstance(t gomock.TestReporter, dirName string, clear bool) (*chain
 
 	// mock consensus
 	// chainInstance.SetConsensus(&test_tools.MockConsensus{})
-	chainInstance.SetConsensus(test_tools.NewMockConsensus(ctrl))
+	chainInstance.SetConsensus(test_tools.NewMockConsensus(chainInstance.GetGenesisSnapshotBlock().Timestamp, ctrl))
 
 	chainInstance.Start()
 	return chainInstance, nil
@@ -198,8 +198,9 @@ func Clear(c *chain) error {
 	return os.RemoveAll(c.dataDir)
 }
 
-func SetUp(t gomock.TestReporter, accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
+func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
 	// set fork point
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 10000000))
 
 	// test quota
@@ -418,7 +419,6 @@ func loadData(chainInstance *chain) (map[types.Address]*Account, []*ledger.Snaps
   fork  rollback only for one forkpoint
 */
 func TestChainForkRollBack(t *testing.T) {
-
 	c, accountMap, _ := SetUp(t, 3, 100, 2)
 	curSnapshotBlock := c.GetLatestSnapshotBlock()
 	fmt.Println(curSnapshotBlock.Height)
@@ -426,6 +426,7 @@ func TestChainForkRollBack(t *testing.T) {
 
 	// height
 	height := uint64(30)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, height))
 
 	c, accountMap, _ = SetUp(t, 10, 0, 0)
@@ -441,7 +442,6 @@ func TestChainForkRollBack(t *testing.T) {
 
 	fmt.Println(curSnapshotBlocknew.Height, curSnapshotBlocknew.Height == height-1)
 	if curSnapshotBlocknew.Height != height-1 {
-
 		t.Fatal(fmt.Sprintf("not equal %+v, %d", curSnapshotBlocknew, height-1))
 	}
 
@@ -497,5 +497,4 @@ func TestChainForkRollBack(t *testing.T) {
 	if len(accountBlockListNew) != 0 {
 		t.Fatal(fmt.Sprintf("GetAllUnconfirmedBlocks must be 0, but %d", len(accountBlockListNew)))
 	}
-
 }
