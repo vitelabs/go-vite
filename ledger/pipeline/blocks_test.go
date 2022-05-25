@@ -1,10 +1,10 @@
 package pipeline
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/vitelabs/go-vite/v2/common/fileutils"
 	"github.com/vitelabs/go-vite/v2/interfaces/core"
 	chain_block "github.com/vitelabs/go-vite/v2/ledger/chain/block"
 )
@@ -46,7 +46,7 @@ func prepareTestData(t *testing.T, dir string) {
 }
 
 var (
-	tmpDir, _    = ioutil.TempDir("", "")
+	tmpDir       = fileutils.CreateTempDir()
 	testFilesize = int64(5 * 1024)
 )
 

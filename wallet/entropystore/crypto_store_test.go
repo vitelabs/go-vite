@@ -9,8 +9,8 @@ import (
 
 	"github.com/tyler-smith/go-bip39"
 
-	"github.com/vitelabs/go-vite/v2/common"
 	walleterrors "github.com/vitelabs/go-vite/v2/common/errors"
+	"github.com/vitelabs/go-vite/v2/common/fileutils"
 	"github.com/vitelabs/go-vite/v2/wallet/entropystore"
 	"github.com/vitelabs/go-vite/v2/wallet/hd-bip/derivation"
 )
@@ -24,7 +24,7 @@ func TestCryptoStore_StoreEntropy(t *testing.T) {
 
 	primaryAddr, _ := derivation.GetPrimaryAddress(seed)
 
-	filename := filepath.Join(common.DefaultDataDir(), "UTSeed", primaryAddr.String())
+	filename := filepath.Join(fileutils.CreateTempDir(), primaryAddr.String())
 	store := entropystore.CryptoStore{filename}
 
 	err := store.StoreEntropy(entropy, *primaryAddr, "123456")
@@ -32,13 +32,11 @@ func TestCryptoStore_StoreEntropy(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Println(filename)
+
+	testCryptoStore_ExtractSeed(t, filename, seed)
 }
 
-func TestCryptoStore_ExtractSeed(t *testing.T) {
-	seed, _ := hex.DecodeString(TestSeed)
-	primaryAddr, _ := entropystore.MnemonicToPrimaryAddr(TestMnemonic)
-
-	filename := filepath.Join(common.DefaultDataDir(), "UTSeed", primaryAddr.String())
+func testCryptoStore_ExtractSeed(t *testing.T, filename string, seed []byte) {
 	store := entropystore.CryptoStore{filename}
 
 	seedExtract, entropy, err := store.ExtractSeed("123456")

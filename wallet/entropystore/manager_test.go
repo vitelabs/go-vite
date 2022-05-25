@@ -3,15 +3,14 @@ package entropystore_test
 import (
 	"encoding/hex"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tyler-smith/go-bip39"
 
-	"github.com/vitelabs/go-vite/v2/common"
 	walleterrors "github.com/vitelabs/go-vite/v2/common/errors"
+	"github.com/vitelabs/go-vite/v2/common/fileutils"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/wallet/entropystore"
 )
@@ -45,14 +44,14 @@ var (
 
 	testSeedStoreManager *entropystore.Manager
 
-	utFilePath = filepath.Join(common.DefaultDataDir(), "UTSeed")
+	baseStorePath = fileutils.CreateTempDir()
 )
 
 func init() {
 	seedToChild := make(map[string][]testBipTuple)
 	seedToChild[TestSeed] = testTuples
 
-	testSeedStoreManager, _ = entropystore.StoreNewEntropy(utFilePath, TestMnemonic, "123456", entropystore.DefaultMaxIndex)
+	testSeedStoreManager, _ = entropystore.StoreNewEntropy(baseStorePath, TestMnemonic, "123456", entropystore.DefaultMaxIndex)
 }
 
 func GetManagerFromStoreNewSeed() *entropystore.Manager {
@@ -63,7 +62,7 @@ func GetManagerFromStoreNewSeed() *entropystore.Manager {
 	seed := bip39.NewSeed(mnemonic, "")
 	fmt.Println("seed   :", hex.EncodeToString(seed))
 
-	manager, e := entropystore.StoreNewEntropy(utFilePath, mnemonic, "123456", entropystore.DefaultMaxIndex)
+	manager, e := entropystore.StoreNewEntropy(baseStorePath, mnemonic, "123456", entropystore.DefaultMaxIndex)
 	if e != nil {
 		panic(e)
 	}
@@ -150,7 +149,7 @@ func TestManager_LockAndUnlock(t *testing.T) {
 			t.Fatal("expect not found error")
 		}
 
-		dsm, _ := entropystore.StoreNewEntropy(utFilePath, TestMnemonic, "123456", 200)
+		dsm, _ := entropystore.StoreNewEntropy(baseStorePath, TestMnemonic, "123456", 200)
 		dsm.Unlock("123456")
 		k, i, e := dsm.FindAddr(*addr)
 		if e != nil {
