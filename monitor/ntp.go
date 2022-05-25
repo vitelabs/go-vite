@@ -21,13 +21,13 @@ var servers = []string{
 	"time6.aliyun.com",
 	"time7.aliyun.com",
 
-	"time1.apple.com",
-	"time2.apple.com",
-	"time3.apple.com",
-	"time4.apple.com",
-	"time5.apple.com",
-	"time6.apple.com",
-	"time7.apple.com",
+	"time.google.com",
+	"time1.google.com",
+	"time2.google.com",
+	"time3.google.com",
+	"time4.google.com",
+	
+	"time.cloudflare.com",
 }
 
 var availIndex = 0
