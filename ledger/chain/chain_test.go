@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -177,7 +176,10 @@ func NewChainInstance(t gomock.TestReporter, dirName string, clear bool) (*chain
 
 	json.Unmarshal([]byte(GenesisJson), genesisConfig)
 
-	chainInstance := NewChain(dataDir, &config.Chain{}, genesisConfig)
+	chainCfg := &config.Chain{
+		VmLogAll: true,
+	}
+	chainInstance := NewChain(dataDir, chainCfg, genesisConfig)
 
 	if err := chainInstance.Init(); err != nil {
 		return nil, err
@@ -206,7 +208,7 @@ func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, 
 	// test quota
 	quota.InitQuotaConfig(true, true)
 
-	chainInstance, err := NewChainInstance(t, "unit_test/devdata", false)
+	chainInstance, err := NewChainInstance(t, t.Name(), true)
 	if err != nil {
 		panic(err)
 	}
@@ -242,14 +244,14 @@ func TestChain(t *testing.T) {
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	// test insert and query
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(300), rand.Intn(5), true)...)
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(50), rand.Intn(3), true)...)
 
 	// test all
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	// test insert & delete
 	snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
-
+	
 	// test panic
 	TearDown(chainInstance)
 }
@@ -316,103 +318,6 @@ func TestCheckHash2(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Printf("%+v\n", block)
-}
-
-func recoverAfterPanic(chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
-	for _, account := range accounts {
-		for blockHash := range account.UnconfirmedBlocks {
-			account.deleteAccountBlock(accounts, blockHash)
-		}
-		account.resetLatestBlock()
-	}
-
-	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
-
-	realSnapshotBlocks := snapshotBlockList
-	needDeleteSnapshotBlocks := make([]*ledger.SnapshotBlock, 0)
-	for i := len(snapshotBlockList) - 1; i >= 0; i-- {
-		memSnapshotBlock := snapshotBlockList[i]
-		if memSnapshotBlock.Height <= latestSnapshotBlock.Height {
-			realSnapshotBlocks = snapshotBlockList[:i+1]
-			needDeleteSnapshotBlocks = snapshotBlockList[i+1:]
-			break
-
-		}
-	}
-
-	for _, account := range accounts {
-		account.DeleteSnapshotBlocks(accounts, needDeleteSnapshotBlocks, false)
-	}
-
-	return realSnapshotBlocks
-}
-
-func saveData(accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) (map[types.Address]*Account, []*ledger.SnapshotBlock) {
-
-	fileName := path.Join(test_tools.DefaultDataDir(), "test_panic")
-	fd, oErr := os.OpenFile(fileName, os.O_RDWR, 0666)
-	if oErr != nil {
-		if os.IsNotExist(oErr) {
-			var err error
-			fd, err = os.Create(fileName)
-			if err != nil {
-				panic(err)
-			}
-		} else {
-			panic(oErr)
-		}
-	}
-	if err := fd.Truncate(0); err != nil {
-		panic(err)
-	}
-
-	if _, err := fd.Seek(0, 0); err != nil {
-		panic(err)
-	}
-	enc := gob.NewEncoder(fd)
-
-	if len(accounts) > 0 {
-		if err := enc.Encode(accounts); err != nil {
-			panic(err)
-		}
-	}
-
-	if len(snapshotBlockList) > 0 {
-		if err := enc.Encode(snapshotBlockList); err != nil {
-			panic(err)
-		}
-	}
-
-	return accounts, snapshotBlockList
-}
-
-func loadData(chainInstance *chain) (map[types.Address]*Account, []*ledger.SnapshotBlock) {
-	fileName := path.Join(test_tools.DefaultDataDir(), "test_panic")
-	fd, oErr := os.OpenFile(fileName, os.O_RDWR, 0666)
-	if oErr != nil {
-		if os.IsNotExist(oErr) {
-			return make(map[types.Address]*Account), make([]*ledger.SnapshotBlock, 0)
-		} else {
-			panic(oErr)
-		}
-	}
-
-	if _, err := fd.Seek(0, 0); err != nil {
-		panic(err)
-	}
-
-	dec := gob.NewDecoder(fd)
-	accounts := make(map[types.Address]*Account)
-	dec.Decode(&accounts)
-
-	for _, account := range accounts {
-		account.chainInstance = chainInstance
-	}
-
-	snapshotList := make([]*ledger.SnapshotBlock, 0)
-	dec.Decode(&snapshotList)
-
-	return accounts, snapshotList
 }
 
 /**

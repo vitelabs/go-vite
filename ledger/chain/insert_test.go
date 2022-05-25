@@ -41,6 +41,7 @@ func TestInsertAccountBlocks(t *testing.T) {
 
 	var mu sync.RWMutex
 	var snapshotBlockList []*ledger.SnapshotBlock
+	var done bool
 
 	wg.Add(2)
 	go func() {
@@ -99,7 +100,9 @@ func TestInsertAccountBlocks(t *testing.T) {
 					panic(fmt.Sprintf("sb.height is error, h is %d, snapshot is %+v", h, sb))
 				}
 			}
-
+			if done {
+				break
+			}
 		}
 	}()
 
@@ -148,7 +151,7 @@ func TestInsertAccountBlocks(t *testing.T) {
 			}
 
 		}
-
+		done = true
 	}()
 
 	wg.Wait()

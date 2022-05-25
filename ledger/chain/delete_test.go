@@ -33,9 +33,9 @@ func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.
 		snapshotBlockList = testDeleteMany(t, chainInstance, accounts, snapshotBlockList)
 	})
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 3; i++ {
 		t.Run("deleteSnapshotBlocks", func(t *testing.T) {
-			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(8))
+			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(3))
 		})
 
 		t.Run("deleteAccountBlocks", func(t *testing.T) {
@@ -43,7 +43,7 @@ func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.
 		})
 
 		t.Run("deleteSnapshotBlocks", func(t *testing.T) {
-			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(8))
+			snapshotBlockList = testDeleteSnapshotBlocks(t, chainInstance, accounts, snapshotBlockList, rand.Intn(3))
 		})
 	}
 
@@ -53,8 +53,8 @@ func testInsertAndDelete(t *testing.T, chainInstance *chain, accounts map[types.
 }
 
 func testDeleteMany(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, 15000, 3, false)...)
-	deleteCount := 3500
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, 150, 3, false)...)
+	deleteCount := 35
 
 	deleteSnapshotBlocks(chainInstance, accounts, uint64(deleteCount))
 	chainInstance.stateDB.Store().CompactRange(*util.BytesPrefix([]byte{chain_utils.StorageHistoryKeyPrefix}))
@@ -68,8 +68,8 @@ func testDeleteMany(t *testing.T, chainInstance *chain, accounts map[types.Addre
 }
 
 func testDeleteSnapshotBlocks(t *testing.T, chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock, deleteCount int) []*ledger.SnapshotBlock {
-	insertCount := rand.Intn(10000)
-	snapshotPerNum := rand.Intn(200)
+	insertCount := rand.Intn(100)
+	snapshotPerNum := rand.Intn(3)
 
 	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, insertCount, snapshotPerNum, false)...)
 
