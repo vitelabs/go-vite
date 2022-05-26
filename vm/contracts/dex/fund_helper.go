@@ -637,7 +637,7 @@ func IsDexEnrichOrderFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
 	} else {
-		return upgrade.IsVersionXUpgrade(latestSb.Height)
+		return upgrade.IsVersion11Upgrade(latestSb.Height)
 	}
 }
 
