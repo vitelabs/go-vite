@@ -54,7 +54,7 @@ func (md *MethodDexFundDeposit) DoReceive(db interfaces.VmDb, block *ledger.Acco
 			return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 		}
 	}
-	if dex.IsDexEnrichOrderFork(db) {
+	if dex.IsVersion11AddTransferAssetEvent(db) {
 		dex.AddTransferAssetEvent(db, dex.TransferAssetDeposit, sendBlock.AccountAddress, types.AddressDexFund, sendBlock.TokenId, sendBlock.Amount, nil)
 	}
 	return nil, nil
@@ -110,7 +110,7 @@ func (md *MethodDexFundWithdraw) DoReceive(db interfaces.VmDb, block *ledger.Acc
 			}
 		}
 	}
-	if dex.IsDexEnrichOrderFork(db) {
+	if dex.IsVersion11AddTransferAssetEvent(db) {
 		dex.AddTransferAssetEvent(db, dex.TransferAssetWithdraw, types.AddressDexFund, sendBlock.AccountAddress, param.Token, param.Amount, nil)
 	}
 	return []*ledger.AccountBlock{
@@ -1905,7 +1905,7 @@ func (md MethodDexCommonAdminConfig) DoReceive(db interfaces.VmDb, block *ledger
 				return handleDexReceiveErr(fundLogger, md.MethodName, dex.TradeMarketNotExistsErr, sendBlock)
 			}
 		}
-		if dex.IsOperationValidWithMask(param.OperationCode, dex.CommonAdminConfigMarketOrderAmtThreshold) && dex.IsDexEnrichOrderFork(db) {
+		if dex.IsOperationValidWithMask(param.OperationCode, dex.CommonAdminConfigMarketOrderAmtThreshold) && dex.IsVersion11EnrichOrderFork(db) {
 			if param.Amount.Sign() > 0 {
 				if _, ok := dex.QuoteTokenTypeInfos[param.Value]; !ok {
 					return handleDexReceiveErr(fundLogger, md.MethodName, dex.InvalidInputParamErr, sendBlock)
