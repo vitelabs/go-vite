@@ -8,6 +8,7 @@ import (
 
 	"github.com/vitelabs/go-vite/v2/common/helper"
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
 	"github.com/vitelabs/go-vite/v2/vm/abi"
 	abi2 "github.com/vitelabs/go-vite/v2/vm/contracts/abi"
 )
@@ -26,6 +27,9 @@ func printEvent(addr types.Address, contract abi.ABIContract) {
 }
 
 func TestName(t *testing.T) {
+	upgrade.CleanupUpgradeBox(t)
+	upgrade.InitUpgradeBox(upgrade.NewLatestUpgradeBox())
+
 	addr := types.AddressAsset
 	data1 := []byte{26, 219, 85, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 86, 73, 84, 69, 32, 84, 79, 75, 69, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 139, 187, 108, 2, 179, 1, 103, 43, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 227, 104, 113, 237, 111, 178, 60, 70, 212, 110, 202, 253, 24, 138, 204, 168, 11, 111, 110, 0}
 	data2 := []byte{26, 219, 85, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 86, 73, 84, 69, 32, 84, 79, 75, 69, 78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 139, 187, 117, 191, 10, 28, 85, 119, 193, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 227, 104, 113, 237, 111, 178, 60, 70, 212, 110, 202, 253, 24, 138, 204, 168, 11, 111, 110, 0}

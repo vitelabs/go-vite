@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/common/fileutils"
 	"github.com/vitelabs/go-vite/v2/common/helper"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/common/upgrade"
@@ -36,7 +37,7 @@ func TestSnapshot(t *testing.T) {
 	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewLatestUpgradeBox())
 
-	tmpDir, _ := ioutil.TempDir("", "")
+	tmpDir := fileutils.CreateTempDir()
 	c := chain.NewChain(tmpDir, nil, config.MockGenesis())
 	c.Init()
 	c.Start()
@@ -87,7 +88,7 @@ func TestSnapshot(t *testing.T) {
 func TestProducer_Init(t *testing.T) {
 	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox())
-	tmpDir, _ := ioutil.TempDir("", "")
+	tmpDir := fileutils.CreateTempDir()
 	c := chain.NewChain(tmpDir, nil, config.MockGenesis())
 	c.Init()
 

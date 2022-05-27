@@ -2,6 +2,7 @@ package fileutils
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 )
 
@@ -34,4 +35,9 @@ func FileSize(fd *os.File) (int64, error) {
 	}
 
 	return fileInfo.Size(), nil
+}
+
+func CreateTempDir() string {
+	tmpDir, _ := ioutil.TempDir("", "")
+	return tmpDir
 }

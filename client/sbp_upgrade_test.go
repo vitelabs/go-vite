@@ -11,8 +11,7 @@ import (
 )
 
 func TestSBPUpgrade(t *testing.T) {
-	rpc, err := NewRpcClient(RawUrl)
-	assert.NoError(t, err)
+	rpc := PreTestRpc(t, RawUrl)
 
 	sbpMap := make(map[types.Address]string)
 	versionMap := make(map[string]uint32)

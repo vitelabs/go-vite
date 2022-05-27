@@ -4,21 +4,16 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/common/fileutils"
 	"github.com/vitelabs/go-vite/v2/common/helper"
 	"github.com/vitelabs/go-vite/v2/wallet"
 )
-
-func tmpDir() string {
-	tmpDir, _ := ioutil.TempDir("", "")
-	return tmpDir
-}
 
 func testManagerRecover(t *testing.T, dir string) {
 	mneList := []string{
@@ -67,7 +62,7 @@ func testManagerRecover(t *testing.T, dir string) {
 
 func TestManager_NewMnemonicAndSeedStore3(t *testing.T) {
 	manager := wallet.New(&config.Wallet{
-		DataDir: tmpDir(),
+		DataDir: fileutils.CreateTempDir(),
 	})
 	for i := 1; i <= 5; i++ {
 		_, _, err := manager.NewMnemonicAndEntropyStore("123456")
@@ -79,7 +74,7 @@ func TestManager_NewMnemonicAndSeedStore3(t *testing.T) {
 
 func testManagerDerive(t *testing.T, dir string) {
 	manager := wallet.New(&config.Wallet{
-		DataDir: tmpDir(),
+		DataDir: fileutils.CreateTempDir(),
 	})
 	err := manager.Start()
 	if err != nil {
@@ -120,7 +115,7 @@ func testManagerDerive(t *testing.T, dir string) {
 }
 
 func TestManage(t *testing.T) {
-	tmpDir := tmpDir()
+	tmpDir := fileutils.CreateTempDir()
 	testManagerRecover(t, tmpDir)
 	testManagerDerive(t, tmpDir)
 }
