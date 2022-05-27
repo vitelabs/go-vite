@@ -19,7 +19,7 @@ import (
 )
 
 func TestSnapshotCs_ElectionIndex(t *testing.T) {
-	c, tempDir := test_tools.NewTestChainInstance(t, true, nil)
+	c, tempDir := test_tools.NewTestChainInstance(t.Name(), true, nil)
 	defer test_tools.ClearChain(c, tempDir)
 
 	ctrl := gomock.NewController(t)

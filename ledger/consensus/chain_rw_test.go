@@ -38,12 +38,12 @@ func GetConsensusGroupList() ([]*types.ConsensusGroupInfo, error) {
 }
 
 func Test_chainRw(t *testing.T) {
-	c, tempDir := test_tools.NewTestChainInstance(t, true, nil)
+	c, tempDir := test_tools.NewTestChainInstance(t.Name(), true, nil)
 	defer test_tools.ClearChain(c, tempDir)
 }
 
 func TestChainRw_GetMemberInfo(t *testing.T) {
-	c, tempDir := test_tools.NewTestChainInstance(t, true, nil)
+	c, tempDir := test_tools.NewTestChainInstance(t.Name(), true, nil)
 	defer test_tools.ClearChain(c, tempDir)
 
 	ctrl := gomock.NewController(t)
@@ -73,7 +73,7 @@ func TestChainRw_GetMemberInfo(t *testing.T) {
 }
 
 func TestChainRw_GetMemberInfo2(t *testing.T) {
-	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	c, tempDir := test_tools.NewTestChainInstance(t.Name(), true, config.MockGenesis())
 	defer test_tools.ClearChain(c, tempDir)
 
 	genesis := c.GetGenesisSnapshotBlock()

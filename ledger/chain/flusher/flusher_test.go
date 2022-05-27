@@ -55,7 +55,6 @@ func TestCommitFailed(t *testing.T) {
 	if err := checkFlusher(1, nil, &StorageOptions{CommitFailed: true}, nil); err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func TestPatchRedoFailed(t *testing.T) {
@@ -74,11 +73,13 @@ func TestRecover(t *testing.T) {
 	if err := checkRecover(100, nil, &StorageOptions{CommitFailed: true, PatchRedoFailed: true}, nil); err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func TestParseRedoLog(t *testing.T) {
-	fd, oErr := os.OpenFile("./flush.redo.log", os.O_RDWR, 0666)
+	t.Skip("Skipped by default. This test can be used to parse redo log.")
+
+	d := path.Join(test_tools.DefaultDataDir(), "test_flusher", "flush.redo.log")
+	fd, oErr := os.OpenFile(d, os.O_RDWR, 0666)
 	assert.NoError(t, oErr)
 
 	defer fd.Close()
@@ -171,16 +172,18 @@ func initFlusher(opts []*StorageOptions) (*Flusher, []Storage, []*mockDB) {
 
 	for index, opt := range opts {
 		br := newMockDB()
-
 		dbList = append(dbList, br)
 		storeList = append(storeList, newMockStorage(fmt.Sprintf("mock storage %d", index), opt, br))
-
 	}
+
 	var mu sync.RWMutex
-	flusher, err := NewFlusher(storeList, &mu, path.Join(test_tools.DefaultDataDir(), "test_flusher"))
+	chainDir := path.Join(test_tools.DefaultDataDir(), "test_flusher")
+	os.Mkdir(chainDir, os.ModePerm)
+	flusher, err := NewFlusher(storeList, &mu, chainDir)
 	if err != nil {
 		panic(err)
 	}
+
 	return flusher, storeList, dbList
 }
 

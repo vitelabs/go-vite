@@ -14,12 +14,12 @@ import (
 	"github.com/vitelabs/go-vite/v2/crypto"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	"github.com/vitelabs/go-vite/v2/ledger/chain/utils"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/v2/vm/quota"
 )
 
 func TestInsertAccountBlocks(t *testing.T) {
-	chainInstance, accounts, _ := SetUp(10, 1000, 10)
+	chainInstance, accounts, _ := SetUp(t, 10, 1000, 10)
 	addrList := make([]types.Address, 0, len(accounts))
 	for addr := range accounts {
 		addrList = append(addrList, addr)
@@ -41,6 +41,7 @@ func TestInsertAccountBlocks(t *testing.T) {
 
 	var mu sync.RWMutex
 	var snapshotBlockList []*ledger.SnapshotBlock
+	var done bool
 
 	wg.Add(2)
 	go func() {
@@ -99,13 +100,15 @@ func TestInsertAccountBlocks(t *testing.T) {
 					panic(fmt.Sprintf("sb.height is error, h is %d, snapshot is %+v", h, sb))
 				}
 			}
-
+			if done {
+				break
+			}
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 10000000; i++ {
+		for i := 0; i < 100; i++ {
 			num := rand.Intn(100)
 
 			if num > 90 && len(snapshotBlockList) > 0 {
@@ -148,7 +151,7 @@ func TestInsertAccountBlocks(t *testing.T) {
 			}
 
 		}
-
+		done = true
 	}()
 
 	wg.Wait()
@@ -188,7 +191,7 @@ func InsertSnapshotBlock(chainInstance *chain, snapshotAll bool) (*ledger.Snapsh
 func BmInsertAccountBlock(b *testing.B, accountNumber int, snapshotPerBlockNum int) {
 	b.StopTimer()
 
-	chainInstance, err := NewChainInstance("benchmark", true)
+	chainInstance, err := NewChainInstance(b, "benchmark", true)
 	if err != nil {
 		b.Fatal(err)
 	}

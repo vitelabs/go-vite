@@ -18,6 +18,7 @@ var (
 	DexStoppedErr                   = errors.New("dex stopped")
 	TradeMarketExistsErr            = errors.New("trade market already exists")
 	TradeMarketNotExistsErr         = errors.New("trade market not exists")
+	TradeMarketsErr                 = errors.New("get trade markets failed")
 	TradeMarketStoppedErr           = errors.New("trade market stopped")
 	TradeMarketNotGrantedErr        = errors.New("trade market not granted")
 	ComposeOrderIdFailErr           = errors.New("compose order id fail")

@@ -228,7 +228,7 @@ type CheckEvent struct {
 }
 
 func TestDexFund(t *testing.T) {
-	upgrade.CleanupUpgradeBox(t)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewLatestUpgradeBox())
 
 	testDir := "./contracts/dex/test/fund/"
