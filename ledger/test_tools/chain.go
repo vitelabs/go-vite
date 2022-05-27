@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"testing"
 
 	"github.com/vitelabs/go-vite/v2/common/config"
 	"github.com/vitelabs/go-vite/v2/common/upgrade"
@@ -31,15 +30,15 @@ func NewChainInstanceFromDir(dirName string, clear bool, genesis string) (chain.
 	return chainInstance, nil
 }
 
-func NewTestChainInstance(t *testing.T, clear bool, genesis *config.Genesis) (chain.Chain, string) {
-	tempDir := path.Join(chain_test_tools.DefaultDataDir(), t.Name())
+func NewTestChainInstance(dirName string, clear bool, genesis *config.Genesis) (chain.Chain, string) {
+	tempDir := path.Join(chain_test_tools.DefaultDataDir(), dirName)
 	fmt.Printf("tempDir: %s\n", tempDir)
 	if clear {
 		os.RemoveAll(tempDir)
 	}
 
 	quota.InitQuotaConfig(false, true)
-	upgrade.CleanupUpgradeBox(t)
+	upgrade.CleanupUpgradeBox()
 
 	genesisConfig := &config.Genesis{}
 	if genesis != nil {
@@ -58,6 +57,37 @@ func NewTestChainInstance(t *testing.T, clear bool, genesis *config.Genesis) (ch
 		panic(err)
 	}
 	return chainInstance, tempDir
+}
+
+func NewTestChainInstance2(dirName string, clear bool, genesisJson string) chain.Chain {
+	var dataDir string
+
+	if path.IsAbs(dirName) {
+		dataDir = dirName
+	} else {
+		dataDir = path.Join(chain_test_tools.DefaultDataDir(), dirName)
+	}
+
+	if clear {
+		os.RemoveAll(dataDir)
+	}
+	genesisConfig := &config.Genesis{}
+
+	json.Unmarshal([]byte(genesisJson), genesisConfig)
+	upgrade.InitUpgradeBox(config.MockGenesis().UpgradeCfg.MakeUpgradeBox())
+
+	chainInstance := chain.NewChain(dataDir, &config.Chain{}, genesisConfig)
+
+	if err := chainInstance.Init(); err != nil {
+		panic(err)
+	}
+	// mock consensus
+	//chainInstance.SetConsensus(&chain_test_tools.MockConsensus{})
+
+	if err := chainInstance.Start(); err != nil {
+		panic(err)
+	}
+	return chainInstance
 }
 
 func ClearChain(c chain.Chain, dir string) {

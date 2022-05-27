@@ -6,6 +6,8 @@ import (
 )
 
 func TestRead3(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect sync cache.")
+
 	filename := "xxxxx/f_57990301_57991300_1617778532"
 	file, err := os.OpenFile(filename, os.O_RDWR, 0666)
 	if err != nil {

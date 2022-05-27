@@ -2,6 +2,7 @@ package producer
 
 import (
 	"io/ioutil"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,7 +33,7 @@ func genConsensus(c chain.Chain, pool pool.BlockPool, t *testing.T) consensus.Co
 }
 
 func TestSnapshot(t *testing.T) {
-	upgrade.CleanupUpgradeBox(t)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewLatestUpgradeBox())
 
 	tmpDir, _ := ioutil.TempDir("", "")
@@ -60,19 +61,31 @@ func TestSnapshot(t *testing.T) {
 	p1.Start()
 	p.Start()
 
+	delay := 1 * time.Second
+	ellapsed := time.Duration(0)
+	ch := make(chan int)
+	var once sync.Once
+
 	go func() {
 		for {
 			head := c.GetLatestSnapshotBlock()
-			log.Info("head info", "hash", head.Hash.String(), "height", head.Height)
-			time.Sleep(1 * time.Second)
+			log.Info("head info", "hash", head.Hash.String(), "height", head.Height, "ellapsed", ellapsed)
+			time.Sleep(delay)
+			ellapsed += delay
+			// Increase max. duration as needed
+			if ellapsed >= time.Duration(3)*time.Second {
+				once.Do(func() {
+					close(ch)
+				})
+			}
 		}
 	}()
 
-	make(chan int) <- 1
+	<-ch
 }
 
 func TestProducer_Init(t *testing.T) {
-	upgrade.CleanupUpgradeBox(t)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox())
 	tmpDir, _ := ioutil.TempDir("", "")
 	c := chain.NewChain(tmpDir, nil, config.MockGenesis())

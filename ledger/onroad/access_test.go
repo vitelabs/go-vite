@@ -3,18 +3,19 @@ package onroad
 import (
 	"testing"
 
+	"github.com/vitelabs/go-vite/v2/common/config"
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/ledger/test_tools"
 )
 
 func Test_onroad(t *testing.T) {
-	chainInstance, err := NewChainInstance(unitTestPath, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	c, tempDir := test_tools.NewTestChainInstance(t.Name(), true, config.MockGenesis())
+	defer test_tools.ClearChain(c, tempDir)
+	
 	pageNum := 0
 	addr, _ := types.HexToAddress("vite_0000000000000000000000000000000000000003f6af7459b9")
 	for {
-		blockList, err := chainInstance.GetOnRoadBlocksByAddr(addr, pageNum, 100)
+		blockList, err := c.GetOnRoadBlocksByAddr(addr, pageNum, 100)
 		if err != nil {
 			t.Fatal(err)
 		}

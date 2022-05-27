@@ -130,12 +130,12 @@ func (gen *generator) generateBlock(block *ledger.AccountBlock, fromBlock *ledge
 
 		limitSb, err := gen.chain.GetSnapshotBlockByContractMeta(block.AccountAddress, fromBlock.Hash)
 		if err != nil {
-			return nil, fmt.Errorf("GetSnapshotBlockByContractMeta failed", "err", err)
+			return nil, fmt.Errorf("GetSnapshotBlockByContractMeta failed, %+v", err)
 		}
 		if upgrade.IsSeedUpgrade(latestSb.Height) {
 			limitSeedSb, err := gen.chain.GetSeedConfirmedSnapshotBlock(block.AccountAddress, fromBlock.Hash)
 			if err != nil {
-				return nil, fmt.Errorf("GetSeedConfirmedSnapshotBlock failed", "err", err)
+				return nil, fmt.Errorf("GetSeedConfirmedSnapshotBlock failed, %+v", err)
 			}
 			if limitSb == nil {
 				if limitSeedSb != nil {

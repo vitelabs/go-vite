@@ -69,21 +69,23 @@ func NewTestChainDb() *testChainDb {
 
 func (c *testChainDb) Start() {
 	testlog.Info("writeOnroad start")
-	ticker := time.NewTicker(40 * time.Second)
+	ticker := time.NewTicker(500 * time.Microsecond)
 	defer ticker.Stop()
 
-	doneTicker := time.NewTicker(2 * time.Minute)
+	const maxDuration = 2 * time.Second
+	doneTicker := time.NewTicker(maxDuration)
 
 	c.writeOnroad()
 
-	time.AfterFunc(2*time.Minute, func() {
+	time.AfterFunc(maxDuration, func() {
 		testlog.Info("call breaker to stop chain")
 		c.breaker <- struct{}{}
 	})
 
-	for {
+	for loop := true; loop; {
 		select {
 		case <-ticker.C:
+			testlog.Info("writeOnroad")
 			c.writeOnroad()
 		case <-doneTicker.C:
 			var remain = 0
@@ -92,8 +94,9 @@ func (c *testChainDb) Start() {
 			}
 			testlog.Info("chain work stop", "remain", remain)
 			doneTicker.Stop()
+			loop = false
 			break
-		}
+		}		
 	}
 	testlog.Info("writeOnroad end")
 }
@@ -163,7 +166,7 @@ func (c *testChainDb) writeOnroad() {
 		}
 	}
 
-	for k, _ := range c.db {
+	for k := range c.db {
 		c.modifyQuotaMap_Add(&k)
 		fmt.Printf("modify quota %v %v\n", k, c.quotaMap[k])
 	}
@@ -260,7 +263,7 @@ func newTestContractWoker(c *testChainDb) *testContractWoker {
 		newBlockCond: common.NewTimeoutCond(),
 	}
 	processors := make([]*testProcessor, 2)
-	for i, _ := range processors {
+	for i := range processors {
 		processors[i] = newTestProcessor(w, i)
 	}
 	w.testProcessors = processors

@@ -15,13 +15,13 @@ import (
 	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	"github.com/vitelabs/go-vite/v2/ledger/chain/utils"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 	"github.com/vitelabs/go-vite/v2/vm_db"
 )
 
 func TestChain_Account(t *testing.T) {
 
-	chainInstance, accounts, _ := SetUp(1000, 1000, 8)
+	chainInstance, accounts, _ := SetUp(t, 1000, 1000, 8)
 	t.Run("testAccount", func(t *testing.T) {
 		testAccount(chainInstance, accounts)
 	})

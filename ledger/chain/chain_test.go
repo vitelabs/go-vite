@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/vitelabs/go-vite/v2/common/config"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/common/upgrade"
@@ -160,7 +160,7 @@ var GenesisJson = `{
 }
 `
 
-func NewChainInstance(dirName string, clear bool) (*chain, error) {
+func NewChainInstance(t gomock.TestReporter, dirName string, clear bool) (*chain, error) {
 	var dataDir string
 
 	if path.IsAbs(dirName) {
@@ -176,13 +176,21 @@ func NewChainInstance(dirName string, clear bool) (*chain, error) {
 
 	json.Unmarshal([]byte(GenesisJson), genesisConfig)
 
-	chainInstance := NewChain(dataDir, &config.Chain{}, genesisConfig)
+	chainCfg := &config.Chain{
+		VmLogAll: true,
+	}
+	chainInstance := NewChain(dataDir, chainCfg, genesisConfig)
 
 	if err := chainInstance.Init(); err != nil {
 		return nil, err
 	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	// mock consensus
-	chainInstance.SetConsensus(&test_tools.MockConsensus{})
+	// chainInstance.SetConsensus(&test_tools.MockConsensus{})
+	chainInstance.SetConsensus(test_tools.NewMockConsensus(chainInstance.GetGenesisSnapshotBlock().Timestamp, ctrl))
 
 	chainInstance.Start()
 	return chainInstance, nil
@@ -192,14 +200,15 @@ func Clear(c *chain) error {
 	return os.RemoveAll(c.dataDir)
 }
 
-func SetUp(accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
+func SetUp(t *testing.T, accountNum, txCount, snapshotPerBlockNum int) (*chain, map[types.Address]*Account, []*ledger.SnapshotBlock) {
 	// set fork point
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 10000000))
 
 	// test quota
 	quota.InitQuotaConfig(true, true)
 
-	chainInstance, err := NewChainInstance("unit_test/devdata", false)
+	chainInstance, err := NewChainInstance(t, t.Name(), true)
 	if err != nil {
 		panic(err)
 	}
@@ -230,19 +239,19 @@ func TestChain(t *testing.T) {
 	//testPanic(t, accounts, snapshotBlockList)
 
 	// test insert
-	chainInstance, accounts, snapshotBlockList := SetUp(20, 500, 10)
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 20, 500, 10)
 
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	// test insert and query
-	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(300), rand.Intn(5), true)...)
+	snapshotBlockList = append(snapshotBlockList, InsertAccountBlockAndSnapshot(chainInstance, accounts, rand.Intn(50), rand.Intn(3), true)...)
 
 	// test all
 	testChainAll(t, chainInstance, accounts, snapshotBlockList)
 
 	// test insert & delete
 	snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
-
+	
 	// test panic
 	TearDown(chainInstance)
 }
@@ -291,14 +300,14 @@ func testChainAllNoTesting(chainInstance *chain, accounts map[types.Address]*Acc
 }
 
 func TestCheckHash(t *testing.T) {
-	chainInstance, _, _ := SetUp(0, 0, 0)
+	chainInstance, _, _ := SetUp(t, 0, 0, 0)
 	if err := chainInstance.CheckHash(); err != nil {
 		panic(err)
 	}
 }
 
 func TestCheckHash2(t *testing.T) {
-	chainInstance, _, _ := SetUp(0, 0, 0)
+	chainInstance, _, _ := SetUp(t, 0, 0, 0)
 	hash, err := types.HexToHash("3cc090aaaa241b3ff480cd461a1fb220fd429717855b5c990d1cb34dd1cef6c1")
 	if err != nil {
 		t.Fatal(err)
@@ -311,118 +320,21 @@ func TestCheckHash2(t *testing.T) {
 	fmt.Printf("%+v\n", block)
 }
 
-func recoverAfterPanic(chainInstance *chain, accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) []*ledger.SnapshotBlock {
-	for _, account := range accounts {
-		for blockHash := range account.UnconfirmedBlocks {
-			account.deleteAccountBlock(accounts, blockHash)
-		}
-		account.resetLatestBlock()
-	}
-
-	latestSnapshotBlock := chainInstance.GetLatestSnapshotBlock()
-
-	realSnapshotBlocks := snapshotBlockList
-	needDeleteSnapshotBlocks := make([]*ledger.SnapshotBlock, 0)
-	for i := len(snapshotBlockList) - 1; i >= 0; i-- {
-		memSnapshotBlock := snapshotBlockList[i]
-		if memSnapshotBlock.Height <= latestSnapshotBlock.Height {
-			realSnapshotBlocks = snapshotBlockList[:i+1]
-			needDeleteSnapshotBlocks = snapshotBlockList[i+1:]
-			break
-
-		}
-	}
-
-	for _, account := range accounts {
-		account.DeleteSnapshotBlocks(accounts, needDeleteSnapshotBlocks, false)
-	}
-
-	return realSnapshotBlocks
-}
-
-func saveData(accounts map[types.Address]*Account, snapshotBlockList []*ledger.SnapshotBlock) (map[types.Address]*Account, []*ledger.SnapshotBlock) {
-
-	fileName := path.Join(test_tools.DefaultDataDir(), "test_panic")
-	fd, oErr := os.OpenFile(fileName, os.O_RDWR, 0666)
-	if oErr != nil {
-		if os.IsNotExist(oErr) {
-			var err error
-			fd, err = os.Create(fileName)
-			if err != nil {
-				panic(err)
-			}
-		} else {
-			panic(oErr)
-		}
-	}
-	if err := fd.Truncate(0); err != nil {
-		panic(err)
-	}
-
-	if _, err := fd.Seek(0, 0); err != nil {
-		panic(err)
-	}
-	enc := gob.NewEncoder(fd)
-
-	if len(accounts) > 0 {
-		if err := enc.Encode(accounts); err != nil {
-			panic(err)
-		}
-	}
-
-	if len(snapshotBlockList) > 0 {
-		if err := enc.Encode(snapshotBlockList); err != nil {
-			panic(err)
-		}
-	}
-
-	return accounts, snapshotBlockList
-}
-
-func loadData(chainInstance *chain) (map[types.Address]*Account, []*ledger.SnapshotBlock) {
-	fileName := path.Join(test_tools.DefaultDataDir(), "test_panic")
-	fd, oErr := os.OpenFile(fileName, os.O_RDWR, 0666)
-	if oErr != nil {
-		if os.IsNotExist(oErr) {
-			return make(map[types.Address]*Account), make([]*ledger.SnapshotBlock, 0)
-		} else {
-			panic(oErr)
-		}
-	}
-
-	if _, err := fd.Seek(0, 0); err != nil {
-		panic(err)
-	}
-
-	dec := gob.NewDecoder(fd)
-	accounts := make(map[types.Address]*Account)
-	dec.Decode(&accounts)
-
-	for _, account := range accounts {
-		account.chainInstance = chainInstance
-	}
-
-	snapshotList := make([]*ledger.SnapshotBlock, 0)
-	dec.Decode(&snapshotList)
-
-	return accounts, snapshotList
-}
-
 /**
   fork  rollback only for one forkpoint
 */
 func TestChainForkRollBack(t *testing.T) {
-
-	c, accountMap, _ := SetUp(3, 100, 2)
+	c, accountMap, _ := SetUp(t, 3, 100, 2)
 	curSnapshotBlock := c.GetLatestSnapshotBlock()
 	fmt.Println(curSnapshotBlock.Height)
 	TearDown(c)
 
 	// height
 	height := uint64(30)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, height))
 
-	c, accountMap, _ = SetUp(10, 0, 0)
+	c, accountMap, _ = SetUp(t, 10, 0, 0)
 
 	defer func() {
 		TearDown(c)
@@ -435,7 +347,6 @@ func TestChainForkRollBack(t *testing.T) {
 
 	fmt.Println(curSnapshotBlocknew.Height, curSnapshotBlocknew.Height == height-1)
 	if curSnapshotBlocknew.Height != height-1 {
-
 		t.Fatal(fmt.Sprintf("not equal %+v, %d", curSnapshotBlocknew, height-1))
 	}
 
@@ -491,5 +402,4 @@ func TestChainForkRollBack(t *testing.T) {
 	if len(accountBlockListNew) != 0 {
 		t.Fatal(fmt.Sprintf("GetAllUnconfirmedBlocks must be 0, but %d", len(accountBlockListNew)))
 	}
-
 }

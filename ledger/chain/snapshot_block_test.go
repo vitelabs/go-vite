@@ -13,14 +13,14 @@ import (
 )
 
 func TestChain_SnapshotBlock(t *testing.T) {
-	chainInstance, accounts, snapshotBlockList := SetUp(10, 1234, 7)
+	chainInstance, accounts, snapshotBlockList := SetUp(t, 10, 1234, 7)
 
 	testSnapshotBlock(t, chainInstance, accounts, snapshotBlockList)
 	TearDown(chainInstance)
 }
 
 func TestSnapshotBlocks(t *testing.T) {
-	chainInstance, _, _ := SetUp(10, 0, 0)
+	chainInstance, _, _ := SetUp(t, 10, 0, 0)
 	latestSb := chainInstance.GetLatestSnapshotBlock()
 	for h := latestSb.Height; h >= 1; h-- {
 		sb, err := chainInstance.GetSnapshotBlockByHeight(h)
@@ -43,28 +43,28 @@ func TestSnapshotBlocks(t *testing.T) {
 
 func TestChain_GetSeedConfirmedSnapshotBlock(t *testing.T) {
 
-	if err := CheckGetSeedConfirmedSnapshotBlock(false, 2, []uint64{2, 3, 4}, []int64{-1, -1, -1}); err != nil {
+	if err := CheckGetSeedConfirmedSnapshotBlock(t, false, 2, []uint64{2, 3, 4}, []int64{-1, -1, -1}); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := CheckGetSeedConfirmedSnapshotBlock(true, 2, []uint64{2, 0, 4}, []int64{-1, -1, 3}); err != nil {
+	if err := CheckGetSeedConfirmedSnapshotBlock(t, true, 2, []uint64{2, 0, 4}, []int64{-1, -1, 3}); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := CheckGetSeedConfirmedSnapshotBlock(true, 1, []uint64{0, 2, 0, 0, 2}, []int64{-1, 2, 2, 2, 2}); err != nil {
+	if err := CheckGetSeedConfirmedSnapshotBlock(t, true, 1, []uint64{0, 2, 0, 0, 2}, []int64{-1, 2, 2, 2, 2}); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := CheckGetSeedConfirmedSnapshotBlock(true, 3, []uint64{0, 2, 0, 2, 2, 0, 2}, []int64{-1, -1, -1, -1, 5, 5, 5}); err != nil {
+	if err := CheckGetSeedConfirmedSnapshotBlock(t, true, 3, []uint64{0, 2, 0, 2, 2, 0, 2}, []int64{-1, -1, -1, -1, 5, 5, 5}); err != nil {
 		t.Fatal(err)
 	}
 
 }
 
-func CheckGetSeedConfirmedSnapshotBlock(isContract bool, seedConfirmTimes uint8, seeds []uint64, offset []int64) error {
+func CheckGetSeedConfirmedSnapshotBlock(t *testing.T, isContract bool, seedConfirmTimes uint8, seeds []uint64, offset []int64) error {
 
 	// insert send and receive block
-	chainInstance, accounts, _ := SetUp(2, 0, 0)
+	chainInstance, accounts, _ := SetUp(t, 2, 0, 0)
 	defer func() {
 		TearDown(chainInstance)
 	}()
@@ -549,7 +549,7 @@ func checkSnapshotBlocks(snapshotBlockList []*ledger.SnapshotBlock,
 
 		blocksLen := len(blocks)
 		if blocksLen != (end - start + 1) {
-			panic("error")
+			panic(fmt.Sprintf("blocksLen is %d, end is %d, start is %d\n", blocksLen, end, start))
 		}
 
 		var prevBlock *ledger.SnapshotBlock

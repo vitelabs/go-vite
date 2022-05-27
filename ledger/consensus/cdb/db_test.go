@@ -33,6 +33,8 @@ func clearConsensusDB(db *ConsensusDB) {
 }
 
 func TestConsensusDB_read(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect consensus db.")
+
 	d, err := leveldb.OpenFile("/Users/jie/Library/GVite/maindata/ledger/consensus", nil)
 	if err != nil {
 		panic(err)
@@ -122,6 +124,8 @@ func TestPasrse(t *testing.T) {
 }
 
 func TestConsensusDB_compare(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect consensus db.")
+
 	d, err := leveldb.OpenFile("/Users/jie/Library/GVite/maindata/ledger/consensus", nil)
 	if err != nil {
 		panic(err)
