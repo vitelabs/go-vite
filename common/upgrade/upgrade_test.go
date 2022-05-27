@@ -69,6 +69,10 @@ func TestMainnetUpgradeBox(t *testing.T) {
 			77106666,
 		},
 		{
+			IsVersion11Upgrade,
+			EndlessHeight,
+		},
+		{
 			IsVersionXUpgrade,
 			EndlessHeight,
 		},
@@ -126,6 +130,10 @@ func TestLatestUpgradeBox(t *testing.T) {
 		},
 		{
 			IsVersion10Upgrade,
+			1,
+		},
+		{
+			IsVersion11Upgrade,
 			1,
 		},
 		{

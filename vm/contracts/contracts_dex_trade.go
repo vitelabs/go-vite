@@ -168,7 +168,7 @@ func (md *MethodDexTradeClearExpiredOrders) DoSend(db interfaces.VmDb, block *le
 }
 
 func (md MethodDexTradeClearExpiredOrders) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	if dex.IsDexEnrichOrderFork(db) {
+	if dex.IsVersion11DeprecateClearingExpiredOrder(db) {
 		return nil, dex.InvalidOperationErr
 	}
 	param := new(dex.ParamSerializedData)

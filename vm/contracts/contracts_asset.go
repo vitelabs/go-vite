@@ -263,6 +263,7 @@ func (p *MethodBurn) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, s
 	return nil, nil
 }
 
+// @Deprecated
 type MethodBurn2 struct {
 	MethodName string
 }
@@ -283,48 +284,11 @@ func (p MethodBurn2) DoSend(db interfaces.VmDb, block *ledger.AccountBlock) erro
 	if block.Amount.Sign() <= 0 {
 		return util.ErrInvalidMethodParam
 	}
-	if !util.CheckFork(db, upgrade.IsVersionXUpgrade) {
-		return util.ErrInvalidMethodParam
-	}
-	param := new(abi.ParamBurn2)
-	err := abi.ABIAsset.UnpackMethod(param, p.MethodName, block.Data)
-	if err != nil {
-		return err
-	}
-	block.Data, _ = abi.ABIAsset.PackMethod(p.MethodName, param.Target, param.To)
-	return nil
+	return util.ErrInvalidMethodParam
 }
 
 // DoReceive for MethodBurn2
 func (p *MethodBurn2) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
-	param := new(abi.ParamBurn2)
-	err := abi.ABIAsset.UnpackMethod(param, p.MethodName, block.Data)
-	util.DealWithErr(err)
-
-	{ // copy from MethodBurn.DoReceive
-		oldTokenInfo, err := abi.GetTokenByID(db, sendBlock.TokenId)
-		util.DealWithErr(err)
-		if oldTokenInfo == nil || (!util.CheckFork(db, upgrade.IsEarthUpgrade) && !oldTokenInfo.IsReIssuable) ||
-			(oldTokenInfo.OwnerBurnOnly && oldTokenInfo.Owner != sendBlock.AccountAddress) {
-			return nil, util.ErrInvalidMethodParam
-		}
-		newTokenInfo, _ := abi.ABIAsset.PackVariable(
-			abi.VariableNameTokenInfo,
-			oldTokenInfo.TokenName,
-			oldTokenInfo.TokenSymbol,
-			oldTokenInfo.TotalSupply.Sub(oldTokenInfo.TotalSupply, sendBlock.Amount),
-			oldTokenInfo.Decimals,
-			oldTokenInfo.Owner,
-			oldTokenInfo.IsReIssuable,
-			oldTokenInfo.MaxSupply,
-			oldTokenInfo.OwnerBurnOnly,
-			oldTokenInfo.Index)
-		if !util.SubBalance(db, &sendBlock.TokenId, sendBlock.Amount) {
-			return nil, util.ErrInsufficientBalance
-		}
-		util.SetValue(db, abi.GetTokenInfoKey(sendBlock.TokenId), newTokenInfo)
-	}
-	db.AddLog(NewLog(abi.ABIAsset, util.FirstToLower(p.MethodName), sendBlock.TokenId, sendBlock.AccountAddress, sendBlock.Amount, param.Target, param.To))
 	return nil, nil
 }
 
