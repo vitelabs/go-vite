@@ -49,7 +49,7 @@ func TestSnapshot(t *testing.T) {
 
 	sv := verifier.NewSnapshotVerifier(c, cs)
 	av := verifier.NewVerifier2(c, cs, cs.SBPReader())
-	p := NewProducer(c, net.Mock(c), coinbase, cs, sv, p1)
+	p := NewProducer(c, net.Mock(c), coinbase, cs, p1)
 
 	p1.Init(net.Mock(c), sv, av, cs.SBPReader().GetPeriodTimeIndex(), cs.SBPReader().GetNodeCount())
 	p.Init()
@@ -96,7 +96,7 @@ func TestProducer_Init(t *testing.T) {
 	cs := genConsensus(c, p1, t)
 	sv := verifier.NewSnapshotVerifier(c, cs)
 	av := verifier.NewVerifier2(c, cs, cs.SBPReader())
-	p := NewProducer(c, net.Mock(c), coinbase, cs, sv, p1)
+	p := NewProducer(c, net.Mock(c), coinbase, cs, p1)
 
 	c.Start()
 

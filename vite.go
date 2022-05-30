@@ -91,7 +91,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	}
 
 	if account != nil {
-		vite.producer = producer.NewProducer(chain, net, account, cs, verifier.GetSnapshotVerifier(), pl)
+		vite.producer = producer.NewProducer(chain, net, account, cs, pl)
 	}
 	// set onroad
 	vite.onRoad = onroad.NewManager(net, pl, vite.producer, vite.consensus, account)
