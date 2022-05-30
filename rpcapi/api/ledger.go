@@ -231,6 +231,10 @@ func (l *LedgerApi) GetChunks(startHeight interface{}, endHeight interface{}) ([
 		return nil, err
 	}
 
+	if endHeightUint64 - startHeightUint64 > 1000 {
+		return nil, fmt.Errorf("height range must be less than 1000")
+	}
+
 	chunks, err := l.chain.GetSubLedger(startHeightUint64-1, endHeightUint64)
 	if err != nil {
 		return nil, err
