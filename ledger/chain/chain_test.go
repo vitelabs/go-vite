@@ -190,7 +190,7 @@ func NewChainInstance(t gomock.TestReporter, dirName string, clear bool) (*chain
 
 	// mock consensus
 	// chainInstance.SetConsensus(&test_tools.MockConsensus{})
-	chainInstance.SetConsensus(test_tools.NewMockConsensus(chainInstance.GetGenesisSnapshotBlock().Timestamp, ctrl))
+	chainInstance.SetConsensus(test_tools.NewVerifier(), test_tools.NewPeriodTimeIndex(chainInstance.GetGenesisSnapshotBlock().Timestamp))
 
 	chainInstance.Start()
 	return chainInstance, nil
@@ -251,7 +251,7 @@ func TestChain(t *testing.T) {
 
 	// test insert & delete
 	snapshotBlockList = testInsertAndDelete(t, chainInstance, accounts, snapshotBlockList)
-	
+
 	// test panic
 	TearDown(chainInstance)
 }

@@ -39,9 +39,9 @@ type chain struct {
 	genesisAccountBlocks    []*interfaces.VmAccountBlock
 	genesisAccountBlockHash map[types.Hash]struct{}
 
-	dataDir   string
-	chainDir  string
-	consensus Consensus
+	dataDir  string
+	chainDir string
+	verifier interfaces.Verifier
 
 	log log15.Logger
 
@@ -230,11 +230,11 @@ func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
 	return db, nil
 }
 
-func (c *chain) SetConsensus(cs Consensus) {
+func (c *chain) SetConsensus(verifier interfaces.Verifier, periodTimeIndex interfaces.TimeIndex) {
 	c.log.Info("Start set consensus", "method", "SetConsensus")
-	c.consensus = cs
+	c.verifier = verifier
 
-	if err := c.stateDB.SetConsensus(cs); err != nil {
+	if err := c.stateDB.SetTimeIndex(periodTimeIndex); err != nil {
 		common.Crit(fmt.Sprintf("c.stateDB.SetConsensus failed. Error: %s", err.Error()), "method", "SetConsensus")
 	}
 	c.log.Info("set consensus finished", "method", "SetConsensus")

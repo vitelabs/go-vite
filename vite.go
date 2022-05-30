@@ -71,7 +71,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// consensus
 	cs := consensus.NewConsensus(chain, pl)
 
-	verifier := verifier.NewVerifier2(chain, cs)
+	verifier := verifier.NewVerifier2(chain, cs, cs.SBPReader())
 
 	// net
 	net, err := net.New(cfg.Net, chain, verifier, cs, pl)
@@ -125,8 +125,10 @@ func (v *Vite) Start() (err error) {
 	if err != nil {
 		return err
 	}
+
+	v.chain.SetConsensus(v.consensus, v.consensus.SBPReader().GetPeriodTimeIndex())
 	// hack
-	v.pool.Init(v.net, v.verifier.GetSnapshotVerifier(), v.verifier, v.consensus)
+	v.pool.Init(v.net, v.verifier.GetSnapshotVerifier(), v.verifier, v.consensus.SBPReader().GetPeriodTimeIndex(), v.consensus.SBPReader().GetNodeCount())
 
 	v.consensus.Start()
 

@@ -284,7 +284,7 @@ type Chain interface {
 
 	Plugins() *chain_plugins.Plugins
 
-	SetConsensus(cs Consensus)
+	SetConsensus(verifier interfaces.Verifier, periodTimeIndex interfaces.TimeIndex)
 
 	DBs() (*chain_index.IndexDB, *chain_block.BlockDB, *chain_state.StateDB)
 

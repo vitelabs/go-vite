@@ -8,7 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	"github.com/vitelabs/go-vite/v2/ledger/chain"
-	"github.com/vitelabs/go-vite/v2/ledger/consensus"
+	cs_interfaces "github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/v2/ledger/onroad"
 	"github.com/vitelabs/go-vite/v2/log15"
 )
@@ -45,10 +45,10 @@ type verifier struct {
 }
 
 // NewVerifier needs instances of SnapshotVerifier and AccountVerifier.
-func NewVerifier2(ch chain.Chain, cs consensus.Consensus) Verifier {
+func NewVerifier2(ch chain.Chain, v interfaces.Verifier, sbpStatReader cs_interfaces.SBPStatReader) Verifier {
 	return &verifier{
-		Sv:  NewSnapshotVerifier(ch, cs),
-		Av:  NewAccountVerifier(ch, cs),
+		Sv:  NewSnapshotVerifier(ch, v),
+		Av:  NewAccountVerifier(ch, v, sbpStatReader),
 		log: log15.New("module", "verifier"),
 	}
 }

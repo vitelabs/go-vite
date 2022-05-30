@@ -118,8 +118,8 @@ func (sDB *StateDB) Close() error {
 	return nil
 }
 
-func (sDB *StateDB) SetConsensus(cs Consensus) error {
-	if err := sDB.roundCache.Init(cs.SBPReader().GetPeriodTimeIndex()); err != nil {
+func (sDB *StateDB) SetTimeIndex(periodTimeIndex interfaces.TimeIndex) error {
+	if err := sDB.roundCache.Init(periodTimeIndex); err != nil {
 		return err
 	}
 	return nil

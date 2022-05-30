@@ -45,7 +45,7 @@ func main() {
 	c := newChain(*dir, genesisJson)
 
 	cs := consensus.NewConsensus(c, &lock.EasyImpl{})
-	cs.Init()
+	cs.Init(consensus.DefaultCfg())
 	reader := cs.SBPReader().(consensus.DposReader)
 
 	fmt.Println("------proof info-----------")

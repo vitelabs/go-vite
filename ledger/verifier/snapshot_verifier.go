@@ -9,20 +9,20 @@ import (
 
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/crypto"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	"github.com/vitelabs/go-vite/v2/ledger/chain"
-	css "github.com/vitelabs/go-vite/v2/ledger/consensus"
 	"github.com/vitelabs/go-vite/v2/monitor"
 )
 
 type SnapshotVerifier struct {
-	reader chain.Chain
-	cs     css.Verifier
+	reader   chain.Chain
+	verifier interfaces.Verifier
 }
 
-func NewSnapshotVerifier(ch chain.Chain, cs css.Verifier) *SnapshotVerifier {
-	verifier := &SnapshotVerifier{reader: ch, cs: cs}
-	return verifier
+func NewSnapshotVerifier(ch chain.Chain, verifier interfaces.Verifier) *SnapshotVerifier {
+	snapshotVerifier := &SnapshotVerifier{reader: ch, verifier: verifier}
+	return snapshotVerifier
 }
 
 func (self *SnapshotVerifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
@@ -155,7 +155,7 @@ func (self *SnapshotVerifier) VerifyReferred(block *ledger.SnapshotBlock) *Snaps
 
 	if block.Height != types.GenesisHeight {
 		// verify producer
-		result, e := self.cs.VerifySnapshotProducer(block)
+		result, e := self.verifier.VerifySnapshotProducer(block)
 		if e != nil {
 			stat.result = FAIL
 			stat.errMsg = e.Error()

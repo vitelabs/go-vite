@@ -43,13 +43,13 @@ type generator struct {
 //
 // the third "addr" needs to be filled with the address of the account chain to be blocked,
 // and the last needs to be filled with the previous/latest block's hash on the account chain.
-func NewGenerator(chain vm_db.Chain, consensus Consensus, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (interfaces.Generator, error) {
+func NewGenerator(chain vm_db.Chain, sbpStatReader core.SBPStatReader, addr types.Address, latestSnapshotBlockHash, prevBlockHash *types.Hash) (interfaces.Generator, error) {
 	gen := &generator{
 		log: log15.New("module", "Generator"),
 	}
 	gen.chain = chain
 
-	gen.vm = vm.NewVM(util.NewVMConsensusReader(consensus.SBPReader()))
+	gen.vm = vm.NewVM(util.NewVMConsensusReader(sbpStatReader))
 
 	vmDb, err := vm_db.NewVmDb(chain, &addr, latestSnapshotBlockHash, prevBlockHash)
 	if err != nil {
