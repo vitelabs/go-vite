@@ -4,29 +4,30 @@ import (
 	"fmt"
 
 	"github.com/vitelabs/go-vite/v2"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
 	"github.com/vitelabs/go-vite/v2/ledger/chain"
 	"github.com/vitelabs/go-vite/v2/ledger/consensus"
 )
 
-type MinerApi struct {
+type VirtualApi struct {
 	vite  *vite.Vite
 	chain chain.Chain
 	cs    consensus.Consensus
 }
 
-func NewMinerApi(vite *vite.Vite) *MinerApi {
-	return &MinerApi{
+func NewVirtualApi(vite *vite.Vite) *VirtualApi {
+	return &VirtualApi{
 		vite:  vite,
 		chain: vite.Chain(),
 		cs:    vite.Consensus(),
 	}
 }
 
-func (api MinerApi) String() string {
-	return "MinerApi"
+func (api VirtualApi) String() string {
+	return "VirtualApi"
 }
 
-func (api *MinerApi) Mine() error {
+func (api *VirtualApi) Mine() error {
 	if !api.vite.Config().IsMine() {
 		return fmt.Errorf("should enable mine")
 	}
@@ -34,4 +35,8 @@ func (api *MinerApi) Mine() error {
 		return fmt.Errorf("should enable external miner")
 	}
 	return api.vite.Producer().SnapshotOnce()
+}
+
+func (api *VirtualApi) AddUpgrade(version uint32, height uint64) error {
+	return upgrade.AddUpgradePoint(version, height)
 }

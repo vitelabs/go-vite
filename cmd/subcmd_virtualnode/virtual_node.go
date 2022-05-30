@@ -12,6 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/helper"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/interfaces/core"
+	nodeconfig "github.com/vitelabs/go-vite/v2/node/config"
 )
 
 var (
@@ -44,7 +45,12 @@ func startVirtualNode(ctx *cli.Context) error {
 		rich := ctx.GlobalString(richFlag.GetName())
 		richAddresses(nodeManager.Node().ViteConfig(), []types.Address{types.HexToAddressPanic(rich)})
 	}
+	virtualApi(nodeManager.Node().Config())
 	return nodeManager.Start()
+}
+
+func virtualApi(cfg *nodeconfig.Config) {
+	cfg.PublicModules = append(cfg.PublicModules, "virtual")
 }
 
 func richAddresses(cfg *config.Config, rich []types.Address) {
