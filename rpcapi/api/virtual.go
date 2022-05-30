@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/vitelabs/go-vite/v2"
@@ -35,6 +36,20 @@ func (api *VirtualApi) Mine() error {
 		return fmt.Errorf("should enable external miner")
 	}
 	return api.vite.Producer().SnapshotOnce()
+}
+
+func (api *VirtualApi) MineBatch(number uint64) error {
+	if number > 1000 {
+		return errors.New("number must be less than 1000")
+	}
+
+	for i := uint64(0); i < number; i++ {
+		err := api.vite.Producer().SnapshotOnce()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (api *VirtualApi) AddUpgrade(version uint32, height uint64) error {

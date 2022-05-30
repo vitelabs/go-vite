@@ -12,6 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/helper"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus"
 	nodeconfig "github.com/vitelabs/go-vite/v2/node/config"
 )
 
@@ -46,7 +47,13 @@ func startVirtualNode(ctx *cli.Context) error {
 		richAddresses(nodeManager.Node().ViteConfig(), []types.Address{types.HexToAddressPanic(rich)})
 	}
 	virtualApi(nodeManager.Node().Config())
+	virtualConsensusVerifier(nodeManager)
 	return nodeManager.Start()
+}
+
+func virtualConsensusVerifier(nodeManager nodemanager.NodeManager) {
+	verifier := nodeManager.Node().Vite().Verifier()
+	verifier.Init(consensus.NewSimpleVerifier(), nodeManager.Node().Vite().Consensus().SBPReader(), nodeManager.Node().Vite().OnRoad())
 }
 
 func virtualApi(cfg *nodeconfig.Config) {
