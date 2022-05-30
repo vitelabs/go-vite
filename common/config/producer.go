@@ -13,8 +13,6 @@ type Producer struct {
 	Coinbase         string `json:"Coinbase"`
 	EntropyStorePath string `json:"EntropyStorePath"`
 
-	ExternalMiner bool `json:"externalMiner"`
-
 	coinbase types.Address
 	index    uint32
 }

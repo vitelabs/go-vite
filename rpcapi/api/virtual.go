@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/vitelabs/go-vite/v2"
 	"github.com/vitelabs/go-vite/v2/common/upgrade"
@@ -29,12 +28,6 @@ func (api VirtualApi) String() string {
 }
 
 func (api *VirtualApi) Mine() error {
-	if !api.vite.Config().IsMine() {
-		return fmt.Errorf("should enable mine")
-	}
-	if !api.vite.Config().ExternalMiner {
-		return fmt.Errorf("should enable external miner")
-	}
 	return api.vite.Producer().SnapshotOnce()
 }
 
