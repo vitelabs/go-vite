@@ -140,9 +140,7 @@ func BenchmarkInsert(b *testing.B) {
 	chainInstance, tempDir := test_tools.NewTestChainInstance(b.Name(), true, nil)
 	defer test_tools.ClearChain(chainInstance, tempDir)
 
-	accountVerifier := verifier.NewAccountVerifier(chainInstance, chain_test_tools.NewVerifier(), nil)
-	snapshotVerifier := verifier.NewSnapshotVerifier(chainInstance, &chain_test_tools.MockCssVerifier{})
-	verify := verifier.NewVerifier(snapshotVerifier, accountVerifier)
+	verify := verifier.NewVerifier2(chainInstance).Init(chain_test_tools.NewVerifier(), nil, nil)
 
 	accounts := MakeAccounts(chainInstance, 100)
 
@@ -150,7 +148,7 @@ func BenchmarkInsert(b *testing.B) {
 		for i := 1; i <= b.N; i++ {
 			if i%snapshotPerNum == 0 {
 				snapshotBlock := createSnapshotBlock(chainInstance, true)
-				stat := snapshotVerifier.VerifyReferred(snapshotBlock)
+				stat := verify.GetSnapshotVerifier().VerifyReferred(snapshotBlock)
 
 				queryTime := snapshotBlock.Timestamp.Add(-75 * time.Second)
 				chainInstance.GetSnapshotHeaderBeforeTime(&queryTime)

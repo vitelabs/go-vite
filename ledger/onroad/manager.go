@@ -10,8 +10,8 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	"github.com/vitelabs/go-vite/v2/ledger/chain"
-	"github.com/vitelabs/go-vite/v2/ledger/generator"
-	"github.com/vitelabs/go-vite/v2/ledger/onroad/pool"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
+	onroad_pool "github.com/vitelabs/go-vite/v2/ledger/onroad/pool"
 	"github.com/vitelabs/go-vite/v2/log15"
 	"github.com/vitelabs/go-vite/v2/net"
 	"github.com/vitelabs/go-vite/v2/producer/producerevent"
@@ -30,9 +30,9 @@ type Manager struct {
 	producer producer
 	coinbase interfaces.Account
 
-	pool      pool
-	chain     chain.Chain
-	consensus generator.Consensus
+	pool          pool
+	chain         chain.Chain
+	sbpStatReader core.SBPStatReader
 
 	contractWorkers     map[types.Gid]*ContractWorker
 	newContractListener sync.Map //map[types.Gid]contractReactFunc
@@ -49,13 +49,13 @@ type Manager struct {
 }
 
 // NewManager creates a onroad Manager.
-func NewManager(net netReader, pool pool, producer producer, consensus generator.Consensus, account interfaces.Account) *Manager {
+func NewManager(net netReader, pool pool, producer producer, sbpStatReader core.SBPStatReader, account interfaces.Account) *Manager {
 	m := &Manager{
 		net:             net,
 		producer:        producer,
 		coinbase:        account,
 		pool:            pool,
-		consensus:       consensus,
+		sbpStatReader:   sbpStatReader,
 		contractWorkers: make(map[types.Gid]*ContractWorker),
 		log:             slog.New("w", "manager"),
 	}
@@ -204,8 +204,8 @@ func (manager Manager) Producer() producer {
 }
 
 // Consensus returns the implementation of Consensus which manager is dependent on.
-func (manager Manager) Consensus() generator.Consensus {
-	return manager.consensus
+func (manager Manager) SbpStatReader() core.SBPStatReader {
+	return manager.sbpStatReader
 }
 
 // Info returns the info of all contract.

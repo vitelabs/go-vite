@@ -41,7 +41,7 @@ type chain struct {
 
 	dataDir  string
 	chainDir string
-	verifier interfaces.Verifier
+	verifier interfaces.ConsensusVerifier
 
 	log log15.Logger
 
@@ -230,7 +230,7 @@ func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
 	return db, nil
 }
 
-func (c *chain) SetConsensus(verifier interfaces.Verifier, periodTimeIndex interfaces.TimeIndex) {
+func (c *chain) SetConsensus(verifier interfaces.ConsensusVerifier, periodTimeIndex interfaces.TimeIndex) {
 	c.log.Info("Start set consensus", "method", "SetConsensus")
 	c.verifier = verifier
 

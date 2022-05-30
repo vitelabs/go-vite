@@ -25,14 +25,14 @@ import (
 type AccountVerifier struct {
 	chain         accountChain
 	sbpStatReader cs_interfaces.SBPStatReader
-	verifier      interfaces.Verifier
+	verifier      interfaces.ConsensusVerifier
 	orManager     onRoadPool
 
 	log log15.Logger
 }
 
 // NewAccountVerifier needs two args, the implementation methods of the "accountChain" and "cssConsensus"
-func NewAccountVerifier(chain accountChain, verifier interfaces.Verifier, sbpStatReader cs_interfaces.SBPStatReader) *AccountVerifier {
+func NewAccountVerifier(chain accountChain, verifier interfaces.ConsensusVerifier, sbpStatReader cs_interfaces.SBPStatReader) *AccountVerifier {
 	return &AccountVerifier{
 		chain:    chain,
 		verifier: verifier,
