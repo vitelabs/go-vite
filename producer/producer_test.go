@@ -48,8 +48,8 @@ func TestSnapshot(t *testing.T) {
 	helper.ErrFailf(t, err, "random account err")
 
 	sv := verifier.NewSnapshotVerifier(c, cs)
-	av := verifier.NewVerifier2(c, cs, cs.SBPReader())
-	p := NewProducer(c, net.Mock(c), coinbase, cs, sv, p1)
+	av := verifier.NewVerifier2(c).Init(cs, cs.SBPReader(), nil)
+	p := NewProducer(c, net.Mock(c), coinbase, cs, p1)
 
 	p1.Init(net.Mock(c), sv, av, cs.SBPReader().GetPeriodTimeIndex(), cs.SBPReader().GetNodeCount())
 	p.Init()
@@ -95,8 +95,8 @@ func TestProducer_Init(t *testing.T) {
 	coinbase, _ := wallet.RandomAccount()
 	cs := genConsensus(c, p1, t)
 	sv := verifier.NewSnapshotVerifier(c, cs)
-	av := verifier.NewVerifier2(c, cs, cs.SBPReader())
-	p := NewProducer(c, net.Mock(c), coinbase, cs, sv, p1)
+	av := verifier.NewVerifier2(c).Init(cs, cs.SBPReader(), nil)
+	p := NewProducer(c, net.Mock(c), coinbase, cs, p1)
 
 	c.Start()
 

@@ -12,16 +12,14 @@ import (
 	"github.com/vitelabs/go-vite/v2/ledger/chain"
 	"github.com/vitelabs/go-vite/v2/ledger/consensus"
 	"github.com/vitelabs/go-vite/v2/ledger/pool"
-	"github.com/vitelabs/go-vite/v2/ledger/verifier"
 	"github.com/vitelabs/go-vite/v2/log15"
 	"github.com/vitelabs/go-vite/v2/monitor"
 )
 
 type tools struct {
-	log       log15.Logger
-	pool      pool.SnapshotProducerWriter
-	chain     chain.Chain
-	sVerifier *verifier.SnapshotVerifier
+	log   log15.Logger
+	pool  pool.SnapshotProducerWriter
+	chain chain.Chain
 }
 
 func (self *tools) generateSnapshot(e *consensus.Event, coinbase interfaces.Account, seed uint64, fn func(*types.Hash) uint64) (*ledger.SnapshotBlock, error) {
@@ -74,34 +72,14 @@ func (self *tools) insertSnapshot(block *ledger.SnapshotBlock) error {
 	return self.pool.AddDirectSnapshotBlock(block)
 }
 
-func newChainRw(ch chain.Chain, sVerifier *verifier.SnapshotVerifier, p pool.SnapshotProducerWriter) *tools {
+func newChainRw(ch chain.Chain, p pool.SnapshotProducerWriter) *tools {
 	log := log15.New("module", "tools")
-	return &tools{chain: ch, log: log, sVerifier: sVerifier, pool: p}
+	return &tools{chain: ch, log: log, pool: p}
 }
 
 func (self *tools) generateAccounts(head *ledger.SnapshotBlock) (ledger.SnapshotContent, error) {
 	// todo get block
 	needSnapshotAccounts := self.chain.GetContentNeedSnapshot()
-
-	//var finalAccounts = make(map[types.Address]*ledger.HashHeight)
-
-	//for k, b := range needSnapshotAccounts {
-	//
-	//	errB := b
-	//	hashH, err := self.sVerifier.VerifyAccountTimeout(k, b, head.Height+1)
-	//	if hashH != nil {
-	//		errB = hashH
-	//	}
-	//	if err != nil {
-	//		return nil, errors.Errorf(
-	//			"error account block, account:%s, blockHash:%s, blockHeight:%d, err:%s",
-	//			k.String(),
-	//			errB.Hash.String(),
-	//			errB.Height,
-	//			err)
-	//	}
-	//	finalAccounts[k] = &ledger.HashHeight{Hash: b.Hash, Height: b.Height}
-	//}
 	return needSnapshotAccounts, nil
 }
 

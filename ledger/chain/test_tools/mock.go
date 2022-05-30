@@ -20,7 +20,7 @@ func NewSbpStatReader(ctrl *gomock.Controller) *core.MockSBPStatReader {
 	return core.NewMockSBPStatReader(ctrl)
 }
 
-func NewVerifier() interfaces.Verifier {
+func NewVerifier() interfaces.ConsensusVerifier {
 	return &MockCssVerifier{}
 }
 

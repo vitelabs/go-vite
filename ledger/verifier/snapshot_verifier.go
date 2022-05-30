@@ -17,10 +17,10 @@ import (
 
 type SnapshotVerifier struct {
 	reader   chain.Chain
-	verifier interfaces.Verifier
+	verifier interfaces.ConsensusVerifier
 }
 
-func NewSnapshotVerifier(ch chain.Chain, verifier interfaces.Verifier) *SnapshotVerifier {
+func NewSnapshotVerifier(ch chain.Chain, verifier interfaces.ConsensusVerifier) *SnapshotVerifier {
 	snapshotVerifier := &SnapshotVerifier{reader: ch, verifier: verifier}
 	return snapshotVerifier
 }
