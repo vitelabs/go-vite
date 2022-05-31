@@ -34,8 +34,9 @@ type AccountVerifier struct {
 // NewAccountVerifier needs two args, the implementation methods of the "accountChain" and "cssConsensus"
 func NewAccountVerifier(chain accountChain, verifier interfaces.ConsensusVerifier, sbpStatReader cs_interfaces.SBPStatReader) *AccountVerifier {
 	return &AccountVerifier{
-		chain:    chain,
-		verifier: verifier,
+		chain:         chain,
+		verifier:      verifier,
+		sbpStatReader: sbpStatReader,
 
 		log: log15.New("module", "AccountVerifier"),
 	}
