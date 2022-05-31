@@ -45,8 +45,8 @@ type verifier struct {
 	log log15.Logger
 }
 
-// NewVerifier needs instances of SnapshotVerifier and AccountVerifier.
-func NewVerifier2(ch chain.Chain) Verifier {
+// NewVerifier with chain.Chain
+func NewVerifier(ch chain.Chain) Verifier {
 	return &verifier{
 		reader: ch,
 		log:    log15.New("module", "verifier"),
