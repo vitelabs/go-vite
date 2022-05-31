@@ -700,6 +700,10 @@ func (l *LedgerApi) GetChunksV2(startHeight interface{}, endHeight interface{}) 
 	if err != nil {
 		return nil, err
 	}
+	
+	if startHeightUint64 > endHeightUint64 {
+		return nil, fmt.Errorf("startHeight must be less than endHeight")
+	}
 
 	if endHeightUint64 - startHeightUint64 > 1000 {
 		return nil, fmt.Errorf("height range must be less than 1000")
