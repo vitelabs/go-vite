@@ -124,6 +124,10 @@ func NewConsensus(ch Chain, rollback lock.ChainRollback) Consensus {
 	cs.mLog = log
 	cs.Subscriber = sub
 	cs.subscribeTrigger = sub
+	cs.snapshot = newSnapshotCs(cs.rw, cs.mLog)
+	cs.contracts = newContractCs(cs.rw, cs.mLog)
+	cs.dposWrapper = &dposReader{cs.snapshot, cs.contracts, cs.mLog}
+	cs.api = &APISnapshot{snapshot: cs.snapshot}
 
 	return cs
 }
