@@ -9,6 +9,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/config"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/common/upgrade"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 	"github.com/vitelabs/go-vite/v2/ledger/chain"
 	"github.com/vitelabs/go-vite/v2/ledger/consensus"
 	"github.com/vitelabs/go-vite/v2/ledger/onroad"
@@ -28,14 +29,15 @@ var (
 type Vite struct {
 	config *config.Config
 
-	walletManager *wallet.Manager
-	verifier      verifier.Verifier
-	chain         chain.Chain
-	producer      producer.Producer
-	net           net.Net
-	pool          pool.BlockPool
-	consensus     consensus.Consensus
-	onRoad        *onroad.Manager
+	walletManager      *wallet.Manager
+	verifier           verifier.Verifier
+	chain              chain.Chain
+	producer           producer.Producer
+	net                net.Net
+	pool               pool.BlockPool
+	consensus          consensus.Consensus
+	consensus_verifier interfaces.ConsensusVerifier
+	onRoad             *onroad.Manager
 }
 
 func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err error) {
@@ -71,7 +73,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// consensus
 	cs := consensus.NewConsensus(chain, pl)
 
-	verifier := verifier.NewVerifier2(chain, cs)
+	verifier := verifier.NewVerifier2(chain)
 
 	// net
 	net, err := net.New(cfg.Net, chain, verifier, cs, pl)
@@ -81,20 +83,21 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 
 	// vite
 	vite = &Vite{
-		config:        cfg,
-		walletManager: walletManager,
-		net:           net,
-		chain:         chain,
-		pool:          pl,
-		consensus:     cs,
-		verifier:      verifier,
+		config:             cfg,
+		walletManager:      walletManager,
+		net:                net,
+		chain:              chain,
+		pool:               pl,
+		consensus:          cs,
+		consensus_verifier: cs,
+		verifier:           verifier,
 	}
 
 	if account != nil {
-		vite.producer = producer.NewProducer(chain, net, account, cs, verifier.GetSnapshotVerifier(), pl)
+		vite.producer = producer.NewProducer(chain, net, account, cs, pl)
 	}
 	// set onroad
-	vite.onRoad = onroad.NewManager(net, pl, vite.producer, vite.consensus, account)
+	vite.onRoad = onroad.NewManager(net, pl, vite.producer, vite.consensus.SBPReader(), account)
 	return
 }
 
@@ -111,7 +114,7 @@ func (v *Vite) Init() (err error) {
 
 	// initOnRoadPool
 	v.onRoad.Init(v.chain)
-	v.verifier.InitOnRoadPool(v.onRoad)
+	v.verifier.Init(v.consensus_verifier, v.Consensus().SBPReader(), v.onRoad)
 
 	return nil
 }
@@ -121,12 +124,14 @@ func (v *Vite) Start() (err error) {
 
 	v.chain.Start()
 
-	err = v.consensus.Init(consensus.Cfg(v.Config().Producer.ExternalMiner))
+	err = v.consensus.Init(consensus.Cfg())
 	if err != nil {
 		return err
 	}
+
+	v.chain.SetConsensus(v.consensus_verifier, v.consensus.SBPReader().GetPeriodTimeIndex())
 	// hack
-	v.pool.Init(v.net, v.verifier.GetSnapshotVerifier(), v.verifier, v.consensus)
+	v.pool.Init(v.net, v.verifier.GetSnapshotVerifier(), v.verifier, v.consensus.SBPReader().GetPeriodTimeIndex(), v.consensus.SBPReader().GetNodeCount())
 
 	v.consensus.Start()
 

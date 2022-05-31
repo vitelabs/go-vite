@@ -13,7 +13,6 @@ import (
 	"github.com/vitelabs/go-vite/v2/ledger/chain"
 	"github.com/vitelabs/go-vite/v2/ledger/consensus"
 	"github.com/vitelabs/go-vite/v2/ledger/pool"
-	"github.com/vitelabs/go-vite/v2/ledger/verifier"
 	"github.com/vitelabs/go-vite/v2/log15"
 	"github.com/vitelabs/go-vite/v2/net"
 	"github.com/vitelabs/go-vite/v2/producer/producerevent"
@@ -70,9 +69,8 @@ func NewProducer(rw chain.Chain,
 	subscriber net.Subscriber,
 	coinbase interfaces.Account,
 	cs consensus.Subscriber,
-	verifier *verifier.SnapshotVerifier,
 	p pool.SnapshotProducerWriter) *producer {
-	chain := newChainRw(rw, verifier, p)
+	chain := newChainRw(rw, p)
 	miner := &producer{tools: chain, coinbase: coinbase}
 
 	miner.cs = cs

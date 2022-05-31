@@ -1,15 +1,12 @@
 package consensus
 
 type ConsensusCfg struct {
-	EnablePuppet bool
 }
 
 func DefaultCfg() *ConsensusCfg {
-	return &ConsensusCfg{
-		EnablePuppet: false,
-	}
+	return &ConsensusCfg{}
 }
 
-func Cfg(enablePuppet bool) *ConsensusCfg {
-	return &ConsensusCfg{EnablePuppet: enablePuppet}
+func Cfg() *ConsensusCfg {
+	return &ConsensusCfg{}
 }

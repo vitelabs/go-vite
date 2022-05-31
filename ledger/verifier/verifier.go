@@ -8,7 +8,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	"github.com/vitelabs/go-vite/v2/ledger/chain"
-	"github.com/vitelabs/go-vite/v2/ledger/consensus"
+	cs_interfaces "github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/v2/ledger/onroad"
 	"github.com/vitelabs/go-vite/v2/log15"
 )
@@ -31,39 +31,33 @@ type Verifier interface {
 
 	GetSnapshotVerifier() *SnapshotVerifier
 
-	InitOnRoadPool(manager *onroad.Manager)
+	Init(v interfaces.ConsensusVerifier, sbpStatReader cs_interfaces.SBPStatReader, manager *onroad.Manager) Verifier
 }
 
 // VerifyResult explains the states of transaction validation.
 type VerifyResult int
 
 type verifier struct {
-	Sv *SnapshotVerifier
-	Av *AccountVerifier
+	reader chain.Chain
+	Sv     *SnapshotVerifier
+	Av     *AccountVerifier
 
 	log log15.Logger
 }
 
 // NewVerifier needs instances of SnapshotVerifier and AccountVerifier.
-func NewVerifier2(ch chain.Chain, cs consensus.Consensus) Verifier {
+func NewVerifier2(ch chain.Chain) Verifier {
 	return &verifier{
-		Sv:  NewSnapshotVerifier(ch, cs),
-		Av:  NewAccountVerifier(ch, cs),
-		log: log15.New("module", "verifier"),
+		reader: ch,
+		log:    log15.New("module", "verifier"),
 	}
 }
 
-// NewVerifier needs instances of SnapshotVerifier and AccountVerifier.
-func NewVerifier(sv *SnapshotVerifier, av *AccountVerifier) Verifier {
-	return &verifier{
-		Sv:  sv,
-		Av:  av,
-		log: log15.New("module", "verifier"),
-	}
-}
-
-func (v *verifier) InitOnRoadPool(manager *onroad.Manager) {
+func (v *verifier) Init(cs_v interfaces.ConsensusVerifier, sbpStatReader cs_interfaces.SBPStatReader, manager *onroad.Manager) Verifier {
+	v.Sv = NewSnapshotVerifier(v.reader, cs_v)
+	v.Av = NewAccountVerifier(v.reader, cs_v, sbpStatReader)
 	v.Av.InitOnRoadPool(manager)
+	return v
 }
 
 func (v *verifier) VerifyNetSnapshotBlock(block *ledger.SnapshotBlock) error {

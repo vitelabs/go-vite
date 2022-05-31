@@ -63,7 +63,6 @@ type Config struct {
 	EntropyStorePassword string `json:"EntropyStorePassword"`
 	CoinBase             string `json:"CoinBase"`
 	MinerEnabled         bool   `json:"Miner"`
-	ExternalMiner        bool   `json:"ExternalMiner"`
 
 	//rpc
 	RPCEnabled  bool  `json:"RPCEnabled"`
@@ -193,7 +192,6 @@ func (c *Config) MakeMinerConfig() *config.Producer {
 		Producer:         c.MinerEnabled,
 		Coinbase:         c.CoinBase,
 		EntropyStorePath: c.EntropyStorePath,
-		ExternalMiner:    c.ExternalMiner,
 	}
 	err := cfg.Parse()
 	if err != nil {

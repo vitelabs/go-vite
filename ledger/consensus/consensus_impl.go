@@ -12,9 +12,6 @@ import (
 )
 
 func (cs *consensus) VerifySnapshotProducer(header *ledger.SnapshotBlock) (bool, error) {
-	if cs.EnablePuppet {
-		return true, nil
-	}
 	cs.snapshot.verifyProducerAndSeed(header)
 	return cs.snapshot.VerifyProducer(header.Producer(), *header.Timestamp)
 }
@@ -116,12 +113,6 @@ func (cs *consensus) Init(cfg *ConsensusCfg) error {
 	cs.rw.init(snapshot)
 
 	cs.tg = newTrigger(cs.rollback)
-	if cfg.EnablePuppet {
-		sub := newSubscriberPuppet(cs.Subscriber, cs.snapshot)
-		cs.Subscriber = sub
-		cs.subscribeTrigger = sub
-	}
-
 	cs.contracts = newContractCs(cs.rw, cs.mLog)
 	err := cs.contracts.LoadGid(types.DELEGATE_GID)
 

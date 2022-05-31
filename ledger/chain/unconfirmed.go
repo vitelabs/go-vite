@@ -266,5 +266,5 @@ func (c *chain) filterConsensusFailed(blocks []*ledger.AccountBlock) ([]*ledger.
 		needVerifyBlocks[gid] = append(needVerifyBlocks[gid], block)
 	}
 
-	return c.consensus.VerifyABsProducer(needVerifyBlocks)
+	return c.verifier.VerifyABsProducer(needVerifyBlocks)
 }

@@ -3,13 +3,11 @@ package verifier
 import (
 	"github.com/vitelabs/go-vite/v2/common/types"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/v2/vm_db"
 )
 
 type cssConsensus interface {
 	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
-	SBPReader() core.SBPStatReader
 }
 
 type onRoadPool interface {

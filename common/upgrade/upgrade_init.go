@@ -1,5 +1,6 @@
 package upgrade
 
+// all upgrade point is active.
 func NewLatestUpgradeBox() *upgradeBox {
 	return newUpgradeBox([]*UpgradePoint{
 		{

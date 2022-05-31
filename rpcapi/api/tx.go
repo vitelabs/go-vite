@@ -141,7 +141,7 @@ func (t Tx) SendTxWithPrivateKey(param SendTxWithPrivateKeyParam) (*AccountBlock
 	if err != nil || addrState == nil {
 		return nil, fmt.Errorf("failed to get addr state for generator, err:%v", err)
 	}
-	g, e := generator.NewGenerator(t.vite.Chain(), t.vite.Consensus(), msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
+	g, e := generator.NewGenerator(t.vite.Chain(), t.vite.Consensus().SBPReader(), msg.AccountAddress, addrState.LatestSnapshotHash, addrState.LatestAccountHash)
 	if e != nil {
 		return nil, e
 	}

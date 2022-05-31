@@ -15,7 +15,6 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	"github.com/vitelabs/go-vite/v2/ledger/consensus"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/batch"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/lock"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/tree"
@@ -76,7 +75,8 @@ type BlockPool interface {
 	Init(s syncer,
 		snapshotV *verifier.SnapshotVerifier,
 		accountV verifier.Verifier,
-		cs consensus.Consensus)
+		periodTimeIndex interfaces.TimeIndex,
+		nodeCnt int)
 }
 
 type commonBlock interface {
@@ -164,9 +164,10 @@ type pool struct {
 
 	stat *recoverStat
 
-	hashBlacklist Blacklist
-	cs            consensus.Consensus
-	printer       *snapshotPrinter
+	hashBlacklist   Blacklist
+	periodTimeIndex interfaces.TimeIndex
+	nodeCnt         int
+	printer         *snapshotPrinter
 }
 
 func (pl *pool) Snapshot() map[string]interface{} {
@@ -219,7 +220,8 @@ func NewPool(bc chainDb) (BlockPool, error) {
 func (pl *pool) Init(s syncer,
 	snapshotV *verifier.SnapshotVerifier,
 	accountV verifier.Verifier,
-	cs consensus.Consensus) {
+	periodTimeIndex interfaces.TimeIndex,
+	nodeCnt int) {
 	pl.sync = s
 	pl.pipelines = append(pl.pipelines, s)
 	rw := &snapshotCh{version: pl.version, bc: pl.bc, log: pl.log}
@@ -231,8 +233,8 @@ func (pl *pool) Init(s syncer,
 		newTools(fe, rw),
 		pl)
 
-	pl.cs = cs
-	pl.bc.SetConsensus(cs)
+	pl.nodeCnt = nodeCnt
+	pl.periodTimeIndex = periodTimeIndex
 	pl.pendingSc = snapshotPool
 	pl.stat = (&recoverStat{}).init(10, time.Second*10)
 	pl.worker.init()
