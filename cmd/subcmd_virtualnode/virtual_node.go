@@ -47,8 +47,12 @@ func startVirtualNode(ctx *cli.Context) error {
 		richAddresses(nodeManager.Node().ViteConfig(), []types.Address{types.HexToAddressPanic(rich)})
 	}
 	virtualApi(nodeManager.Node().Config())
+	err = nodeManager.Start()
+	if err != nil {
+		return err
+	}
 	virtualConsensusVerifier(nodeManager)
-	return nodeManager.Start()
+	return nil
 }
 
 func virtualConsensusVerifier(nodeManager nodemanager.NodeManager) {

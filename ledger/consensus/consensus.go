@@ -7,19 +7,13 @@ import (
 
 	"github.com/vitelabs/go-vite/v2/common"
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	"github.com/vitelabs/go-vite/v2/ledger/consensus/cdb"
 	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/lock"
 	"github.com/vitelabs/go-vite/v2/log15"
 )
-
-// Verifier is the interface that can verify block consensus.
-type Verifier interface {
-	VerifyAccountProducer(block *ledger.AccountBlock) (bool, error)
-	VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error)
-	VerifySnapshotProducer(block *ledger.SnapshotBlock) (bool, error)
-}
 
 // Event will trigger when the snapshot block needs production
 type Event struct {
@@ -73,7 +67,7 @@ type Life interface {
 
 // Consensus include all interface for consensus
 type Consensus interface {
-	Verifier
+	interfaces.ConsensusVerifier
 	Subscriber
 	Reader
 	Life
@@ -130,6 +124,10 @@ func NewConsensus(ch Chain, rollback lock.ChainRollback) Consensus {
 	cs.mLog = log
 	cs.Subscriber = sub
 	cs.subscribeTrigger = sub
+	cs.snapshot = newSnapshotCs(cs.rw, cs.mLog)
+	cs.contracts = newContractCs(cs.rw, cs.mLog)
+	cs.dposWrapper = &dposReader{cs.snapshot, cs.contracts, cs.mLog}
+	cs.api = &APISnapshot{snapshot: cs.snapshot}
 
 	return cs
 }

@@ -140,7 +140,7 @@ func BenchmarkInsert(b *testing.B) {
 	chainInstance, tempDir := test_tools.NewTestChainInstance(b.Name(), true, nil)
 	defer test_tools.ClearChain(chainInstance, tempDir)
 
-	verify := verifier.NewVerifier2(chainInstance).Init(chain_test_tools.NewVerifier(), nil, nil)
+	verify := verifier.NewVerifier(chainInstance).Init(chain_test_tools.NewVerifier(), nil, nil)
 
 	accounts := MakeAccounts(chainInstance, 100)
 
