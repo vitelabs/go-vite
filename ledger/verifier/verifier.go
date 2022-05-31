@@ -29,7 +29,8 @@ type Verifier interface {
 	VerifySnapshotBlockHash(block *ledger.SnapshotBlock) error
 	VerifySnapshotBlockSignature(block *ledger.SnapshotBlock) error
 
-	GetSnapshotVerifier() *SnapshotVerifier
+	VerifyNetSb(block *ledger.SnapshotBlock) error
+	VerifyReferred(block *ledger.SnapshotBlock) *SnapshotBlockVerifyStat
 
 	Init(v interfaces.ConsensusVerifier, sbpStatReader cs_interfaces.SBPStatReader, manager *onroad.Manager) Verifier
 }
@@ -158,8 +159,12 @@ func (v *verifier) VerifyAccountBlockProducerLegality(block *ledger.AccountBlock
 	return v.Av.verifyProducerLegality(block)
 }
 
-func (v *verifier) GetSnapshotVerifier() *SnapshotVerifier {
-	return v.Sv
+func (v *verifier) VerifyReferred(block *ledger.SnapshotBlock) *SnapshotBlockVerifyStat {
+	return v.Sv.VerifyReferred(block)
+}
+
+func (v *verifier) VerifyNetSb(block *ledger.SnapshotBlock) error {
+	return v.Sv.VerifyNetSb(block)
 }
 
 func (v *verifier) VerifySnapshotBlockHash(block *ledger.SnapshotBlock) error {
