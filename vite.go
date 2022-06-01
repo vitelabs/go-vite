@@ -131,7 +131,7 @@ func (v *Vite) Start() (err error) {
 
 	v.chain.SetConsensus(v.consensus, v.consensus.SBPReader().GetPeriodTimeIndex())
 
-	v.pool.Init(v.net, v.verifier, v.consensus.SBPReader().GetPeriodTimeIndex(), v.consensus.SBPReader().GetNodeCount())
+	v.pool.Init(v.net, v.verifier, v.consensus.SBPReader())
 
 	v.consensus.Start()
 

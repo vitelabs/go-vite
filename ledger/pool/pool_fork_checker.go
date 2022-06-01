@@ -190,7 +190,7 @@ func (pl *pool) checkIrreversiblePrinciple(keyPoint *snapshotPoolBlock) error {
 }
 
 func (pl *pool) updateIrreversibleBlock() error {
-	nodeCnt := pl.nodeCnt
+	nodeCnt := pl.sbpStatReader.GetNodeCount()
 	if nodeCnt < 3 {
 		return nil
 	}
@@ -226,8 +226,8 @@ func (pl *pool) updateIrreversibleBlock() error {
 }
 
 func (pl *pool) getLatestIrreversibleBlock(lastProofPoint *ledger.SnapshotBlock) (*irreversibleInfo, error) {
-	nodeCnt := pl.nodeCnt
-	ti := pl.periodTimeIndex
+	nodeCnt := pl.sbpStatReader.GetNodeCount()
+	ti := pl.sbpStatReader.GetPeriodTimeIndex()
 
 	lastIdx := uint64(0)
 	if lastProofPoint != nil {
