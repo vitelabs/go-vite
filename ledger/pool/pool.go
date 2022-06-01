@@ -15,6 +15,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/batch"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/lock"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/tree"
@@ -74,8 +75,7 @@ type BlockPool interface {
 	Stop()
 	Init(s syncer,
 		accountV verifier.Verifier,
-		periodTimeIndex interfaces.TimeIndex,
-		nodeCnt int)
+		sbpStatReader core.SBPStatReader)
 }
 
 type commonBlock interface {
@@ -163,10 +163,9 @@ type pool struct {
 
 	stat *recoverStat
 
-	hashBlacklist   Blacklist
-	periodTimeIndex interfaces.TimeIndex
-	nodeCnt         int
-	printer         *snapshotPrinter
+	hashBlacklist Blacklist
+	sbpStatReader core.SBPStatReader
+	printer       *snapshotPrinter
 }
 
 func (pl *pool) Snapshot() map[string]interface{} {
@@ -218,21 +217,19 @@ func NewPool(bc chainDb) (BlockPool, error) {
 
 func (pl *pool) Init(s syncer,
 	accountV verifier.Verifier,
-	periodTimeIndex interfaces.TimeIndex,
-	nodeCnt int) {
+	sbpStatReader core.SBPStatReader) {
 	pl.sync = s
 	pl.pipelines = append(pl.pipelines, s)
 	rw := &snapshotCh{version: pl.version, bc: pl.bc, log: pl.log}
 	fe := &snapshotSyncer{fetcher: s, log: pl.log.New("t", "snapshot")}
 	v := &snapshotVerifier{v: accountV}
 	pl.accountVerifier = accountV
+	pl.sbpStatReader = sbpStatReader
 	snapshotPool := newSnapshotPool("snapshotPool", pl.version, v, fe, rw, pl.hashBlacklist, pl.newSnapshotBlockCond, pl.log)
 	snapshotPool.init(
 		newTools(fe, rw),
 		pl)
 
-	pl.nodeCnt = nodeCnt
-	pl.periodTimeIndex = periodTimeIndex
 	pl.pendingSc = snapshotPool
 	pl.stat = (&recoverStat{}).init(10, time.Second*10)
 	pl.worker.init()
