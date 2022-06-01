@@ -148,7 +148,7 @@ func BenchmarkInsert(b *testing.B) {
 		for i := 1; i <= b.N; i++ {
 			if i%snapshotPerNum == 0 {
 				snapshotBlock := createSnapshotBlock(chainInstance, true)
-				stat := verify.GetSnapshotVerifier().VerifyReferred(snapshotBlock)
+				stat := verify.VerifyReferred(snapshotBlock)
 
 				queryTime := snapshotBlock.Timestamp.Add(-75 * time.Second)
 				chainInstance.GetSnapshotHeaderBeforeTime(&queryTime)

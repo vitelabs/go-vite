@@ -73,7 +73,6 @@ type BlockPool interface {
 	Start()
 	Stop()
 	Init(s syncer,
-		snapshotV *verifier.SnapshotVerifier,
 		accountV verifier.Verifier,
 		periodTimeIndex interfaces.TimeIndex,
 		nodeCnt int)
@@ -218,7 +217,6 @@ func NewPool(bc chainDb) (BlockPool, error) {
 }
 
 func (pl *pool) Init(s syncer,
-	snapshotV *verifier.SnapshotVerifier,
 	accountV verifier.Verifier,
 	periodTimeIndex interfaces.TimeIndex,
 	nodeCnt int) {
@@ -226,7 +224,7 @@ func (pl *pool) Init(s syncer,
 	pl.pipelines = append(pl.pipelines, s)
 	rw := &snapshotCh{version: pl.version, bc: pl.bc, log: pl.log}
 	fe := &snapshotSyncer{fetcher: s, log: pl.log.New("t", "snapshot")}
-	v := &snapshotVerifier{v: snapshotV}
+	v := &snapshotVerifier{v: accountV}
 	pl.accountVerifier = accountV
 	snapshotPool := newSnapshotPool("snapshotPool", pl.version, v, fe, rw, pl.hashBlacklist, pl.newSnapshotBlockCond, pl.log)
 	snapshotPool.init(
