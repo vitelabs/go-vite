@@ -88,7 +88,7 @@ type StateDBInterface interface {
 	rollbackRoundCache(deletedSnapshotSegments []*ledger.SnapshotChunk) error
 	Init() error
 	Close() error
-	SetConsensus(cs Consensus) error
+	SetTimeIndex(periodTimeIndex interfaces.TimeIndex) error
 	GetStorageValue(addr *types.Address, key []byte) ([]byte, error)
 	GetBalance(addr types.Address, tokenTypeId types.TokenTypeId) (*big.Int, error)
 	GetBalanceMap(addr types.Address) (map[types.TokenTypeId]*big.Int, error)

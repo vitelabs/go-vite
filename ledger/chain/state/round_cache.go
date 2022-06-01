@@ -206,7 +206,7 @@ func NewRoundCache(chain Chain, stateDB StateDBInterface, roundCount uint8) *Rou
 }
 
 // build data
-func (cache *RoundCache) Init(timeIndex core.TimeIndex) (returnErr error) {
+func (cache *RoundCache) Init(timeIndex interfaces.TimeIndex) (returnErr error) {
 	if cache.status >= INITED {
 		return nil
 	}

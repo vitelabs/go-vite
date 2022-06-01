@@ -27,7 +27,7 @@ func printEvent(addr types.Address, contract abi.ABIContract) {
 }
 
 func TestName(t *testing.T) {
-	upgrade.CleanupUpgradeBox(t)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewLatestUpgradeBox())
 
 	addr := types.AddressAsset

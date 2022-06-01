@@ -111,9 +111,7 @@ func (cs *consensus) Init(cfg *ConsensusCfg) error {
 	}
 	cs.ConsensusCfg = cfg
 
-	snapshot := newSnapshotCs(cs.rw, cs.mLog)
-	cs.snapshot = snapshot
-	cs.rw.init(snapshot)
+	cs.rw.init(cs.snapshot)
 
 	cs.tg = newTrigger(cs.rollback)
 	if cfg.EnablePuppet {
@@ -122,14 +120,12 @@ func (cs *consensus) Init(cfg *ConsensusCfg) error {
 		cs.subscribeTrigger = sub
 	}
 
-	cs.contracts = newContractCs(cs.rw, cs.mLog)
 	err := cs.contracts.LoadGid(types.DELEGATE_GID)
 
 	if err != nil {
 		panic(err)
 	}
-	cs.dposWrapper = &dposReader{cs.snapshot, cs.contracts, cs.mLog}
-	cs.api = &APISnapshot{snapshot: snapshot}
+
 	return nil
 }
 

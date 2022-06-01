@@ -212,13 +212,13 @@ func BenchmarkSnapshotBlock_VerifySignature(b *testing.B) {
 }
 
 func TestForkComputeHash(t *testing.T) {
-	upgrade.CleanupUpgradeBox(t)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox())
 
 	snapshotBlock := createSnapshotBlock(1, 10000000000000)
 	hashold := snapshotBlock.Hash
 
-	upgrade.CleanupUpgradeBox(t)
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 90))
 
 	hashnew := snapshotBlock.ComputeHash()
