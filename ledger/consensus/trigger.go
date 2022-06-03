@@ -66,6 +66,7 @@ func (tg *trigger) update(ctx context.Context, gid types.Gid, t DposReader, sub 
 		})
 
 		sleepT := time.Until(electionResult.ETime) - time.Millisecond*500
+		tg.mLog.Info("trigger update sleep", "gid", gid, "index", index, "sleepT", sleepT.String())
 		select {
 		case <-time.After(sleepT):
 		case <-ctx.Done():
