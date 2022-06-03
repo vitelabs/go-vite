@@ -31,6 +31,7 @@ func (tg *trigger) update(ctx context.Context, gid types.Gid, t DposReader, sub 
 		}
 		//var current *memberPlan = nil
 
+		tg.mLog.Info("trigger update", "gid", gid, "index", index)
 		tg.lock.RLockRollback()
 		electionResult, err := t.ElectionIndex(index)
 		tg.lock.RUnLockRollback()
