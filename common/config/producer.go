@@ -16,7 +16,7 @@ type Producer struct {
 	coinbase types.Address
 	index    uint32
 
-	NoneSnapshotVerifier bool `json:"NoneSnapshotVerifier"`
+	VirtualSnapshotVerifier bool `json:"VirtualSnapshotVerifier"`
 }
 
 func (cfg *Producer) IsMine() bool {
