@@ -9,7 +9,6 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	ch "github.com/vitelabs/go-vite/v2/ledger/chain"
 	"github.com/vitelabs/go-vite/v2/log15"
 	"github.com/vitelabs/go-vite/v2/monitor"
 )
@@ -43,7 +42,6 @@ type chainDb interface {
 	GetQuotaUnused(address types.Address) (uint64, error)
 	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
-	SetConsensus(cs ch.Consensus)
 	GetSnapshotHeaderBeforeTime(timestamp *time.Time) (*ledger.SnapshotBlock, error)
 	SetCacheLevelForConsensus(level uint32)
 }

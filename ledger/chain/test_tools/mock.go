@@ -1,23 +1,27 @@
 package test_tools
 
 import (
+	"time"
+
+	"github.com/golang/mock/gomock"
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	"github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 )
 
-type MockConsensus struct{}
-
-func (c *MockConsensus) VerifyABsProducer(abs map[types.Gid][]*ledger.AccountBlock) ([]*ledger.AccountBlock, error) {
-	panic("implement me")
+func NewPeriodTimeIndex(genesisTime *time.Time) interfaces.TimeIndex {
+	genesis := time.Unix(genesisTime.Unix(), 0)
+	ti := core.NewTimeIndex(genesis, time.Second*75)
+	return ti
 }
 
-func (c *MockConsensus) SBPReader() core.SBPStatReader {
-	return nil
+func NewSbpStatReader(ctrl *gomock.Controller) *core.MockSBPStatReader {
+	return core.NewMockSBPStatReader(ctrl)
 }
 
-func (c *MockConsensus) VerifyAccountProducer(block *ledger.AccountBlock) (bool, error) {
-	return true, nil
+func NewVerifier() interfaces.ConsensusVerifier {
+	return &MockCssVerifier{}
 }
 
 type MockCssVerifier struct{}

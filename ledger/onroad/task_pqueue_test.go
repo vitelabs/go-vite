@@ -61,7 +61,7 @@ func TestContractTaskPQueue(t *testing.T) {
 		fmt.Println("addr", t.Addr, "q", t.Quota, "index", t.Index)
 	}
 
-	fmt.Println("\n")
+	fmt.Println()
 
 	heap.Init(&ct)
 
@@ -73,7 +73,7 @@ func TestContractTaskPQueue(t *testing.T) {
 		fmt.Println("addr", t.Addr, "q", t.Quota, "index", t.Index)
 	}
 
-	fmt.Println("\n")
+	fmt.Println()
 
 	heap.Push(&ct, &contractTask{
 		Addr:  addrPush[1],
@@ -83,7 +83,7 @@ func TestContractTaskPQueue(t *testing.T) {
 		fmt.Println("addr", t.Addr, "q", t.Quota, "index", t.Index)
 	}
 
-	fmt.Println("\n")
+	fmt.Println()
 
 	for {
 		if ct.Len() == 0 {

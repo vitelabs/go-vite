@@ -8,7 +8,7 @@ import (
 )
 
 func TestChain_OnRoad(t *testing.T) {
-	chainInstance, accounts, _ := SetUp(123, 1231, 12)
+	chainInstance, accounts, _ := SetUp(t, 123, 1231, 12)
 
 	testOnRoad(t, chainInstance, accounts)
 

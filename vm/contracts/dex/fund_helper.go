@@ -279,7 +279,7 @@ func DoPlaceOrder(db interfaces.VmDb, param *ParamPlaceOrder, accountAddress, ag
 	)
 	order := &Order{}
 	if param.OrderType != Limited {
-		enrichOrderFork = IsDexEnrichOrderFork(db)
+		enrichOrderFork = IsVersion11EnrichOrderFork(db)
 		if !enrichOrderFork {
 			return nil, InvalidOrderTypeErr
 		}
@@ -297,7 +297,7 @@ func DoPlaceOrder(db interfaces.VmDb, param *ParamPlaceOrder, accountAddress, ag
 		return nil, err
 	}
 	SaveFund(db, *accountAddress, dexFund)
-	if order.Side == false && IsMarketOrder(order, enrichOrderFork) {
+	if !order.Side && IsMarketOrder(order, enrichOrderFork) {
 		RenderMarketBuyOrderAmountAndFee(order)
 	}
 	if orderInfoBytes, err = order.Serialize(); err != nil {
@@ -371,7 +371,7 @@ func RenderOrder(order *Order, param *ParamPlaceOrder, db interfaces.VmDb, accou
 }
 
 func isAmountTooSmall(db interfaces.VmDb, amount []byte, marketInfo *MarketInfo) bool {
-	typeInfo, _ := QuoteTokenTypeInfos[marketInfo.QuoteTokenType]
+	typeInfo := QuoteTokenTypeInfos[marketInfo.QuoteTokenType]
 	tradeThreshold := GetTradeThreshold(db, marketInfo.QuoteTokenType)
 	if typeInfo.Decimals == marketInfo.QuoteTokenDecimals {
 		return new(big.Int).SetBytes(amount).Cmp(tradeThreshold) < 0
@@ -626,19 +626,19 @@ func IsDexStableMarketFork(db interfaces.VmDb) bool {
 }
 
 func IsVersion10Upgrade(db interfaces.VmDb) bool {
-	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
-		panic(err)
-	} else {
-		return upgrade.IsVersion10Upgrade(latestSb.Height)
-	}
+	return util.CheckFork(db, upgrade.IsVersion10Upgrade)
 }
 
-func IsDexEnrichOrderFork(db interfaces.VmDb) bool {
-	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
-		panic(err)
-	} else {
-		return upgrade.IsVersionXUpgrade(latestSb.Height)
-	}
+func IsVersion11AddTransferAssetEvent(db interfaces.VmDb) bool {
+	return util.CheckFork(db, upgrade.IsVersion11Upgrade)
+}
+
+func IsVersion11EnrichOrderFork(db interfaces.VmDb) bool {
+	return util.CheckFork(db, upgrade.IsVersion11Upgrade)
+}
+
+func IsVersion11DeprecateClearingExpiredOrder(db interfaces.VmDb) bool {
+	return util.CheckFork(db, upgrade.IsVersion11Upgrade)
 }
 
 func ValidOperatorFeeRate(feeRate int32) bool {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/tyler-smith/go-bip39"
 
-	"github.com/vitelabs/go-vite/v2/common"
 	walleterrors "github.com/vitelabs/go-vite/v2/common/errors"
+	"github.com/vitelabs/go-vite/v2/common/fileutils"
 	"github.com/vitelabs/go-vite/v2/wallet/entropystore"
 	"github.com/vitelabs/go-vite/v2/wallet/hd-bip/derivation"
 )
@@ -22,25 +22,21 @@ func TestCryptoStore_StoreEntropy(t *testing.T) {
 	seed := bip39.NewSeed(m, "")
 	fmt.Println("hexSeed:", hex.EncodeToString(seed))
 
-	addresses, _ := derivation.GetPrimaryAddress(seed)
+	primaryAddr, _ := derivation.GetPrimaryAddress(seed)
 
-	filename := filepath.Join(common.DefaultDataDir(), "UTSeed", addresses.String())
+	filename := filepath.Join(fileutils.CreateTempDir(), primaryAddr.String())
 	store := entropystore.CryptoStore{filename}
 
-	err := store.StoreEntropy(entropy, *addresses, "123456")
+	err := store.StoreEntropy(entropy, *primaryAddr, "123456")
 	if err != nil {
 		t.Fatal(err)
 	}
 	fmt.Println(filename)
 
+	testCryptoStore_ExtractSeed(t, filename, seed)
 }
 
-func TestCryptoStore_ExtractSeed(t *testing.T) {
-
-	seed, _ := hex.DecodeString("pass your seed")
-	addresses, _ := derivation.GetPrimaryAddress(seed)
-
-	filename := filepath.Join(common.DefaultDataDir(), "UTSeed", addresses.String())
+func testCryptoStore_ExtractSeed(t *testing.T, filename string, seed []byte) {
 	store := entropystore.CryptoStore{filename}
 
 	seedExtract, entropy, err := store.ExtractSeed("123456")
@@ -55,7 +51,6 @@ func TestCryptoStore_ExtractSeed(t *testing.T) {
 }
 
 func TestCryptoStore_ExtractMnemonic(t *testing.T) {
-
 	store := entropystore.CryptoStore{"filename"}
 
 	seed, entropy, _ := store.ExtractSeed("password")
@@ -74,9 +69,9 @@ func TestDecryptEntropy(t *testing.T) {
 	}
 	seed := bip39.NewSeed(mnemonic, "")
 
-	addresses, _ := derivation.GetPrimaryAddress(seed)
+	primaryAddr, _ := derivation.GetPrimaryAddress(seed)
 
-	json, e := entropystore.EncryptEntropy(entropy, *addresses, "123456")
+	json, e := entropystore.EncryptEntropy(entropy, *primaryAddr, "123456")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -92,7 +87,6 @@ func TestDecryptEntropy(t *testing.T) {
 		if !bytes.Equal(entropy, decryptentropy) {
 			t.Fatal("not equal")
 		}
-
 	}
 
 	{
@@ -102,5 +96,4 @@ func TestDecryptEntropy(t *testing.T) {
 			t.Fatal("no error")
 		}
 	}
-
 }

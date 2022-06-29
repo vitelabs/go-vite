@@ -16,7 +16,7 @@ import (
 )
 
 func TestContractDposCs_ElectionIndexReader(t *testing.T) {
-	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	c, tempDir := test_tools.NewTestChainInstance(t.Name(), true, config.MockGenesis())
 	defer test_tools.ClearChain(c, tempDir)
 
 	rw := newChainRw(c, log15.New(), &lock.EasyImpl{})
@@ -50,7 +50,7 @@ func TestContractDposCs_ElectionIndexReader(t *testing.T) {
 }
 
 func TestConsensus(t *testing.T) {
-	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	c, tempDir := test_tools.NewTestChainInstance(t.Name(), true, config.MockGenesis())
 	defer test_tools.ClearChain(c, tempDir)
 
 	index := uint64(291471)
@@ -81,7 +81,7 @@ func TestConsensus(t *testing.T) {
 }
 
 func TestChainSnapshot(t *testing.T) {
-	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	c, tempDir := test_tools.NewTestChainInstance(t.Name(), true, config.MockGenesis())
 	defer test_tools.ClearChain(c, tempDir)
 
 	prev := c.GetLatestSnapshotBlock()
@@ -107,7 +107,7 @@ func TestChainSnapshot(t *testing.T) {
 }
 
 func TestChainAcc(t *testing.T) {
-	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	c, tempDir := test_tools.NewTestChainInstance(t.Name(), true, config.MockGenesis())
 	defer test_tools.ClearChain(c, tempDir)
 
 	addr := types.HexToAddressPanic("vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a")
@@ -136,7 +136,7 @@ func TestChainAcc(t *testing.T) {
 }
 
 func TestChainAll(t *testing.T) {
-	c, tempDir := test_tools.NewTestChainInstance(t, true, config.MockGenesis())
+	c, tempDir := test_tools.NewTestChainInstance(t.Name(), true, config.MockGenesis())
 	defer test_tools.ClearChain(c, tempDir)
 
 	prev := c.GetLatestSnapshotBlock()

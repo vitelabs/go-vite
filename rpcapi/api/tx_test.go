@@ -142,7 +142,7 @@ func TestPow(t *testing.T) {
 	//}()
 	now := time.Now()
 	dataHash := types.DataHash(append(address.Bytes(), hash.Bytes()...))
-	difficulty := "67108863"
+	difficulty := "12108863"
 	realDifficulty, _ := new(big.Int).SetString(difficulty, 10)
 	i := uint64(0)
 	step := uint64(1000000)

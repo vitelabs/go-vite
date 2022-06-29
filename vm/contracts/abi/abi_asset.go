@@ -97,11 +97,6 @@ type ParamReIssue struct {
 	Amount         *big.Int
 	ReceiveAddress types.Address
 }
-type ParamBurn2 struct {
-	Target *big.Int // which chain?
-	To     []byte   // who?
-}
-
 type ParamTransferOwnership struct {
 	TokenId  types.TokenTypeId
 	NewOwner types.Address

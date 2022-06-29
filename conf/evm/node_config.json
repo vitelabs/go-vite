@@ -18,11 +18,9 @@
     "util",
     "debug",
     "sbpstats",
-    "miner",
     "wallet"
   ],
   "Miner": true,
-  "ExternalMiner": true,
   "CoinBase": "0:vite_3167c9421c8a4cb642d613082dfcef932e26063867f277ec0f",
   "EntropyStorePath": "/root/conf/evm/vite_3167c9421c8a4cb642d613082dfcef932e26063867f277ec0f",
   "EntropyStorePassword": "123456",

@@ -27,6 +27,8 @@ func TestDumpFileLocation(t *testing.T) {
 }
 
 func TestIndexDB_GetLatestAccountBlock(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect IndexDB.")
+
 	chainDir := path.Join(common.HomeDir(), ".gvite/mockdata/ledger")
 	db, err := NewIndexDB(chainDir)
 	assert.NoError(t, err)

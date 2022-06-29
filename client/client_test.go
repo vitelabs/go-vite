@@ -25,6 +25,19 @@ func init() {
 
 var Wallet2 *entropystore.Manager
 
+func PreTestRpc(t *testing.T, rawurl string) (RpcClient) {
+	rpc, err := NewRpcClient(rawurl)
+	if err != nil {
+		t.Skipf("Skipping RPC test: %+v", err)
+	}
+	height := rpc.GetSnapshotChainHeight()
+	if height == "" {
+		t.Skip("Skipping RPC test due to empty SnapshotChainHeight")
+	}
+	fmt.Printf("Height: %s\n", height)
+	return rpc
+}
+
 func PreTest() error {
 	w := wallet.New(&config.Wallet{
 		DataDir:        WalletDir,
@@ -34,23 +47,20 @@ func PreTest() error {
 
 	w2, err := w.RecoverEntropyStoreFromMnemonic("extend excess vibrant crop split vehicle order veteran then fog panel appear frozen deer logic path yard tenant bag nuclear witness annual silent fold", "123456")
 	if err != nil {
-		fmt.Errorf("wallet error, %+v", err)
-		return err
+		return fmt.Errorf("wallet error, %+v", err)
 	}
 	err = w2.Unlock("123456")
 	if err != nil {
-
-		fmt.Errorf("wallet error, %+v", err)
-		return err
+		return fmt.Errorf("wallet error, %+v", err)
 	}
 
 	Wallet2 = w2
+
 	return nil
 }
 
 func TestWallet(t *testing.T) {
-	err := PreTest()
-	if err != nil {
+	if err := PreTest(); err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
@@ -81,15 +91,13 @@ func TestWallet(t *testing.T) {
 }
 
 func TestClient_SubmitRequestTx(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to submit a request transaction.")
+
 	if err := PreTest(); err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
-	rpc, err := NewRpcClient(RawUrl)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	rpc := PreTestRpc(t, RawUrl)
 
 	client, e := NewClient(rpc)
 	if e != nil {
@@ -132,15 +140,13 @@ func TestClient_SubmitRequestTx(t *testing.T) {
 }
 
 func TestClient_CreateContract(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to create a contract.")
+
 	if err := PreTest(); err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
-	rpc, err := NewRpcClient(RawUrl)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	rpc := PreTestRpc(t, RawUrl)
 
 	client, e := NewClient(rpc)
 	if e != nil {
@@ -183,19 +189,20 @@ func TestClient_CreateContract(t *testing.T) {
 }
 
 func TestClient_SubmitResponseTx(t *testing.T) {
-	PreTest()
+	t.Skip("Skipped by default. This test can be used to submit a response transaction.")
+
+	if err := PreTest(); err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	rpc := PreTestRpc(t, RawUrl)
+
 	to, err := types.HexToAddress("vite_2ca3c5f1f18b38f865eb47196027ae0c50d0c21e67774abdda")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-
 	t.Log(to)
-	rpc, err := NewRpcClient(RawUrl)
-	if err != nil {
-		t.Error(err)
-		return
-	}
 
 	client, e := NewClient(rpc)
 	if e != nil {
@@ -228,10 +235,7 @@ func TestClient_SubmitResponseTx(t *testing.T) {
 }
 
 func TestClient_QueryOnroad(t *testing.T) {
-	rpc, err := NewRpcClient(RawUrl)
-	if err != nil {
-		t.Fatal(err)
-	}
+	rpc := PreTestRpc(t, RawUrl)
 
 	addr, err := types.HexToAddress("vite_2ca3c5f1f18b38f865eb47196027ae0c50d0c21e67774abdda")
 	if err != nil {
@@ -251,11 +255,7 @@ func TestClient_QueryOnroad(t *testing.T) {
 }
 
 func TestClient_GetBalanceAll(t *testing.T) {
-	rpc, err := NewRpcClient(RawUrl)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	rpc := PreTestRpc(t, RawUrl)
 
 	client, e := NewClient(rpc)
 	if e != nil {
@@ -282,11 +282,7 @@ func TestClient_GetBalanceAll(t *testing.T) {
 }
 
 func TestClient_GetBalance(t *testing.T) {
-	rpc, err := NewRpcClient(RawUrl)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	rpc := PreTestRpc(t, RawUrl)
 
 	client, e := NewClient(rpc)
 	if e != nil {

@@ -62,6 +62,7 @@ var (
 	dexRobotContracts        = newDexRobotContracts()
 	dexStableMarketContracts = newDexStableMarketContracts()
 	dexEnrichOrderContracts  = newDexEnrichOrderContracts()
+	dexCrossTransferContracts  = newDexCrossTransferContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
@@ -238,6 +239,11 @@ func newDexStableMarketContracts() map[types.Address]*builtinContract {
 func newDexEnrichOrderContracts() map[types.Address]*builtinContract {
 	contracts := newDexStableMarketContracts()
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundTransfer] = &MethodDexTransfer{cabi.MethodNameDexFundTransfer}
+	return contracts
+}
+
+func newDexCrossTransferContracts() map[types.Address]*builtinContract {
+	contracts := newDexEnrichOrderContracts()
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundAgentDeposit] = &MethodDexAgentDeposit{cabi.MethodNameDexFundAgentDeposit}
 	contracts[types.AddressDexFund].m[cabi.MethodNameDexFundAssignedWithdraw] = &MethodDexAssignedWithdraw{cabi.MethodNameDexFundAssignedWithdraw}
 	return contracts
@@ -247,6 +253,8 @@ func newDexEnrichOrderContracts() map[types.Address]*builtinContract {
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
 	if upgrade.IsVersionXUpgrade(sbHeight) {
+		contractsMap = dexCrossTransferContracts
+	} else if upgrade.IsVersion11Upgrade(sbHeight) {
 		contractsMap = dexEnrichOrderContracts
 	} else if upgrade.IsDexStableMarketUpgrade(sbHeight) {
 		contractsMap = dexStableMarketContracts

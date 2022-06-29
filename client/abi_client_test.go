@@ -12,11 +12,9 @@ import (
 )
 
 func TestAbiCli_CallOffChain(t *testing.T) {
-	rpc, err := NewRpcClient(RawUrl)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	t.Skip("Skipped by default. This test can be used to call off-chain contract methods.")
+
+	rpc := PreTestRpc(t, RawUrl)
 
 	abi := ``
 	offchainCode := ``
@@ -34,10 +32,11 @@ func TestAbiCli_CallOffChain(t *testing.T) {
 	for k, v := range result {
 		t.Log(k, v)
 	}
-
 }
 
 func TestUnpack(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to unpack contract methods.")
+
 	abiCode := ``
 	contract, err := abi.JSONToABIContract(strings.NewReader(abiCode))
 	assert.NoError(t, err)
@@ -54,5 +53,4 @@ func TestUnpack(t *testing.T) {
 	assert.NoError(t, err)
 
 	t.Log(inputs)
-
 }

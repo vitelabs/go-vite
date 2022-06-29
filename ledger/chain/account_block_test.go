@@ -9,7 +9,7 @@ import (
 )
 
 func TestChain_AccountBlock(t *testing.T) {
-	chainInstance, accounts, _ := SetUp(10, 5000, 90)
+	chainInstance, accounts, _ := SetUp(t, 10, 5000, 90)
 
 	testAccountBlock(t, chainInstance, accounts)
 	TearDown(chainInstance)
@@ -373,7 +373,7 @@ func checkAccountBlock(hash types.Hash, getBlock func() (*ledger.AccountBlock, e
 
 */
 func TestChain_IsSeedConfirmedNTimes(t *testing.T) {
-	chainInstance, accounts, _ := SetUp(1, 0, 0)
+	chainInstance, accounts, _ := SetUp(t, 1, 0, 0)
 	InsertAccountBlocks(nil, chainInstance, accounts, 1)
 	accountBlockList := chainInstance.GetAllUnconfirmedBlocks()
 	if accountBlockList == nil || len(accountBlockList) != 1 {

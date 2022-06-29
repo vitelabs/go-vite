@@ -12,6 +12,8 @@ import (
 )
 
 func TestReadSnapshotBlocks(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect ledger data.")
+
 	chainDir := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_2")
 	db, err := NewBlockDB(chainDir)
 	assert.NoError(t, err)
@@ -42,6 +44,8 @@ func TestReadSnapshotBlocks(t *testing.T) {
 }
 
 func TestReadAccountBlocks(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect ledger data.")
+
 	chainDir := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_2")
 	db, err := NewBlockDB(chainDir)
 	assert.NoError(t, err)
@@ -71,6 +75,8 @@ func TestReadAccountBlocks(t *testing.T) {
 }
 
 func TestReadLocation(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect ledger data.")
+
 	chainDir := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_1")
 	db, err := NewBlockDB(chainDir)
 	assert.NoError(t, err)
@@ -84,6 +90,8 @@ func TestReadLocation(t *testing.T) {
 }
 
 func TestDiffBlocksDB(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to inspect ledger data.")
+
 	chainDirA := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_1")
 	chainDirB := path.Join(common.HomeDir(), ".gvite/mockdata/ledger_2101_2")
 	dbA, err := NewBlockDB(chainDirA)

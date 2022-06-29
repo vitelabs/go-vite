@@ -71,7 +71,7 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	// consensus
 	cs := consensus.NewConsensus(chain, pl)
 
-	verifier := verifier.NewVerifier2(chain, cs)
+	verifier := verifier.NewVerifier(chain)
 
 	// net
 	net, err := net.New(cfg.Net, chain, verifier, cs, pl)
@@ -91,10 +91,10 @@ func New(cfg *config.Config, walletManager *wallet.Manager) (vite *Vite, err err
 	}
 
 	if account != nil {
-		vite.producer = producer.NewProducer(chain, net, account, cs, verifier.GetSnapshotVerifier(), pl)
+		vite.producer = producer.NewProducer(chain, net, account, cs, pl)
 	}
 	// set onroad
-	vite.onRoad = onroad.NewManager(net, pl, vite.producer, vite.consensus, account)
+	vite.onRoad = onroad.NewManager(net, pl, vite.producer, vite.consensus.SBPReader(), account)
 	return
 }
 
@@ -111,8 +111,11 @@ func (v *Vite) Init() (err error) {
 
 	// initOnRoadPool
 	v.onRoad.Init(v.chain)
-	v.verifier.InitOnRoadPool(v.onRoad)
-
+	if v.config.Producer.VirtualSnapshotVerifier {
+		v.verifier.Init(consensus.NewVirtualVerifier(), v.Consensus().SBPReader(), v.onRoad)
+	} else {
+		v.verifier.Init(v.consensus, v.Consensus().SBPReader(), v.onRoad)
+	}
 	return nil
 }
 
@@ -121,12 +124,14 @@ func (v *Vite) Start() (err error) {
 
 	v.chain.Start()
 
-	err = v.consensus.Init(consensus.Cfg(v.Config().Producer.ExternalMiner))
+	err = v.consensus.Init(consensus.Cfg())
 	if err != nil {
 		return err
 	}
-	// hack
-	v.pool.Init(v.net, v.verifier.GetSnapshotVerifier(), v.verifier, v.consensus)
+
+	v.chain.SetConsensus(v.consensus, v.consensus.SBPReader().GetPeriodTimeIndex())
+
+	v.pool.Init(v.net, v.verifier, v.consensus.SBPReader())
 
 	v.consensus.Start()
 

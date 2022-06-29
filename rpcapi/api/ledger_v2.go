@@ -137,6 +137,10 @@ func (l *LedgerApi) GetAccountBlocksByAddress(addr types.Address, index int, cou
 
 // GetAccountBlocksByHeightRange [start,end] sorted by height desc
 func (l *LedgerApi) GetAccountBlocksByHeightRange(addr types.Address, start uint64, end uint64) ([]*AccountBlock, error) {
+	if end - start > 1000 {
+		return nil, fmt.Errorf("height range must be less than 1000")
+	}
+
 	list, err := l.chain.GetAccountBlocksByRange(addr, start, end)
 
 	if err != nil {
@@ -695,6 +699,14 @@ func (l *LedgerApi) GetChunksV2(startHeight interface{}, endHeight interface{}) 
 	endHeightUint64, err := parseHeight(endHeight)
 	if err != nil {
 		return nil, err
+	}
+	
+	if startHeightUint64 > endHeightUint64 {
+		return nil, fmt.Errorf("startHeight must be less than endHeight")
+	}
+
+	if endHeightUint64 - startHeightUint64 > 1000 {
+		return nil, fmt.Errorf("height range must be less than 1000")
 	}
 
 	chunks, err := l.chain.GetSubLedger(startHeightUint64-1, endHeightUint64)

@@ -1,5 +1,6 @@
 package upgrade
 
+// all upgrade point is active.
 func NewLatestUpgradeBox() *upgradeBox {
 	return newUpgradeBox([]*UpgradePoint{
 		{
@@ -45,6 +46,10 @@ func NewLatestUpgradeBox() *upgradeBox {
 		{
 			Height:  1,
 			Version: 11,
+		},
+		{
+			Height:  1,
+			Version: 12,
 		},
 	})
 }
@@ -102,9 +107,14 @@ func NewMainnetUpgradeBox() *upgradeBox {
 			Version: 10,
 		},
 		{
-			Name:    "VersionX",
+			Name:    "Version11",
 			Height:  EndlessHeight,
 			Version: 11,
+		},
+		{
+			Name:    "VersionX",
+			Height:  EndlessHeight,
+			Version: 12,
 		},
 	})
 }

@@ -13,6 +13,7 @@ import (
 func TestVmLogList_Hash(t *testing.T) {
 	var vmLogList VmLogList
 
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 90))
 
 	hash1, err1 := types.HexToHash("0dede580455f970517210ae2b9c0fbba74d5b7eea07eb0c62725e06c45061711")
@@ -49,6 +50,8 @@ func TestVmLogList_Hash(t *testing.T) {
 	if *vmLogHash100 == *vmLogHash1 {
 		t.Fatal(fmt.Sprintf("vmloghash1 should not be equal with vmloghash100 , %+v, %+v", vmLogHash100, vmLogHash1))
 	}
+
+	upgrade.CleanupUpgradeBox()
 	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, 101))
 
 	vmLogHash95 := vmLogList.Hash(95, address, prehash)

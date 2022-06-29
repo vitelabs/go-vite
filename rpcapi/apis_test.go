@@ -26,8 +26,8 @@ func TestApiTypeName(t *testing.T) {
 		t.Fatalf("expected ApiType name: %s / actual: %s", expected1, actual1)
 	}
 
-	expected2 := "miner"
-	actual2 := ApiType(MINER).name()
+	expected2 := "virtual"
+	actual2 := ApiType(VIRTUAL).name()
 	if actual2 != expected2 {
 		t.Fatalf("expected ApiType name: %s / actual: %s", expected2, actual2)
 	}

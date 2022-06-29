@@ -14,6 +14,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/crypto"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
+	cs_interfaces "github.com/vitelabs/go-vite/v2/ledger/consensus/core"
 	"github.com/vitelabs/go-vite/v2/ledger/generator"
 	"github.com/vitelabs/go-vite/v2/ledger/onroad"
 	"github.com/vitelabs/go-vite/v2/log15"
@@ -22,18 +23,20 @@ import (
 
 // AccountVerifier implements all method to verify the transaction.
 type AccountVerifier struct {
-	chain     accountChain
-	consensus cssConsensus
-	orManager onRoadPool
+	chain         accountChain
+	sbpStatReader cs_interfaces.SBPStatReader
+	verifier      interfaces.ConsensusVerifier
+	orManager     onRoadPool
 
 	log log15.Logger
 }
 
 // NewAccountVerifier needs two args, the implementation methods of the "accountChain" and "cssConsensus"
-func NewAccountVerifier(chain accountChain, consensus cssConsensus) *AccountVerifier {
+func NewAccountVerifier(chain accountChain, verifier interfaces.ConsensusVerifier, sbpStatReader cs_interfaces.SBPStatReader) *AccountVerifier {
 	return &AccountVerifier{
-		chain:     chain,
-		consensus: consensus,
+		chain:         chain,
+		verifier:      verifier,
+		sbpStatReader: sbpStatReader,
 
 		log: log15.New("module", "AccountVerifier"),
 	}
@@ -358,7 +361,7 @@ func (v *AccountVerifier) verifyProducerLegality(block *ledger.AccountBlock) err
 	}
 	if types.IsContractAddr(block.AccountAddress) {
 		if block.IsReceiveBlock() {
-			if result, err := v.consensus.VerifyAccountProducer(block); !result {
+			if result, err := v.verifier.VerifyAccountProducer(block); !result {
 				if err != nil {
 					v.log.Error(err.Error())
 				}
@@ -385,7 +388,7 @@ func (v *AccountVerifier) vmVerify(block *ledger.AccountBlock, snapshotHashHeigh
 			return nil, newError(ErrVerifyDependentSendBlockNotExists.Error())
 		}
 	}
-	gen, err := generator.NewGenerator(v.chain, v.consensus, block.AccountAddress, &snapshotHashHeight.Hash, &block.PrevHash)
+	gen, err := generator.NewGenerator(v.chain, v.sbpStatReader, block.AccountAddress, &snapshotHashHeight.Hash, &block.PrevHash)
 	if err != nil {
 		return nil, newDetailError(ErrVerifyVmGeneratorFailed.Error(), err.Error())
 	}

@@ -2,7 +2,6 @@ package upgrade
 
 import (
 	"fmt"
-	"testing"
 
 	"github.com/vitelabs/go-vite/v2/common"
 	"github.com/vitelabs/go-vite/v2/log15"
@@ -19,9 +18,15 @@ type UpgradePoint struct {
 type UpgradeBox interface {
 	UpgradePoints() []*UpgradePoint
 	AddPoint(version uint32, height uint64) UpgradeBox
+	activePoints(height uint64) []*UpgradePoint
+	latestPoint() *UpgradePoint
+	currentPoint(height uint64) *UpgradePoint
+	isPoint(height uint64) bool
+	isActive(version uint32, height uint64) bool
+	getUpgradePoint(version uint32) *UpgradePoint
 }
 
-var upgrade *upgradeBox
+var upgrade UpgradeBox
 
 var EndlessHeight = uint64(1000000000)
 
@@ -35,8 +40,8 @@ func cleanupUpgradeBox() {
 	upgrade = nil
 }
 
-func CleanupUpgradeBox(t *testing.T) {
-	t.Log("clean up upgrade box")
+func CleanupUpgradeBox() {
+	log.Info("clean up upgrade box")
 	cleanupUpgradeBox()
 }
 
@@ -47,6 +52,11 @@ func InitUpgradeBox(box UpgradeBox) error {
 	points := box.UpgradePoints()
 	log.Info(fmt.Sprintf("init upgrade: %s\n", common.ToJson(points)))
 	upgrade = newUpgradeBox(points)
+	return nil
+}
+
+func AddUpgradePoint(version uint32, height uint64) error {
+	upgrade = upgrade.AddPoint(version, height)
 	return nil
 }
 
@@ -161,7 +171,12 @@ func IsVersion10Upgrade(sHeight uint64) bool {
 	return upgrade.isActive(10, sHeight)
 }
 
-func IsVersionXUpgrade(sHeight uint64) bool {
+func IsVersion11Upgrade(sHeight uint64) bool {
 	assertUpgradeNotNil()
 	return upgrade.isActive(11, sHeight)
+}
+
+func IsVersionXUpgrade(sHeight uint64) bool {
+	assertUpgradeNotNil()
+	return upgrade.isActive(12, sHeight)
 }

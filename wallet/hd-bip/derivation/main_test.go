@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func ExampleDeriveFromPath() {
+func TestDeriveFromPath(t *testing.T) {
 	seed, _ := hex.DecodeString("000102030405060708090a0b0c0d0e0f")
 	key, err := DeriveForPath(VitePrimaryAccountPath, seed)
 	if err != nil {
@@ -21,10 +21,9 @@ func ExampleDeriveFromPath() {
 	}
 
 	fmt.Println(VitePrimaryAccountPath, s, " "+address)
-
 }
 
-func ExampleDeriveMultipleKeys() {
+func TestDeriveMultipleKeys(t *testing.T) {
 	seed, _ := hex.DecodeString("000102030405060708090a0b0c0d0e0f")
 
 	for i := 0; i < 10; i++ {
@@ -41,10 +40,9 @@ func ExampleDeriveMultipleKeys() {
 
 		fmt.Println(path, s, address)
 	}
-
 }
 
-func ExampleDeriveMultipleKeysFaster() {
+func TestDeriveMultipleKeysFaster(t *testing.T) {
 	seed, _ := hex.DecodeString("000102030405060708090a0b0c0d0e0f")
 	mainKey, err := DeriveForPath(ViteAccountPrefix, seed)
 	if err != nil {
@@ -64,7 +62,6 @@ func ExampleDeriveMultipleKeysFaster() {
 
 		fmt.Println(fmt.Sprintf(ViteAccountPathFormat, i), s, address)
 	}
-
 }
 
 func BenchmarkDerive(b *testing.B) {
@@ -94,7 +91,7 @@ func BenchmarkDeriveFast(b *testing.B) {
 }
 
 func TestIsValidPath(t *testing.T) {
-	ExampleDeriveMultipleKeysFaster()
+	TestDeriveMultipleKeysFaster(t)
 	assert.True(t, isValidPath("m/0'"))
 	assert.True(t, isValidPath("m/0'/100'"))
 	assert.True(t, isValidPath("m/0'/100'/200'"))
@@ -107,8 +104,16 @@ func TestIsValidPath(t *testing.T) {
 	assert.False(t, isValidPath("m/0'/893478327492379497823'")) // Overflow
 }
 
+// The tests "TestDeriveVector1" and "TestDeriveVector2" work after replacing:
+// - main.go#seedModifier:
+//   "ed25519 blake2b seed" -> "ed25519 seed"
+// - ed25519.go#GenerateKeyFromD:
+//   "digest := blake2b.Sum512(privateKey[:32])" -> "digest := sha512.Sum512(privateKey[:32])"
+
 // https://github.com/satoshilabs/slips/blob/master/slip-0010.md#test-vector-1-for-ed25519
 func TestDeriveVector1(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to verify the ed25519 implementation.")
+
 	seed, err := hex.DecodeString("000102030405060708090a0b0c0d0e0f")
 	assert.NoError(t, err)
 
@@ -171,6 +176,8 @@ func TestDeriveVector1(t *testing.T) {
 
 // https://github.com/satoshilabs/slips/blob/master/slip-0010.md#test-vector-2-for-ed25519
 func TestDeriveVector2(t *testing.T) {
+	t.Skip("Skipped by default. This test can be used to verify the ed25519 implementation.")
+
 	seed, err := hex.DecodeString("fffcf9f6f3f0edeae7e4e1dedbd8d5d2cfccc9c6c3c0bdbab7b4b1aeaba8a5a29f9c999693908d8a8784817e7b7875726f6c696663605d5a5754514e4b484542")
 	assert.NoError(t, err)
 
