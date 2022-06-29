@@ -35,7 +35,7 @@ const (
 	UTIL
 	DATA
 	LEDGERDEBUG
-	MINER
+	VIRTUAL
 	apiTypeLimit // this will be the last ApiType + 1
 )
 
@@ -65,7 +65,7 @@ var apiTypeStrings = []string{
 	"util",
 	"data",
 	"ledgerdebug",
-	"miner",
+	"virtual",
 }
 
 func (at ApiType) name() string {
@@ -265,11 +265,11 @@ func GetApi(vite *vite.Vite, apiModule string) rpc.API {
 			Service:   api.NewLedgerDebugApi(vite),
 			Public:    false,
 		}
-	case ApiType(MINER).name():
+	case ApiType(VIRTUAL).name():
 		return rpc.API{
-			Namespace: "miner",
+			Namespace: "virtual",
 			Version:   "1.0",
-			Service:   api.NewMinerApi(vite),
+			Service:   api.NewVirtualApi(vite),
 			Public:    false,
 		}
 	default:

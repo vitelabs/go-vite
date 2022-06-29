@@ -111,8 +111,11 @@ func (v *Vite) Init() (err error) {
 
 	// initOnRoadPool
 	v.onRoad.Init(v.chain)
-	v.verifier.Init(v.consensus, v.Consensus().SBPReader(), v.onRoad)
-
+	if v.config.Producer.VirtualSnapshotVerifier {
+		v.verifier.Init(consensus.NewVirtualVerifier(), v.Consensus().SBPReader(), v.onRoad)
+	} else {
+		v.verifier.Init(v.consensus, v.Consensus().SBPReader(), v.onRoad)
+	}
 	return nil
 }
 
@@ -121,7 +124,7 @@ func (v *Vite) Start() (err error) {
 
 	v.chain.Start()
 
-	err = v.consensus.Init(consensus.Cfg(v.Config().Producer.ExternalMiner))
+	err = v.consensus.Init(consensus.Cfg())
 	if err != nil {
 		return err
 	}
