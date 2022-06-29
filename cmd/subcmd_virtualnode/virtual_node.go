@@ -52,7 +52,7 @@ func startVirtualNode(ctx *cli.Context) error {
 }
 
 func virtualConsensusVerifier(cfg *config.Config) {
-	cfg.Producer.NoneSnapshotVerifier = true
+	cfg.Producer.VirtualSnapshotVerifier = true
 }
 
 func virtualApi(cfg *nodeconfig.Config) {

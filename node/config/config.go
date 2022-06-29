@@ -189,10 +189,10 @@ func (c *Config) MakeSubscribeConfig() *config.Subscribe {
 }
 func (c *Config) MakeMinerConfig() *config.Producer {
 	cfg := &config.Producer{
-		Producer:             c.MinerEnabled,
-		Coinbase:             c.CoinBase,
-		EntropyStorePath:     c.EntropyStorePath,
-		NoneSnapshotVerifier: false,
+		Producer:                c.MinerEnabled,
+		Coinbase:                c.CoinBase,
+		EntropyStorePath:        c.EntropyStorePath,
+		VirtualSnapshotVerifier: false,
 	}
 	err := cfg.Parse()
 	if err != nil {

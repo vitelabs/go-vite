@@ -6,18 +6,18 @@ import (
 	core "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
-type noneVerifier struct {
+type virtualVerifier struct {
 }
 
-func NewNoneVerifier() interfaces.ConsensusVerifier {
-	return &noneVerifier{}
+func NewVirtualVerifier() interfaces.ConsensusVerifier {
+	return &virtualVerifier{}
 }
 
-func (noneVerifier) VerifyAccountProducer(block *core.AccountBlock) (bool, error) {
+func (virtualVerifier) VerifyAccountProducer(block *core.AccountBlock) (bool, error) {
 	return true, nil
 }
 
-func (noneVerifier) VerifyABsProducer(abs map[types.Gid][]*core.AccountBlock) ([]*core.AccountBlock, error) {
+func (virtualVerifier) VerifyABsProducer(abs map[types.Gid][]*core.AccountBlock) ([]*core.AccountBlock, error) {
 	var result []*core.AccountBlock
 	for _, v := range abs {
 		result = append(result, v...)
@@ -25,6 +25,6 @@ func (noneVerifier) VerifyABsProducer(abs map[types.Gid][]*core.AccountBlock) ([
 	return result, nil
 }
 
-func (noneVerifier) VerifySnapshotProducer(block *core.SnapshotBlock) (bool, error) {
+func (virtualVerifier) VerifySnapshotProducer(block *core.SnapshotBlock) (bool, error) {
 	return true, nil
 }

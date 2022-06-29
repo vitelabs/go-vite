@@ -111,8 +111,8 @@ func (v *Vite) Init() (err error) {
 
 	// initOnRoadPool
 	v.onRoad.Init(v.chain)
-	if v.config.Producer.NoneSnapshotVerifier {
-		v.verifier.Init(consensus.NewNoneVerifier(), v.Consensus().SBPReader(), v.onRoad)
+	if v.config.Producer.VirtualSnapshotVerifier {
+		v.verifier.Init(consensus.NewVirtualVerifier(), v.Consensus().SBPReader(), v.onRoad)
 	} else {
 		v.verifier.Init(v.consensus, v.Consensus().SBPReader(), v.onRoad)
 	}
