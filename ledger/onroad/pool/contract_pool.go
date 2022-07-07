@@ -348,7 +348,8 @@ func (cc *callerCache) addTx(caller *types.Address, isCallerContract bool, or or
 	value, ok := cc.cache[*caller]
 	if !ok || value.Len() <= 0 {
 		l := list.New()
-		l.PushFront(or)
+		item := newOrHeightValue(or)
+		l.PushFront(&item)
 		cc.cache[*caller] = l
 		return nil
 	}
