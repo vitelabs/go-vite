@@ -63,7 +63,7 @@ func (p *contractOnRoadPool) IsFrontOnRoadOfCaller(orAddr, caller types.Address,
 	if !ok || cc == nil {
 		return false, ErrLoadCallerCacheFailed
 	}
-	or, err := cc.(*callerCache).getFrontTxByCaller(p.chain, &caller)
+	or, err := cc.(*callerCache).getAndLazyUpdateFrontTxByCaller(p.chain, &caller)
 	if err != nil {
 		return false, err
 	}
@@ -86,7 +86,7 @@ func (p *contractOnRoadPool) GetFrontOnRoadBlocksByAddr(contract types.Address) 
 
 	blockList := make([]*ledger.AccountBlock, 0)
 
-	orList, err := cc.(*callerCache).getFrontTxOfAllCallers(p.chain)
+	orList, err := cc.(*callerCache).getAndLazyUpdateFrontTxOfAllCallers(p.chain)
 	if err != nil {
 		return nil, err
 	}
@@ -290,27 +290,55 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 	return nil
 }
 
-func (cc *callerCache) getFrontTxOfAllCallers(reader chainReader) ([]*orHashHeight, error) {
+func (cc *callerCache) getAndLazyUpdateFrontTxOfAllCallers(reader chainReader) ([]*orHashHeight, error) {
+	txs, err := cc.getFrontTxOfAllCallers()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*orHashHeight, len(txs))
+
+	for _, tx := range txs {
+		rr, err := cc.lazyUpdateFrontTx(reader, tx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, rr)
+	}
+	return result, nil
+}
+
+func (cc *callerCache) getFrontTxOfAllCallers() ([]*orHeightValue, error) {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
-	orList := make([]*orHashHeight, 0)
+	orList := make([]*orHeightValue, 0)
 
 	for _, l := range cc.cache {
 		if ele := l.Front(); ele != nil {
 			front := ele.Value.(*orHeightValue)
-
-			tx, err := getAndUpdateFrontTx(reader, front)
-			if err != nil {
-				return nil, err
-			}
-			orList = append(orList, tx)
+			orList = append(orList, front)
 		}
 	}
 	return orList, nil
 }
+func (cc *callerCache) getAndLazyUpdateFrontTxByCaller(reader chainReader, caller *types.Address) (*orHashHeight, error) {
+	orVal, err := cc.getFrontTxByCaller(caller)
+	if err != nil {
+		return nil, err
+	}
+	if orVal == nil {
+		return nil, nil
+	}
 
-func (cc *callerCache) getFrontTxByCaller(reader chainReader, caller *types.Address) (*orHashHeight, error) {
+	result, err := cc.lazyUpdateFrontTx(reader, orVal)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (cc *callerCache) getFrontTxByCaller(caller *types.Address) (*orHeightValue, error) {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
@@ -322,12 +350,37 @@ func (cc *callerCache) getFrontTxByCaller(reader chainReader, caller *types.Addr
 	if ele == nil {
 		return nil, nil
 	}
+	return ele.Value.(*orHeightValue), nil
+}
 
-	tx, err := getAndUpdateFrontTx(reader, ele.Value.(*orHeightValue))
-	if err != nil {
-		return nil, err
+func (cc *callerCache) lazyUpdateFrontTx(reader chainReader, hv *orHeightValue) (*orHashHeight, error) {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+
+	subs := hv.dirtySubIndex()
+	if len(subs) > 0 {
+		block, err := reader.GetCompleteBlockByHash(subs[0].Hash)
+		if err != nil {
+			return nil, err
+		}
+		if !types.IsContractAddr(block.AccountAddress) {
+			return nil, errors.New("get update front tx failed. it's not contract address")
+		}
+		for i, sendBlock := range block.SendBlockList {
+			for _, sub := range subs {
+				if sub.Hash == sendBlock.Hash {
+					j := uint8(i)
+					sub.SubIndex = &j
+				}
+			}
+		}
+
+		subs = hv.dirtySubIndex()
+		if len(subs) > 0 {
+			return nil, errors.New("dirty sub index")
+		}
 	}
-	return tx, nil
+	return hv.minIndex()
 }
 
 func (cc *callerCache) len() int {
@@ -453,31 +506,4 @@ func (cc *callerCache) rmTx(caller *types.Address, isCallerContract bool, or orH
 		}
 		return errors.New("rmTx failed, can't find the onroad")
 	}
-}
-
-func getAndUpdateFrontTx(reader chainReader, hv *orHeightValue) (*orHashHeight, error) {
-	subs := hv.dirtySubIndex()
-	if len(subs) > 0 {
-		block, err := reader.GetCompleteBlockByHash(subs[0].Hash)
-		if err != nil {
-			return nil, err
-		}
-		if !types.IsContractAddr(block.AccountAddress) {
-			return nil, errors.New("get update front tx failed. it's not contract address")
-		}
-		for i, sendBlock := range block.SendBlockList {
-			for _, sub := range subs {
-				if sub.Hash == sendBlock.Hash {
-					j := uint8(i)
-					sub.SubIndex = &j
-				}
-			}
-		}
-
-		subs = hv.dirtySubIndex()
-		if len(subs) > 0 {
-			return nil, errors.New("dirty sub index")
-		}
-	}
-	return hv.minIndex()
 }
