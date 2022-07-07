@@ -281,7 +281,7 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 	}
 	sort.Sort(orSortedList)
 	for _, v := range orSortedList {
-		initLog.Info(fmt.Sprintf("addTx %v %v %v", v.Hash, v.Height, v.SubIndex))
+		initLog.Debug(fmt.Sprintf("addTx %v %v %v", v.Hash, v.Height, v.SubIndex))
 		if err := cc.addTx(&caller, *v, true); err != nil {
 			return err
 		}
