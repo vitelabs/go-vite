@@ -137,9 +137,11 @@ func LedgerBlockToOnRoad(chain chainReader, block *ledger.AccountBlock) (*OnRoad
 	if block.IsSendBlock() {
 		or.caller = block.AccountAddress
 		or.orAddr = block.ToAddress
+		index := uint8(0)
 		or.hashHeight = orHashHeight{
-			Hash:   block.Hash,
-			Height: block.Height,
+			Hash:     block.Hash,
+			Height:   block.Height,
+			SubIndex: &index,
 		}
 	} else {
 		fromBlock, err := chain.GetAccountBlockByHash(block.FromBlockHash)

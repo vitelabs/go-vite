@@ -177,12 +177,11 @@ func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []
 }
 
 func (p *contractOnRoadPool) insertOnRoad(orAddr, caller types.Address, or orHashHeight, isWrite bool) error {
-	isCallerContract := types.IsContractAddr(caller)
 	cc, exist := p.cache.Load(orAddr)
 	if !exist || cc == nil {
 		cc, _ = p.cache.LoadOrStore(orAddr, NewCallerCache())
 	}
-	if err := cc.(*callerCache).addTx(&caller, isCallerContract, or, isWrite); err != nil {
+	if err := cc.(*callerCache).addTx(&caller, or, isWrite); err != nil {
 		return err
 	}
 	return nil
@@ -282,8 +281,8 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 	}
 	sort.Sort(orSortedList)
 	for _, v := range orSortedList {
-		initLog.Debug(fmt.Sprintf("addTx %v %v %v", v.Hash, v.Height, v.SubIndex))
-		if err := cc.addTx(&caller, isCallerContract, *v, true); err != nil {
+		initLog.Info(fmt.Sprintf("addTx %v %v %v", v.Hash, v.Height, v.SubIndex))
+		if err := cc.addTx(&caller, *v, true); err != nil {
 			return err
 		}
 	}
@@ -296,7 +295,7 @@ func (cc *callerCache) getAndLazyUpdateFrontTxOfAllCallers(reader chainReader) (
 		return nil, err
 	}
 
-	result := make([]*orHashHeight, len(txs))
+	var result []*orHashHeight
 
 	for _, tx := range txs {
 		rr, err := cc.lazyUpdateFrontTx(reader, tx)
@@ -394,7 +393,7 @@ func (cc *callerCache) len() int {
 	return count
 }
 
-func (cc *callerCache) addTx(caller *types.Address, isCallerContract bool, or orHashHeight, isWrite bool) error {
+func (cc *callerCache) addTx(caller *types.Address, or orHashHeight, isWrite bool) error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
