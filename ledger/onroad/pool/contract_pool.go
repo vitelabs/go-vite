@@ -92,9 +92,14 @@ func (p *contractOnRoadPool) GetFrontOnRoadBlocksByAddr(contract types.Address) 
 	}
 
 	for _, or := range orList {
-		b, err := p.chain.GetAccountBlockByHash(or.Hash)
-		if err != nil {
-			return nil, err
+		var err error
+		b := or.cachedBlock
+		if b == nil {
+			b, err = p.chain.GetAccountBlockByHash(or.Hash)
+			if err != nil {
+				return nil, err
+			}
+			or.cachedBlock = b
 		}
 		if b == nil {
 			continue

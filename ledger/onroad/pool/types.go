@@ -101,6 +101,8 @@ type orHashHeight struct {
 
 	Height   uint64
 	SubIndex *uint8
+
+	cachedBlock *ledger.AccountBlock
 }
 
 type onRoadList []*orHashHeight
