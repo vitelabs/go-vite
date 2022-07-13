@@ -63,7 +63,10 @@ func (p *contractOnRoadPool) IsFrontOnRoadOfCaller(orAddr, caller types.Address,
 	if !ok || cc == nil {
 		return false, ErrLoadCallerCacheFailed
 	}
-	or := cc.(*callerCache).getFrontTxByCaller(&caller)
+	or, err := cc.(*callerCache).getAndLazyUpdateFrontTxByCaller(p.chain, &caller)
+	if err != nil {
+		return false, err
+	}
 	if or == nil || or.Hash != hash {
 		var frontHash *types.Hash
 		if or != nil {
@@ -83,12 +86,20 @@ func (p *contractOnRoadPool) GetFrontOnRoadBlocksByAddr(contract types.Address) 
 
 	blockList := make([]*ledger.AccountBlock, 0)
 
-	orList := cc.(*callerCache).getFrontTxOfAllCallers()
+	orList, err := cc.(*callerCache).getAndLazyUpdateFrontTxOfAllCallers(p.chain)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, or := range orList {
-		b, err := p.chain.GetAccountBlockByHash(or.Hash)
-		if err != nil {
-			return nil, err
+		var err error
+		b := or.cachedBlock
+		if b == nil {
+			b, err = p.chain.GetAccountBlockByHash(or.Hash)
+			if err != nil {
+				return nil, err
+			}
+			or.cachedBlock = b
 		}
 		if b == nil {
 			continue
@@ -116,7 +127,7 @@ func (p *contractOnRoadPool) InsertAccountBlocks(orAddr types.Address, blocks []
 	for _, pendingList := range onroadMap {
 		sort.Sort(pendingList)
 		for _, v := range pendingList {
-			or := &v.hashHeight
+			or := v.hashHeight
 			if v.block.IsSendBlock() {
 				mlog.Debug(fmt.Sprintf("write block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite))
 				if err := p.insertOnRoad(v.orAddr, v.caller, or, isWrite); err != nil {
@@ -149,7 +160,7 @@ func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []
 		sort.Sort(pendingList)
 		for i := pendingList.Len() - 1; i >= 0; i-- {
 			v := pendingList[i]
-			or := &v.hashHeight
+			or := v.hashHeight
 			if v.block.IsSendBlock() {
 				mlog.Debug(fmt.Sprintf("delete block-s: %v -> %v %v %v isWrite=%v", v.block.AccountAddress, v.block.ToAddress, v.block.Height, v.block.Hash, isWrite))
 				if err := p.deleteOnRoad(v.orAddr, v.caller, or, isWrite); err != nil {
@@ -170,19 +181,18 @@ func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []
 	return nil
 }
 
-func (p *contractOnRoadPool) insertOnRoad(orAddr, caller types.Address, or *orHashHeight, isWrite bool) error {
-	isCallerContract := types.IsContractAddr(caller)
+func (p *contractOnRoadPool) insertOnRoad(orAddr, caller types.Address, or orHashHeight, isWrite bool) error {
 	cc, exist := p.cache.Load(orAddr)
 	if !exist || cc == nil {
 		cc, _ = p.cache.LoadOrStore(orAddr, NewCallerCache())
 	}
-	if err := cc.(*callerCache).addTx(&caller, isCallerContract, or, isWrite); err != nil {
+	if err := cc.(*callerCache).addTx(&caller, or, isWrite); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *contractOnRoadPool) deleteOnRoad(orAddr, caller types.Address, or *orHashHeight, isWrite bool) error {
+func (p *contractOnRoadPool) deleteOnRoad(orAddr, caller types.Address, or orHashHeight, isWrite bool) error {
 	isCallerContract := types.IsContractAddr(caller)
 	cc, exist := p.cache.Load(orAddr)
 	if !exist || cc == nil {
@@ -244,71 +254,137 @@ func NewCallerCache() *callerCache {
 }
 
 func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList []ledger.HashHeight) error {
+	isCallerContract := types.IsContractAddr(caller)
 	orSortedList := make(onRoadList, 0)
 	for k, _ := range orList {
 		or := &orHashHeight{
 			Height: orList[k].Height,
 			Hash:   orList[k].Hash,
 		}
-		completeBlock, err := chain.GetCompleteBlockByHash(or.Hash)
-		if err != nil {
-			return err
+		if !isCallerContract {
+			index := uint8(0)
+			or.SubIndex = &index
 		}
-		if completeBlock == nil {
-			return ErrFindCompleteBlock
-		}
-		if completeBlock.IsReceiveBlock() {
-			or.Height = completeBlock.Height // refer to its parent receive's height
-			for k, v := range completeBlock.SendBlockList {
-				if v.Hash == or.Hash {
-					idx := uint8(k)
-					or.SubIndex = &idx
-					break
-				}
-			}
-		}
+		// completeBlock, err := chain.GetCompleteBlockByHash(or.Hash)
+		// if err != nil {
+		// 	return err
+		// }
+		// if completeBlock == nil {
+		// 	return ErrFindCompleteBlock
+		// }
+		// if completeBlock.IsReceiveBlock() {
+		// 	or.Height = completeBlock.Height // refer to its parent receive's height
+		// 	for k, v := range completeBlock.SendBlockList {
+		// 		if v.Hash == or.Hash {
+		// 			idx := uint8(k)
+		// 			or.SubIndex = &idx
+		// 			break
+		// 		}
+		// 	}
+		// }
 		orSortedList = append(orSortedList, or)
 	}
 	sort.Sort(orSortedList)
 	for _, v := range orSortedList {
 		initLog.Debug(fmt.Sprintf("addTx %v %v %v", v.Hash, v.Height, v.SubIndex))
-		isCallerContract := types.IsContractAddr(caller)
-		if err := cc.addTx(&caller, isCallerContract, v, true); err != nil {
+		if err := cc.addTx(&caller, *v, true); err != nil {
 			return err
 		}
-
 	}
 	return nil
 }
 
-func (cc *callerCache) getFrontTxOfAllCallers() []*orHashHeight {
+func (cc *callerCache) getAndLazyUpdateFrontTxOfAllCallers(reader chainReader) ([]*orHashHeight, error) {
+	txs, err := cc.getFrontTxOfAllCallers()
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*orHashHeight
+
+	for _, tx := range txs {
+		rr, err := cc.lazyUpdateFrontTx(reader, tx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, rr)
+	}
+	return result, nil
+}
+
+func (cc *callerCache) getFrontTxOfAllCallers() ([]*orHeightValue, error) {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
-	orList := make([]*orHashHeight, 0)
+	orList := make([]*orHeightValue, 0)
 
 	for _, l := range cc.cache {
 		if ele := l.Front(); ele != nil {
-			front := ele.Value.(*orHashHeight)
+			front := ele.Value.(*orHeightValue)
 			orList = append(orList, front)
 		}
 	}
-	return orList
+	return orList, nil
+}
+func (cc *callerCache) getAndLazyUpdateFrontTxByCaller(reader chainReader, caller *types.Address) (*orHashHeight, error) {
+	orVal, err := cc.getFrontTxByCaller(caller)
+	if err != nil {
+		return nil, err
+	}
+	if orVal == nil {
+		return nil, nil
+	}
+
+	result, err := cc.lazyUpdateFrontTx(reader, orVal)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
-func (cc *callerCache) getFrontTxByCaller(caller *types.Address) *orHashHeight {
+func (cc *callerCache) getFrontTxByCaller(caller *types.Address) (*orHeightValue, error) {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
 	value, exist := cc.cache[*caller]
 	if !exist || value == nil {
-		return nil
+		return nil, nil
 	}
 	ele := cc.cache[*caller].Front()
 	if ele == nil {
-		return nil
+		return nil, nil
 	}
-	return ele.Value.(*orHashHeight)
+	return ele.Value.(*orHeightValue), nil
+}
+
+func (cc *callerCache) lazyUpdateFrontTx(reader chainReader, hv *orHeightValue) (*orHashHeight, error) {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+
+	subs := hv.dirtySubIndex()
+	if len(subs) > 0 {
+		block, err := reader.GetCompleteBlockByHash(subs[0].Hash)
+		if err != nil {
+			return nil, err
+		}
+		if !types.IsContractAddr(block.AccountAddress) {
+			return nil, errors.New("get update front tx failed. it's not contract address")
+		}
+		for i, sendBlock := range block.SendBlockList {
+			for _, sub := range subs {
+				if sub.Hash == sendBlock.Hash {
+					j := uint8(i)
+					sub.SubIndex = &j
+				}
+			}
+		}
+
+		subs = hv.dirtySubIndex()
+		if len(subs) > 0 {
+			return nil, errors.New("dirty sub index")
+		}
+	}
+	return hv.minIndex()
 }
 
 func (cc *callerCache) len() int {
@@ -322,14 +398,15 @@ func (cc *callerCache) len() int {
 	return count
 }
 
-func (cc *callerCache) addTx(caller *types.Address, isCallerContract bool, or *orHashHeight, isWrite bool) error {
+func (cc *callerCache) addTx(caller *types.Address, or orHashHeight, isWrite bool) error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
 	value, ok := cc.cache[*caller]
 	if !ok || value.Len() <= 0 {
 		l := list.New()
-		l.PushFront(or)
+		item := newOrHeightValue(or)
+		l.PushFront(&item)
 		cc.cache[*caller] = l
 		return nil
 	}
@@ -338,73 +415,57 @@ func (cc *callerCache) addTx(caller *types.Address, isCallerContract bool, or *o
 	var ele *list.Element
 	if isWrite {
 		for ele = l.Back(); ele != nil; ele = ele.Prev() {
-			prev := ele.Value.(*orHashHeight)
-			if prev == nil {
+			origin := ele.Value.(*orHeightValue)
+			if origin == nil {
 				continue
 			}
-			if prev.Hash != or.Hash {
-				if prev.Height > or.Height {
-					continue
-				}
-				if prev.Height < or.Height {
-					break
-				}
-				// prev.Height == or.Height
-				if !isCallerContract || (prev.SubIndex == nil || or.SubIndex == nil) {
-					return errors.New("addTx failed, hash conflict at the same height")
-				}
-				if *prev.SubIndex > *or.SubIndex {
-					continue
-				}
-				if *prev.SubIndex < *or.SubIndex {
-					break
-				}
+			if origin.Height > or.Height {
+				continue
+			}
+			if origin.Height < or.Height {
+				newValue := newOrHeightValue(or)
+				l.InsertAfter(&newValue, ele)
+				return nil
+			}
+			if origin.Height == or.Height {
+				return origin.push(or)
 			}
 			return errors.New("addTx failed, duplicated")
 		}
 		if ele == nil {
-			l.PushFront(or)
-		} else {
-			l.InsertAfter(or, ele)
+			newValue := newOrHeightValue(or)
+			l.PushFront(&newValue)
 		}
 
 	} else {
 		for ele = l.Front(); ele != nil; ele = ele.Next() {
-			next := ele.Value.(*orHashHeight)
-			if next == nil {
+			origin := ele.Value.(*orHeightValue)
+			if origin == nil {
 				continue
 			}
-			if next.Hash != or.Hash {
-				if next.Height < or.Height {
-					continue
-				}
-				if next.Height > or.Height {
-					break
-				}
-				// prev.Height == or.Height
-				if !isCallerContract || (next.SubIndex == nil || or.SubIndex == nil) {
-					return errors.New("addTx failed, hash conflict at the same height")
-				}
-				if *next.SubIndex < *or.SubIndex {
-					continue
-				}
-				if *next.SubIndex > *or.SubIndex {
-					break
-				}
+			if origin.Height < or.Height {
+				continue
+			}
+			if origin.Height > or.Height {
+				newValue := newOrHeightValue(or)
+				l.InsertBefore(&newValue, ele)
+				return nil
+			}
+			// prev.Height == or.Height
+			if origin.Height == or.Height {
+				return origin.push(or)
 			}
 			return errors.New("addTx failed, duplicated")
 		}
 		if ele == nil {
-			l.PushBack(or)
-		} else {
-			l.InsertBefore(or, ele)
+			newValue := newOrHeightValue(or)
+			l.PushBack(&newValue)
 		}
 	}
-
 	return nil
 }
 
-func (cc *callerCache) rmTx(caller *types.Address, isCallerContract bool, or *orHashHeight, isWrite bool) error {
+func (cc *callerCache) rmTx(caller *types.Address, isCallerContract bool, or orHashHeight, isWrite bool) error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
@@ -416,27 +477,37 @@ func (cc *callerCache) rmTx(caller *types.Address, isCallerContract bool, or *or
 	l := cc.cache[*caller]
 	var ele *list.Element
 	if isWrite {
-		ele = l.Front()
-		front := ele.Value.(*orHashHeight)
-		if front == nil || front.Hash != or.Hash {
-			return errors.New("rmTx failed, write not at the most preferred")
+		for ele = l.Front(); ele != nil; ele = ele.Next() {
+			origin := ele.Value.(*orHeightValue)
+			if origin.Height == or.Height {
+				if err := origin.remove(or); err != nil {
+					return errors.New("rmTx failed, not find hash, " + err.Error())
+				}
+				if origin.isEmpty() {
+					l.Remove(ele)
+				}
+				return nil
+			} else {
+				return errors.New("rmTx failed, Height not match")
+			}
 		}
+		return errors.New("rmTx failed, write not at the most preferred")
 	} else {
-		rmSuccess := false
 		for ele = l.Back(); ele != nil; ele = ele.Prev() {
-			prev := ele.Value.(*orHashHeight)
-			if prev == nil {
+			origin := ele.Value.(*orHeightValue)
+			if origin == nil {
 				continue
 			}
-			if prev.Hash == or.Hash {
-				rmSuccess = true
-				break
+			if origin.Height == or.Height {
+				if err := origin.remove(or); err != nil {
+					return errors.New("rmTx failed, not find  hash, " + err.Error())
+				}
+				if origin.isEmpty() {
+					l.Remove(ele)
+				}
+				return nil
 			}
 		}
-		if !rmSuccess {
-			return errors.New("rmTx failed, can't find the onroad")
-		}
+		return errors.New("rmTx failed, can't find the onroad")
 	}
-	l.Remove(ele)
-	return nil
 }
