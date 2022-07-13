@@ -344,7 +344,10 @@ func (w *ContractWorker) acquireOnRoadBlocks(contractAddr types.Address) *ledger
 	value, ok := w.selectivePendingCache.LoadOrStore(contractAddr, newCallerPendingMap())
 	p := value.(*callerPendingMap)
 	if !ok {
-		blocks, _ := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
+		blocks, err := w.manager.GetAllCallersFrontOnRoad(w.gid, contractAddr)
+		if err != nil {
+			w.log.Warn("get caller front err", "err", err)
+		}
 		if len(blocks) <= 0 {
 			return nil
 		}

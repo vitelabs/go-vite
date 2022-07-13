@@ -2,22 +2,30 @@ package chain_utils
 
 // index db
 const (
+	// hash -> address + height
 	AccountBlockHashKeyPrefix = byte(1)
 
+	// address + height -> hash
 	AccountBlockHeightKeyPrefix = byte(2)
 
+	// send block hash -> receive block hash
 	ReceiveKeyPrefix = byte(3)
 
+	// address + height -> snapshot block height
 	ConfirmHeightKeyPrefix = byte(4)
 
+	// toAddress + hash -> empty
 	OnRoadKeyPrefix = byte(5)
 
+	// hash -> height
 	SnapshotBlockHashKeyPrefix = byte(7)
 
+	// height -> hash
 	SnapshotBlockHeightKeyPrefix = byte(8)
 
+	// address -> account id
 	AccountAddressKeyPrefix = byte(9)
-
+	// account id -> address
 	AccountIdKeyPrefix = byte(10)
 )
 

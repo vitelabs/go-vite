@@ -6,11 +6,103 @@ import (
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
+type orHeightValue struct {
+	Height uint64
+	Hashes []*orHeightSubValue
+}
+type orHeightSubValue struct {
+	Hash     types.Hash
+	SubIndex *uint8
+}
+
+func newOrHeightValue(hh orHashHeight) orHeightValue {
+	return orHeightValue{
+		Height: hh.Height,
+		Hashes: []*orHeightSubValue{
+			{
+				Hash:     hh.Hash,
+				SubIndex: hh.SubIndex,
+			}},
+	}
+}
+
+func (hv *orHeightValue) push(hh orHashHeight) error {
+	if hh.Height != hv.Height {
+		return errors.New("orHeightValue push height not match")
+	}
+	for _, sub := range hv.Hashes {
+		if sub.Hash == hh.Hash {
+			return errors.New("orHeight push hash duplicated")
+		}
+	}
+	hv.Hashes = append(hv.Hashes, &orHeightSubValue{Hash: hh.Hash, SubIndex: hh.SubIndex})
+	return nil
+}
+func (hv *orHeightValue) remove(hh orHashHeight) error {
+	if hh.Height != hv.Height {
+		return errors.New("orHeightValue push height not match")
+	}
+
+	j := -1
+	for i, sub := range hv.Hashes {
+		if sub.Hash == hh.Hash {
+			j = i
+			break
+		}
+	}
+	if j >= 0 {
+		hv.Hashes[j] = hv.Hashes[len(hv.Hashes)-1]
+		hv.Hashes = hv.Hashes[:len(hv.Hashes)-1]
+		return nil
+	}
+	return errors.New("[remove]the item not found")
+}
+func (hv orHeightValue) isEmpty() bool {
+	return len(hv.Hashes) == 0
+}
+func (hv *orHeightValue) dirtySubIndex() []*orHeightSubValue {
+	var result []*orHeightSubValue
+	for _, sub := range hv.Hashes {
+		if sub.SubIndex == nil {
+			result = append(result, sub)
+		}
+	}
+	return result
+}
+func (hv orHeightValue) minIndex() (*orHashHeight, error) {
+	if len(hv.Hashes) == 0 {
+		return nil, errors.New("height value is empty")
+	}
+	var min *orHeightSubValue
+
+	for _, sub := range hv.Hashes {
+		if sub.SubIndex == nil {
+			return nil, errors.New("sub index is nil")
+		}
+		if min == nil {
+			min = sub
+		} else {
+			if *sub.SubIndex < *min.SubIndex {
+				min = sub
+			}
+		}
+	}
+
+	return &orHashHeight{
+		Hash:     min.Hash,
+		Height:   hv.Height,
+		SubIndex: min.SubIndex,
+	}, nil
+
+}
+
 type orHashHeight struct {
 	Hash types.Hash
 
 	Height   uint64
 	SubIndex *uint8
+
+	cachedBlock *ledger.AccountBlock
 }
 
 type onRoadList []*orHashHeight
@@ -47,9 +139,11 @@ func LedgerBlockToOnRoad(chain chainReader, block *ledger.AccountBlock) (*OnRoad
 	if block.IsSendBlock() {
 		or.caller = block.AccountAddress
 		or.orAddr = block.ToAddress
+		index := uint8(0)
 		or.hashHeight = orHashHeight{
-			Hash:   block.Hash,
-			Height: block.Height,
+			Hash:     block.Hash,
+			Height:   block.Height,
+			SubIndex: &index,
 		}
 	} else {
 		fromBlock, err := chain.GetAccountBlockByHash(block.FromBlockHash)
