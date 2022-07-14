@@ -131,6 +131,33 @@ type OnRoadBlock struct {
 	block *ledger.AccountBlock
 }
 
+// func ledgerBlockToOnRoad(inserOrRollback bool, block *ledger.AccountBlock, fromBlock *ledger.AccountBlock) (*OnRoadBlock, error) {
+// 	or := &OnRoadBlock{
+// 		block: block,
+// 	}
+
+// 	if block.IsSendBlock() {
+// 		or.caller = block.AccountAddress
+// 		or.orAddr = block.ToAddress
+// 		index := uint8(0)
+// 		or.hashHeight = orHashHeight{
+// 			Hash:     block.Hash,
+// 			Height:   block.Height,
+// 			SubIndex: &index,
+// 		}
+// 	} else {
+// 		if fromBlock == nil {
+// 			return nil, errors.New("failed to find send")
+// 		}
+// 		or.caller = fromBlock.AccountAddress
+// 		or.orAddr = fromBlock.ToAddress
+// 		or.hashHeight = orHashHeight{
+// 			Hash:   fromBlock.Hash,
+// 			Height: fromBlock.Height,
+// 		}
+// 	}
+// }
+
 func LedgerBlockToOnRoad(chain chainReader, block *ledger.AccountBlock) (*OnRoadBlock, error) {
 	or := &OnRoadBlock{
 		block: block,
@@ -178,8 +205,10 @@ func LedgerBlockToOnRoad(chain chainReader, block *ledger.AccountBlock) (*OnRoad
 				break
 			}
 		}
+	} else {
+		index := uint8(0)
+		or.hashHeight.SubIndex = &index
 	}
-
 	return or, nil
 }
 
