@@ -1,17 +1,27 @@
 package onroad_pool
 
 import (
+	"os"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/v2/common/types"
 )
 
 func Test_callerCache_1(t *testing.T) {
 	cases := generateCases()
-
+	homeDir, err := os.UserHomeDir()
+	assert.NoError(t, err)
+	dir := path.Join(homeDir, ".gvite", "tmp", "onroad")
 	for _, item := range cases {
-		cc := NewCallerCache()
+		os.RemoveAll(dir)
+		d, err := leveldb.OpenFile(dir, nil)
+		if err != nil {
+			panic(err)
+		}
+		cc := NewCallerCache(types.AddressDexFund, newOnroadStorage(d))
 		for _, tx := range item.txs {
 			err := cc.addTx(&item.caller, tx, true)
 			assert.NoError(t, err)
@@ -21,8 +31,9 @@ func Test_callerCache_1(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, ohv)
 
-			assert.Equal(t, item.expectedFrontTxHeight, ohv.Height)
-			assert.Equal(t, item.expectedFrontTxSize, len(ohv.Hashes))
+			txs := *ohv
+			assert.Equal(t, item.expectedFrontTxHeight, txs[0].FromHeight)
+			assert.Equal(t, item.expectedFrontTxSize, len(*ohv))
 		}
 		{
 			ohvs, err := cc.getFrontTxOfAllCallers()
@@ -30,8 +41,9 @@ func Test_callerCache_1(t *testing.T) {
 			assert.NotNil(t, ohvs)
 			assert.Equal(t, 1, len(ohvs))
 
-			assert.Equal(t, item.expectedFrontTxHeight, ohvs[0].Height)
-			assert.Equal(t, item.expectedFrontTxSize, len(ohvs[0].Hashes))
+			txs := *ohvs[0]
+			assert.Equal(t, item.expectedFrontTxHeight, txs[0].FromHeight)
+			assert.Equal(t, item.expectedFrontTxSize, len(*ohvs[0]))
 		}
 	}
 }
@@ -145,7 +157,7 @@ func Test_callerCache_2(t *testing.T) {
 					orHashHeight: orHashHeight{
 						Hash:     types.DataHash([]byte{1}),
 						Height:   1,
-						SubIndex: new(uint8),
+						SubIndex: new(uint32),
 					},
 					newOrDestory:     true,
 					insertOrRollback: true,
@@ -154,7 +166,7 @@ func Test_callerCache_2(t *testing.T) {
 					orHashHeight: orHashHeight{
 						Hash:     types.DataHash([]byte{2}),
 						Height:   2,
-						SubIndex: new(uint8),
+						SubIndex: new(uint32),
 					},
 					newOrDestory:     true,
 					insertOrRollback: true,
@@ -163,7 +175,7 @@ func Test_callerCache_2(t *testing.T) {
 					orHashHeight: orHashHeight{
 						Hash:     types.DataHash([]byte{3}),
 						Height:   1,
-						SubIndex: new(uint8),
+						SubIndex: new(uint32),
 					},
 					newOrDestory:     true,
 					insertOrRollback: true,
@@ -172,7 +184,7 @@ func Test_callerCache_2(t *testing.T) {
 					orHashHeight: orHashHeight{
 						Hash:     types.DataHash([]byte{2}),
 						Height:   2,
-						SubIndex: new(uint8),
+						SubIndex: new(uint32),
 					},
 					newOrDestory:     false,
 					insertOrRollback: true,
@@ -181,7 +193,7 @@ func Test_callerCache_2(t *testing.T) {
 					orHashHeight: orHashHeight{
 						Hash:     types.DataHash([]byte{3}),
 						Height:   1,
-						SubIndex: new(uint8),
+						SubIndex: new(uint32),
 					},
 					newOrDestory:     false,
 					insertOrRollback: true,
@@ -193,8 +205,17 @@ func Test_callerCache_2(t *testing.T) {
 		},
 	}
 
+	homeDir, err := os.UserHomeDir()
+	assert.NoError(t, err)
+	dir := path.Join(homeDir, ".gvite", "tmp", "onroad")
+
 	for _, item := range cases {
-		cc := NewCallerCache()
+		os.RemoveAll(dir)
+		d, err := leveldb.OpenFile(dir, nil)
+		if err != nil {
+			panic(err)
+		}
+		cc := NewCallerCache(types.AddressGovernance, newOnroadStorage(d))
 		for _, action := range item.actions {
 			if action.newOrDestory {
 				err := cc.addTx(&item.caller, action.orHashHeight, true)
@@ -209,8 +230,9 @@ func Test_callerCache_2(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, ohv)
 
-			assert.Equal(t, item.expectedFrontTxHeight, ohv.Height)
-			assert.Equal(t, item.expectedFrontTxSize, len(ohv.Hashes))
+			txs := *ohv
+			assert.Equal(t, item.expectedFrontTxHeight, txs[0].FromHeight)
+			assert.Equal(t, item.expectedFrontTxSize, len(*ohv))
 		}
 		{
 			ohvs, err := cc.getFrontTxOfAllCallers()
@@ -218,8 +240,9 @@ func Test_callerCache_2(t *testing.T) {
 			assert.NotNil(t, ohvs)
 			assert.Equal(t, 1, len(ohvs))
 
-			assert.Equal(t, item.expectedFrontTxHeight, ohvs[0].Height)
-			assert.Equal(t, item.expectedFrontTxSize, len(ohvs[0].Hashes))
+			txs := *ohvs[0]
+			assert.Equal(t, item.expectedFrontTxHeight, txs[0].FromHeight)
+			assert.Equal(t, item.expectedFrontTxSize, len(*ohvs[0]))
 		}
 	}
 
