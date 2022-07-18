@@ -6,17 +6,21 @@ import (
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
-type orHeightValue []OnroadTx
+type orHeightValue []*OnroadTx
 
 func newOrHeightValueFromOnroadTxs(txs []OnroadTx) (orHeightValue, error) {
-	return txs, nil
+	result := make([]*OnroadTx, len(txs))
+	for index := range txs {
+		result[index] = &txs[index]
+	}
+	return result, nil
 }
 
 func (hv orHeightValue) isEmpty() bool {
 	return len(hv) == 0
 }
-func (hv orHeightValue) dirtyTxs() []OnroadTx {
-	var result []OnroadTx
+func (hv orHeightValue) dirtyTxs() []*OnroadTx {
+	var result []*OnroadTx
 	for _, sub := range hv {
 		if sub.FromIndex == nil {
 			result = append(result, sub)
@@ -36,10 +40,10 @@ func (hv orHeightValue) minTx() (*OnroadTx, error) {
 		}
 		tmp := sub
 		if min == nil {
-			min = &tmp
+			min = tmp
 		} else {
 			if *sub.FromIndex < *min.FromIndex {
-				min = &tmp
+				min = tmp
 			}
 		}
 	}
