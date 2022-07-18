@@ -58,3 +58,10 @@ const (
 const (
 	SnapshotKeyPrefix = byte(1)
 )
+
+// onroad db
+
+const (
+	// toAddress + fromAddress + fromHeight + fromHash -> fromIndex
+	OnRoadAddressHeightKeyPrefix = byte(1)
+)

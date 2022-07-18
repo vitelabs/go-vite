@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/v2/common"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/interfaces"
@@ -44,6 +45,8 @@ type Manager struct {
 	netStateLid int
 
 	lastProducerAccEvent *producerevent.AccountStartEvent
+
+	db *leveldb.DB
 
 	log log15.Logger
 }
@@ -95,14 +98,19 @@ func (manager *Manager) Stop() {
 
 // Close the model
 func (manager *Manager) Close() error {
-	return nil
+	return manager.db.Close()
 }
 
 func (manager *Manager) prepareOnRoadPool(gid types.Gid) {
+	db, err := manager.chain.NewDb("onroad")
+	if err != nil {
+		panic(fmt.Sprintf("new onroad storage fail, err is %v", err))
+	}
+	manager.db = db
 	orPool, exist := manager.onRoadPools.Load(gid)
 	manager.log.Info(fmt.Sprintf("prepareOnRoadPool"), "gid", gid, "exist", exist, "orPool", orPool)
 	if !exist || orPool == nil {
-		manager.onRoadPools.Store(gid, onroad_pool.NewContractOnRoadPool(gid, manager.chain))
+		manager.onRoadPools.Store(gid, onroad_pool.NewContractOnRoadPool(gid, manager.chain, db))
 		return
 	}
 }

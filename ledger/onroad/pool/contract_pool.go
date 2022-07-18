@@ -1,12 +1,12 @@
 package onroad_pool
 
 import (
-	"container/list"
 	"errors"
 	"fmt"
 	"sort"
 	"sync"
 
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	"github.com/vitelabs/go-vite/v2/log15"
@@ -15,18 +15,21 @@ import (
 var initLog = log15.New("initOnRoadPool", nil)
 
 type contractOnRoadPool struct {
-	gid   types.Gid
-	cache sync.Map //map[types.Address]*callerCache
+	gid     types.Gid
+	cache   sync.Map //map[types.Address]*callerCache
+	storage *onroadStorage
 
 	chain chainReader
 	log   log15.Logger
 }
 
-func NewContractOnRoadPool(gid types.Gid, chain chainReader) OnRoadPool {
+func NewContractOnRoadPool(gid types.Gid, chain chainReader, db *leveldb.DB) OnRoadPool {
 	or := &contractOnRoadPool{
 		gid:   gid,
 		chain: chain,
 		log:   log15.New("contractOnRoadPool", gid),
+
+		storage: newOnroadStorage(db),
 	}
 	if err := or.loadOnRoad(); err != nil {
 		panic(fmt.Sprintf("loadOnRoad, err is %v", err))
@@ -43,7 +46,7 @@ func (p *contractOnRoadPool) loadOnRoad() error {
 	p.log.Info("start loadOnRoad into pool")
 	// resort the map
 	for contract, callerMap := range contractMap {
-		cc, _ := p.cache.LoadOrStore(contract, NewCallerCache())
+		cc, _ := p.cache.LoadOrStore(contract, NewCallerCache(contract, p.storage))
 		for caller, orList := range callerMap {
 			if initErr := cc.(*callerCache).initLoad(p.chain, caller, orList); initErr != nil {
 				p.log.Error("loadOnRoad failed", "err", initErr, "caller", caller)
@@ -184,7 +187,7 @@ func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []
 func (p *contractOnRoadPool) insertOnRoad(orAddr, caller types.Address, or orHashHeight, isWrite bool) error {
 	cc, exist := p.cache.Load(orAddr)
 	if !exist || cc == nil {
-		cc, _ = p.cache.LoadOrStore(orAddr, NewCallerCache())
+		cc, _ = p.cache.LoadOrStore(orAddr, NewCallerCache(orAddr, p.storage))
 	}
 	if err := cc.(*callerCache).addTx(&caller, or, isWrite); err != nil {
 		return err
@@ -243,13 +246,15 @@ func (c *contractOnRoadPool) Info() map[string]interface{} {
 }
 
 type callerCache struct {
-	cache map[types.Address]*list.List
-	mu    sync.RWMutex
+	storage *onroadStorage
+	address types.Address
+	mu      sync.RWMutex
 }
 
-func NewCallerCache() *callerCache {
+func NewCallerCache(address types.Address, storage *onroadStorage) *callerCache {
 	return &callerCache{
-		cache: make(map[types.Address]*list.List),
+		address: address,
+		storage: storage,
 	}
 }
 
@@ -262,7 +267,7 @@ func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList 
 			Hash:   orList[k].Hash,
 		}
 		if !isCallerContract {
-			index := uint8(0)
+			index := uint32(0)
 			or.SubIndex = &index
 		}
 		// completeBlock, err := chain.GetCompleteBlockByHash(or.Hash)
@@ -316,13 +321,17 @@ func (cc *callerCache) getFrontTxOfAllCallers() ([]*orHeightValue, error) {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
+	m, err := cc.storage.GetAllFirstOnroadTx(cc.address)
+	if err != nil {
+		return nil, err
+	}
 	orList := make([]*orHeightValue, 0)
-
-	for _, l := range cc.cache {
-		if ele := l.Front(); ele != nil {
-			front := ele.Value.(*orHeightValue)
-			orList = append(orList, front)
+	for _, list := range m {
+		front, err2 := newOrHeightValueFromOnroadTxs(list)
+		if err2 != nil {
+			return nil, err2
 		}
+		orList = append(orList, &front)
 	}
 	return orList, nil
 }
@@ -346,24 +355,22 @@ func (cc *callerCache) getFrontTxByCaller(caller *types.Address) (*orHeightValue
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
-	value, exist := cc.cache[*caller]
-	if !exist || value == nil {
-		return nil, nil
+	txs, err := cc.storage.GetFirstOnroadTx(cc.address, *caller)
+	if err != nil {
+		return nil, err
 	}
-	ele := cc.cache[*caller].Front()
-	if ele == nil {
-		return nil, nil
-	}
-	return ele.Value.(*orHeightValue), nil
+
+	result, err := newOrHeightValueFromOnroadTxs(txs)
+	return &result, err
 }
 
 func (cc *callerCache) lazyUpdateFrontTx(reader chainReader, hv *orHeightValue) (*orHashHeight, error) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
-	subs := hv.dirtySubIndex()
+	subs := hv.dirtyTxs()
 	if len(subs) > 0 {
-		block, err := reader.GetCompleteBlockByHash(subs[0].Hash)
+		block, err := reader.GetCompleteBlockByHash(subs[0].FromHash)
 		if err != nil {
 			return nil, err
 		}
@@ -372,142 +379,51 @@ func (cc *callerCache) lazyUpdateFrontTx(reader chainReader, hv *orHeightValue) 
 		}
 		for i, sendBlock := range block.SendBlockList {
 			for _, sub := range subs {
-				if sub.Hash == sendBlock.Hash {
-					j := uint8(i)
-					sub.SubIndex = &j
+				if sub.FromHash == sendBlock.Hash {
+					j := uint32(i)
+					sub.FromIndex = &j
+					cc.storage.updateSubIndex(sub)
 				}
 			}
 		}
 
-		subs = hv.dirtySubIndex()
+		subs = hv.dirtyTxs()
 		if len(subs) > 0 {
 			return nil, errors.New("dirty sub index")
 		}
 	}
-	return hv.minIndex()
+	tx, err := hv.minTx()
+	if err != nil {
+		return nil, err
+	}
+	if tx == nil {
+		return nil, nil
+	}
+	return newOrHashHeightFromOnroadTx(tx), nil
 }
 
+// @todo fix
 func (cc *callerCache) len() int {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
 	count := 0
-	for _, l := range cc.cache {
-		count += l.Len()
-	}
+	// for _, l := range cc.cache {
+	// 	count += l.Len()
+	// }
 	return count
 }
 
 func (cc *callerCache) addTx(caller *types.Address, or orHashHeight, isWrite bool) error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
-
-	value, ok := cc.cache[*caller]
-	if !ok || value.Len() <= 0 {
-		l := list.New()
-		item := newOrHeightValue(or)
-		l.PushFront(&item)
-		cc.cache[*caller] = l
-		return nil
-	}
-
-	l := cc.cache[*caller]
-	var ele *list.Element
-	if isWrite {
-		for ele = l.Back(); ele != nil; ele = ele.Prev() {
-			origin := ele.Value.(*orHeightValue)
-			if origin == nil {
-				continue
-			}
-			if origin.Height > or.Height {
-				continue
-			}
-			if origin.Height < or.Height {
-				newValue := newOrHeightValue(or)
-				l.InsertAfter(&newValue, ele)
-				return nil
-			}
-			if origin.Height == or.Height {
-				return origin.push(or)
-			}
-			return errors.New("addTx failed, duplicated")
-		}
-		if ele == nil {
-			newValue := newOrHeightValue(or)
-			l.PushFront(&newValue)
-		}
-
-	} else {
-		for ele = l.Front(); ele != nil; ele = ele.Next() {
-			origin := ele.Value.(*orHeightValue)
-			if origin == nil {
-				continue
-			}
-			if origin.Height < or.Height {
-				continue
-			}
-			if origin.Height > or.Height {
-				newValue := newOrHeightValue(or)
-				l.InsertBefore(&newValue, ele)
-				return nil
-			}
-			// prev.Height == or.Height
-			if origin.Height == or.Height {
-				return origin.push(or)
-			}
-			return errors.New("addTx failed, duplicated")
-		}
-		if ele == nil {
-			newValue := newOrHeightValue(or)
-			l.PushBack(&newValue)
-		}
-	}
-	return nil
+	return cc.storage.insertOnRoadTx(newOnroadTxFromOrHashHeight(*caller, cc.address, or))
 }
 
 func (cc *callerCache) rmTx(caller *types.Address, isCallerContract bool, or orHashHeight, isWrite bool) error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
-	value, ok := cc.cache[*caller]
-	if !ok || value.Len() <= 0 {
-		return errors.New("rmTx failed, callerList is nil")
-	}
+	return cc.storage.deleteOnRoadTx(newOnroadTxFromOrHashHeight(*caller, cc.address, or))
 
-	l := cc.cache[*caller]
-	var ele *list.Element
-	if isWrite {
-		for ele = l.Front(); ele != nil; ele = ele.Next() {
-			origin := ele.Value.(*orHeightValue)
-			if origin.Height == or.Height {
-				if err := origin.remove(or); err != nil {
-					return errors.New("rmTx failed, not find hash, " + err.Error())
-				}
-				if origin.isEmpty() {
-					l.Remove(ele)
-				}
-				return nil
-			} else {
-				return errors.New("rmTx failed, Height not match")
-			}
-		}
-		return errors.New("rmTx failed, write not at the most preferred")
-	} else {
-		for ele = l.Back(); ele != nil; ele = ele.Prev() {
-			origin := ele.Value.(*orHeightValue)
-			if origin == nil {
-				continue
-			}
-			if origin.Height == or.Height {
-				if err := origin.remove(or); err != nil {
-					return errors.New("rmTx failed, not find  hash, " + err.Error())
-				}
-				if origin.isEmpty() {
-					l.Remove(ele)
-				}
-				return nil
-			}
-		}
-		return errors.New("rmTx failed, can't find the onroad")
-	}
 }
