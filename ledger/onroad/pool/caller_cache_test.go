@@ -216,6 +216,7 @@ func Test_callerCache_2(t *testing.T) {
 			panic(err)
 		}
 		cc := NewCallerCache(types.AddressGovernance, newOnroadStorage(d))
+
 		for _, action := range item.actions {
 			if action.newOrDestory {
 				err := cc.addTx(&item.caller, action.orHashHeight, true)
