@@ -34,11 +34,12 @@ func (hv orHeightValue) minTx() (*OnroadTx, error) {
 		if sub.FromIndex == nil {
 			return nil, errors.New("sub index is nil")
 		}
+		tmp := sub
 		if min == nil {
-			min = &sub
+			min = &tmp
 		} else {
 			if *sub.FromIndex < *min.FromIndex {
-				min = &sub
+				min = &tmp
 			}
 		}
 	}

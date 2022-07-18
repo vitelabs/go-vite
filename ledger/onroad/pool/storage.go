@@ -2,6 +2,7 @@ package onroad_pool
 
 import (
 	"encoding/binary"
+	"fmt"
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -17,6 +18,17 @@ type OnroadTx struct {
 	FromHeight uint64 // if the block is r-s block, the height means receive block height.
 	FromHash   types.Hash
 	FromIndex  *uint32
+}
+
+func (tx OnroadTx) String() string {
+
+	ii := int64(-1)
+	if tx.FromIndex != nil {
+		tmp := *tx.FromIndex
+		ii = int64(tmp)
+	}
+	return fmt.Sprintf("fromAddr=%s,toAddr=%s,fromHeight=%d,fromHash=%s,fromIndex=%d",
+		tx.FromAddr, tx.ToAddr, tx.FromHeight, tx.FromHash, ii)
 }
 
 type OnRoadDB interface {
@@ -50,6 +62,8 @@ func (storage *onroadStorage) insertOnRoadTx(tx OnroadTx) error {
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
 
+	// fmt.Println("add on road tx", tx.String())
+
 	storage.addCaller(tx.FromAddr)
 	// batch.Put(tx.toOnroadHeightKey().Bytes(), tx.toOnroadHeightValue())
 	return storage.db.Put(tx.toOnroadHeightKey().Bytes(), tx.toOnroadHeightValue(), nil)
@@ -59,6 +73,8 @@ func (storage *onroadStorage) insertOnRoadTx(tx OnroadTx) error {
 func (storage *onroadStorage) deleteOnRoadTx(tx OnroadTx) error {
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
+
+	// fmt.Println("remove on road tx", tx.String())
 
 	storage.db.Delete(tx.toOnroadHeightKey().Bytes(), nil)
 	txs, err := storage.getFirstOnroadTx(tx.ToAddr, tx.FromAddr)
@@ -129,6 +145,9 @@ func (storage *onroadStorage) getFirstOnroadTx(addr types.Address, caller types.
 	if err != nil {
 		return nil, err
 	}
+	// if len(result) > 0 {
+	// 	fmt.Println("get First onroad tx", addr, caller, result)
+	// }
 	return result, nil
 }
 
