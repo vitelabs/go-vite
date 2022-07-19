@@ -76,7 +76,10 @@ func (storage *onroadStorage) deleteOnRoadTx(tx OnroadTx) error {
 
 	// fmt.Println("remove on road tx", tx.String())
 
-	storage.db.Delete(tx.toOnroadHeightKey().Bytes(), nil)
+	err := storage.db.Delete(tx.toOnroadHeightKey().Bytes(), nil)
+	if err != nil {
+		return fmt.Errorf("delete onroad tx err:%s", err.Error())
+	}
 	txs, err := storage.getFirstOnroadTx(tx.ToAddr, tx.FromAddr)
 	if err != nil {
 		return err
