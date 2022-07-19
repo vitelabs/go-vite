@@ -7,10 +7,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	chain_plugins "github.com/vitelabs/go-vite/v2/ledger/chain/plugins"
 )
 
+// @Deprecated
 func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {
 	addrList, err := c.GetContractList(gid)
 	if err != nil {
@@ -26,6 +28,22 @@ func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][
 
 	return onRoadData, nil
 
+}
+
+func (c *chain) LoadOnRoadRange(gid types.Gid, loadFn interfaces.LoadOnroadFn) error {
+	addrList, err := c.GetContractList(gid)
+	if err != nil {
+		return err
+	}
+
+	err = c.indexDB.LoadRange(addrList, loadFn)
+	if err != nil {
+		cErr := fmt.Errorf("c.indexDB.Load failed, addrList is %+v。 Error: %s", addrList, err)
+		c.log.Error(cErr.Error(), "method", "LoadOnRoad")
+		return cErr
+	}
+
+	return nil
 }
 
 func (c *chain) GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error) {

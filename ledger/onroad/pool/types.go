@@ -1,6 +1,8 @@
 package onroad_pool
 
 import (
+	"fmt"
+
 	"github.com/vitelabs/go-vite/v2/common/db/xleveldb/errors"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
@@ -59,6 +61,14 @@ type orHashHeight struct {
 
 	// @todo delete
 	cachedBlock *ledger.AccountBlock
+}
+
+func (or orHashHeight) String() string {
+	if or.SubIndex == nil {
+		return fmt.Sprintf("orHashHeight: hash=%s,height=%d,subIndex=nil", or.Hash, or.Height)
+	} else {
+		return fmt.Sprintf("orHashHeight: hash=%s,height=%d,subIndex=%d", or.Hash, or.Height, *or.SubIndex)
+	}
 }
 
 func newOrHashHeightFromOnroadTx(tx *OnroadTx) *orHashHeight {

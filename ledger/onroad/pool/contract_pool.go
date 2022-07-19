@@ -8,6 +8,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces/core"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	"github.com/vitelabs/go-vite/v2/log15"
 )
@@ -38,25 +39,34 @@ func NewContractOnRoadPool(gid types.Gid, chain chainReader, db *leveldb.DB) OnR
 }
 
 func (p *contractOnRoadPool) loadOnRoad() error {
-	p.log.Info("loadOnRoad from chain")
-	contractMap, err := p.chain.LoadOnRoad(p.gid)
+	toAddrStat := make(map[types.Address]uint64)
+	var lastToAddr *types.Address
+	p.log.Info("start loadOnRoad from chain into onroad")
+	err := p.chain.LoadOnRoadRange(p.gid, func(fromAddr, toAddr types.Address, hashHeight core.HashHeight) error {
+		var cc *callerCache
+		if value, ok := p.cache.Load(toAddr); ok {
+			cc = value.(*callerCache)
+		} else {
+			raw, _ := p.cache.LoadOrStore(toAddr, NewCallerCache(toAddr, p.storage))
+			cc = raw.(*callerCache)
+		}
+		if cc == nil {
+			return fmt.Errorf("error load caller cache for %s", toAddr)
+		}
+		if toAddrStat[toAddr] == 0 && lastToAddr != nil {
+			p.log.Info(fmt.Sprintf("initLoad one caller, len=%v", toAddrStat[*lastToAddr]), "contract", *lastToAddr)
+		}
+		toAddrStat[toAddr] = toAddrStat[toAddr] + 1
+		lastToAddr = &toAddr
+		return cc.initAdd(fromAddr, toAddr, hashHeight)
+	})
+	if lastToAddr != nil {
+		p.log.Info(fmt.Sprintf("initLoad one caller, len=%v", toAddrStat[*lastToAddr]), "contract", *lastToAddr)
+	}
 	if err != nil {
 		return err
 	}
-	p.log.Info("start loadOnRoad into pool")
-	// resort the map
-	for contract, callerMap := range contractMap {
-		cc, _ := p.cache.LoadOrStore(contract, NewCallerCache(contract, p.storage))
-		for caller, orList := range callerMap {
-			if initErr := cc.(*callerCache).initLoad(p.chain, caller, orList); initErr != nil {
-				p.log.Error("loadOnRoad failed", "err", initErr, "caller", caller)
-				return err
-			}
-		}
-		if cc.(*callerCache).len() > 0 {
-			p.log.Info(fmt.Sprintf("initLoad one caller, len=%v", cc.(*callerCache).len()), "contract", contract)
-		}
-	}
+	p.log.Info("end loadOnRoad from chain into onroad")
 	p.log.Info("success loadOnRoad")
 	return nil
 }
@@ -258,6 +268,21 @@ func NewCallerCache(address types.Address, storage *onroadStorage) *callerCache 
 	}
 }
 
+func (cc *callerCache) initAdd(fromAddr, toAddr types.Address, hashHeight core.HashHeight) error {
+	isCallerContract := types.IsContractAddr(fromAddr)
+	or := &orHashHeight{
+		Height: hashHeight.Height,
+		Hash:   hashHeight.Hash,
+	}
+	if !isCallerContract {
+		index := uint32(0)
+		or.SubIndex = &index
+	}
+	initLog.Debug(fmt.Sprintf("addTx %s", or.String()))
+	return cc.addTx(&fromAddr, *or, true)
+}
+
+// @Deprecated
 func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList []ledger.HashHeight) error {
 	isCallerContract := types.IsContractAddr(caller)
 	orSortedList := make(onRoadList, 0)
