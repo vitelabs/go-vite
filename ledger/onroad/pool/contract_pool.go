@@ -410,7 +410,7 @@ func (cc *callerCache) lazyUpdateFrontTx(reader chainReader, hv *orHeightValue) 
 				if sub.FromHash == sendBlock.Hash {
 					j := uint32(i)
 					sub.FromIndex = &j
-					cc.storage.updateSubIndex(*sub)
+					cc.storage.updateFromIndex(*sub)
 				}
 			}
 		}
