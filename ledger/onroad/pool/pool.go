@@ -2,6 +2,7 @@ package onroad_pool
 
 import (
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 )
 
@@ -18,6 +19,7 @@ type OnRoadPool interface {
 
 type chainReader interface {
 	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error)
+	LoadOnRoadRange(gid types.Gid, fn interfaces.LoadOnroadFn) error
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 }

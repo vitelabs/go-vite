@@ -263,6 +263,8 @@ type Chain interface {
 	// ====== OnRoad ======
 	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error)
 
+	LoadOnRoadRange(gid types.Gid, fn interfaces.LoadOnroadFn) error
+
 	DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash)
 
 	GetOnRoadBlocksByAddr(addr types.Address, pageNum, pageSize int) ([]*ledger.AccountBlock, error)
