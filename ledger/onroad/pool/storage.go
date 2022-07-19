@@ -102,7 +102,7 @@ func (storage *onroadStorage) GetAllFirstOnroadTx(addr types.Address) (map[types
 
 	storage.callers.Range(func(key interface{}, val interface{}) bool {
 		caller := key.(types.Address)
-		txs, err := storage.GetFirstOnroadTx(addr, caller)
+		txs, err := storage.getFirstOnroadTx(addr, caller)
 		if err != nil {
 			resultErr = err
 			return false
