@@ -38,8 +38,10 @@ func (c *chain) InsertAccountBlock(vmAccountBlock *interfaces.VmAccountBlock) er
 		common.Crit(cErr.Error(), "method", "InsertAccountBlockAndSnapshot")
 	}
 
-	c.em.TriggerInsertAbs(insertAbsEvent, vmAbList)
-
+	if err := c.em.TriggerInsertAbs(insertAbsEvent, vmAbList); err != nil {
+		cErr := fmt.Errorf("trigger InsertAccountBlock failed, error is %s, blockHash is %s", err.Error(), accountBlock.Hash)
+		c.log.Error(cErr.Error())
+	}
 	return nil
 }
 
