@@ -195,6 +195,8 @@ func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []
 }
 
 func (p *contractOnRoadPool) insertOnRoad(orAddr, caller types.Address, or orHashHeight, isWrite bool) error {
+	p.log.Info(fmt.Sprintf("insert onroad: %s -> %s %d %s isWrite=%v", caller, orAddr, or.Height, or.Hash, isWrite))
+
 	cc, exist := p.cache.Load(orAddr)
 	if !exist || cc == nil {
 		cc, _ = p.cache.LoadOrStore(orAddr, NewCallerCache(orAddr, p.storage))
@@ -206,6 +208,7 @@ func (p *contractOnRoadPool) insertOnRoad(orAddr, caller types.Address, or orHas
 }
 
 func (p *contractOnRoadPool) deleteOnRoad(orAddr, caller types.Address, or orHashHeight, isWrite bool) error {
+	p.log.Info(fmt.Sprintf("delete onroad: %s -> %s %d %s isWrite=%v", caller, orAddr, or.Height, or.Hash, isWrite))
 	isCallerContract := types.IsContractAddr(caller)
 	cc, exist := p.cache.Load(orAddr)
 	if !exist || cc == nil {
