@@ -90,9 +90,17 @@ func (storage *onroadStorage) deleteOnRoadTx(tx OnroadTx) error {
 	return nil
 }
 
-func (storage *onroadStorage) updateSubIndex(tx OnroadTx) error {
+func (storage *onroadStorage) updateFromIndex(tx OnroadTx) error {
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
+	key := tx.toOnroadHeightKey().Bytes()
+	exist, err := storage.db.Has(key, nil)
+	if err != nil {
+		return err
+	}
+	if !exist {
+		return nil
+	}
 	return storage.db.Put(tx.toOnroadHeightKey().Bytes(), tx.toOnroadHeightValue(), nil)
 }
 
