@@ -90,18 +90,18 @@ func (storage *onroadStorage) deleteOnRoadTx(tx OnroadTx) error {
 	return nil
 }
 
-func (storage *onroadStorage) updateFromIndex(tx OnroadTx) error {
+func (storage *onroadStorage) updateFromIndex(tx OnroadTx) (bool, error) {
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
 	key := tx.toOnroadHeightKey().Bytes()
 	exist, err := storage.db.Has(key, nil)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !exist {
-		return nil
+		return false, nil
 	}
-	return storage.db.Put(tx.toOnroadHeightKey().Bytes(), tx.toOnroadHeightValue(), nil)
+	return true, storage.db.Put(tx.toOnroadHeightKey().Bytes(), tx.toOnroadHeightValue(), nil)
 }
 
 func (storage *onroadStorage) GetAllFirstOnroadTx(addr types.Address) (map[types.Address][]OnroadTx, error) {

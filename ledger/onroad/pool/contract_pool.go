@@ -338,7 +338,8 @@ func (cc *callerCache) getAndLazyUpdateFrontTxOfAllCallers(reader chainReader) (
 	for _, tx := range txs {
 		rr, err := cc.lazyUpdateFrontTx(reader, tx)
 		if err != nil {
-			return nil, err
+			onroadPoolLog.Warn("lazy update front tx failed", "err", err)
+			continue
 		}
 		result = append(result, rr)
 	}
@@ -410,7 +411,13 @@ func (cc *callerCache) lazyUpdateFrontTx(reader chainReader, hv *orHeightValue) 
 				if sub.FromHash == sendBlock.Hash {
 					j := uint32(i)
 					sub.FromIndex = &j
-					cc.storage.updateFromIndex(*sub)
+					updateResult, err := cc.storage.updateFromIndex(*sub)
+					if err != nil {
+						return nil, err
+					}
+					if !updateResult {
+						return nil, fmt.Errorf("dirty OnroadTx %s, %s, %s", sub.ToAddr, sub.FromAddr, sub.FromHash)
+					}
 				}
 			}
 		}
