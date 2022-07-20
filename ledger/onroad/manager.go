@@ -102,13 +102,13 @@ func (manager *Manager) Close() error {
 }
 
 func (manager *Manager) prepareOnRoadPool(gid types.Gid) {
-	db, err := manager.chain.NewDb("onroad")
+	db, err := manager.chain.PrepareOnroadDb()
 	if err != nil {
 		panic(fmt.Sprintf("new onroad storage fail, err is %v", err))
 	}
 	manager.db = db
 	orPool, exist := manager.onRoadPools.Load(gid)
-	manager.log.Info(fmt.Sprintf("prepareOnRoadPool"), "gid", gid, "exist", exist, "orPool", orPool)
+	manager.log.Info("prepare OnRoadPool", "gid", gid, "exist", exist, "orPool", orPool)
 	if !exist || orPool == nil {
 		manager.onRoadPools.Store(gid, onroad_pool.NewContractOnRoadPool(gid, manager.chain, db))
 		return

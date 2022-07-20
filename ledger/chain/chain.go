@@ -230,6 +230,18 @@ func (c *chain) NewDb(dirName string) (*leveldb.DB, error) {
 	return db, nil
 }
 
+func (c *chain) PrepareOnroadDb() (*leveldb.DB, error) {
+	dirName := "onroad"
+	absoluteDirName := path.Join(c.chainDir, dirName)
+	c.log.Info("clear onroad db", "dir", absoluteDirName)
+
+	err := os.RemoveAll(absoluteDirName)
+	if err != nil {
+		return nil, err
+	}
+	return c.NewDb(dirName)
+}
+
 func (c *chain) SetConsensus(verifier interfaces.ConsensusVerifier, periodTimeIndex interfaces.TimeIndex) {
 	c.log.Info("Start set consensus", "method", "SetConsensus")
 	c.verifier = verifier

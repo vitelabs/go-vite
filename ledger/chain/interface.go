@@ -282,6 +282,8 @@ type Chain interface {
 
 	NewDb(dirName string) (*leveldb.DB, error)
 
+	PrepareOnroadDb() (*leveldb.DB, error)
+
 	Plugins() *chain_plugins.Plugins
 
 	SetConsensus(verifier interfaces.ConsensusVerifier, periodTimeIndex interfaces.TimeIndex)
