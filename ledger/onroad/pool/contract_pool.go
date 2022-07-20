@@ -284,49 +284,6 @@ func (cc *callerCache) initAdd(fromAddr, toAddr types.Address, hashHeight core.H
 	initLog.Debug(fmt.Sprintf("addTx %s", or.String()))
 	return cc.addTx(&fromAddr, *or, true)
 }
-
-// @Deprecated
-func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList []ledger.HashHeight) error {
-	isCallerContract := types.IsContractAddr(caller)
-	orSortedList := make(onRoadList, 0)
-	for k, _ := range orList {
-		or := &orHashHeight{
-			Height: orList[k].Height,
-			Hash:   orList[k].Hash,
-		}
-		if !isCallerContract {
-			index := uint32(0)
-			or.SubIndex = &index
-		}
-		// completeBlock, err := chain.GetCompleteBlockByHash(or.Hash)
-		// if err != nil {
-		// 	return err
-		// }
-		// if completeBlock == nil {
-		// 	return ErrFindCompleteBlock
-		// }
-		// if completeBlock.IsReceiveBlock() {
-		// 	or.Height = completeBlock.Height // refer to its parent receive's height
-		// 	for k, v := range completeBlock.SendBlockList {
-		// 		if v.Hash == or.Hash {
-		// 			idx := uint8(k)
-		// 			or.SubIndex = &idx
-		// 			break
-		// 		}
-		// 	}
-		// }
-		orSortedList = append(orSortedList, or)
-	}
-	sort.Sort(orSortedList)
-	for _, v := range orSortedList {
-		initLog.Debug(fmt.Sprintf("addTx %v %v %v", v.Hash, v.Height, v.SubIndex))
-		if err := cc.addTx(&caller, *v, true); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (cc *callerCache) getAndLazyUpdateFrontTxOfAllCallers(reader chainReader) ([]*orHashHeight, error) {
 	txs, err := cc.getFrontTxOfAllCallers()
 	if err != nil {

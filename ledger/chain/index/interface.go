@@ -6,7 +6,5 @@ import (
 )
 
 type Chain interface {
-	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error)
-
 	IterateContracts(iterateFunc func(addr types.Address, meta *ledger.ContractMeta, err error) bool)
 }

@@ -12,24 +12,6 @@ import (
 	chain_plugins "github.com/vitelabs/go-vite/v2/ledger/chain/plugins"
 )
 
-// @Deprecated
-func (c *chain) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {
-	addrList, err := c.GetContractList(gid)
-	if err != nil {
-		return nil, err
-	}
-
-	onRoadData, err := c.indexDB.Load(addrList)
-	if err != nil {
-		cErr := fmt.Errorf("c.indexDB.Load failed, addrList is %+v。 Error: %s", addrList, err)
-		c.log.Error(cErr.Error(), "method", "LoadOnRoad")
-		return nil, cErr
-	}
-
-	return onRoadData, nil
-
-}
-
 func (c *chain) LoadOnRoadRange(gid types.Gid, loadFn interfaces.LoadOnroadFn) error {
 	addrList, err := c.GetContractList(gid)
 	if err != nil {

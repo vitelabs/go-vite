@@ -10,51 +10,6 @@ import (
 	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
-// @Deprecated
-func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {
-	onRoadData := make(map[types.Address]map[types.Address][]ledger.HashHeight, len(addrList))
-	for _, addr := range addrList {
-		onRoadListMap := make(map[types.Address][]ledger.HashHeight)
-		onRoadData[addr] = onRoadListMap
-
-		iter := iDB.store.NewIterator(util.BytesPrefix(append([]byte{chain_utils.OnRoadKeyPrefix}, addr.Bytes()...)))
-		for iter.Next() {
-			key := iter.Key()
-			blockHashBytes := key[len(key)-types.HashSize:]
-
-			blockHash, err := types.BytesToHash(blockHashBytes)
-			if err != nil {
-				return nil, err
-			}
-
-			fromAddr, height, err := iDB.GetAddrHeightByHash(&blockHash)
-
-			if err != nil {
-				return nil, err
-			}
-
-			if fromAddr == nil {
-				iDB.log.Error(fmt.Sprintf("block hash is %s, fromAddr is %s, height is %d", blockHash, fromAddr, height), "method", "Load")
-				continue
-			}
-
-			onRoadListMap[*fromAddr] = append(onRoadListMap[*fromAddr], ledger.HashHeight{
-				Hash:   blockHash,
-				Height: height,
-			})
-		}
-
-		err := iter.Error()
-		iter.Release()
-
-		if err != nil {
-			return nil, err
-		}
-
-	}
-	return onRoadData, nil
-}
-
 func (iDB *IndexDB) LoadRange(addrList []types.Address, loadFn interfaces.LoadOnroadFn) error {
 	for _, addr := range addrList {
 		iter := iDB.store.NewIterator(util.BytesPrefix(append([]byte{chain_utils.OnRoadKeyPrefix}, addr.Bytes()...)))

@@ -261,8 +261,6 @@ type Chain interface {
 	GetSyncCache() interfaces.SyncCache
 
 	// ====== OnRoad ======
-	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error)
-
 	LoadOnRoadRange(gid types.Gid, fn interfaces.LoadOnroadFn) error
 
 	DeleteOnRoad(toAddress types.Address, sendBlockHash types.Hash)
