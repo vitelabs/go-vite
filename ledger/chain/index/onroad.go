@@ -7,15 +7,11 @@ import (
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
-	"github.com/vitelabs/go-vite/v2/ledger/chain/utils"
+	chain_utils "github.com/vitelabs/go-vite/v2/ledger/chain/utils"
 )
 
-func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {
-	onRoadData := make(map[types.Address]map[types.Address][]ledger.HashHeight, len(addrList))
+func (iDB *IndexDB) LoadRange(addrList []types.Address, loadFn interfaces.LoadOnroadFn) error {
 	for _, addr := range addrList {
-		onRoadListMap := make(map[types.Address][]ledger.HashHeight)
-		onRoadData[addr] = onRoadListMap
-
 		iter := iDB.store.NewIterator(util.BytesPrefix(append([]byte{chain_utils.OnRoadKeyPrefix}, addr.Bytes()...)))
 		for iter.Next() {
 			key := iter.Key()
@@ -23,35 +19,38 @@ func (iDB *IndexDB) Load(addrList []types.Address) (map[types.Address]map[types.
 
 			blockHash, err := types.BytesToHash(blockHashBytes)
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			fromAddr, height, err := iDB.GetAddrHeightByHash(&blockHash)
 
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			if fromAddr == nil {
 				iDB.log.Error(fmt.Sprintf("block hash is %s, fromAddr is %s, height is %d", blockHash, fromAddr, height), "method", "Load")
 				continue
 			}
-
-			onRoadListMap[*fromAddr] = append(onRoadListMap[*fromAddr], ledger.HashHeight{
-				Hash:   blockHash,
+			err = loadFn(*fromAddr, addr, ledger.HashHeight{
 				Height: height,
+				Hash:   blockHash,
 			})
+
+			if err != nil {
+				return err
+			}
 		}
 
 		err := iter.Error()
 		iter.Release()
 
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 	}
-	return onRoadData, nil
+	return nil
 }
 
 func (iDB *IndexDB) LoadAllHash() (map[types.Address][]types.Hash, error) {

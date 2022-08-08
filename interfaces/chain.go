@@ -113,3 +113,5 @@ type DBStatus struct {
 	Size   uint64
 	Status string
 }
+
+type LoadOnroadFn func(fromAddr, toAddr types.Address, hashHeight core.HashHeight) error

@@ -1,13 +1,14 @@
 package onroad_pool
 
 import (
-	"container/list"
 	"errors"
 	"fmt"
 	"sort"
 	"sync"
 
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/interfaces/core"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	"github.com/vitelabs/go-vite/v2/log15"
 )
@@ -15,18 +16,21 @@ import (
 var initLog = log15.New("initOnRoadPool", nil)
 
 type contractOnRoadPool struct {
-	gid   types.Gid
-	cache sync.Map //map[types.Address]*callerCache
+	gid     types.Gid
+	cache   sync.Map //map[types.Address]*callerCache
+	storage *onroadStorage
 
 	chain chainReader
 	log   log15.Logger
 }
 
-func NewContractOnRoadPool(gid types.Gid, chain chainReader) OnRoadPool {
+func NewContractOnRoadPool(gid types.Gid, chain chainReader, db *leveldb.DB) OnRoadPool {
 	or := &contractOnRoadPool{
 		gid:   gid,
 		chain: chain,
 		log:   log15.New("contractOnRoadPool", gid),
+
+		storage: newOnroadStorage(db),
 	}
 	if err := or.loadOnRoad(); err != nil {
 		panic(fmt.Sprintf("loadOnRoad, err is %v", err))
@@ -35,25 +39,34 @@ func NewContractOnRoadPool(gid types.Gid, chain chainReader) OnRoadPool {
 }
 
 func (p *contractOnRoadPool) loadOnRoad() error {
-	p.log.Info("loadOnRoad from chain")
-	contractMap, err := p.chain.LoadOnRoad(p.gid)
+	toAddrStat := make(map[types.Address]uint64)
+	var lastToAddr *types.Address
+	p.log.Info("start loadOnRoad from chain into onroad")
+	err := p.chain.LoadOnRoadRange(p.gid, func(fromAddr, toAddr types.Address, hashHeight core.HashHeight) error {
+		var cc *callerCache
+		if value, ok := p.cache.Load(toAddr); ok {
+			cc = value.(*callerCache)
+		} else {
+			raw, _ := p.cache.LoadOrStore(toAddr, NewCallerCache(toAddr, p.storage))
+			cc = raw.(*callerCache)
+		}
+		if cc == nil {
+			return fmt.Errorf("error load caller cache for %s", toAddr)
+		}
+		if toAddrStat[toAddr] == 0 && lastToAddr != nil {
+			p.log.Info(fmt.Sprintf("initLoad one caller, len=%v", toAddrStat[*lastToAddr]), "contract", *lastToAddr)
+		}
+		toAddrStat[toAddr] = toAddrStat[toAddr] + 1
+		lastToAddr = &toAddr
+		return cc.initAdd(fromAddr, toAddr, hashHeight)
+	})
+	if lastToAddr != nil {
+		p.log.Info(fmt.Sprintf("initLoad one caller, len=%v", toAddrStat[*lastToAddr]), "contract", *lastToAddr)
+	}
 	if err != nil {
 		return err
 	}
-	p.log.Info("start loadOnRoad into pool")
-	// resort the map
-	for contract, callerMap := range contractMap {
-		cc, _ := p.cache.LoadOrStore(contract, NewCallerCache())
-		for caller, orList := range callerMap {
-			if initErr := cc.(*callerCache).initLoad(p.chain, caller, orList); initErr != nil {
-				p.log.Error("loadOnRoad failed", "err", initErr, "caller", caller)
-				return err
-			}
-		}
-		if cc.(*callerCache).len() > 0 {
-			p.log.Info(fmt.Sprintf("initLoad one caller, len=%v", cc.(*callerCache).len()), "contract", contract)
-		}
-	}
+	p.log.Info("end loadOnRoad from chain into onroad")
 	p.log.Info("success loadOnRoad")
 	return nil
 }
@@ -182,9 +195,11 @@ func (p *contractOnRoadPool) DeleteAccountBlocks(orAddr types.Address, blocks []
 }
 
 func (p *contractOnRoadPool) insertOnRoad(orAddr, caller types.Address, or orHashHeight, isWrite bool) error {
+	p.log.Info(fmt.Sprintf("insert onroad: %s -> %s %d %s isWrite=%v", caller, orAddr, or.Height, or.Hash, isWrite))
+
 	cc, exist := p.cache.Load(orAddr)
 	if !exist || cc == nil {
-		cc, _ = p.cache.LoadOrStore(orAddr, NewCallerCache())
+		cc, _ = p.cache.LoadOrStore(orAddr, NewCallerCache(orAddr, p.storage))
 	}
 	if err := cc.(*callerCache).addTx(&caller, or, isWrite); err != nil {
 		return err
@@ -193,6 +208,7 @@ func (p *contractOnRoadPool) insertOnRoad(orAddr, caller types.Address, or orHas
 }
 
 func (p *contractOnRoadPool) deleteOnRoad(orAddr, caller types.Address, or orHashHeight, isWrite bool) error {
+	p.log.Info(fmt.Sprintf("delete onroad: %s -> %s %d %s isWrite=%v", caller, orAddr, or.Height, or.Hash, isWrite))
 	isCallerContract := types.IsContractAddr(caller)
 	cc, exist := p.cache.Load(orAddr)
 	if !exist || cc == nil {
@@ -243,57 +259,31 @@ func (c *contractOnRoadPool) Info() map[string]interface{} {
 }
 
 type callerCache struct {
-	cache map[types.Address]*list.List
-	mu    sync.RWMutex
+	storage *onroadStorage
+	address types.Address
+	mu      sync.RWMutex
 }
 
-func NewCallerCache() *callerCache {
+func NewCallerCache(address types.Address, storage *onroadStorage) *callerCache {
 	return &callerCache{
-		cache: make(map[types.Address]*list.List),
+		address: address,
+		storage: storage,
 	}
 }
 
-func (cc *callerCache) initLoad(chain chainReader, caller types.Address, orList []ledger.HashHeight) error {
-	isCallerContract := types.IsContractAddr(caller)
-	orSortedList := make(onRoadList, 0)
-	for k, _ := range orList {
-		or := &orHashHeight{
-			Height: orList[k].Height,
-			Hash:   orList[k].Hash,
-		}
-		if !isCallerContract {
-			index := uint8(0)
-			or.SubIndex = &index
-		}
-		// completeBlock, err := chain.GetCompleteBlockByHash(or.Hash)
-		// if err != nil {
-		// 	return err
-		// }
-		// if completeBlock == nil {
-		// 	return ErrFindCompleteBlock
-		// }
-		// if completeBlock.IsReceiveBlock() {
-		// 	or.Height = completeBlock.Height // refer to its parent receive's height
-		// 	for k, v := range completeBlock.SendBlockList {
-		// 		if v.Hash == or.Hash {
-		// 			idx := uint8(k)
-		// 			or.SubIndex = &idx
-		// 			break
-		// 		}
-		// 	}
-		// }
-		orSortedList = append(orSortedList, or)
+func (cc *callerCache) initAdd(fromAddr, toAddr types.Address, hashHeight core.HashHeight) error {
+	isCallerContract := types.IsContractAddr(fromAddr)
+	or := &orHashHeight{
+		Height: hashHeight.Height,
+		Hash:   hashHeight.Hash,
 	}
-	sort.Sort(orSortedList)
-	for _, v := range orSortedList {
-		initLog.Debug(fmt.Sprintf("addTx %v %v %v", v.Hash, v.Height, v.SubIndex))
-		if err := cc.addTx(&caller, *v, true); err != nil {
-			return err
-		}
+	if !isCallerContract {
+		index := uint32(0)
+		or.SubIndex = &index
 	}
-	return nil
+	initLog.Debug(fmt.Sprintf("addTx %s", or.String()))
+	return cc.addTx(&fromAddr, *or, true)
 }
-
 func (cc *callerCache) getAndLazyUpdateFrontTxOfAllCallers(reader chainReader) ([]*orHashHeight, error) {
 	txs, err := cc.getFrontTxOfAllCallers()
 	if err != nil {
@@ -305,7 +295,8 @@ func (cc *callerCache) getAndLazyUpdateFrontTxOfAllCallers(reader chainReader) (
 	for _, tx := range txs {
 		rr, err := cc.lazyUpdateFrontTx(reader, tx)
 		if err != nil {
-			return nil, err
+			onroadPoolLog.Warn("lazy update front tx failed", "err", err)
+			continue
 		}
 		result = append(result, rr)
 	}
@@ -316,13 +307,17 @@ func (cc *callerCache) getFrontTxOfAllCallers() ([]*orHeightValue, error) {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
+	m, err := cc.storage.GetAllFirstOnroadTx(cc.address)
+	if err != nil {
+		return nil, err
+	}
 	orList := make([]*orHeightValue, 0)
-
-	for _, l := range cc.cache {
-		if ele := l.Front(); ele != nil {
-			front := ele.Value.(*orHeightValue)
-			orList = append(orList, front)
+	for _, list := range m {
+		front, err2 := newOrHeightValueFromOnroadTxs(list)
+		if err2 != nil {
+			return nil, err2
 		}
+		orList = append(orList, &front)
 	}
 	return orList, nil
 }
@@ -346,24 +341,22 @@ func (cc *callerCache) getFrontTxByCaller(caller *types.Address) (*orHeightValue
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
-	value, exist := cc.cache[*caller]
-	if !exist || value == nil {
-		return nil, nil
+	txs, err := cc.storage.GetFirstOnroadTx(cc.address, *caller)
+	if err != nil {
+		return nil, err
 	}
-	ele := cc.cache[*caller].Front()
-	if ele == nil {
-		return nil, nil
-	}
-	return ele.Value.(*orHeightValue), nil
+
+	result, err := newOrHeightValueFromOnroadTxs(txs)
+	return &result, err
 }
 
 func (cc *callerCache) lazyUpdateFrontTx(reader chainReader, hv *orHeightValue) (*orHashHeight, error) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
-	subs := hv.dirtySubIndex()
+	subs := hv.dirtyTxs()
 	if len(subs) > 0 {
-		block, err := reader.GetCompleteBlockByHash(subs[0].Hash)
+		block, err := reader.GetCompleteBlockByHash(subs[0].FromHash)
 		if err != nil {
 			return nil, err
 		}
@@ -372,142 +365,57 @@ func (cc *callerCache) lazyUpdateFrontTx(reader chainReader, hv *orHeightValue) 
 		}
 		for i, sendBlock := range block.SendBlockList {
 			for _, sub := range subs {
-				if sub.Hash == sendBlock.Hash {
-					j := uint8(i)
-					sub.SubIndex = &j
+				if sub.FromHash == sendBlock.Hash {
+					j := uint32(i)
+					sub.FromIndex = &j
+					updateResult, err := cc.storage.updateFromIndex(*sub)
+					if err != nil {
+						return nil, err
+					}
+					if !updateResult {
+						return nil, fmt.Errorf("dirty OnroadTx %s, %s, %s", sub.ToAddr, sub.FromAddr, sub.FromHash)
+					}
 				}
 			}
 		}
 
-		subs = hv.dirtySubIndex()
+		subs = hv.dirtyTxs()
 		if len(subs) > 0 {
 			return nil, errors.New("dirty sub index")
 		}
 	}
-	return hv.minIndex()
+	tx, err := hv.minTx()
+	if err != nil {
+		return nil, err
+	}
+	if tx == nil {
+		return nil, nil
+	}
+	return newOrHashHeightFromOnroadTx(tx), nil
 }
 
+// @todo fix
 func (cc *callerCache) len() int {
 	cc.mu.RLock()
 	defer cc.mu.RUnlock()
 
 	count := 0
-	for _, l := range cc.cache {
-		count += l.Len()
-	}
+	// for _, l := range cc.cache {
+	// 	count += l.Len()
+	// }
 	return count
 }
 
 func (cc *callerCache) addTx(caller *types.Address, or orHashHeight, isWrite bool) error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
-
-	value, ok := cc.cache[*caller]
-	if !ok || value.Len() <= 0 {
-		l := list.New()
-		item := newOrHeightValue(or)
-		l.PushFront(&item)
-		cc.cache[*caller] = l
-		return nil
-	}
-
-	l := cc.cache[*caller]
-	var ele *list.Element
-	if isWrite {
-		for ele = l.Back(); ele != nil; ele = ele.Prev() {
-			origin := ele.Value.(*orHeightValue)
-			if origin == nil {
-				continue
-			}
-			if origin.Height > or.Height {
-				continue
-			}
-			if origin.Height < or.Height {
-				newValue := newOrHeightValue(or)
-				l.InsertAfter(&newValue, ele)
-				return nil
-			}
-			if origin.Height == or.Height {
-				return origin.push(or)
-			}
-			return errors.New("addTx failed, duplicated")
-		}
-		if ele == nil {
-			newValue := newOrHeightValue(or)
-			l.PushFront(&newValue)
-		}
-
-	} else {
-		for ele = l.Front(); ele != nil; ele = ele.Next() {
-			origin := ele.Value.(*orHeightValue)
-			if origin == nil {
-				continue
-			}
-			if origin.Height < or.Height {
-				continue
-			}
-			if origin.Height > or.Height {
-				newValue := newOrHeightValue(or)
-				l.InsertBefore(&newValue, ele)
-				return nil
-			}
-			// prev.Height == or.Height
-			if origin.Height == or.Height {
-				return origin.push(or)
-			}
-			return errors.New("addTx failed, duplicated")
-		}
-		if ele == nil {
-			newValue := newOrHeightValue(or)
-			l.PushBack(&newValue)
-		}
-	}
-	return nil
+	return cc.storage.insertOnRoadTx(newOnroadTxFromOrHashHeight(*caller, cc.address, or))
 }
 
 func (cc *callerCache) rmTx(caller *types.Address, isCallerContract bool, or orHashHeight, isWrite bool) error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
-	value, ok := cc.cache[*caller]
-	if !ok || value.Len() <= 0 {
-		return errors.New("rmTx failed, callerList is nil")
-	}
+	return cc.storage.deleteOnRoadTx(newOnroadTxFromOrHashHeight(*caller, cc.address, or))
 
-	l := cc.cache[*caller]
-	var ele *list.Element
-	if isWrite {
-		for ele = l.Front(); ele != nil; ele = ele.Next() {
-			origin := ele.Value.(*orHeightValue)
-			if origin.Height == or.Height {
-				if err := origin.remove(or); err != nil {
-					return errors.New("rmTx failed, not find hash, " + err.Error())
-				}
-				if origin.isEmpty() {
-					l.Remove(ele)
-				}
-				return nil
-			} else {
-				return errors.New("rmTx failed, Height not match")
-			}
-		}
-		return errors.New("rmTx failed, write not at the most preferred")
-	} else {
-		for ele = l.Back(); ele != nil; ele = ele.Prev() {
-			origin := ele.Value.(*orHeightValue)
-			if origin == nil {
-				continue
-			}
-			if origin.Height == or.Height {
-				if err := origin.remove(or); err != nil {
-					return errors.New("rmTx failed, not find  hash, " + err.Error())
-				}
-				if origin.isEmpty() {
-					l.Remove(ele)
-				}
-				return nil
-			}
-		}
-		return errors.New("rmTx failed, can't find the onroad")
-	}
 }

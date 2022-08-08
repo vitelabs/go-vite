@@ -89,6 +89,44 @@ func (key *OnRoadKey) HashRefill(hash types.Hash) {
 	copy(key[1+types.AddressSize:1+types.AddressSize+types.HashSize], hash.Bytes())
 }
 
+// ---------------------------------
+
+type OnRoadHeightKey [1 + types.AddressSize + types.AddressSize + types.HeightSize + types.HashSize]byte
+
+func NewOnRoadHeightKey() OnRoadHeightKey {
+	key := OnRoadHeightKey{}
+	key[0] = OnRoadAddressHeightKeyPrefix
+	return key
+}
+func (key OnRoadHeightKey) Bytes() []byte {
+	return key[:]
+}
+
+func (key OnRoadHeightKey) String() string {
+	return string(key[:])
+}
+func (key *OnRoadHeightKey) IteratorPrefix(toAddress, fromAddress types.Address) []byte {
+	key.ToAddressRefill(toAddress)
+	key.FromAddressRefill(fromAddress)
+	return key[:1+types.AddressSize+types.AddressSize]
+}
+
+func (key *OnRoadHeightKey) ToAddressRefill(addr types.Address) {
+	copy(key[1:1+types.AddressSize], addr.Bytes())
+}
+
+func (key *OnRoadHeightKey) FromAddressRefill(addr types.Address) {
+	copy(key[1+types.AddressSize:1+types.AddressSize+types.AddressSize], addr.Bytes())
+}
+
+func (key *OnRoadHeightKey) FromHeightRefill(height uint64) {
+	Uint64Put(key[1+types.AddressSize+types.AddressSize:1+types.AddressSize+types.AddressSize+types.HeightSize], height)
+}
+
+func (key *OnRoadHeightKey) FromHashRefill(hash types.Hash) {
+	copy(key[1+types.AddressSize+types.AddressSize+types.HeightSize:1+types.AddressSize+types.AddressSize+types.HeightSize+types.HashSize], hash.Bytes())
+}
+
 // --------------------------------
 type SnapshotBlockHashKey [1 + types.HashSize]byte
 
