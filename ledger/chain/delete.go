@@ -301,6 +301,9 @@ func (c *chain) deleteAccountBlocks(blocks []*ledger.AccountBlock) error {
 		common.Crit(cErr.Error(), "method", "deleteAccountBlocks")
 	}
 
-	c.em.TriggerDeleteAbs(DeleteAbsEvent, blocks)
+	if err := c.em.TriggerDeleteAbs(DeleteAbsEvent, blocks); err != nil {
+		cErr := fmt.Errorf("trigger.RollbackAccountBlocks failed. Error: %s", err.Error())
+		c.log.Error(cErr.Error())
+	}
 	return nil
 }

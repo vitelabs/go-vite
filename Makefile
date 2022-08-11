@@ -37,6 +37,7 @@ test:
 	GO111MODULE=on go test ./tools/toposort
 	GO111MODULE=on go test ./vm
 	GO111MODULE=on go test ./wallet
+	GO111MODULE=on go test ./ledger/onroad/pool
 
 build_linux_amd64:
 	env GOOS=linux CGO_ENABLED=0 GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-linux/gvite $(MAIN)

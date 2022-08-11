@@ -56,7 +56,10 @@ func (em *eventManager) TriggerInsertAbs(eventType byte, vmAccountBlocks []*inte
 		}
 	case insertAbsEvent:
 		for _, listener := range em.listenerList {
-			listener.InsertAccountBlocks(vmAccountBlocks)
+			err := listener.InsertAccountBlocks(vmAccountBlocks)
+			if err != nil {
+				em.chain.log.Error("Insert Account Block trigger fail", "err", err)
+			}
 		}
 	}
 	return nil
@@ -79,7 +82,10 @@ func (em *eventManager) TriggerDeleteAbs(eventType byte, accountBlocks []*ledger
 		}
 	case DeleteAbsEvent:
 		for _, listener := range em.listenerList {
-			listener.DeleteAccountBlocks(accountBlocks)
+			err := listener.DeleteAccountBlocks(accountBlocks)
+			if err != nil {
+				em.chain.log.Error("Delete Account Block trigger fail", "err", err)
+			}
 		}
 	}
 	return nil

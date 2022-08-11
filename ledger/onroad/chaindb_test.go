@@ -11,7 +11,6 @@ type mockChain interface {
 	GetContractMeta(contractAddress types.Address) (meta *ledger.ContractMeta, err error)
 	IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, error)
 	GetConfirmedTimes(blockHash types.Hash) (uint64, error)
-	LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error)
 	GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 	GetCompleteBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error)
 	GetStakeQuota(addr types.Address) (*types.Quota, error)
@@ -96,10 +95,6 @@ func (db *ChainDb) IsSeedConfirmedNTimes(blockHash types.Hash, n uint64) (bool, 
 }
 
 func (db *ChainDb) GetConfirmedTimes(blockHash types.Hash) (uint64, error) { return 0, nil }
-
-func (db *ChainDb) LoadOnRoad(gid types.Gid) (map[types.Address]map[types.Address][]ledger.HashHeight, error) {
-	return nil, nil
-}
 
 func (db *ChainDb) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
 	return nil, nil

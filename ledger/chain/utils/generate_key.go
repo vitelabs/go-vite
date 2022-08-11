@@ -50,6 +50,15 @@ func CreateOnRoadKey(toAddr types.Address, blockHash types.Hash) OnRoadKey {
 	return key
 }
 
+func CreateOnRoadAddressHeightKey(toAddr types.Address, fromAddr types.Address, fromHeight uint64, fromHash types.Hash) OnRoadHeightKey {
+	key := NewOnRoadHeightKey()
+	key.ToAddressRefill(toAddr)
+	key.FromAddressRefill(fromAddr)
+	key.FromHeightRefill(fromHeight)
+	key.FromHashRefill(fromHash)
+	return key
+}
+
 func CreateAccountIdKey(accountId uint64) AccountIdKey {
 	key := AccountIdKey{}
 	key[0] = AccountIdKeyPrefix

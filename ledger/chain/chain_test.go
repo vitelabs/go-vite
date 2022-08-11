@@ -326,15 +326,6 @@ func TestCheckHash2(t *testing.T) {
 func TestChainForkRollBack(t *testing.T) {
 	c, accountMap, _ := SetUp(t, 3, 100, 2)
 	curSnapshotBlock := c.GetLatestSnapshotBlock()
-	fmt.Println(curSnapshotBlock.Height)
-	TearDown(c)
-
-	// height
-	height := uint64(30)
-	upgrade.CleanupUpgradeBox()
-	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, height))
-
-	c, accountMap, _ = SetUp(t, 10, 0, 0)
 
 	defer func() {
 		TearDown(c)
@@ -343,12 +334,8 @@ func TestChainForkRollBack(t *testing.T) {
 		}
 	}()
 
-	curSnapshotBlocknew := c.GetLatestSnapshotBlock()
-
-	fmt.Println(curSnapshotBlocknew.Height, curSnapshotBlocknew.Height == height-1)
-	if curSnapshotBlocknew.Height != height-1 {
-		t.Fatal(fmt.Sprintf("not equal %+v, %d", curSnapshotBlocknew, height-1))
-	}
+	upgrade.CleanupUpgradeBox()
+	upgrade.InitUpgradeBox(upgrade.NewEmptyUpgradeBox().AddPoint(1, curSnapshotBlock.Height+1))
 
 	InsertAccountBlocks(nil, c, accountMap, 5)
 
@@ -377,8 +364,8 @@ func TestChainForkRollBack(t *testing.T) {
 		return sc
 	}
 	sb := &ledger.SnapshotBlock{
-		PrevHash:        curSnapshotBlocknew.Hash,
-		Height:          curSnapshotBlocknew.Height + 1,
+		PrevHash:        curSnapshotBlock.Hash,
+		Height:          curSnapshotBlock.Height + 1,
 		Timestamp:       &timeNow,
 		SnapshotContent: createSnaoshotContent(),
 	}
