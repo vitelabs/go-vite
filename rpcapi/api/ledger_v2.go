@@ -473,6 +473,9 @@ func GetLogs(c chain.Chain, rangeMap map[string]*Range, topics [][]types.Hash, p
 		if endHeight == 0 || endHeight > acc.Height {
 			endHeight = acc.Height
 		}
+		if startHeight > endHeight {
+			continue
+		}
 		for {
 			offset, count, finish := getHeightPage(startHeight, endHeight, 100)
 			if count == 0 {
