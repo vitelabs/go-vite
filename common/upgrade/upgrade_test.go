@@ -70,7 +70,7 @@ func TestMainnetUpgradeBox(t *testing.T) {
 		},
 		{
 			IsVersion11Upgrade,
-			EndlessHeight,
+			101320000,
 		},
 		{
 			IsVersionXUpgrade,
@@ -80,7 +80,7 @@ func TestMainnetUpgradeBox(t *testing.T) {
 	for _, ele := range cases {
 		testUpgradePoint(t, ele.fc, ele.sHeight)
 	}
-	assert.Equal(t, GetLatestPoint().Version, uint32(10))
+	assert.Equal(t, (int)(GetLatestPoint().Version), 11)
 }
 
 func TestLatestUpgradeBox(t *testing.T) {
