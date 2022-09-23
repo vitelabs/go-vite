@@ -39,6 +39,12 @@ func (p UtilApi) GetPoWNonce(difficulty string, data types.Hash) ([]byte, error)
 		return nil, ErrStrToBigInt
 	}
 
+	difficultyCap := big.NewInt(8034995932)
+	difficultyCap.Mul(difficultyCap, big.NewInt(50))
+	if realDifficulty.Cmp(difficultyCap) > 0 {
+		return nil, ErrDifficultyTooLarge
+	}
+
 	if _, _, isCongestion := quota.CalcQc(p.vite.Chain(), p.vite.Chain().GetLatestSnapshotBlock().Height); isCongestion {
 		return nil, ErrPoWNotSupportedUnderCongestion
 	}
