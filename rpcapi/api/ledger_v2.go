@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/vitelabs/go-vite/v2/ledger/chain"
 	chain_plugins "github.com/vitelabs/go-vite/v2/ledger/chain/plugins"
 	"github.com/vitelabs/go-vite/v2/vm"
+	"github.com/vitelabs/go-vite/v2/vm/contracts/abi"
 	"github.com/vitelabs/go-vite/v2/vm/contracts/dex"
 	"github.com/vitelabs/go-vite/v2/vm/quota"
 	"github.com/vitelabs/go-vite/v2/vm/util"
@@ -137,7 +139,7 @@ func (l *LedgerApi) GetAccountBlocksByAddress(addr types.Address, index int, cou
 
 // GetAccountBlocksByHeightRange [start,end] sorted by height desc
 func (l *LedgerApi) GetAccountBlocksByHeightRange(addr types.Address, start uint64, end uint64) ([]*AccountBlock, error) {
-	if end - start > 1000 {
+	if end-start > 1000 {
 		return nil, fmt.Errorf("height range must be less than 1000")
 	}
 
@@ -270,6 +272,27 @@ func (l *LedgerApi) SendRawTransaction(block *AccountBlock) error {
 	result, err := l.vite.Verifier().VerifyRPCAccountBlock(lb, latestSb)
 	if err != nil {
 		return err
+	}
+
+	{ // @todo delete it
+		if lb.ToAddress == types.AddressDexFund {
+			abiContract := abi.ABIDexFund
+			data := result.AccountBlock.Data
+
+			method := abiContract.Methods[abi.MethodNameDexFundPlaceOrder]
+			for _, method := range abiContract.Methods {
+				method.Id()
+			}
+			if bytes.Equal(method.Id(), data[:4]) {
+				param := new(dex.ParamPlaceOrder)
+				if err = abiContract.UnpackMethod(param, abi.MethodNameDexFundPlaceOrder, data); err != nil {
+					return err
+				}
+				if param.OrderType != 0 {
+					return fmt.Errorf("error order params")
+				}
+			}
+		}
 	}
 
 	if result != nil {
@@ -703,12 +726,12 @@ func (l *LedgerApi) GetChunksV2(startHeight interface{}, endHeight interface{}) 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if startHeightUint64 > endHeightUint64 {
 		return nil, fmt.Errorf("startHeight must be less than endHeight")
 	}
 
-	if endHeightUint64 - startHeightUint64 > 1000 {
+	if endHeightUint64-startHeightUint64 > 1000 {
 		return nil, fmt.Errorf("height range must be less than 1000")
 	}
 
