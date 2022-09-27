@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
 	"github.com/vitelabs/go-vite/v2/crypto"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
@@ -147,7 +148,7 @@ func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook, preHash ty
 		mc.handleTakerRes(taker)
 	} else {
 		// must not set db in recursiveTakeOrder
-		if err = mc.recursiveTakeOrder(taker, maker, makerBook, &modifiedMakers, &txs, IsDexFeeFork(mc.db)); err != nil {
+		if err = mc.recursiveTakeOrder(taker, maker, makerBook, &modifiedMakers, &txs, GenerateHeightPoint(mc.db)); err != nil {
 			return
 		} else {
 			mc.handleTakerRes(taker)
@@ -162,7 +163,7 @@ func (mc *Matcher) doMatchTaker(taker *Order, makerBook *levelDbBook, preHash ty
 }
 
 //TODO add assertion for order calculation correctness
-func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBook, modifiedMakers *[]*Order, txs *[]*OrderTx, isDexFeeFork bool) error {
+func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBook, modifiedMakers *[]*Order, txs *[]*OrderTx, heightPoint upgrade.HeightPoint) error {
 	if filterTimeout(mc.db, maker) {
 		*modifiedMakers = append(*modifiedMakers, maker)
 	} else {
@@ -174,7 +175,7 @@ func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBoo
 				taker.CancelReason = cancelledByPostOnlyMatched
 				return nil
 			}
-			tx := calculateOrderAndTx(taker, maker, mc.MarketInfo, isDexFeeFork)
+			tx := calculateOrderAndTx(taker, maker, mc.MarketInfo, heightPoint)
 			*txs = append(*txs, tx)
 			if taker.Status == PartialExecuted && len(*txs) >= maxTxsCountPerTaker {
 				taker.Status = Cancelled
@@ -189,7 +190,7 @@ func (mc *Matcher) recursiveTakeOrder(taker, maker *Order, makerBook *levelDbBoo
 		return nil
 	}
 	if newMaker, ok := makerBook.nextOrder(); ok {
-		return mc.recursiveTakeOrder(taker, newMaker, makerBook, modifiedMakers, txs, isDexFeeFork)
+		return mc.recursiveTakeOrder(taker, newMaker, makerBook, modifiedMakers, txs, heightPoint)
 	} else {
 		return nil
 	}
@@ -405,7 +406,51 @@ func (mc *Matcher) deleteOrder(order *Order) {
 	}
 }
 
-func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo, isDexFeeFork bool) (tx *OrderTx) {
+func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo, heightPoint upgrade.HeightPoint) (tx *OrderTx) {
+	if heightPoint.IsVersion12Upgrade() {
+		return calculateOrderAndTxAfterUpgrade12(taker, maker, marketInfo, heightPoint)
+	} else {
+		return calculateOrderAndTxBeforeUpgrade12(taker, maker, marketInfo, heightPoint)
+	}
+}
+
+func calculateOrderAndTxAfterUpgrade12(taker, maker *Order, marketInfo *MarketInfo, heightPoint upgrade.HeightPoint) (tx *OrderTx) {
+	tx = &OrderTx{}
+	tx.Id = generateTxId(taker.Id, maker.Id)
+	tx.TakerSide = taker.Side
+	tx.TakerId = taker.Id
+	tx.MakerId = maker.Id
+	tx.Price = maker.Price
+	takerQuantity := SubBigIntAbs(taker.Quantity, taker.ExecutedQuantity)
+	if taker.Type == Market && !taker.Side {
+		maxTakerAmount := SubBigIntAbs(taker.Amount, taker.ExecutedAmount)
+		maxTakerQuantity := calculateOrderQuantity(taker, maxTakerAmount, maker.Price, marketInfo.QuoteTokenDecimals-marketInfo.TradeTokenDecimals)
+		takerQuantity = MinBigInt(takerQuantity, maxTakerQuantity)
+	}
+	executeQuantity := MinBigInt(takerQuantity, SubBigIntAbs(maker.Quantity, maker.ExecutedQuantity))
+	takerAmount := calculateOrderAmount(taker, executeQuantity, maker.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
+	makerAmount := calculateOrderAmount(maker, executeQuantity, maker.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
+	executeAmount := MinBigInt(takerAmount, makerAmount)
+	//fmt.Printf("calculateOrderAndTx executeQuantity %v, takerAmount %v, makerAmount %v, executeAmount %v\n", new(big.Int).SetBytes(executeQuantity).String(), new(big.Int).SetBytes(takerAmount).String(), new(big.Int).SetBytes(makerAmount).String(), new(big.Int).SetBytes(executeAmount).String())
+	takerFee, takerExecutedFee, takerOperatorFee, takerExecutedOperatorFee := CalculateFeeAndExecutedFee(taker, executeAmount, taker.TakerFeeRate, taker.TakerOperatorFeeRate, heightPoint)
+	makerFee, makerExecutedFee, makerOperatorFee, makerExecutedOperatorFee := CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, heightPoint)
+	updateOrderAfterUpgrade12(taker, executeQuantity, executeAmount, takerExecutedFee, takerExecutedOperatorFee, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals, maker.Price)
+	updateOrderAfterUpgrade12(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals, maker.Price)
+	tx.Quantity = executeQuantity
+	tx.Amount = executeAmount
+	tx.takerAddress = taker.Address
+	tx.makerAddress = maker.Address
+	tx.tradeToken = marketInfo.TradeToken
+	tx.quoteToken = marketInfo.QuoteToken
+	tx.TakerFee = takerFee
+	tx.TakerOperatorFee = takerOperatorFee
+	tx.MakerFee = makerFee
+	tx.MakerOperatorFee = makerOperatorFee
+	tx.Timestamp = taker.Timestamp
+	return tx
+}
+
+func calculateOrderAndTxBeforeUpgrade12(taker, maker *Order, marketInfo *MarketInfo, heightPoint upgrade.HeightPoint) (tx *OrderTx) {
 	tx = &OrderTx{}
 	tx.Id = generateTxId(taker.Id, maker.Id)
 	tx.TakerSide = taker.Side
@@ -417,10 +462,10 @@ func calculateOrderAndTx(taker, maker *Order, marketInfo *MarketInfo, isDexFeeFo
 	makerAmount := calculateOrderAmount(maker, executeQuantity, maker.Price, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals)
 	executeAmount := MinBigInt(takerAmount, makerAmount)
 	//fmt.Printf("calculateOrderAndTx executeQuantity %v, takerAmount %v, makerAmount %v, executeAmount %v\n", new(big.Int).SetBytes(executeQuantity).String(), new(big.Int).SetBytes(takerAmount).String(), new(big.Int).SetBytes(makerAmount).String(), new(big.Int).SetBytes(executeAmount).String())
-	takerFee, takerExecutedFee, takerOperatorFee, takerExecutedOperatorFee := CalculateFeeAndExecutedFee(taker, executeAmount, taker.TakerFeeRate, taker.TakerOperatorFeeRate, isDexFeeFork)
-	makerFee, makerExecutedFee, makerOperatorFee, makerExecutedOperatorFee := CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, isDexFeeFork)
-	updateOrder(taker, executeQuantity, executeAmount, takerExecutedFee, takerExecutedOperatorFee, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals, maker.Price)
-	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals, maker.Price)
+	takerFee, takerExecutedFee, takerOperatorFee, takerExecutedOperatorFee := CalculateFeeAndExecutedFee(taker, executeAmount, taker.TakerFeeRate, taker.TakerOperatorFeeRate, heightPoint)
+	makerFee, makerExecutedFee, makerOperatorFee, makerExecutedOperatorFee := CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, heightPoint)
+	updateOrder(taker, executeQuantity, executeAmount, takerExecutedFee, takerExecutedOperatorFee, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals, maker.Price, heightPoint)
+	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, marketInfo.TradeTokenDecimals-marketInfo.QuoteTokenDecimals, maker.Price, heightPoint)
 	tx.Quantity = executeQuantity
 	tx.Amount = executeAmount
 	tx.takerAddress = taker.Address
@@ -443,7 +488,34 @@ func calculateOrderAmount(order *Order, quantity []byte, price []byte, decimalsD
 	return amount
 }
 
-func updateOrder(order *Order, quantity []byte, amount []byte, executedBaseFee, executedOperatorFee []byte, decimalsDiff int32, executedPrice []byte) []byte {
+func calculateOrderQuantity(order *Order, amount []byte, price []byte, decimalsDiff int32) []byte {
+	quantity := CalculateRawQuantity(amount, price, decimalsDiff)
+	return quantity
+}
+
+func updateOrder(order *Order, quantity []byte, amount []byte, executedBaseFee, executedOperatorFee []byte, decimalsDiff int32, executedPrice []byte, heightPoint upgrade.HeightPoint) []byte {
+	if heightPoint.IsVersion12Upgrade() {
+		return updateOrderAfterUpgrade12(order, quantity, amount, executedBaseFee, executedOperatorFee, decimalsDiff, executedPrice)
+	} else {
+		return updateOrderBeforeUpgrade12(order, quantity, amount, executedBaseFee, executedOperatorFee, decimalsDiff, executedPrice)
+	}
+}
+
+func updateOrderAfterUpgrade12(order *Order, quantity []byte, amount []byte, executedBaseFee, executedOperatorFee []byte, decimalsDiff int32, executedPrice []byte) []byte {
+	if bytes.Equal(SubBigIntAbs(order.Quantity, order.ExecutedQuantity), quantity) ||
+		order.Type == Market && !order.Side && bytes.Equal(SubBigIntAbs(order.Amount, order.ExecutedAmount), amount) || // market buy order execute all amount
+		IsDustOrder(order, quantity, decimalsDiff, executedPrice) {
+		order.Status = FullyExecuted
+	} else {
+		order.Status = PartialExecuted
+	}
+	order.ExecutedAmount = AddBigInt(order.ExecutedAmount, amount) // changed
+	order.ExecutedBaseFee = executedBaseFee
+	order.ExecutedOperatorFee = executedOperatorFee
+	order.ExecutedQuantity = AddBigInt(order.ExecutedQuantity, quantity)
+	return amount
+}
+func updateOrderBeforeUpgrade12(order *Order, quantity []byte, amount []byte, executedBaseFee, executedOperatorFee []byte, decimalsDiff int32, executedPrice []byte) []byte {
 	order.ExecutedAmount = AddBigInt(order.ExecutedAmount, amount)
 	if bytes.Equal(SubBigIntAbs(order.Quantity, order.ExecutedQuantity), quantity) ||
 		order.Type == Market && !order.Side && bytes.Equal(SubBigIntAbs(order.Amount, order.ExecutedAmount), amount) || // market buy order execute all amount
@@ -467,8 +539,21 @@ func IsDustOrder(order *Order, quantity []byte, decimalsDiff int32, executedPric
 	}
 }
 
+func IsDustMarketBuyOrder(order *Order) bool {
+	// if order.Type != Market {
+	// 	return IsOrderDustForPrice(order, quantity, decimalsDiff, order.Price)
+	// } else {
+	// 	return IsOrderDustForPrice(order, quantity, decimalsDiff, executedPrice)
+	// }
+	return false
+}
+
 func IsOrderDustForPrice(order *Order, quantity []byte, decimalsDiff int32, price []byte) bool {
 	return CalculateRawAmountF(SubBigIntAbs(SubBigIntAbs(order.Quantity, order.ExecutedQuantity), quantity), price, decimalsDiff).Cmp(new(big.Float).SetInt64(int64(1))) < 0
+}
+
+func CalculateRawQuantity(amount []byte, price []byte, decimalsDiff int32) []byte {
+	return RoundQuantity(CalculateRawQuantityF(amount, price, decimalsDiff)).Bytes()
 }
 
 func CalculateRawAmount(quantity []byte, price []byte, decimalsDiff int32) []byte {
@@ -481,6 +566,12 @@ func CalculateRawAmountF(quantity []byte, price []byte, decimalsDiff int32) *big
 	return AdjustForDecimalsDiff(new(big.Float).SetPrec(bigFloatPrec).Mul(prF, qtF), decimalsDiff)
 }
 
+func CalculateRawQuantityF(amount []byte, price []byte, decimalsDiff int32) *big.Float {
+	amountF := new(big.Float).SetPrec(bigFloatPrec).SetInt(new(big.Int).SetBytes(amount))
+	prF, _ := new(big.Float).SetPrec(bigFloatPrec).SetString(BytesToPrice(price))
+	return AdjustForDecimalsDiff(new(big.Float).SetPrec(bigFloatPrec).Quo(amountF, prF), decimalsDiff)
+}
+
 func CalculateAmountForRate(amount []byte, rate int32) []byte {
 	if rate > 0 {
 		amtF := new(big.Float).SetPrec(bigFloatPrec).SetInt(new(big.Int).SetBytes(amount))
@@ -491,11 +582,11 @@ func CalculateAmountForRate(amount []byte, rate int32) []byte {
 	}
 }
 
-func CalculateFeeAndExecutedFee(order *Order, amount []byte, feeRate, operatorFeeRate int32, isDexFeeFork bool) (incBaseFee, executedBaseFee, incOperatorFee, executedOperatorFee []byte) {
+func CalculateFeeAndExecutedFee(order *Order, amount []byte, feeRate, operatorFeeRate int32, heightPoint upgrade.HeightPoint) (incBaseFee, executedBaseFee, incOperatorFee, executedOperatorFee []byte) {
 	var leaved bool
 	if incBaseFee, executedBaseFee, leaved = calculateExecutedFee(amount, feeRate, order.Side, order.ExecutedBaseFee, order.LockedBuyFee, order.ExecutedBaseFee, order.ExecutedOperatorFee); leaved {
 		incOperatorFee, executedOperatorFee, _ = calculateExecutedFee(amount, operatorFeeRate, order.Side, order.ExecutedOperatorFee, order.LockedBuyFee, executedBaseFee, order.ExecutedOperatorFee)
-	} else if isDexFeeFork {
+	} else if heightPoint.IsDexFeeUpgrade() {
 		executedOperatorFee = order.ExecutedOperatorFee
 	}
 	return

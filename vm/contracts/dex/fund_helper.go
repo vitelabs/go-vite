@@ -569,6 +569,14 @@ func MaxTotalFeeRate(order Order) int32 {
 	}
 }
 
+func GenerateHeightPoint(db interfaces.VmDb) upgrade.HeightPoint {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return upgrade.NewHeightPoint(latestSb.Height)
+	}
+}
+
 func IsDexFeeFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
