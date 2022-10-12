@@ -553,7 +553,7 @@ func IsOrderDustForPrice(order *Order, quantity []byte, decimalsDiff int32, pric
 }
 
 func CalculateRawQuantity(amount []byte, price []byte, decimalsDiff int32) []byte {
-	return RoundQuantity(CalculateRawQuantityF(amount, price, decimalsDiff)).Bytes()
+	return FloorQuantity(CalculateRawQuantityF(amount, price, decimalsDiff)).Bytes()
 }
 
 func CalculateRawAmount(quantity []byte, price []byte, decimalsDiff int32) []byte {
