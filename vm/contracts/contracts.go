@@ -54,15 +54,15 @@ type builtinContract struct {
 }
 
 var (
-	simpleContracts          = newSimpleContracts()
-	dexContracts             = newDexContracts()
-	dexAgentContracts        = newDexAgentContracts()
-	leafContracts            = newLeafContracts()
-	earthContracts           = newEarthContracts()
-	dexRobotContracts        = newDexRobotContracts()
-	dexStableMarketContracts = newDexStableMarketContracts()
-	dexEnrichOrderContracts  = newDexEnrichOrderContracts()
-	dexCrossTransferContracts  = newDexCrossTransferContracts()
+	simpleContracts           = newSimpleContracts()
+	dexContracts              = newDexContracts()
+	dexAgentContracts         = newDexAgentContracts()
+	leafContracts             = newLeafContracts()
+	earthContracts            = newEarthContracts()
+	dexRobotContracts         = newDexRobotContracts()
+	dexStableMarketContracts  = newDexStableMarketContracts()
+	dexEnrichOrderContracts   = newDexEnrichOrderContracts()
+	dexCrossTransferContracts = newDexCrossTransferContracts()
 )
 
 func newSimpleContracts() map[types.Address]*builtinContract {
@@ -252,7 +252,7 @@ func newDexCrossTransferContracts() map[types.Address]*builtinContract {
 // GetBuiltinContractMethod finds method instance of built-in contract method by address and method id
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if upgrade.IsVersionXUpgrade(sbHeight) {
+	if upgrade.IsVersion13Upgrade(sbHeight) {
 		contractsMap = dexCrossTransferContracts
 	} else if upgrade.IsVersion11Upgrade(sbHeight) {
 		contractsMap = dexEnrichOrderContracts
