@@ -3,6 +3,7 @@ package upgrade
 type HeightPoint interface {
 	IsVersion12Upgrade() bool
 	IsDexFeeUpgrade() bool
+	IsStemUpgrade() bool
 }
 
 type heightPoint struct {
@@ -17,6 +18,10 @@ func (p heightPoint) IsDexFeeUpgrade() bool {
 	return IsDexFeeUpgrade(p.height)
 }
 
+func (p heightPoint) IsStemUpgrade() bool {
+	return IsStemUpgrade(p.height)
+}
+
 func (p heightPoint) IsVersion12Upgrade() bool {
 	return IsVersion12Upgrade(p.height)
 }
@@ -29,6 +34,11 @@ type mockHeightPoint struct {
 // IsDexFeeUpgrade implements HeightPoint
 func (m mockHeightPoint) IsDexFeeUpgrade() bool {
 	return m.box.isActive(3, m.height)
+}
+
+// IsStemUpgrade implements HeightPoint
+func (m mockHeightPoint) IsStemUpgrade() bool {
+	return m.box.isActive(4, m.height)
 }
 
 // IsVersion12Upgrade implements HeightPoint

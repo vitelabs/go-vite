@@ -99,6 +99,11 @@ func RoundQuantity(quantityF *big.Float) *big.Int {
 	return quantity
 }
 
+func FloorQuantity(quantityF *big.Float) *big.Int {
+	quantity, _ := quantityF.Int(nil)
+	return quantity
+}
+
 func NegativeAmount(amount []byte) *big.Int {
 	return new(big.Int).Neg(new(big.Int).SetBytes(amount))
 }

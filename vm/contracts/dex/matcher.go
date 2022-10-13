@@ -504,7 +504,7 @@ func updateOrder(order *Order, quantity []byte, amount []byte, executedBaseFee, 
 func updateOrderAfterUpgrade12(order *Order, quantity []byte, amount []byte, executedBaseFee, executedOperatorFee []byte, decimalsDiff int32, executedPrice []byte) []byte {
 	if bytes.Equal(SubBigIntAbs(order.Quantity, order.ExecutedQuantity), quantity) ||
 		order.Type == Market && !order.Side && bytes.Equal(SubBigIntAbs(order.Amount, order.ExecutedAmount), amount) || // market buy order execute all amount
-		IsDustOrder(order, quantity, decimalsDiff, executedPrice) {
+		IsDustOrderAfterUpgrade12(order, quantity, amount, decimalsDiff, executedPrice) {
 		order.Status = FullyExecuted
 	} else {
 		order.Status = PartialExecuted
@@ -539,12 +539,20 @@ func IsDustOrder(order *Order, quantity []byte, decimalsDiff int32, executedPric
 	}
 }
 
-func IsDustMarketBuyOrder(order *Order) bool {
-	// if order.Type != Market {
-	// 	return IsOrderDustForPrice(order, quantity, decimalsDiff, order.Price)
-	// } else {
-	// 	return IsOrderDustForPrice(order, quantity, decimalsDiff, executedPrice)
-	// }
+// leave amount is too small for calculate precision
+func IsDustOrderAfterUpgrade12(order *Order, quantity, amount []byte, decimalsDiff int32, executedPrice []byte) bool {
+	if order.Type != Market {
+		return IsOrderDustForPrice(order, quantity, decimalsDiff, order.Price)
+	} else {
+		return IsDustMarketBuyOrder(order, amount, -decimalsDiff, executedPrice)
+	}
+}
+
+func IsDustMarketBuyOrder(order *Order, amount []byte, decimalsDiff int32, executedPrice []byte) bool {
+	if !order.Side {
+		return IsOrderDustForAmount(order, amount, decimalsDiff, executedPrice)
+	}
+
 	return false
 }
 
@@ -552,8 +560,12 @@ func IsOrderDustForPrice(order *Order, quantity []byte, decimalsDiff int32, pric
 	return CalculateRawAmountF(SubBigIntAbs(SubBigIntAbs(order.Quantity, order.ExecutedQuantity), quantity), price, decimalsDiff).Cmp(new(big.Float).SetInt64(int64(1))) < 0
 }
 
+func IsOrderDustForAmount(order *Order, amount []byte, decimalsDiff int32, price []byte) bool {
+	return CalculateRawQuantityF(SubBigIntAbs(SubBigIntAbs(order.Amount, order.ExecutedAmount), amount), price, decimalsDiff).Cmp(new(big.Float).SetInt64(int64(1))) < 0
+}
+
 func CalculateRawQuantity(amount []byte, price []byte, decimalsDiff int32) []byte {
-	return RoundQuantity(CalculateRawQuantityF(amount, price, decimalsDiff)).Bytes()
+	return FloorQuantity(CalculateRawQuantityF(amount, price, decimalsDiff)).Bytes()
 }
 
 func CalculateRawAmount(quantity []byte, price []byte, decimalsDiff int32) []byte {
