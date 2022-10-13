@@ -219,13 +219,7 @@ func (md *MethodDexFundPlaceOrder) DoSend(db interfaces.VmDb, block *ledger.Acco
 	if err = cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	}
-
-	heightPoint := dex.GenerateHeightPoint(db)
-	if heightPoint.IsVersion12Upgrade() {
-		return dex.PreCheckOrderParamAfterUpgrade12(param, true)
-	} 
-
-	return dex.PreCheckOrderParamBeforeUpgrade12(param, heightPoint.IsStemUpgrade())
+	return dex.PreCheckOrderParam(param, dex.IsStemFork(db))
 }
 
 func (md *MethodDexFundPlaceOrder) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
@@ -1700,13 +1694,7 @@ func (md *MethodDexFundPlaceAgentOrder) DoSend(db interfaces.VmDb, block *ledger
 	if err := cabi.ABIDexFund.UnpackMethod(param, md.MethodName, block.Data); err != nil {
 		return err
 	}
-
-	heightPoint := dex.GenerateHeightPoint(db)
-	if heightPoint.IsVersion12Upgrade() {
-		return dex.PreCheckOrderParamAfterUpgrade12(&param.ParamPlaceOrder, true)
-	} 
-
-	return dex.PreCheckOrderParamBeforeUpgrade12(&param.ParamPlaceOrder, true)
+	return dex.PreCheckOrderParam(&param.ParamPlaceOrder, true)
 }
 
 func (md MethodDexFundPlaceAgentOrder) DoReceive(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, vm vmEnvironment) ([]*ledger.AccountBlock, error) {
