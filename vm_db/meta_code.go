@@ -43,8 +43,8 @@ func (vdb *vmDb) GetContractCode() ([]byte, error) {
 
 	return vdb.chain.GetContractCode(*vdb.address)
 }
-func (vdb *vmDb) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
-	return nil, nil
+func (vdb *vmDb) GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error) {
+	return vdb.chain.GetDeployedContractCode(deployedContractAddr, callerAddr)
 }
 
 func (vdb *vmDb) GetUnsavedContractMeta() map[types.Address]*ledger.ContractMeta {

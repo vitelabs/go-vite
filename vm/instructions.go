@@ -2,6 +2,8 @@ package vm
 
 import (
 	"encoding/hex"
+	"errors"
+	"math/big"
 
 	"golang.org/x/crypto/sha3"
 
@@ -380,6 +382,18 @@ func opCaller(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byt
 	return nil, nil
 }
 
+// VEP19
+func opCallerV2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	var originSendBlock *ledger.AccountBlock
+	if vm.vmContext.originSendBlock == nil {
+		originSendBlock = c.sendBlock
+	} else {
+		originSendBlock = vm.vmContext.originSendBlock
+	}
+	stack.push(c.intPool.Get().SetBytes(originSendBlock.AccountAddress.Bytes()))
+	return nil, nil
+}
+
 func opOffchainCaller(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	stack.push(c.intPool.GetZero())
 	return nil, nil
@@ -466,6 +480,28 @@ func opReturnDataSize(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack
 	return nil, nil
 }
 
+// VEP19
+func opReturnDataSizeV2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	var size = 0
+	if c.returnData != nil {
+		// the last call is a delegate call
+		size = len(c.returnData)
+	} else {
+		// the last call is an async call, check if this is in a callback
+		sendType := c.sendBlock.BlockType
+		if sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
+			// extract return data from the callback send block
+			length := len(c.sendBlock.Data)
+			if length >= 4 {
+				size = length - 4
+			}
+		}
+	}
+
+	stack.push(c.intPool.Get().SetUint64(uint64(size)))
+	return nil, nil
+}
+
 func opReturnDataCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	var (
 		memOffset  = stack.pop()
@@ -480,6 +516,45 @@ func opReturnDataCopy(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack
 		return nil, util.ErrReturnDataOutOfBounds
 	}
 	mem.set(memOffset.Uint64(), length.Uint64(), c.returnData[dataOffset.Uint64():end.Uint64()])
+
+	return nil, nil
+}
+
+// VEP19
+func opReturnDataCopyV2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	var (
+		memOffset  = stack.pop()
+		dataOffset = stack.pop()
+		length     = stack.pop()
+
+		end = c.intPool.Get().Add(dataOffset, length)
+	)
+	defer c.intPool.Put(memOffset, dataOffset, length, end)
+
+	var returnData []byte = nil
+	if c.returnData != nil {
+		// the last call is a delegate call
+		returnData = c.returnData
+	} else {
+		// the last call is an async call, check if this is in a callback
+		sendType := c.sendBlock.BlockType
+		if sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
+			// extract return data from the callback send block
+			calldata := c.sendBlock.Data
+			if len(calldata) < 4 {
+				return nil, errors.New("bad calldata of a callback, the length is less than 4")
+			}
+			returnData = calldata[4:]
+		}
+	}
+	// bound check
+	if end.BitLen() > 64 || uint64(len(returnData)) < end.Uint64() {
+		return nil, util.ErrReturnDataOutOfBounds
+	}
+	// copy return data to the memory
+	if returnData != nil {
+		mem.set(memOffset.Uint64(), length.Uint64(), returnData[dataOffset.Uint64():end.Uint64()])
+	}
 
 	return nil, nil
 }
@@ -784,6 +859,7 @@ func makeOffchainLog(size int) executionFunc {
 	}
 }
 
+// VEP19
 func opDelegateCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	addrBig, inOffset, inSize, outOffset, outSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
 	contractAddress, _ := types.BigToAddress(addrBig)
@@ -839,11 +915,235 @@ func opOffchainCall2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack)
 	return nil, nil
 }
 
+// VEP19
+func opSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	callback, toAddrBig, tokenIDBig, amount, inOffset, inSize := stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
+	toAddress, _ := types.BigToAddress(toAddrBig)
+	tokenID, _ := types.BigToTokenTypeId(tokenIDBig)
+	calldata := mem.get(inOffset.Int64(), inSize.Int64())
+
+	// get origin call send block
+	var originSendBlock *ledger.AccountBlock
+
+	if vm.vmContext.originSendBlock == nil {
+		originSendBlock = c.sendBlock
+	} else {
+		originSendBlock = vm.vmContext.originSendBlock
+	}
+
+	// get execution context
+	executionContext := &ledger.ExecutionContext{
+		ReferrerSendHash: originSendBlock.Hash,
+		CallbackId: *callback,
+		Stack: make([]big.Int, stack.len()),
+		Memory: mem.get(0, int64(mem.len())),
+	}
+	for i, item := range stack.data {
+		executionContext.Stack[i].SetBytes(item.Bytes())
+	}
+
+	nodeConfig.log.Debug("opSyncCall",
+		"memory len", mem.len(),
+		"\noriginSendHash", originSendBlock.Hash.String(),
+		"\ncurrent stack", stack.print(),
+		"\nstack dump", executionContext.Stack,
+		"\ncurrent memory", hex.EncodeToString(mem.get(0, int64(mem.len()))),
+		"\nmemory dump", hex.EncodeToString(executionContext.Memory),
+		"\ncontext", *executionContext,
+		"\ndata", hex.EncodeToString(calldata))
+
+	// send sync call transaction
+	triggeredBlock := util.MakeRequestBlock(
+		c.block.AccountAddress,
+		toAddress,
+		ledger.BlockTypeSendSyncCall,
+		amount,
+		tokenID,
+		calldata)
+
+	c.db.SetExecutionContext(&triggeredBlock.Hash, executionContext)
+
+	vm.AppendBlock(triggeredBlock)
+
+	return nil, nil
+}
+
+// VEP19
+func opOffchainSyncCall(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	c.intPool.Put(stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop())
+	return nil, nil
+}
+
+// VEP19
+func opCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	sendType := c.sendBlock.BlockType
+	if sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
+		context, err := c.db.GetExecutionContext(&c.sendBlock.Hash)
+		if err != nil {
+			nodeConfig.log.Error("opCallbackDest: GetExecutionContext fails", "error", err)
+			return nil, err
+		}
+		syncCallSendHash := context.ReferrerSendHash
+		syncCallSendBlock, err := vm.GetAccountBlockByHash(syncCallSendHash)
+		if err != nil {
+			nodeConfig.log.Error("opCallbackDest: GetAccountBlockByHash fails", "error", err)
+			return nil, err
+		}
+
+		// validate sync call send block
+		if syncCallSendBlock.AccountAddress != c.block.AccountAddress || syncCallSendBlock.ToAddress != c.sendBlock.AccountAddress {
+			return nil, errors.New("the callback transaction references an invalid send block")
+		}
+
+		syncCallContext, err := c.db.GetExecutionContext(&syncCallSendHash)
+		if err != nil {
+			nodeConfig.log.Error("opCallbackDest: GetExecutionContext of send fails", "error", err)
+			return nil, err
+		}
+
+		// get origin send block
+		originSendHash := syncCallContext.ReferrerSendHash
+		originSendBlock, err := vm.GetAccountBlockByHash(originSendHash)
+		if err != nil {
+			nodeConfig.log.Error("opCallbackDest: GetAccountBlockByHash fails when get origin", "error", err)
+			return nil, err
+		}
+
+		// validate origin send block
+		if originSendBlock.ToAddress != c.block.AccountAddress {
+			return nil, errors.New("invalid origin send block")
+		}
+
+		// save origin send block to VM context
+		vm.vmContext.originSendBlock = originSendBlock
+
+		// restore stack
+		stackDump := syncCallContext.Stack
+
+		for i := 0; i < len(stackDump); i++ {
+			stackItem := stackDump[i]
+			stack.push(big.NewInt(0).SetBytes(stackItem.Bytes()))
+		}
+		// push success flag (act as RETURN instruction in Ethereum)
+		if sendType == ledger.BlockTypeSendCallback {
+			// push true
+			t := big.NewInt(1)
+			stack.push(t)
+		} else {
+			// push false
+			stack.push(big.NewInt(0))
+		}
+
+		// restore memory
+		memoryDump := syncCallContext.Memory
+		size := uint64(len(memoryDump))
+		mem.resize(size)
+		mem.set(0, size, memoryDump)
+
+		nodeConfig.log.Debug("opCallbackDest",
+			"\nfrom", c.sendBlock.AccountAddress.String(),
+			"\nto", c.sendBlock.ToAddress.String(),
+			"\nsend block", c.sendBlock,
+			"\nsyncCallSendHash", syncCallSendHash,
+			"\noriginSendBlock", originSendBlock,
+			"\ncontext", *syncCallContext,
+			"\ncurrent stack", stack.print(),
+			"\nstack dump", stackDump)
+	}
+
+	return nil, nil
+}
+
+// VEP19
+func opOffchainCallbackDest(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	// it should not appear in offchain code, push false to stop executing
+	stack.push(c.intPool.GetZero())
+
+	return nil, nil
+}
+
+func opOrigin(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+
+	return nil, nil
+}
+
 func opReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
 	offset, size := stack.pop(), stack.pop()
 	ret := mem.getPtr(offset.Int64(), size.Int64())
 
 	c.intPool.Put(offset, size)
+	return ret, nil
+}
+
+// VEP19
+func opReturnV2(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	offset, size := stack.pop(), stack.pop()
+	ret := mem.getPtr(offset.Int64(), size.Int64())
+	c.intPool.Put(offset, size)
+
+	sendType := c.sendBlock.BlockType
+
+	// trigger a callback transaction
+	if sendType == ledger.BlockTypeSendSyncCall || sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback {
+		var originSendBlock *ledger.AccountBlock
+		// get the send-block of the original call
+		if vm.vmContext.originSendBlock == nil {
+			originSendBlock = c.sendBlock
+		} else {
+			originSendBlock = vm.vmContext.originSendBlock
+		}
+
+		if originSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
+			// load execution context
+			originContext, err := c.db.GetExecutionContext(&originSendBlock.Hash)
+			if err != nil {
+				nodeConfig.log.Error("opReturn: GetExecutionContext fails", "error", err)
+				return nil, err
+			}
+			callback := originContext.CallbackId
+			var data []byte
+			// append callback id
+			data = append(data, callback.FillBytes(make([]byte, 4))...)
+			// append return data
+			data = append(data, ret...)
+
+			triggeredBlock := util.MakeRequestBlock(
+				c.block.AccountAddress,
+				originSendBlock.AccountAddress,
+				ledger.BlockTypeSendCallback,
+				big.NewInt(int64(0)), // return call must be non-payable
+				ledger.ViteTokenId,
+				data)
+
+			executionContext := ledger.ExecutionContext{
+				ReferrerSendHash: originSendBlock.Hash,
+			}
+
+			// save execution context
+			c.db.SetExecutionContext(&triggeredBlock.Hash, &executionContext)
+
+			// send callback transaction
+			vm.AppendBlock(triggeredBlock)
+
+			nodeConfig.log.Debug("opReturn",
+				"\nfrom", c.sendBlock.AccountAddress.String(),
+				"\nto", c.sendBlock.ToAddress.String(),
+				"\nsend block", c.sendBlock,
+				"\ncallback", callback,
+				"\ndata", hex.EncodeToString(data),
+				"\noriginSendBlock", originSendBlock)
+		}
+	}
+
+	return ret, nil
+}
+
+// VEP19
+func opOffchainReturn(pc *uint64, vm *VM, c *contract, mem *memory, stack *stack) ([]byte, error) {
+	offset, size := stack.pop(), stack.pop()
+	ret := mem.getPtr(offset.Int64(), size.Int64())
+	c.intPool.Put(offset, size)
+
 	return ret, nil
 }
 

@@ -29,7 +29,7 @@ func TestRun(t *testing.T) {
 		{[]byte{byte(CALLVALUE), byte(DUP1), byte(ISZERO), byte(NOT), byte(PUSH2), 0, 12, byte(JUMPI), byte(PUSH1), 0, byte(DUP1), byte(REVERT), byte(JUMPDEST), byte(PUSH1), 32, byte(PUSH1), 0, byte(DUP2), byte(DUP2), byte(MSTORE), byte(RETURN)}, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32}, nil, 999957, "jumpi"},
 	}
 	for _, test := range tests {
-		vm := NewVM(nil)
+		vm := NewVM(nil, nil)
 		vm.i = newInterpreter(1, false)
 		vm.gasTable = util.QuotaTableByHeight(1)
 		//vm.Debug = true

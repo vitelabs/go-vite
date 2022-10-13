@@ -66,6 +66,10 @@ func memoryCall(stack *stack) *big.Int {
 	return calcMemSize(stack.back(3), stack.back(4))
 }
 
+func memorySyncCall(stack *stack) *big.Int {
+	return calcMemSize(stack.back(4), stack.back(5))
+}
+
 func memoryReturn(stack *stack) *big.Int {
 	return calcMemSize(stack.back(0), stack.back(1))
 }

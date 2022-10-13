@@ -279,16 +279,17 @@ func (sDB *StateDB) rollbackByRedo(batch *leveldb.Batch, snapshotBlock *ledger.S
 
 			// delete vm log list
 			for logHash := range redoLog.VmLogList {
-
 				batch.Delete(chain_utils.CreateVmLogListKey(&logHash).Bytes())
-
 			}
 
 			// delete call depth
 			for sendBlockHash := range redoLog.CallDepth {
-
 				batch.Delete(chain_utils.CreateCallDepthKey(sendBlockHash).Bytes())
+			}
 
+			// delete execution context
+			for sendBlockHash := range redoLog.ExecutionContext {
+				batch.Delete(chain_utils.CreateExecutionContextKey(sendBlockHash).Bytes())
 			}
 		}
 
@@ -425,6 +426,12 @@ func (sDB *StateDB) rollbackAccountBlock(batch *leveldb.Batch, accountBlock *led
 		}
 	}
 
+	// delete execution context
+	if accountBlock.BlockType == ledger.BlockTypeSendSyncCall ||
+		accountBlock.BlockType == ledger.BlockTypeSendCallback ||
+		accountBlock.BlockType == ledger.BlockTypeSendFailureCallback {
+		batch.Delete(chain_utils.CreateExecutionContextKey(accountBlock.Hash).Bytes())
+	}
 }
 
 func (sDB *StateDB) recoverToSnapshot(batch *leveldb.Batch, snapshotHeight uint64, unconfirmedLog map[types.Address][]LogItem, addrMap map[types.Address]struct{}) error {

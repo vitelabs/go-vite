@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"encoding/hex"
 	"sync/atomic"
 
 	"github.com/vitelabs/go-vite/v2/common/helper"
@@ -20,24 +19,37 @@ var (
 	offchainRandInterpreter   = &interpreter{offchainRandInstructionSet}
 	earthInterpreter          = &interpreter{earthInstructionSet}
 	offchainEarthInterpreter  = &interpreter{offchainEarthInstructionSet}
+	vep19Interpreter          = &interpreter{vep19InstructionsSet}
+	offchainVep19Interpreter  = &interpreter{offchainVep19InstructionSet}
 )
 
 func newInterpreter(blockHeight uint64, offChain bool) *interpreter {
+	// introduce VEP19 in Version11 upgrade
+	if upgrade.IsVersion11Upgrade(blockHeight) {
+		if offChain {
+			return offchainVep19Interpreter
+		}
+		nodeConfig.log.Debug("New interpreter on Version11 Fork", "height", blockHeight)
+		return vep19Interpreter
+	}
 	if upgrade.IsEarthUpgrade(blockHeight) {
 		if offChain {
 			return offchainEarthInterpreter
 		}
+		nodeConfig.log.Debug("New interpreter on Earth Fork", "height", blockHeight)
 		return earthInterpreter
 	}
 	if upgrade.IsSeedUpgrade(blockHeight) {
 		if offChain {
 			return offchainRandInterpreter
 		}
+		nodeConfig.log.Debug("New interpreter on Seed Fork", "height", blockHeight)
 		return randInterpreter
 	}
 	if offChain {
 		return offchainSimpleInterpreter
 	}
+	nodeConfig.log.Debug("New interpreter on init Fork", "height", blockHeight)
 	return simpleInterpreter
 }
 
@@ -93,9 +105,12 @@ func (i *interpreter) runLoop(vm *VM, c *contract) (ret []byte, err error) {
 		res, err := operation.execute(&pc, vm, c, mem, st)
 
 		if nodeConfig.IsDebug {
-			currentCode := ""
-			if currentPc < uint64(len(c.code)) {
-				currentCode = hex.EncodeToString(c.code[currentPc:])
+			currentCode :=  "[" + opCodeToString[c.getOp(currentPc)] + "]"
+			if currentPc > 0 {
+				currentCode = opCodeToString[c.getOp(currentPc - 1)] + ", " + currentCode
+			}
+			if currentPc < uint64(len(c.code) - 1) {
+				currentCode = currentCode + ", " + opCodeToString[c.getOp(currentPc + 1)]
 			}
 			storageMap, err := c.db.DebugGetStorage()
 			if err != nil {
@@ -103,13 +118,13 @@ func (i *interpreter) runLoop(vm *VM, c *contract) (ret []byte, err error) {
 			}
 			nodeConfig.interpreterLog.Info("vm step",
 				"blockType", c.block.BlockType,
-				"address", c.block.AccountAddress.String(),
 				"height", c.block.Height,
+				"address", c.block.AccountAddress.String(),
 				"fromHash", c.block.FromBlockHash.String(),
-				"\ncurrent code", currentCode,
-				"\nop", opCodeToString[op],
-				"pc", currentPc,
+				"\npc", currentPc,
 				"quotaLeft", c.quotaLeft,
+				"\ncode", currentCode,
+				"\nop", opCodeToString[op],
 				"\nstack", st.print(),
 				"\nmemory", mem.print(),
 				"\nstorage", util.PrintMap(storageMap))

@@ -71,6 +71,10 @@ func (db *memoryDatabase) GetContractCode() ([]byte, error) {
 	return nil, nil
 }
 
+func (db *memoryDatabase) GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error) {
+	return db.GetContractCode()
+}
+
 func (db *memoryDatabase) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
 	if code, ok := db.storage[getCodeKey(*addr)]; ok {
 		return code, nil
@@ -177,6 +181,13 @@ func (db *memoryDatabase) GetCallDepth(hash *types.Hash) (uint16, error) {
 	return 0, nil
 }
 func (db *memoryDatabase) SetCallDepth(uint16) {
+}
+
+func (db *memoryDatabase) GetExecutionContext(*types.Hash) (*ledger.ExecutionContext, error) {
+	return nil, nil
+}
+
+func (db *memoryDatabase) SetExecutionContext(blockHash *types.Hash, context *ledger.ExecutionContext) {
 }
 
 func (db *memoryDatabase) GetUnsavedCallDepth() uint16 {

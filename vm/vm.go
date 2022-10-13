@@ -4,6 +4,7 @@ package vm
 import (
 	"encoding/hex"
 	"errors"
+	"github.com/vitelabs/go-vite/v2/vm_db"
 	"math/big"
 	"runtime/debug"
 	"strconv"
@@ -116,6 +117,7 @@ func initLog(dir, lvl string) {
 
 type vmContext struct {
 	sendBlockList []*ledger.AccountBlock
+	originSendBlock *ledger.AccountBlock  // holds the original send transaction while executing continuation code in a sync call
 }
 
 // VM holds the runtime information of vite vm and provides the necessary tools
@@ -136,12 +138,14 @@ type VM struct {
 	// latest snapshot block height, used for fork check
 	latestSnapshotHeight uint64
 	gasTable             *util.QuotaTable
+	// chain is used to query ledger during execution
+	chain vm_db.Chain
 }
 
 // NewVM is a constructor of VM. This method is called before running an
 // execution.
-func NewVM(cr util.ConsensusReader) *VM {
-	return &VM{reader: cr}
+func NewVM(cr util.ConsensusReader, c vm_db.Chain) *VM {
+	return &VM{reader: cr, chain: c}
 }
 
 // GlobalStatus is a getter method.
@@ -193,8 +197,10 @@ func (vm *VM) RunV2(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *l
 		nodeConfig.log.Info("vm run start",
 			"blockType", block.BlockType,
 			"address", block.AccountAddress.String(),
-			"height", block.Height, ""+
-				"fromHash", block.FromBlockHash.String())
+			"height", block.Height,
+			"fromHash", block.FromBlockHash.String(),
+			"\nblock", block,
+			"\nsend", sendBlock)
 	}
 	sb, err := db.LatestSnapshotBlock()
 	util.DealWithErr(err)
@@ -216,7 +222,11 @@ func (vm *VM) RunV2(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *l
 			vmAccountBlock, err = vm.sendCreate(db, blockCopy, true, quotaTotal, quotaAddition)
 			return vmAccountBlock, noRetry, err
 		}
-		if blockCopy.BlockType == ledger.BlockTypeSendCall {
+		blockType := blockCopy.BlockType
+		if blockType == ledger.BlockTypeSendCall ||
+			blockType == ledger.BlockTypeSendSyncCall ||
+			blockType == ledger.BlockTypeSendCallback ||
+			blockType == ledger.BlockTypeSendFailureCallback {
 			quotaTotal, quotaAddition, err := quota.GetQuotaForBlock(
 				db,
 				blockCopy.AccountAddress,
@@ -237,7 +247,7 @@ func (vm *VM) RunV2(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *l
 		contractMeta := getContractMeta(db)
 		if sendBlock.BlockType == ledger.BlockTypeSendCreate {
 			return vm.receiveCreate(db, blockCopy, sendBlock, contractMeta)
-		} else if sendBlock.BlockType == ledger.BlockTypeSendCall {
+		} else if sendBlock.BlockType == ledger.BlockTypeSendCall || sendBlock.BlockType == ledger.BlockTypeSendSyncCall || sendBlock.BlockType == ledger.BlockTypeSendCallback || sendBlock.BlockType == ledger.BlockTypeSendFailureCallback {
 			return vm.receiveCall(db, blockCopy, sendBlock, contractMeta)
 		} else if sendBlock.BlockType == ledger.BlockTypeSendReward {
 			if !upgrade.IsSeedUpgrade(sb.Height) {
@@ -558,7 +568,8 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 		vm.revert(db)
 		refundFlag := false
 		refundData, needRefund := p.GetRefundData(sendBlock, vm.latestSnapshotHeight)
-		refundFlag = doRefund(vm, db, block, sendBlock, refundData, needRefund, ledger.BlockTypeSendCall)
+		// TODO: return error data of built-in contracts
+		refundFlag = doRefund(vm, db, block, sendBlock, refundData, needRefund, ledger.BlockTypeSendCall, []byte{})
 		vm.updateBlock(db, block, err, quotaUsed, quotaUsed)
 		if refundFlag {
 			var refundErr error
@@ -602,7 +613,8 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 	_, code := util.GetContractCode(db, &block.AccountAddress, nil)
 	c := newContract(block, db, sendBlock, sendBlock.Data, quotaLeft)
 	c.setCallCode(block.AccountAddress, code)
-	_, err = c.run(vm)
+	var returnData []byte
+	returnData, err = c.run(vm)
 	if err == nil {
 		qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, nil)
 		vm.updateBlock(db, block, err, qStakeUsed, qUsed)
@@ -626,7 +638,8 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 			return nil, retry, err
 		}
 		// Contract receive out of quota, current block is first unconfirmed block, refund with no quota
-		refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund)
+		// TODO: set panic data
+		refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund, []byte{})
 		qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err)
 		vm.updateBlock(db, block, err, qStakeUsed, qUsed)
 		if refundFlag {
@@ -643,7 +656,7 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 		return &interfaces.VmAccountBlock{block, db}, noRetry, err
 	}
 
-	refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund)
+	refundFlag := doRefund(vm, db, block, sendBlock, []byte{}, false, ledger.BlockTypeSendRefund, returnData)
 	qStakeUsed, qUsed := util.CalcQuotaUsed(true, quotaTotal, quotaAddition, c.quotaLeft, err)
 	vm.updateBlock(db, block, err, qStakeUsed, qUsed)
 	if refundFlag {
@@ -660,7 +673,7 @@ func (vm *VM) receiveCall(db interfaces.VmDb, block *ledger.AccountBlock, sendBl
 	return &interfaces.VmAccountBlock{block, db}, noRetry, err
 }
 
-func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, refundData []byte, needRefund bool, refundBlockType byte) bool {
+func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, refundData []byte, needRefund bool, refundBlockType byte, errorData []byte) bool {
 	refundFlag := false
 	if sendBlock.Amount.Sign() > 0 && sendBlock.Fee.Sign() > 0 && sendBlock.TokenId == ledger.ViteTokenId {
 		refundAmount := new(big.Int).Add(sendBlock.Amount, sendBlock.Fee)
@@ -711,6 +724,56 @@ func doRefund(vm *VM, db interfaces.VmDb, block *ledger.AccountBlock, sendBlock 
 				refundData))
 		refundFlag = true
 	}
+
+	// VEP19: trigger a failure callback transaction
+	sendType := sendBlock.BlockType
+	if upgrade.IsVersion11Upgrade(vm.latestSnapshotHeight) && (sendType == ledger.BlockTypeSendSyncCall || sendType == ledger.BlockTypeSendCallback || sendType == ledger.BlockTypeSendFailureCallback) {
+		var originSendBlock *ledger.AccountBlock
+		// get the send-block of the original call
+		if vm.vmContext.originSendBlock == nil {
+			originSendBlock = sendBlock
+		} else {
+			originSendBlock = vm.vmContext.originSendBlock
+		}
+
+		// load execution context
+		originContext, err := db.GetExecutionContext(&originSendBlock.Hash)
+
+		if err == nil && originSendBlock.BlockType == ledger.BlockTypeSendSyncCall {
+			callback := originContext.CallbackId
+			var data []byte
+			// append callback id
+			data = append(data, callback.FillBytes(make([]byte, 4))...)
+			// append return data
+			data = append(data, errorData...)
+
+			refundFlag = true
+			// send failure callback transaction
+			triggeredBlock := util.MakeRequestBlock(
+				block.AccountAddress,
+				originSendBlock.AccountAddress, // it may be different from refund transactions
+				ledger.BlockTypeSendFailureCallback,
+				big.NewInt(int64(0)),
+				ledger.ViteTokenId,
+				data)
+
+			executionContext := ledger.ExecutionContext{
+				ReferrerSendHash: originSendBlock.Hash,
+			}
+
+			// save execution context
+			db.SetExecutionContext(&triggeredBlock.Hash, &executionContext)
+
+			nodeConfig.log.Debug("failure callback",
+				"\nfrom", sendBlock.AccountAddress.String(),
+				"\nto", sendBlock.ToAddress.String(),
+				"\nsend block", sendBlock,
+				"\noriginSendBlock", originSendBlock)
+
+			vm.AppendBlock(triggeredBlock)
+		}
+	}
+
 	return refundFlag
 }
 
@@ -812,16 +875,22 @@ func (vm *VM) receiveRefund(db interfaces.VmDb, block *ledger.AccountBlock, send
 	return &interfaces.VmAccountBlock{block, db}, noRetry, nil
 }
 
+// VEP19
 func (vm *VM) delegateCall(contractAddr types.Address, data []byte, c *contract) (ret []byte, err error) {
 	_, code := util.GetContractCode(c.db, &contractAddr, vm.globalStatus)
 	if len(code) > 0 {
-		cNew := newContract(c.block, c.db, c.sendBlock, c.data, c.quotaLeft)
+		cNew := newContract(c.block, c.db, c.sendBlock, data, c.quotaLeft)
 		cNew.setCallCode(contractAddr, code)
 		ret, err = cNew.run(vm)
 		c.quotaLeft = cNew.quotaLeft
+		if ret == nil {
+			// return an empty array instead of nil, let the caller know that it's from a delegate call (without data returned)
+			ret = make([]byte, 0)
+		}
 		return ret, err
 	}
-	return nil, nil
+	// return an empty array instead of nil, let the caller know that it's from a delegate call (without data returned)
+	return make([]byte, 0), nil
 }
 
 func (vm *VM) updateBlock(db interfaces.VmDb, block *ledger.AccountBlock, err error, qStakeUsed, qUsed uint64) {
@@ -844,7 +913,7 @@ func (vm *VM) doSendBlockList(db interfaces.VmDb) (newDb interfaces.VmDb, err er
 	for i, block := range vm.sendBlockList {
 		var sendBlock *interfaces.VmAccountBlock
 		switch block.BlockType {
-		case ledger.BlockTypeSendCall:
+		case ledger.BlockTypeSendCall, ledger.BlockTypeSendSyncCall, ledger.BlockTypeSendCallback, ledger.BlockTypeSendFailureCallback:
 			sendBlock, err = vm.sendCall(db, block, false, 0, 0)
 			if err != nil {
 				return db, err
@@ -886,7 +955,7 @@ func checkDepth(db interfaces.VmDb, sendBlock *ledger.AccountBlock) bool {
 	return depth >= callDepth
 }
 
-// OffChainReader read contract storage without tx
+// OffChainReader read contract storage without creating a transaction
 func (vm *VM) OffChainReader(db interfaces.VmDb, code []byte, data []byte) (result []byte, err error) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -909,6 +978,14 @@ func (vm *VM) OffChainReader(db interfaces.VmDb, code []byte, data []byte) (resu
 	c := newContract(&ledger.AccountBlock{AccountAddress: *db.Address()}, db, &ledger.AccountBlock{ToAddress: *db.Address()}, data, offChainReaderGas)
 	c.setCallCode(*db.Address(), code)
 	return c.run(vm)
+}
+
+// GetAccountBlockByHash query a block by its hash
+func (vm *VM) GetAccountBlockByHash(blockHash types.Hash) (*ledger.AccountBlock, error) {
+	nodeConfig.log.Debug("GlobalStatus.GetAccountBlockByHash()", "blockHash", blockHash)
+	block, err := vm.chain.GetAccountBlockByHash(blockHash)
+	nodeConfig.log.Debug("GlobalStatus.GetAccountBlockByHash() return", "block", block)
+	return block, err
 }
 
 func getStakeBeneficialAmount(db interfaces.VmDb) *big.Int {

@@ -99,6 +99,7 @@ type StateDBInterface interface {
 	GetContractList(gid *types.Gid) ([]types.Address, error)
 	GetVmLogList(logHash *types.Hash) (ledger.VmLogList, error)
 	GetCallDepth(sendBlockHash *types.Hash) (uint16, error)
+	GetExecutionContext(sendBlockHash *types.Hash) (*ledger.ExecutionContext, error)
 	GetSnapshotBalanceList(balanceMap map[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error
 	GetSnapshotValue(snapshotBlockHeight uint64, addr types.Address, key []byte) ([]byte, error)
 	SetCacheLevelForConsensus(level uint32)

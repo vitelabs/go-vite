@@ -89,21 +89,24 @@ func (m *memory) set32(offset uint64, val *big.Int) {
 
 func (m *memory) print() string {
 	var result string
-	// do not print memory when memory size too large
+
 	if len(m.store) == 0 {
 		result += ""
-	} else if len(m.store) < 200 {
-		addr := 0
-		for i := 0; i+helper.WordSize <= len(m.store); i += helper.WordSize {
-			if i+helper.WordSize < len(m.store) {
-				result += strconv.FormatInt(int64(addr), 16) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize]) + ", "
-			} else {
-				result += strconv.FormatInt(int64(addr), 16) + "=>" + hex.EncodeToString(m.store[i:i+helper.WordSize])
-			}
-			addr++
-		}
+	} else if len(m.store) < 128 {
+		result = hex.EncodeToString(m.store)
 	} else {
-		result = "omitted"
+		result += "[scratch space]=>" + hex.EncodeToString(m.store[:64]) + ", "
+		result += "[free pointer]=>" + hex.EncodeToString(m.store[64:96]) + ", "
+		result += "[zero slots]=>" + hex.EncodeToString(m.store[96:128]) + ", "
+		result += "heap: "
+		slot := 0
+		for i := 128; i+helper.WordSize <= len(m.store); i += helper.WordSize {
+			result += "[slot " + strconv.FormatInt(int64(slot), 10) + " (0x" + strconv.FormatInt(int64(slot), 16) + ")]=>" + hex.EncodeToString(m.store[i:i+helper.WordSize])
+			if i+helper.WordSize < len(m.store) {
+				result += ", "
+			}
+			slot++
+		}
 	}
 	return result
 }

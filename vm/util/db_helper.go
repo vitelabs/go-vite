@@ -17,7 +17,7 @@ type dbInterface interface {
 
 	Address() *types.Address
 	GetContractCode() ([]byte, error)
-	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error)
+	GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error)
 }
 
 // AddBalance add balance of certain token to current account.
@@ -67,18 +67,16 @@ func SetValue(db dbInterface, key []byte, value []byte) {
 // if input addr == current address,
 //   return contract code in latest contract account block.
 // if input addr != current address,
-//   return contract code in snapshot block of global status.
-// Panics when db error.
+//   return contract code in snapshot block of the genesis block of the caller.
 func GetContractCode(db dbInterface, addr *types.Address, status GlobalStatus) ([]byte, []byte) {
 	var code []byte
 	var err error
 	if *db.Address() == *addr {
 		code, err = db.GetContractCode()
 	} else {
-		code, err = db.GetContractCodeBySnapshotBlock(addr, status.SnapshotBlock())
+		code, err = db.GetDeployedContractCode(*addr, *db.Address())
 	}
-	DealWithErr(err)
-	if len(code) > 0 {
+	if err == nil && len(code) > 0 {
 		return code[:contractTypeSize], code[contractTypeSize:]
 	}
 	return nil, nil

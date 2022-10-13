@@ -17,6 +17,8 @@ type Chain interface {
 
 	GetContractCode(contractAddr types.Address) ([]byte, error)
 
+	GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error)
+
 	GetContractMeta(contractAddress types.Address) (meta *core.ContractMeta, err error)
 
 	GetConfirmSnapshotHeaderByAbHash(abHash types.Hash) (*core.SnapshotBlock, error)
@@ -46,6 +48,8 @@ type Chain interface {
 	GetValue(addr types.Address, key []byte) ([]byte, error)
 
 	GetCallDepth(sendBlockHash types.Hash) (uint16, error)
+
+	GetExecutionContext(sendBlockHash *types.Hash) (*core.ExecutionContext, error)
 
 	GetSnapshotBlockByContractMeta(addr types.Address, fromHash types.Hash) (*core.SnapshotBlock, error)
 

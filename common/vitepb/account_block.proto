@@ -11,8 +11,11 @@ message AccountBlock {
 		Receive      = 4;
 		ReceiveError = 5;
 		SendRefund   = 6;
-
 		GenesisReceive = 7;
+
+		SendSyncCall = 8;
+		SendCallback = 9;
+		SendFailureCallback = 10;
 	}
 
 	BlockType blockType = 1;

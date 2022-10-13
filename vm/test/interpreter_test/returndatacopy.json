@@ -1,0 +1,67 @@
+{
+  "returndatacopy in callback": {
+    "BlockType": 9,
+    "sBHeight": 1100,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "1122334401020304",
+    "amount": "00",
+    "tokenID": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60 04 60 00 60 00 3e  60 00 51 60 00 55",
+    "returnData": "",
+    "quotaTotal": 100000000000,
+    "quotaLeft": 0,
+    "err": "",
+    "storage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "0102030400000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "returndatacopy in plain call": {
+    "sBHeight": 1100,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "aabbccdd",
+    "amount": "00",
+    "tokenID": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60 04 60 04 60 00 3e  60 00 51 60 00 55",
+    "returnData": "",
+    "quotaTotal": 100000000000,
+    "quotaLeft": 99999999773,
+    "err": "vm: return data out of bounds",
+    "storage": {
+    }
+  },
+  "returndatacopy in sync send call": {
+    "BlockType": 8,
+    "sBHeight": 1100,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "112233440006010101020103011600000201800001010102010301040105010601070108",
+    "amount": "00",
+    "tokenID": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "60 04 60 04 60 00 3e  60 00 51 60 00 55",
+    "returnData": "",
+    "quotaTotal": 100000000000,
+    "quotaLeft": 0,
+    "err": "vm: return data out of bounds",
+    "storage": {
+    }
+  },
+  "returndatacopy in failure callback": {
+    "BlockType": 10,
+    "sBHeight": 1100,
+    "fromAddress": "vite_ab24ef68b84e642c0ddca06beec81c9acb1977bbd7da27a87a",
+    "toAddress": "vite_470328ad08903a431953bfdcaf7760c084233c475e5726a35c",
+    "inputData": "0000003b6e6f20676f6f6400000000000000000000000000000000000000000000000000",
+    "amount": "00",
+    "tokenID": "tti_2445f6e5cde8c2c70e446c83",
+    "code": "3d 60 00 60 00 3e  60 00 51 60 00 55",
+    "returnData": "",
+    "quotaTotal": 100000000000,
+    "quotaLeft": 0,
+    "err": "",
+    "storage": {
+      "0000000000000000000000000000000000000000000000000000000000000000": "6e6f20676f6f6400000000000000000000000000000000000000000000000000"
+    }
+  }
+}

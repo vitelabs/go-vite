@@ -199,6 +199,13 @@ func CreateCallDepthKey(blockHash types.Hash) CallDepthKey {
 	return key
 }
 
+func CreateExecutionContextKey(blockHash types.Hash) ExecutionContextKey {
+	key := ExecutionContextKey{}
+	key[0] = ExecutionContextKeyPrefix
+	key.HashRefill(blockHash)
+	return key
+}
+
 // ====== state redo ======
 
 func CreateRedoSnapshot(snapshotHeight uint64) SnapshotKey {

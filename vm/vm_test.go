@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/vitelabs/go-vite/v2/interfaces"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,6 +62,8 @@ func initCustomFork(t *testing.T) {
 			"DexMiningFork":       &upgrade.UpgradePoint{Height: 600, Version: 7},
 			"DexRobotFork":        &upgrade.UpgradePoint{Height: 600, Version: 8},
 			"DexStableMarketFork": &upgrade.UpgradePoint{Height: 600, Version: 9},
+			"Version10Fork": 	   &upgrade.UpgradePoint{Height: 1000, Version: 10},
+			"VEP19Fork": 		   &upgrade.UpgradePoint{Height: 1100, Version: 11},
 		},
 	))
 }
@@ -113,7 +117,7 @@ func TestVmRun(t *testing.T) {
 		Data:           data13,
 		Hash:           hash13,
 	}
-	vm := NewVM(nil)
+	vm := NewVM(nil, nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendCreateBlock, isRetry, err := vm.RunV2(db, block13, nil, nil)
@@ -142,7 +146,7 @@ func TestVmRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		Hash:           hash21,
 	}
-	vm = NewVM(nil)
+	vm = NewVM(nil, nil)
 	//vm.Debug = true
 	db.addr = addr2
 	receiveCreateBlockList, isRetry, err := vm.RunV2(db, block21, sendCreateBlock.AccountBlock, nil)
@@ -174,7 +178,7 @@ func TestVmRun(t *testing.T) {
 		Data:           data14,
 		Hash:           hash14,
 	}
-	vm = NewVM(nil)
+	vm = NewVM(nil, nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendCallBlock, isRetry, err := vm.RunV2(db, block14, nil, nil)
@@ -201,7 +205,7 @@ func TestVmRun(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		Hash:           hash22,
 	}
-	vm = NewVM(nil)
+	vm = NewVM(nil, nil)
 	//vm.Debug = true
 	db.addr = addr2
 	receiveCallBlock, isRetry, err := vm.RunV2(db, block22, sendCallBlock.AccountBlock, nil)
@@ -230,7 +234,7 @@ func TestVmRun(t *testing.T) {
 		Data:           data15,
 		Hash:           hash15,
 	}
-	vm = NewVM(nil)
+	vm = NewVM(nil, nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendCallBlock2, isRetry, err := vm.RunV2(db, block15, nil, nil)
@@ -251,7 +255,7 @@ func TestVmRun(t *testing.T) {
 		Data:           data15,
 		Hash:           hash15,
 	}
-	vm = NewVM(nil)
+	vm = NewVM(nil, nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendCallBlock2, isRetry, err = vm.RunV2(db, block15, nil, nil)
@@ -265,7 +269,7 @@ func TestVmRun(t *testing.T) {
 		PrevHash:       hash22,
 		BlockType:      ledger.BlockTypeReceive,
 	}
-	vm = NewVM(nil)
+	vm = NewVM(nil, nil)
 	//vm.Debug = true
 	db.addr = addr2
 	receiveCallBlock2, isRetry, err := vm.RunV2(db, block23, sendCallBlock2.AccountBlock, nil)
@@ -300,7 +304,7 @@ func TestVmRun(t *testing.T) {
 	code2 := helper.JoinBytes([]byte{1, byte(PUSH1), 32, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH1), 0, byte(PUSH20)}, addr1.Bytes(), []byte{byte(DELEGATECALL), byte(PUSH1), 32, byte(PUSH1), 0, byte(RETURN)})
 	db.codeMap[addr2] = code2
 
-	vm := NewVM(nil)
+	vm := NewVM(nil, nil)
 	vm.globalStatus = &util.GlobalStatus{0, &ledger.SnapshotBlock{}}
 	vm.i = newInterpreter(1, false)
 	//vm.Debug = true
@@ -357,7 +361,7 @@ func TestCall(t *testing.T) {
 	db.accountBlockMap[addr3] = make(map[types.Hash]*ledger.AccountBlock)
 	db.storageMap[types.AddressQuota][ToKey(abi.GetStakeBeneficialKey(addr3))], _ = abi.ABIQuota.PackVariable(abi.VariableNameStakeBeneficial, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 
-	vm := NewVM(nil)
+	vm := NewVM(nil, nil)
 	//vm.Debug = true
 	// call contract
 	balance1 := db.balanceMap[addr1][ledger.ViteTokenId]
@@ -400,7 +404,7 @@ func TestCall(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		Hash:           hash21,
 	}
-	vm = NewVM(nil)
+	vm = NewVM(nil, nil)
 	//vm.Debug = true
 	db.addr = addr2
 	receiveCallBlock, isRetry, err := vm.RunV2(db, block21, sendCallBlock.AccountBlock, nil)
@@ -435,7 +439,7 @@ func TestCall(t *testing.T) {
 		BlockType:      ledger.BlockTypeReceive,
 		Hash:           hash31,
 	}
-	vm = NewVM(nil)
+	vm = NewVM(nil, nil)
 	//vm.Debug = true
 	db.addr = addr3
 	receiveCallBlock2, isRetry, err := vm.RunV2(db, block31, receiveCallBlock.AccountBlock.SendBlockList[0], nil)
@@ -473,7 +477,7 @@ func BenchmarkVMTransfer(b *testing.B) {
 			TokenId:        ledger.ViteTokenId,
 			Hash:           hashi,
 		}
-		vm := NewVM(nil)
+		vm := NewVM(nil, nil)
 		sendCallBlock, _, err := vm.RunV2(db, blocki, nil, nil)
 		if err != nil {
 			b.Fatal(err)
@@ -497,7 +501,7 @@ func TestVmForTest(t *testing.T) {
 		Fee:            big.NewInt(0),
 		TokenId:        ledger.ViteTokenId,
 	}
-	vm := NewVM(nil)
+	vm := NewVM(nil, nil)
 	//vm.Debug = true
 	db.addr = addr1
 	sendCallBlock, isRetry, err := vm.RunV2(db, block11, nil, nil)
@@ -516,12 +520,14 @@ type TestCaseSendBlock struct {
 	Amount    string
 	TokenID   types.TokenTypeId
 	Data      string
+	ExecutionContext string
 }
 type TestLog struct {
 	Data   string
 	Topics []string
 }
 type TestCase struct {
+	BlockType	  byte
 	SBHeight      uint64
 	SBTime        int64
 	FromAddress   types.Address
@@ -574,7 +580,7 @@ func TestVmInterpreter(t *testing.T) {
 				Timestamp: &sbTime,
 				Hash:      types.DataHash([]byte{1, 1}),
 			}
-			vm := NewVM(nil)
+			vm := NewVM(nil, nil)
 			vm.i = newInterpreter(testCase.SBHeight, false)
 			vm.gasTable = util.QuotaTableByHeight(testCase.SBHeight)
 			vm.globalStatus = NewTestGlobalStatus(testCase.Seed, &sb)
@@ -582,10 +588,15 @@ func TestVmInterpreter(t *testing.T) {
 			//fmt.Printf("testcase %v: %v\n", testFile.Name(), k)
 			inputData, _ := hex.DecodeString(testCase.InputData)
 			amount, _ := hex.DecodeString(testCase.Amount)
+			var sendBlockType = ledger.BlockTypeSendCall
+			if testCase.BlockType > 0 {
+				sendBlockType = testCase.BlockType
+			}
+
 			sendCallBlock := ledger.AccountBlock{
 				AccountAddress: testCase.FromAddress,
 				ToAddress:      testCase.ToAddress,
-				BlockType:      ledger.BlockTypeSendCall,
+				BlockType:      sendBlockType,
 				Data:           inputData,
 				Amount:         new(big.Int).SetBytes(amount),
 				Fee:            big.NewInt(0),
@@ -609,7 +620,7 @@ func TestVmInterpreter(t *testing.T) {
 				&sendCallBlock,
 				sendCallBlock.Data,
 				testCase.QuotaTotal)
-			code, _ := hex.DecodeString(testCase.Code)
+			code, _ := hex.DecodeString(strings.ReplaceAll(testCase.Code, " ", ""))
 			c.setCallCode(testCase.ToAddress, code)
 			util.AddBalance(db, &sendCallBlock.TokenId, sendCallBlock.Amount)
 			ret, err := c.run(vm)
@@ -620,10 +631,10 @@ func TestVmInterpreter(t *testing.T) {
 			if err == nil || err.Error() == "execution reverted" {
 				if bytes.Compare(returnData, ret) != 0 {
 					t.Fatalf("%v: %v failed, return Data error, expected %v, got %v", testFile.Name(), k, returnData, ret)
-				} else if c.quotaLeft != testCase.QuotaLeft {
+				} else if testCase.QuotaLeft > 0 && c.quotaLeft != testCase.QuotaLeft {
 					t.Fatalf("%v: %v failed, quota left error, expected %v, got %v", testFile.Name(), k, testCase.QuotaLeft, c.quotaLeft)
 				} else if checkStorageResult := checkStorage(db, testCase.Storage); checkStorageResult != "" {
-					t.Fatalf("%v: %v failed, storage error, %v", testFile.Name(), k, checkStorageResult)
+					t.Fatalf("%v: %v failed, storage error:[ %v ]", testFile.Name(), k, checkStorageResult)
 				} else if len(testCase.LogHash) > 0 {
 					if logHash := db.GetLogListHash(); (logHash == nil && len(testCase.LogHash) != 0) || (logHash != nil && logHash.String() != testCase.LogHash) {
 						t.Fatalf("%v: %v failed, log hash error, expected\n%v,\ngot\n%v", testFile.Name(), k, testCase.LogHash, logHash)
@@ -632,7 +643,7 @@ func TestVmInterpreter(t *testing.T) {
 					if checkLogListResult := checkLogList(testCase.LogList, db.logList); checkLogListResult != "" {
 						t.Fatalf("%v: %v failed, log list error, %v", testFile.Name(), k, checkLogListResult)
 					}
-				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vm.sendBlockList); checkSendBlockListResult != "" {
+				} else if checkSendBlockListResult := checkSendBlockList(testCase.SendBlockList, vm.sendBlockList, c.db); checkSendBlockListResult != "" {
 					t.Fatalf("%v: %v failed, send block list error, %v", testFile.Name(), k, checkSendBlockListResult)
 				}
 			}
@@ -668,7 +679,7 @@ func checkStorage(got *memoryDatabase, expected map[string]string) string {
 		}
 	}
 	if len(expected) != count {
-		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got.storage))
+		return "expected length " + strconv.Itoa(len(expected)) + ", got length " + strconv.Itoa(count)
 	}
 	for k, v := range got.storage {
 		if len(v) == 0 {
@@ -681,9 +692,9 @@ func checkStorage(got *memoryDatabase, expected map[string]string) string {
 	return ""
 }
 
-func checkSendBlockList(expected []*TestCaseSendBlock, got []*ledger.AccountBlock) string {
+func checkSendBlockList(expected []*TestCaseSendBlock, got []*ledger.AccountBlock, vmDb interfaces.VmDb) string {
 	if len(got) != len(expected) {
-		return "expected len " + strconv.Itoa(len(expected)) + ", got len" + strconv.Itoa(len(got))
+		return "expected len " + strconv.Itoa(len(expected)) + ", got len " + strconv.Itoa(len(got))
 	}
 	for i, expectedSendBlock := range expected {
 		gotSendBlock := got[i]
@@ -697,6 +708,12 @@ func checkSendBlockList(expected []*TestCaseSendBlock, got []*ledger.AccountBloc
 			return strconv.Itoa(i) + "th, expected tokenId " + expectedSendBlock.TokenID.String() + ", got tokenId " + gotSendBlock.TokenId.String()
 		} else if gotData := hex.EncodeToString(gotSendBlock.Data); gotData != expectedSendBlock.Data {
 			return strconv.Itoa(i) + "th, expected data " + expectedSendBlock.Data + ", got data " + gotData
+		} else if gotSendBlock.BlockType == ledger.BlockTypeSendSyncCall || gotSendBlock.BlockType == ledger.BlockTypeSendCallback || gotSendBlock.BlockType == ledger.BlockTypeSendFailureCallback {
+			gotContext, _ :=  vmDb.GetExecutionContext(&gotSendBlock.Hash)
+			contextBytes, _ := gotContext.Serialize()
+			if hex.EncodeToString(contextBytes) != expectedSendBlock.ExecutionContext {
+				return strconv.Itoa(i) + "th, expected execution context " + expectedSendBlock.ExecutionContext + ", got " + hex.EncodeToString(contextBytes)
+			}
 		}
 	}
 	return ""
@@ -726,7 +743,7 @@ func TestOffChainReader(t *testing.T) {
 	}
 
 	for k, testCase := range *testCaseMap {
-		vm := NewVM(nil)
+		vm := NewVM(nil, nil)
 		vm.i = newInterpreter(1, true)
 		var sbTime time.Time
 		if testCase.SBTime > 0 {
@@ -805,7 +822,7 @@ func BenchmarkSendCall(b *testing.B) {
 	db := newMemoryDatabase(sendCallBlock.AccountAddress, &sb)
 	db.SetBalance(&ledger.ViteTokenId, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 	for i := 0; i < b.N; i++ {
-		vm := NewVM(nil)
+		vm := NewVM(nil, nil)
 		_, _, err := vm.RunV2(db, sendCallBlock, nil, nil)
 		if err != nil {
 			b.Fatalf("vm run failed, err: %v", err)
@@ -839,7 +856,7 @@ func BenchmarkReceiveCall(b *testing.B) {
 	db := newMemoryDatabase(sendCallBlock.AccountAddress, &sb)
 	db.SetBalance(&ledger.ViteTokenId, new(big.Int).Mul(big.NewInt(1e9), big.NewInt(1e18)))
 	for i := 0; i < b.N; i++ {
-		vm := NewVM(nil)
+		vm := NewVM(nil, nil)
 		_, _, err := vm.RunV2(db, receiveCallBlock, sendCallBlock, nil)
 		if err != nil {
 			b.Fatalf("vm run failed, err: %v", err)

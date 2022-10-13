@@ -252,7 +252,7 @@ func TestDexFund(t *testing.T) {
 			fmt.Println(testFile.Name() + ":" + k)
 			db := initFundDb(testCase, t)
 			reader := util.NewVMConsensusReader(newConsensusReaderTest(db.GetGenesisSnapshotBlock().Timestamp.Unix(), 24*3600, nil))
-			vm := NewVM(reader)
+			vm := NewVM(reader, nil)
 			executeActions(testCase, vm, db, t)
 			executeChecks(testCase, db, t)
 		}

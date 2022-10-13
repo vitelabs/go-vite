@@ -266,3 +266,18 @@ func (key CallDepthKey) String() string {
 func (key *CallDepthKey) HashRefill(hash types.Hash) {
 	copy(key[1:1+types.HashSize], hash.Bytes())
 }
+
+// -------------------------------
+type ExecutionContextKey [1 + types.HashSize]byte
+
+func (key ExecutionContextKey) Bytes() []byte {
+	return key[:]
+}
+
+func (key ExecutionContextKey) String() string {
+	return string(key[:])
+}
+
+func (key *ExecutionContextKey) HashRefill(hash types.Hash) {
+	copy(key[1:1+types.HashSize], hash.Bytes())
+}

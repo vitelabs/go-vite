@@ -36,7 +36,102 @@ var (
 	offchainRandInstructionSet   = newRandOffchainInstructionSet()
 	earthInstructionSet          = newEarthInstructionSet()
 	offchainEarthInstructionSet  = newEarthOffchainInstructionSet()
+	vep19InstructionsSet		 = newVEP19InstructionSet()
+	offchainVep19InstructionSet  = newVEP19OffchainInstructionSet()
 )
+
+// VEP19
+func newVEP19InstructionSet() [256]operation {
+	// based on Earth fork
+	instructionSet := newEarthInstructionSet()
+
+	// newly introduced instructions in VEP19
+	instructionSet[SYNCCALL] = operation{
+		execute:       opSyncCall,
+		gasCost:       gasSyncCall,
+		validateStack: makeStackFunc(6, 0),
+		memorySize:    memorySyncCall,
+		valid:         true,
+		halts: 		   false,
+	}
+	instructionSet[CALLBACKDEST] = operation{
+		execute:       opCallbackDest,
+		gasCost:       gasJumpdest,
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[DELEGATECALL] = operation{
+		execute:       opDelegateCall,
+		gasCost:       gasDelegateCall,
+		validateStack: makeStackFunc(5, 1),
+		valid:         true,
+		returns:       true,
+	}
+
+	// instructions with breaking changes in VEP19
+	instructionSet[CALLER] = operation{
+		execute:       opCallerV2,
+		gasCost:       gasCaller,
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[RETURNDATASIZE] = operation{
+		execute:       opReturnDataSizeV2,
+		gasCost:       gasReturndatasize,
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+	instructionSet[RETURNDATACOPY] = operation{
+		execute:       opReturnDataCopyV2,
+		gasCost:       gasReturnDataCopy,
+		validateStack: makeStackFunc(3, 0),
+		memorySize:    memoryReturnDataCopy,
+		valid:         true,
+	}
+	instructionSet[RETURN] = operation{
+		execute:       opReturnV2,
+		gasCost:       gasReturn,
+		validateStack: makeStackFunc(2, 0),
+		memorySize:    memoryReturn,
+		halts:         true,
+		valid:         true,
+	}
+
+	return instructionSet
+}
+
+// VEP19
+func newVEP19OffchainInstructionSet() [256]operation {
+	instructionSet := newEarthOffchainInstructionSet()
+
+	// newly introduced instructions in VEP19
+	instructionSet[SYNCCALL] = operation{
+		execute:       opOffchainSyncCall,
+		gasCost:       gasSyncCall,
+		validateStack: makeStackFunc(6, 0),
+		memorySize:    memorySyncCall,
+		valid:         true,
+		halts: 		   true,
+	}
+	instructionSet[CALLBACKDEST] = operation{
+		execute:       opOffchainCallbackDest,
+		gasCost:       gasJumpdest,
+		validateStack: makeStackFunc(0, 1),
+		valid:         true,
+	}
+
+	// instructions with breaking changes in VEP19
+	instructionSet[RETURN] = operation{
+		execute:       opOffchainReturn,
+		gasCost:       gasReturn,
+		validateStack: makeStackFunc(2, 0),
+		memorySize:    memoryReturn,
+		halts:         true,
+		valid:         true,
+	}
+
+	return instructionSet
+}
 
 func newEarthInstructionSet() [256]operation {
 	instructionSet := newRandInstructionSet()
@@ -48,6 +143,7 @@ func newEarthInstructionSet() [256]operation {
 	}
 	return instructionSet
 }
+
 func newEarthOffchainInstructionSet() [256]operation {
 	instructionSet := newRandOffchainInstructionSet()
 	instructionSet[CALL2] = operation{
@@ -188,6 +284,7 @@ func newSimpleInstructionSet() [256]operation {
 		reverts:       true,
 		returns:       true,
 	}
+
 	return instructionSet
 }
 

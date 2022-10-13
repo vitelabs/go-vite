@@ -112,6 +112,9 @@ func (db *testDatabase) GetContractCode() ([]byte, error) {
 	}
 	return nil, nil
 }
+func (db *testDatabase) GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error) {
+	return db.GetContractCode()
+}
 func (db *testDatabase) GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *ledger.SnapshotBlock) ([]byte, error) {
 	if code, ok := db.codeMap[*addr]; ok {
 		return code, nil
@@ -178,6 +181,14 @@ func (db *testDatabase) GetHistoryLogList(logHash *types.Hash) (ledger.VmLogList
 func (db *testDatabase) GetLogList() ledger.VmLogList {
 	return db.logList
 }
+
+func (db *testDatabase) GetExecutionContext(*types.Hash) (*ledger.ExecutionContext, error) {
+	return nil, nil
+}
+
+func (db *testDatabase) SetExecutionContext(blockHash *types.Hash, context *ledger.ExecutionContext) {
+}
+
 func (db *testDatabase) GetConfirmSnapshotHeader(blockHash types.Hash) (*ledger.SnapshotBlock, error) {
 	return db.LatestSnapshotBlock()
 }

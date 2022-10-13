@@ -22,6 +22,7 @@ type LogItem struct {
 	ContractMeta map[types.Address][]byte
 	VmLogList    map[types.Hash][]byte
 	CallDepth    map[types.Hash]uint16
+	ExecutionContext    map[types.Hash][]byte
 	Height       uint64 // account block height
 }
 

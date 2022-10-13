@@ -71,7 +71,7 @@ func codeBitmap(code []byte) bitvec {
 var (
 	auxCodePrefix  = []byte{0xa1, 0x65, 'b', 'z', 'z', 'r', '0', 0x58, 0x20}
 	auxCodeSuffix  = []byte{0x00, 0x29}
-	statusCodeList = []opCode{HEIGHT, TIMESTAMP, SEED, DELEGATECALL, EXTCODESIZE, EXTCODECOPY}
+	statusCodeList = []opCode{HEIGHT, TIMESTAMP, SEED}
 )
 
 // ContainsStatusCode checks whether code includes status reading opcode.
@@ -103,7 +103,7 @@ func containsAuxCode(code []byte) bool {
 var (
 	auxCodePrefixWithFE                   = []byte{0xfe, 0xa1, 0x65, 'b', 'z', 'z', 'r', '0', 0x58, 0x20}
 	pushCheckCount                        = 3
-	statusCodeListRequireSnapshot         = []opCode{HEIGHT, TIMESTAMP, DELEGATECALL, EXTCODESIZE, EXTCODECOPY}
+	statusCodeListRequireSnapshot         = []opCode{HEIGHT, TIMESTAMP}
 	statusCodeListRequireSnapshotWithSeed = []opCode{SEED, RANDOM}
 )
 

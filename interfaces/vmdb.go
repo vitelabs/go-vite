@@ -62,6 +62,10 @@ type VmDb interface {
 	GetHistoryLogList(logHash *types.Hash) (core.VmLogList, error)
 	GetLogListHash() *types.Hash
 
+	// ====== ExecutionContext ======
+	GetExecutionContext(blockHash *types.Hash) (*core.ExecutionContext, error)
+	SetExecutionContext(blockHash *types.Hash, context *core.ExecutionContext)
+
 	// ====== AccountBlock ======
 	GetUnconfirmedBlocks(address types.Address) []*core.AccountBlock
 
@@ -85,7 +89,7 @@ type VmDb interface {
 
 	GetContractCode() ([]byte, error)
 
-	GetContractCodeBySnapshotBlock(addr *types.Address, snapshotBlock *core.SnapshotBlock) ([]byte, error) // TODO
+	GetDeployedContractCode(deployedContractAddr types.Address, callerAddr types.Address) ([]byte, error)
 
 	GetUnsavedContractMeta() map[types.Address]*core.ContractMeta
 
@@ -97,3 +101,4 @@ type VmDb interface {
 	// ====== debug ======
 	DebugGetStorage() (map[string][]byte, error)
 }
+

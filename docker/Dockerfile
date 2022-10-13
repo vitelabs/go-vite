@@ -11,7 +11,7 @@ ADD . .
 
 RUN GO111MODULE=on go build -mod=readonly -o gvite cmd/gvite/main.go
 
-FROM alpine:3.8
+FROM alpine:3.12.0
 
 RUN apk update \
     && apk upgrade \

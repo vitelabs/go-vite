@@ -110,7 +110,25 @@ func (sDB *StateDB) Write(block *interfaces.VmAccountBlock) error {
 			redoLog.CallDepth[sendBlock.Hash] = callDepth
 			batch.Put(chain_utils.CreateCallDepthKey(sendBlock.Hash).Bytes(), callDepthBytes)
 		}
+	}
 
+	// write execution context for triggered blocks
+	if accountBlock.IsReceiveBlock() && len(accountBlock.SendBlockList) > 0 {
+		for _, sendBlock := range accountBlock.SendBlockList {
+			blockType := sendBlock.BlockType
+			if blockType == ledger.BlockTypeSendSyncCall || blockType == ledger.BlockTypeSendCallback || blockType == ledger.BlockTypeSendFailureCallback {
+				context, err := vmDb.GetExecutionContext(&sendBlock.Hash)
+				sDB.log.Debug("write execution context", "error", err, "\ncontext", context)
+				if err == nil && context != nil {
+					key := chain_utils.CreateExecutionContextKey(sendBlock.Hash)
+					value, err := context.Serialize()
+					if err == nil {
+						redoLog.ExecutionContext = map[types.Hash][]byte{sendBlock.Hash: value}
+						batch.Put(key.Bytes(), value)
+					}
+				}
+			}
+		}
 	}
 
 	// add storage redo log
@@ -170,7 +188,6 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 	}
 
 	// write vm log
-
 	for logHash, vmLogListBytes := range redoLog.VmLogList {
 		batch.Put(chain_utils.CreateVmLogListKey(&logHash).Bytes(), vmLogListBytes)
 	}
@@ -181,8 +198,13 @@ func (sDB *StateDB) WriteByRedo(blockHash types.Hash, addr types.Address, redoLo
 
 		binary.BigEndian.PutUint16(callDepthBytes, callDepth)
 		batch.Put(chain_utils.CreateCallDepthKey(sendHash).Bytes(), callDepthBytes)
-
 	}
+
+	// write execution context
+	for sendHash, executionContext := range redoLog.ExecutionContext {
+		batch.Put(chain_utils.CreateExecutionContextKey(sendHash).Bytes(), executionContext)
+	}
+
 	sDB.store.WriteAccountBlockByHash(batch, blockHash)
 }
 

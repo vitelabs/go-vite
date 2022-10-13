@@ -49,7 +49,7 @@ func NewGenerator(chain vm_db.Chain, sbpStatReader core.SBPStatReader, addr type
 	}
 	gen.chain = chain
 
-	gen.vm = vm.NewVM(util.NewVMConsensusReader(sbpStatReader))
+	gen.vm = vm.NewVM(util.NewVMConsensusReader(sbpStatReader), chain)
 
 	vmDb, err := vm_db.NewVmDb(chain, &addr, latestSnapshotBlockHash, prevBlockHash)
 	if err != nil {

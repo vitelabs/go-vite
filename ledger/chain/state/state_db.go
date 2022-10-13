@@ -275,6 +275,21 @@ func (sDB *StateDB) GetCallDepth(sendBlockHash *types.Hash) (uint16, error) {
 	return binary.BigEndian.Uint16(value), nil
 }
 
+func (sDB *StateDB) GetExecutionContext(sendBlockHash *types.Hash) (*ledger.ExecutionContext, error) {
+	context := &ledger.ExecutionContext{}
+	value, err := sDB.store.Get(chain_utils.CreateExecutionContextKey(*sendBlockHash).Bytes())
+	if err != nil {
+		return context, err
+	}
+
+	if len(value) <= 0 {
+		return context, nil
+	}
+
+	err = context.Deserialize(value)
+	return context, err
+}
+
 func (sDB *StateDB) GetSnapshotBalanceList(balanceMap map[types.Address]*big.Int, snapshotBlockHash types.Hash, addrList []types.Address, tokenId types.TokenTypeId) error {
 	// if consensusCacheLevel is ConsensusReadCache and tokenId is vite token id
 	if sDB.consensusCacheLevel == ConsensusReadCache &&
