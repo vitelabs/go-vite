@@ -252,22 +252,7 @@ func OnTransferOwnerGetTokenInfoFailed(db interfaces.VmDb, tradeTokenId types.To
 	return
 }
 
-func PreCheckOrderParamAfterUpgrade12(orderParam *ParamPlaceOrder, isStemFork bool) error {
-	if orderParam.Quantity.Sign() <= 0 {
-		return InvalidOrderQuantityErr
-	}
-	if orderParam.OrderType != Limited && orderParam.OrderType != Market {
-		return InvalidOrderTypeErr
-	}
-	if orderParam.OrderType == Limited {
-		if !ValidPrice(orderParam.Price, isStemFork) {
-			return InvalidOrderPriceErr
-		}
-	}
-	return nil
-}
-
-func PreCheckOrderParamBeforeUpgrade12(orderParam *ParamPlaceOrder, isStemFork bool) error {
+func PreCheckOrderParam(orderParam *ParamPlaceOrder, isStemFork bool) error {
 	if orderParam.Quantity.Sign() <= 0 {
 		return InvalidOrderQuantityErr
 	}

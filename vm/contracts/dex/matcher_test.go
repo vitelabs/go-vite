@@ -19,14 +19,6 @@ func TestCalculateFeeAndExecutedFee(t *testing.T) {
 	innerTestCalculateFeeAndExecutedFee(t, heightPointAfter)
 }
 
-func TestHeightPoint(t *testing.T) {
-	box := upgrade.NewEmptyUpgradeBox().AddPoint(4, 20)
-	heightPointBefore := upgrade.NewMockPoint(19, box)
-	heightPointAfter := upgrade.NewMockPoint(20, box)
-	assert.False(t, heightPointBefore.IsStemUpgrade())
-	assert.True(t, heightPointAfter.IsStemUpgrade())
-}
-
 func innerTestCalculateFeeAndExecutedFee(t *testing.T, heightPoint upgrade.HeightPoint) {
 	maker := &Order{}
 	maker.Side = false
