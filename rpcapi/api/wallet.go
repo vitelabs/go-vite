@@ -36,9 +36,8 @@ type FindAddrResult struct {
 }
 
 type DeriveResult struct {
-	Bip44Path  string        `json:"bip44Path"`
-	Address    types.Address `json:"address"`
-	PrivateKey []byte        `json:"privateKey"`
+	Bip44Path string        `json:"bip44Path"`
+	Address   types.Address `json:"address"`
 }
 
 type CreateTransferTxParms struct {
@@ -124,15 +123,9 @@ func (m WalletApi) DeriveByFullPath(entropyStore string, fullpath string) (*Deri
 		return nil, err
 	}
 
-	privateKey, err := key.PrivateKey()
-	if err != nil {
-		return nil, err
-	}
-
 	return &DeriveResult{
-		Bip44Path:  fullpath,
-		Address:    *address,
-		PrivateKey: privateKey,
+		Bip44Path: fullpath,
+		Address:   *address,
 	}, nil
 }
 
@@ -151,15 +144,9 @@ func (m WalletApi) DeriveByIndex(entropyStore string, index uint32) (*DeriveResu
 		return nil, err
 	}
 
-	privateKey, err := key.PrivateKey()
-	if err != nil {
-		return nil, err
-	}
-
 	return &DeriveResult{
-		Bip44Path:  path,
-		Address:    *address,
-		PrivateKey: privateKey,
+		Bip44Path: path,
+		Address:   *address,
 	}, nil
 }
 

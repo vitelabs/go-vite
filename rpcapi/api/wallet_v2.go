@@ -88,15 +88,9 @@ func (m WalletApi) DeriveAddressByIndex(entropyFile string, index uint32) (*Deri
 		return nil, err
 	}
 
-	privateKey, err := key.PrivateKey()
-	if err != nil {
-		return nil, err
-	}
-
 	return &DeriveResult{
-		Bip44Path:  path,
-		Address:    *address,
-		PrivateKey: privateKey,
+		Bip44Path: path,
+		Address:   *address,
 	}, nil
 }
 
@@ -115,15 +109,9 @@ func (m WalletApi) DeriveAddressByPath(entropyFile string, bip44Path string) (*D
 		return nil, err
 	}
 
-	privateKey, err := key.PrivateKey()
-	if err != nil {
-		return nil, err
-	}
-
 	return &DeriveResult{
-		Bip44Path:  bip44Path,
-		Address:    *address,
-		PrivateKey: privateKey,
+		Bip44Path: bip44Path,
+		Address:   *address,
 	}, nil
 }
 
