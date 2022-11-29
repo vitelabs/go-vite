@@ -16,12 +16,13 @@ var DefaultNodeConfig = Config{
 	KeyStoreDir: DefaultDataDir(),
 	HttpPort:    common.DefaultHTTPPort,
 	WSPort:      common.DefaultWSPort,
+	PrivateHttpPort:    common.DefaultPrivateHTTPPort,
 
 	LogLevel:      "info",
 	HTTPCors:      []string{"*"},
 	WSOrigins:     []string{"*"},
-	WSExposeAll:   true,
-	HttpExposeAll: true,
+	WSExposeAll:   false,
+	HttpExposeAll: false,
 
 	Single:          config.DefaultSingle,
 	Identity:        config.DefaultNodeName,

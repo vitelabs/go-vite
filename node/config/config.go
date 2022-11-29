@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/vitelabs/go-vite/v2/common"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -76,6 +77,7 @@ type Config struct {
 	HttpVirtualHosts []string `json:"HttpVirtualHosts"`
 	WSHost           string   `json:"WSHost"`
 	WSPort           int      `json:"WSPort"`
+	PrivateHttpPort  int      `json:"PrivateHttpPort"`
 
 	HTTPCors            []string `json:"HTTPCors"`
 	WSOrigins           []string `json:"WSOrigins"`
@@ -240,6 +242,13 @@ func (c *Config) WSEndpoint() string {
 		return ""
 	}
 	return fmt.Sprintf("%s:%d", c.WSHost, c.WSPort)
+}
+
+func (c *Config) PrivateHTTPEndpoint() string {
+	if c.PrivateHttpPort == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s:%d", common.DefaultHTTPHost, c.PrivateHttpPort)
 }
 
 func (c *Config) SetPrivateKey(privateKey string) {
