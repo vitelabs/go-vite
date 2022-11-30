@@ -16,7 +16,6 @@ var DefaultNodeConfig = Config{
 	KeyStoreDir: DefaultDataDir(),
 	HttpPort:    common.DefaultHTTPPort,
 	WSPort:      common.DefaultWSPort,
-	PrivateHttpPort:    common.DefaultPrivateHTTPPort,
 
 	LogLevel:      "info",
 	HTTPCors:      []string{"*"},

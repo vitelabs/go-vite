@@ -63,7 +63,7 @@ func StartHTTPEndpoint(endpoint string, privateEndpoint string, apis []API, modu
 
 	go NewHTTPServer(cors, vhosts, timeouts, handler).Serve(listener)
 
-	if privateBind {
+	if privateBind && len(privateEndpoint) > 0 {
 		if privateListener, err = net.Listen("tcp", privateEndpoint); err != nil {
 			return nil, nil, nil, nil, err
 		}
