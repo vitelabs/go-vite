@@ -294,7 +294,9 @@ func getMiningInfo(db interfaces.VmDb, periodId uint64) (mineInfo *apidex.NewRpc
 	} else {
 		return
 	}
-	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, dex.RateForStakingMine); success {
+
+    rateForStakingMine := dex.GetFeeStakingMineRate(db)
+	if amount, available, success = dex.GetVxAmountToMine(db, periodId, available, rateForStakingMine); success {
 		mineInfo.StakingMine = amount.String()
 	} else {
 		return

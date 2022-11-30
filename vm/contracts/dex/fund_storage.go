@@ -129,6 +129,7 @@ var (
 
 	// RateSumForFeeMine                = "0.6" // 15% * 4
 	RateForStakingMine = "0.2" // 20%
+	RateForStakingMineVersion12 = "0.1" // 10%
 	// RateSumForMakerAndMaintainerMine = "0.2" // 10% + 10%
 
 	rateSumForFeeMineArr = mineRate{
@@ -194,6 +195,41 @@ var (
 			{
 				field: MineForMaintainer,
 				rate:  2,
+			},
+		},
+	}
+
+	rateSumForFeeMineArrVersion12 = mineRate{
+		totalRate: "0.5",
+		total:     4, // 4=1+1+1+1
+		fields: []mineRateField{
+			{
+				field: ViteTokenType,
+				rate:  1,
+			}, {
+				field: EthTokenType,
+				rate:  1,
+			}, {
+				field: BtcTokenType,
+				rate:  1,
+			}, {
+				field: UsdTokenType,
+				rate:  1,
+			},
+		},
+	}
+
+	rateSumForMakerAndMaintainerMineArrVersion12 = mineRate{
+		totalRate: "0.4", // 40% = 0.15 + 0.25
+		total:     8, 
+		fields: []mineRateField{
+			{
+				field: MineForMaker,
+				rate:  3,
+			},
+			{
+				field: MineForMaintainer,
+				rate:  5,
 			},
 		},
 	}
