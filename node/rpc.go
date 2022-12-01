@@ -73,8 +73,6 @@ func (node *Node) stopHTTP() {
 	if node.privateHttpListener != nil {
 		node.privateHttpListener.Close()
 		node.privateHttpListener = nil
-
-		log.Info("HTTP endpoint closed", "url", fmt.Sprintf("http://%s", node.httpEndpoint))
 	}
 	if node.privateHttpHandler != nil {
 		node.privateHttpHandler.Stop()
