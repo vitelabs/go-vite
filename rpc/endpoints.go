@@ -27,7 +27,7 @@ import (
 )
 
 // StartHTTPEndpoint starts the HTTP RPC endpoint, configured with cors/vhosts/modules
-func StartHTTPEndpoint(endpoint string, apis []API, modules []string, cors []string, vhosts []string, timeouts HTTPTimeouts, exposeAll bool) (net.Listener, *Server, error) {
+func StartHTTPEndpoint(endpoint string, privateEndpoint string, apis []API, modules []string, cors []string, vhosts []string, timeouts HTTPTimeouts, exposeAll bool) (net.Listener, *Server, net.Listener, *Server, error) {
 	// Generate the whitelist based on the allowed modules
 	whitelist := make(map[string]bool)
 	for _, module := range modules {
@@ -35,26 +35,42 @@ func StartHTTPEndpoint(endpoint string, apis []API, modules []string, cors []str
 	}
 	// Register all the APIs exposed by the services
 	handler := NewServer()
+	privateHandler := NewServer()
+	privateBind := false
 	for _, api := range apis {
 		if exposeAll || whitelist[api.Namespace] || (len(whitelist) == 0 && api.Public) {
 			if err := handler.RegisterName(api.Namespace, api.Service); err != nil {
-				return nil, nil, err
+				return nil, nil, nil, nil, err
 			}
 			log.Debug("HTTP registered", "namespace", api.Namespace)
+		} else if !api.Public {
+			if err := privateHandler.RegisterName(api.Namespace, api.Service); err != nil {
+				return nil, nil, nil, nil, err
+			}
+			privateBind = true
+			log.Debug("Private HTTP API registered", "namespace", api.Namespace)
 		}
 	}
 	// All APIs registered, start the HTTP listener
 	var (
 		listener net.Listener
+		privateListener net.Listener
 		err      error
 	)
 	if listener, err = net.Listen("tcp", endpoint); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	go NewHTTPServer(cors, vhosts, timeouts, handler).Serve(listener)
 
-	return listener, handler, err
+	if privateBind && len(privateEndpoint) > 0 {
+		if privateListener, err = net.Listen("tcp", privateEndpoint); err != nil {
+			return nil, nil, nil, nil, err
+		}
+		go NewHTTPServer(cors, vhosts, timeouts, privateHandler).Serve(privateListener)
+	}
+
+	return listener, handler, privateListener, privateHandler, err
 }
 
 // StartWSEndpoint starts chain websocket endpoint
