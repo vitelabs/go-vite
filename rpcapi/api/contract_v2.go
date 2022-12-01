@@ -438,7 +438,7 @@ func (r *ContractApi) GetSBPRewardPendingWithdrawal(name string) (*SBPReward, er
 		return nil, err
 	}
 	if info == nil {
-		return nil, nil
+		return nil, util.ErrSBPNotExists
 	}
 	sb, err := db.LatestSnapshotBlock()
 	if err != nil {
@@ -506,6 +506,9 @@ func (r *ContractApi) GetSBP(name string) (*SBPInfo, error) {
 	info, err := abi.GetRegistration(db, types.SNAPSHOT_GID, name)
 	if err != nil {
 		return nil, err
+	}
+	if info == nil {
+		return nil, util.ErrSBPNotExists
 	}
 	sb, err := db.LatestSnapshotBlock()
 	if err != nil {
