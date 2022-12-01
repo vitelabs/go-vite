@@ -23,6 +23,10 @@ func IsMayValidEntropystoreFile(path string) (bool, *types.Address, error) {
 		return false, nil, err
 	}
 
+	if !fi.Mode().IsRegular() {
+		return false, nil, nil
+	}
+
 	// out keystore file size is about 500 so if chain file is very large it must not be chain keystore file
 	if fi.Size() > 2*1024 {
 		return false, nil, nil
