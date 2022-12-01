@@ -363,7 +363,7 @@ func GetRegistration(db StorageDatabase, gid types.Gid, name string) (*types.Reg
 		return nil, err
 	}
 	if len(value) == 0 {
-		return nil, util.ErrSBPNotExists
+		return nil, nil
 	}
 
 	return UnpackRegistration(value)
