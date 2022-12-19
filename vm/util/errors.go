@@ -18,6 +18,7 @@ var (
 	ErrDataNotExist              = errors.New("data not exist")
 	ErrContractNotExists         = errors.New("contract not exists")
 	ErrNoReliableStatus          = errors.New("no reliable status")
+	ErrSBPNotExists        		 = errors.New("sbp name does not exists")
 
 	ErrAddressCollision = errors.New("contract address collision")
 	ErrIDCollision      = errors.New("id collision")

@@ -54,6 +54,9 @@ type Node struct {
 	httpWhitelist []string
 	httpListener  net.Listener
 	httpHandler   *rpc.Server
+	privateHttpEndpoint  string
+	privateHttpListener  net.Listener
+	privateHttpHandler   *rpc.Server
 
 	wsEndpoint string
 	wsListener net.Listener
@@ -75,6 +78,7 @@ func New(conf *nodeconfig.Config) (*Node, error) {
 		ipcEndpoint:  conf.IPCEndpoint(),
 		httpEndpoint: conf.HTTPEndpoint(),
 		wsEndpoint:   conf.WSEndpoint(),
+		privateHttpEndpoint: conf.PrivateHTTPEndpoint(),
 		stop:         make(chan struct{}),
 	}, nil
 }
@@ -312,7 +316,7 @@ func (node *Node) startRPC() (e error) {
 	}
 
 	if node.config.RPCEnabled {
-		if err := node.startHTTP(node.httpEndpoint, apis, nil, node.config.HTTPCors, node.config.HttpVirtualHosts, rpc.HTTPTimeouts{}, node.config.HttpExposeAll); err != nil {
+		if err := node.startHTTP(node.httpEndpoint, node.privateHttpEndpoint, apis, nil, node.config.HTTPCors, node.config.HttpVirtualHosts, rpc.HTTPTimeouts{}, node.config.HttpExposeAll); err != nil {
 			return err
 		}
 		defer func() {
