@@ -12,6 +12,8 @@ const (
 	stackLimit uint64 = 1024 // Maximum size of VM stack allowed.
 
 	maxCodeSize       int    = 24575 // Maximum bytecode to permit for a contract
+	maxCodeSizeVersionX int = 60557
+
 	offChainReaderGas uint64 = 1000000
 
 	snapshotCountMin         uint8 = 0
@@ -20,6 +22,7 @@ const (
 	snapshotWithSeedCountMax uint8 = 75
 
 	contractModifyStorageMax int = 100
+	contractModifyStorageMaxVersionX int = 200
 
 	retry   = true
 	noRetry = false

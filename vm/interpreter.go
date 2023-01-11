@@ -82,6 +82,7 @@ func (i *interpreter) runLoop(vm *VM, c *contract) (ret []byte, err error) {
 			return nil, err
 		}
 		c.quotaLeft, err = util.UseQuotaWithFlag(c.quotaLeft, cost, flag)
+		nodeConfig.log.Debug("compare code and cost", "operation", operation, "quota left", c.quotaLeft, "cost", cost, "memorySize", memorySize, "err", err)
 		if err != nil {
 			return nil, err
 		}

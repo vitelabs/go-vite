@@ -545,5 +545,8 @@ func newVersionXQuotaTable() QuotaTable {
 	gt := newVersion11QuotaTable()
 	gt.DexFundAgentDepositQuota = 10500
 	gt.DexFundAssignedWithdrawQuota = 10500
+	gt.SstoreResetQuota = 5000
+	gt.SstoreInitQuota = 7500
+	gt.TxDataQuota = 16
 	return gt
 }
