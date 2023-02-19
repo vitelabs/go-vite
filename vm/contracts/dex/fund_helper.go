@@ -569,6 +569,14 @@ func MaxTotalFeeRate(order Order) int32 {
 	}
 }
 
+func GenerateHeightPoint(db interfaces.VmDb) upgrade.HeightPoint {
+	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
+		panic(err)
+	} else {
+		return upgrade.NewHeightPoint(latestSb.Height)
+	}
+}
+
 func IsDexFeeFork(db interfaces.VmDb) bool {
 	if latestSb, err := db.LatestSnapshotBlock(); err != nil {
 		panic(err)
@@ -639,6 +647,10 @@ func IsVersion11EnrichOrderFork(db interfaces.VmDb) bool {
 
 func IsVersion11DeprecateClearingExpiredOrder(db interfaces.VmDb) bool {
 	return util.CheckFork(db, upgrade.IsVersion11Upgrade)
+}
+
+func IsVersion12Upgrade(db interfaces.VmDb) bool {
+	return util.CheckFork(db, upgrade.IsVersion12Upgrade)
 }
 
 func ValidOperatorFeeRate(feeRate int32) bool {

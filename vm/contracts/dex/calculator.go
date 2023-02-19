@@ -94,6 +94,15 @@ func RoundAmount(amountF *big.Float) *big.Int {
 	amount, _ := new(big.Float).SetPrec(bigFloatPrec).Add(amountF, big.NewFloat(0.5)).Int(nil)
 	return amount
 }
+func RoundQuantity(quantityF *big.Float) *big.Int {
+	quantity, _ := new(big.Float).SetPrec(bigFloatPrec).Add(quantityF, big.NewFloat(0.5)).Int(nil)
+	return quantity
+}
+
+func FloorQuantity(quantityF *big.Float) *big.Int {
+	quantity, _ := quantityF.Int(nil)
+	return quantity
+}
 
 func NegativeAmount(amount []byte) *big.Int {
 	return new(big.Int).Neg(new(big.Int).SetBytes(amount))

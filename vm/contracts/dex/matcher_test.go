@@ -6,14 +6,20 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
 )
 
 func TestCalculateFeeAndExecutedFee(t *testing.T) {
-	innerTestCalculateFeeAndExecutedFee(t, false)
-	innerTestCalculateFeeAndExecutedFee(t, true)
+	box := upgrade.NewEmptyUpgradeBox().AddPoint(3, 10)
+	heightPointBefore := upgrade.NewMockPoint(9, box)
+	heightPointAfter := upgrade.NewMockPoint(10, box)
+	assert.False(t, heightPointBefore.IsDexFeeUpgrade())
+	assert.True(t, heightPointAfter.IsDexFeeUpgrade())
+	innerTestCalculateFeeAndExecutedFee(t, heightPointBefore)
+	innerTestCalculateFeeAndExecutedFee(t, heightPointAfter)
 }
 
-func innerTestCalculateFeeAndExecutedFee(t *testing.T, isDexFeeFork bool) {
+func innerTestCalculateFeeAndExecutedFee(t *testing.T, heightPoint upgrade.HeightPoint) {
 	maker := &Order{}
 	maker.Side = false
 	maker.Quantity = big.NewInt(1000000000).Bytes()
@@ -25,15 +31,15 @@ func innerTestCalculateFeeAndExecutedFee(t *testing.T, isDexFeeFork bool) {
 
 	executeQuantity := big.NewInt(988500000).Bytes()
 	executeAmount := big.NewInt(9885).Bytes()
-	_, makerExecutedFee, _, makerExecutedOperatorFee := CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, isDexFeeFork)
-	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, 0, maker.Price)
+	_, makerExecutedFee, _, makerExecutedOperatorFee := CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, heightPoint)
+	updateOrderBeforeUpgrade12(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, 0, maker.Price)
 	assert.Equal(t, "5", new(big.Int).SetBytes(maker.ExecutedOperatorFee).String())
 
 	executeQuantity = big.NewInt(11500000).Bytes()
 	executeAmount = big.NewInt(115).Bytes()
-	_, makerExecutedFee, _, makerExecutedOperatorFee = CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, isDexFeeFork)
-	updateOrder(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, 0, maker.Price)
-	if isDexFeeFork {
+	_, makerExecutedFee, _, makerExecutedOperatorFee = CalculateFeeAndExecutedFee(maker, executeAmount, maker.MakerFeeRate, maker.MakerOperatorFeeRate, heightPoint)
+	updateOrderBeforeUpgrade12(maker, executeQuantity, executeAmount, makerExecutedFee, makerExecutedOperatorFee, 0, maker.Price)
+	if heightPoint.IsDexFeeUpgrade() {
 		assert.Equal(t, "5", new(big.Int).SetBytes(maker.ExecutedOperatorFee).String())
 	} else {
 		assert.Equal(t, "0", new(big.Int).SetBytes(maker.ExecutedOperatorFee).String())

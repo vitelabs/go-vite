@@ -373,7 +373,8 @@ func (md MethodDexFundTriggerPeriodJob) DoReceive(db interfaces.VmDb, block *led
 				return handleDexReceiveErr(fundLogger, md.MethodName, fmt.Errorf("no vx available on mine for fee"), sendBlock)
 			}
 		case dex.MineVxForStakingJob:
-			if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPool, dex.RateForStakingMine); success {
+			rateForStakingMine := dex.GetFeeStakingMineRate(db)
+			if amount, vxPoolLeaved, success = dex.GetVxAmountToMine(db, param.PeriodId, vxPool, rateForStakingMine); success {
 				if refund, err = dex.DoMineVxForStaking(db, vm.ConsensusReader(), param.PeriodId, amount); err != nil {
 					return handleDexReceiveErr(fundLogger, md.MethodName, err, sendBlock)
 				}
