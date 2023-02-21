@@ -131,6 +131,7 @@ func (c *Config) MakeViteConfig() *config.Config {
 		Vm:         c.MakeVmConfig(),
 		Subscribe:  c.MakeSubscribeConfig(),
 		NodeReward: c.MakeRewardConfig(),
+		Rpc:        c.MakeRpcConfig(),
 		Genesis:    config.MakeGenesisConfig(c.GenesisFile),
 		LogLevel:   c.LogLevel,
 	}
@@ -172,6 +173,20 @@ func (c *Config) MakeRewardConfig() *config.NodeReward {
 	return &config.NodeReward{
 		RewardAddr: c.RewardAddr,
 		Name:       c.Identity,
+	}
+}
+
+func (c *Config) MakeRpcConfig() *config.Rpc {
+	return &config.Rpc{
+		RPCEnabled:       c.RPCEnabled,
+		IPCEnabled:       c.IPCEnabled,
+		WSEnabled:        c.WSEnabled,
+		IPCPath:          c.IPCPath,
+		HttpHost:         c.HttpHost,
+		HttpPort:         c.HttpPort,
+		HttpVirtualHosts: c.HttpVirtualHosts,
+		WSHost:           c.WSHost,
+		WSPort:           c.WSPort,
 	}
 }
 

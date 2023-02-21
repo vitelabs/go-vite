@@ -15,6 +15,7 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/vitelabs/go-vite/v2/common/config"
+	"github.com/vitelabs/go-vite/v2/common/hexutil"
 	"github.com/vitelabs/go-vite/v2/common/types"
 	"github.com/vitelabs/go-vite/v2/common/vitepb"
 	"github.com/vitelabs/go-vite/v2/crypto/ed25519"
@@ -746,18 +747,25 @@ func (n *net) PeerCount() int {
 func (n *net) Info() NodeInfo {
 	ps := n.peers.info()
 	info := NodeInfo{
-		ID:        n.node.ID,
-		Name:      n.config.Name,
-		NetID:     n.config.NetID,
-		Version:   version,
-		Address:   "",
-		PeerCount: len(ps),
-		Peers:     ps,
-		Height:    n.chain.GetLatestSnapshotBlock().Height,
+		ID:               n.node.ID,
+		Name:             n.config.Name,
+		NetID:            n.config.NetID,
+		Version:          version,
+		Port:             n.config.Port,
+		FilePort:         n.config.FilePort,
+		Address:          n.config.PublicAddress,
+		PeerCount:        len(ps),
+		Peers:            ps,
+		Height:           n.chain.GetLatestSnapshotBlock().Height,
 		//Nodes:     n.discover.NodesCount(),
 		Latency:               n.broadcaster.Statistic(),
 		BroadCheckFailedRatio: n.broadcaster.rings.failedRatio(),
 		Server:                FileServerStatus{},
+	}
+
+	if info.Address != "" {
+		addrSig := ed25519.Sign(n.peerKey, []byte(info.Address))
+		info.AddressSignature = hexutil.Encode(addrSig)
 	}
 
 	if n.syncServer != nil {
@@ -772,7 +780,10 @@ type NodeInfo struct {
 	Name                  string           `json:"name"`
 	NetID                 int              `json:"netId"`
 	Version               int              `json:"version"`
+	Port                  int              `json:"port"`
+	FilePort              int              `json:"filePort"`
 	Address               string           `json:"address"`
+	AddressSignature      string           `json:"addressSignature"`
 	PeerCount             int              `json:"peerCount"`
 	Peers                 []PeerInfo       `json:"peers"`
 	Height                uint64           `json:"height"`

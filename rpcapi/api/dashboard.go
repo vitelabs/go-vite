@@ -60,6 +60,14 @@ func (api DashboardApi) ProcessInfo(id *string) map[string]interface{} {
 		result["nodeName"] = api.v.Config().NodeReward.Name
 		result["rewardAddress"] = api.v.Config().RewardAddr
 	}
+	if api.v.Config().Rpc != nil {
+		if api.v.Config().Rpc.RPCEnabled {
+			result["httpPort"] = api.v.Config().Rpc.HttpPort
+		}
+		if api.v.Config().Rpc.WSEnabled {
+			result["wsPort"] = api.v.Config().Rpc.WSPort
+		}
+	}
 	result["pid"] = os.Getpid()
 
 	return result
