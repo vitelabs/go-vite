@@ -389,8 +389,18 @@ type mineRate struct {
 
 // -----------------
 
+func GetFeeStakingMineRate(db interfaces.VmDb) string {
+	if IsVersion12Upgrade(db) {
+		return RateForStakingMineVersion12
+	} else {
+		return RateForStakingMine
+	}
+}
+
 func GetFeeMineRateArr(db interfaces.VmDb) mineRate {
-	if IsVersion10Upgrade(db) {
+	if IsVersion12Upgrade(db) {
+		return rateSumForFeeMineArrVersion12
+	} else if IsVersion10Upgrade(db) {
 		return rateSumForFeeMineArrVersion10
 	} else {
 		return rateSumForFeeMineArr
@@ -398,7 +408,9 @@ func GetFeeMineRateArr(db interfaces.VmDb) mineRate {
 }
 
 func GetMakerAndMaintainerArr(db interfaces.VmDb) mineRate {
-	if IsVersion10Upgrade(db) {
+	if IsVersion12Upgrade(db) {
+		return rateSumForMakerAndMaintainerMineArrVersion12
+	} else if IsVersion10Upgrade(db) {
 		return rateSumForMakerAndMaintainerMineArrVersion10
 	} else {
 		return rateSumForMakerAndMaintainerMineArr

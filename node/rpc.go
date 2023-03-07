@@ -37,12 +37,12 @@ func (node *Node) stopIPC() {
 }
 
 // startHTTP initializes and starts the HTTP RPC endpoint.
-func (node *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string, timeouts rpc.HTTPTimeouts, exposeAll bool) error {
+func (node *Node) startHTTP(endpoint string, privateEndpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string, timeouts rpc.HTTPTimeouts, exposeAll bool) error {
 	// Short circuit if the HTTP endpoint isn't being exposed
 	if endpoint == "" {
 		return nil
 	}
-	listener, handler, err := rpc.StartHTTPEndpoint(endpoint, apis, modules, cors, vhosts, timeouts, exposeAll)
+	listener, handler, privateListener, privateHandler, err := rpc.StartHTTPEndpoint(endpoint, privateEndpoint, apis, modules, cors, vhosts, timeouts, exposeAll)
 	if err != nil {
 		return err
 	}
@@ -51,6 +51,8 @@ func (node *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, c
 	node.httpEndpoint = endpoint
 	node.httpListener = listener
 	node.httpHandler = handler
+	node.privateHttpListener = privateListener
+	node.privateHttpHandler = privateHandler
 
 	return nil
 }
@@ -66,6 +68,15 @@ func (node *Node) stopHTTP() {
 	if node.httpHandler != nil {
 		node.httpHandler.Stop()
 		node.httpHandler = nil
+	}
+
+	if node.privateHttpListener != nil {
+		node.privateHttpListener.Close()
+		node.privateHttpListener = nil
+	}
+	if node.privateHttpHandler != nil {
+		node.privateHttpHandler.Stop()
+		node.privateHttpHandler = nil
 	}
 }
 

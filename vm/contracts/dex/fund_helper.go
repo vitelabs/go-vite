@@ -649,6 +649,10 @@ func IsVersion11DeprecateClearingExpiredOrder(db interfaces.VmDb) bool {
 	return util.CheckFork(db, upgrade.IsVersion11Upgrade)
 }
 
+func IsVersion12Upgrade(db interfaces.VmDb) bool {
+	return util.CheckFork(db, upgrade.IsVersion12Upgrade)
+}
+
 func ValidOperatorFeeRate(feeRate int32) bool {
 	return feeRate >= 0 && feeRate <= MaxOperatorFeeRate
 }
