@@ -252,7 +252,7 @@ func newDexCrossTransferContracts() map[types.Address]*builtinContract {
 // GetBuiltinContractMethod finds method instance of built-in contract method by address and method id
 func GetBuiltinContractMethod(addr types.Address, methodSelector []byte, sbHeight uint64) (BuiltinContractMethod, bool, error) {
 	var contractsMap map[types.Address]*builtinContract
-	if upgrade.IsVersion13Upgrade(sbHeight) {
+	if upgrade.IsVersionXUpgrade(sbHeight) {
 		contractsMap = dexCrossTransferContracts
 	} else if upgrade.IsVersion11Upgrade(sbHeight) {
 		contractsMap = dexEnrichOrderContracts
