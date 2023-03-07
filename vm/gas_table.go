@@ -352,8 +352,14 @@ func gasSStore(vm *VM, c *contract, stack *stack, mem *memory, memorySize uint64
 	)
 	if upgrade.IsEarthUpgrade(vm.latestSnapshotHeight) {
 		c.storageModified[loc.String()] = struct{}{}
-		if len(c.storageModified) > contractModifyStorageMax {
-			return 0, true, util.ErrStorageModifyLimitReached
+		if upgrade.IsVersionXUpgrade(vm.latestSnapshotHeight) {
+			if len(c.storageModified) > contractModifyStorageMaxVersionX {
+				return 0, true, util.ErrStorageModifyLimitReached
+			}
+		} else {
+			if len(c.storageModified) > contractModifyStorageMax {
+				return 0, true, util.ErrStorageModifyLimitReached
+			}
 		}
 	}
 

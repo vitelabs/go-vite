@@ -7,6 +7,7 @@ import (
 const (
 	// QuotaForCreateContractResponse defines available quota for create contract response block
 	QuotaForCreateContractResponse uint64 = 1000000
+	QuotaForCreateContractResponseVersionX uint64 = 2500000
 	// quotaLimitForBlock defines max available quota for an account block
 	quotaLimitForBlock uint64 = 1000000
 	// QuotaPerUt defines quota amount of 1 unit transaction

@@ -290,6 +290,7 @@ func (vm *VM) sendCreate(db interfaces.VmDb, block *ledger.AccountBlock, useQuot
 			return nil, err
 		}
 		quotaLeft, err = util.UseQuota(quotaLeft, cost)
+		nodeConfig.log.Debug("quota left", "quota", quotaLeft, "err", err)
 		if err != nil {
 			return nil, err
 		}
@@ -367,6 +368,7 @@ func (vm *VM) sendCreate(db interfaces.VmDb, block *ledger.AccountBlock, useQuot
 		return nil, util.ErrInsufficientBalance
 	}
 	qStakeUsed, qUsed := util.CalcQuotaUsed(useQuota, quotaTotal, quotaAddition, quotaLeft, nil)
+	nodeConfig.log.Debug("quota used", "quotaStakeUsed", qStakeUsed, "quotaUsed", qUsed, "err", err)
 	vm.updateBlock(db, block, nil, qStakeUsed, qUsed)
 	// Set contract meta at send block, so that contract block producer module
 	// will be informed of the binding between gid and the new contract.
@@ -383,6 +385,11 @@ func (vm *VM) sendCreate(db interfaces.VmDb, block *ledger.AccountBlock, useQuot
 func (vm *VM) receiveCreate(db interfaces.VmDb, block *ledger.AccountBlock, sendBlock *ledger.AccountBlock, meta *ledger.ContractMeta) (*interfaces.VmAccountBlock, bool, error) {
 	defer monitor.LogTimerConsuming([]string{"vm", "receiveCreate"}, time.Now())
 	quotaLeft := quota.QuotaForCreateContractResponse
+	codeSizeLimit := maxCodeSize
+	if upgrade.IsVersionXUpgrade(vm.latestSnapshotHeight) {
+		quotaLeft = quota.QuotaForCreateContractResponseVersionX
+		codeSizeLimit = maxCodeSizeVersionX
+	}
 	// Check contract address collision.
 	prev, err := db.PrevAccountBlock()
 	util.DealWithErr(err)
@@ -406,11 +413,15 @@ func (vm *VM) receiveCreate(db interfaces.VmDb, block *ledger.AccountBlock, send
 	initCode := util.GetCodeFromCreateContractData(sendBlock.Data, vm.latestSnapshotHeight)
 	c := newContract(block, db, sendBlock, initCode, quotaLeft)
 	c.setCallCode(block.AccountAddress, initCode)
+	nodeConfig.log.Debug("init code length", "code", len(initCode))
 	code, err := c.run(vm)
-	if err == nil && len(code) <= maxCodeSize {
+	nodeConfig.log.Debug("vm code length", "code", len(code))
+
+	if err == nil && len(code) <= codeSizeLimit {
 		code := util.PackContractCode(util.GetContractTypeFromCreateContractData(sendBlock.Data), code)
 		codeCost := uint64(len(code)) * vm.gasTable.CodeQuota
 		c.quotaLeft, err = util.UseQuota(c.quotaLeft, codeCost)
+		nodeConfig.log.Debug("quota left", "quota", c.quotaLeft)
 		if err == nil {
 			db.SetContractCode(code)
 			vm.updateBlock(db, block, err, 0, 0)
@@ -421,7 +432,7 @@ func (vm *VM) receiveCreate(db interfaces.VmDb, block *ledger.AccountBlock, send
 			}
 		}
 	}
-	if err == nil && len(code) > maxCodeSize && upgrade.IsEarthUpgrade(vm.latestSnapshotHeight) {
+	if err == nil && len(code) > codeSizeLimit && upgrade.IsEarthUpgrade(vm.latestSnapshotHeight) {
 		err = util.ErrInvalidCodeLength
 	}
 	vm.revert(db)
