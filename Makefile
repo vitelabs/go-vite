@@ -10,12 +10,12 @@
 GO ?= latest
 
 MAIN_DIR=gvite
-WORK_DIR=$(shell pwd)
-MAIN=$(shell pwd)/cmd/$(MAIN_DIR)/main.go
-BUILD_ROOT_DIR=$(shell pwd)/build
+WORK_DIR=$(CURDIR)
+MAIN=$(CURDIR)/cmd/$(MAIN_DIR)/main.go
+BUILD_ROOT_DIR=$(CURDIR)/build
 VITE_GIT_COMMIT=$(shell git rev-parse HEAD)
 VITE_VERSION=$(shell cat version/buildversion)
-VITE_VERSION_FILE=$(shell pwd)/version/buildversion.go
+VITE_VERSION_FILE=$(CURDIR)/version/buildversion.go
 
 BUILD_DIR=$(BUILD_ROOT_DIR)/cmd/$(MAIN_DIR)
 BUILD_BIN=$(BUILD_DIR)/gvite
@@ -68,7 +68,7 @@ build_darwin:
 build_windows:
 	env GOOS=windows CGO_ENABLED=0 GO111MODULE=on GOARCH=amd64 go build -o $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/gvite-windows-amd64.exe $(MAIN)
 
-	@cp  $(shell pwd)/conf/node_config.json $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/node_config.json
+	@cp  $(CURDIR)/conf/node_config.json $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/node_config.json
 	@ls -d $(BUILD_DIR)/gvite-$(VITE_VERSION)-windows/gvite-windows-amd64.exe
 	@echo "Build windows version done."
 
