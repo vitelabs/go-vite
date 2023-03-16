@@ -59,6 +59,10 @@ func NewLatestUpgradeBox() *upgradeBox {
 			Height:  1,
 			Version: 14,
 		},
+		{
+			Height:  1,
+			Version: 15,
+		},
 	})
 }
 
@@ -130,9 +134,14 @@ func NewMainnetUpgradeBox() *upgradeBox {
 			Version: 13,
 		},
 		{
-			Name:    "VersionX",
+			Name:    "Version14",
 			Height:  EndlessHeight,
 			Version: 14,
+		},
+		{
+			Name:    "VersionX",
+			Height:  EndlessHeight,
+			Version: 15,
 		},
 	})
 }
