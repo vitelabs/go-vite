@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
 	"github.com/vitelabs/go-vite/v2/crypto"
 	"github.com/vitelabs/go-vite/v2/interfaces"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
@@ -42,6 +43,12 @@ func (self *SnapshotVerifier) verifyTimestamp(block *ledger.SnapshotBlock) error
 
 	if block.Timestamp.After(time.Now().Add(time.Hour)) {
 		return errors.New("snapshot Timestamp not arrive yet")
+	}
+	if upgrade.IsVersion13Upgrade(block.Height) {
+		// Accepting blocks from the future within 10 seconds at the network layer.
+		if block.Timestamp.After(time.Now().Add(time.Second * 20)) {
+			return errors.New("A snapshot block from the future.")
+		}
 	}
 	return nil
 }

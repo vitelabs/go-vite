@@ -95,6 +95,10 @@ func (*mockCommonBlock) ReferHashes() ([]types.Hash, []types.Hash, *types.Hash) 
 	panic("implement me")
 }
 
+func (mockCommonBlock) Ready() bool {
+	return true
+}
+
 func (m mockCommonBlock) computeHash() types.Hash {
 	var source []byte
 	// PrevHash

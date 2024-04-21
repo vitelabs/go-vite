@@ -329,7 +329,7 @@ func (a ByTailHeight) Len() int           { return len(a) }
 func (a ByTailHeight) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByTailHeight) Less(i, j int) bool { return a[i].tailHeight < a[j].tailHeight }
 
-func (bcp *BCPool) loopGenSnippetChains() int {
+func (bcp *BCPool) loopGenSnippetChains(readyFilter bool) int {
 	if len(bcp.blockpool.freeBlocks) == 0 {
 		return 0
 	}
@@ -343,6 +343,11 @@ func (bcp *BCPool) loopGenSnippetChains() int {
 	chains := copyMap(bcp.chainpool.snippetChains)
 
 	for _, v := range sortPending {
+		if readyFilter {
+			if !v.Ready() {
+				continue
+			}
+		}
 		if !tryInsert(chains, v) {
 			snippet := newSnippetChain(v, bcp.chainpool.genChainID())
 			chains = append(chains, snippet)
@@ -504,7 +509,7 @@ func (bcp *BCPool) CurrentChain() tree.Branch {
 
 func (bcp *BCPool) loop() {
 	for {
-		bcp.loopGenSnippetChains()
+		bcp.loopGenSnippetChains(false)
 		bcp.loopAppendChains()
 		bcp.loopFetchForSnippets()
 		time.Sleep(time.Second)
