@@ -12,7 +12,7 @@ func (node *Node) startIPC(apis []rpc.API) error {
 	if node.ipcEndpoint == "" {
 		return nil // IPC disabled.
 	}
-	listener, handler, err := rpc.StartIPCEndpoint(node.ipcEndpoint, apis)
+	listener, handler, err := rpc.StartIPCEndpoint(node.config.NetSelect, node.ipcEndpoint, apis)
 	if err != nil {
 		return err
 	}

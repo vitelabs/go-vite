@@ -53,9 +53,9 @@ func StartHTTPEndpoint(endpoint string, privateEndpoint string, apis []API, modu
 	}
 	// All APIs registered, start the HTTP listener
 	var (
-		listener net.Listener
+		listener        net.Listener
 		privateListener net.Listener
-		err      error
+		err             error
 	)
 	if listener, err = net.Listen("tcp", endpoint); err != nil {
 		return nil, nil, nil, nil, err
@@ -107,6 +107,7 @@ func StartWSEndpoint(endpoint string, apis []API, modules []string, wsOrigins []
 }
 
 // StartIPCEndpoint starts an IPC endpoint.
+/*
 func StartIPCEndpoint(ipcEndpoint string, apis []API) (net.Listener, *Server, error) {
 	// Register all the APIs exposed by the services.
 	handler := NewServer()
@@ -133,6 +134,49 @@ func StartIPCEndpoint(ipcEndpoint string, apis []API) (net.Listener, *Server, er
 		return nil, nil, err
 	}
 
+	go handler.ServeListener(listener)
+
+	return listener, handler, nil
+}
+*/
+
+// In this modified function:
+// - The `networkType` parameter allows you to specify "mainnet" or "testnet."
+// - The `uniqueEndpoint` is constructed by appending the network type to the original `ipcEndpoint`.
+// - This ensures that the IPC endpoints are distinct for each network.
+
+// StartIPCEndpoint starts an IPC endpoint for either mainnet or testnet.
+func StartIPCEndpoint(networkType string, ipcEndpoint string, apis []API) (net.Listener, *Server, error) {
+	// Construct a unique IPC endpoint by appending the network type.
+	uniqueEndpoint := ipcEndpoint + "_" + networkType
+
+	// Register APIs as before.
+	handler := NewServer()
+	for _, api := range apis {
+		if err := handler.RegisterName(api.Namespace, api.Service); err != nil {
+			return nil, nil, err
+		}
+		log.Debug("IPC registered", "namespace", api.Namespace)
+	}
+
+	// Start the IPC listener.
+	listener, err := ipcListen(uniqueEndpoint)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Handle termination signals.
+	exitSig := make(chan os.Signal, 1)
+	signal.Notify(exitSig, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-exitSig
+		log.Info("receiver term sig")
+		if listener != nil {
+			listener.Close()
+		}
+	}()
+
+	// Serve the listener.
 	go handler.ServeListener(listener)
 
 	return listener, handler, nil
