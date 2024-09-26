@@ -56,3 +56,8 @@ func (ci contractApi) GetSBPVoteList() (result []*api.SBPVoteInfo, err error) {
 	err = ci.cc.Call(&result, "contract_getSBPVoteList")
 	return
 }
+
+func (ci contractApi) GetTokenInfoById(tokenId types.TokenTypeId) (result []*api.RpcTokenInfo, err error) {
+	err = ci.cc.Call(&result, "contract_getTokenInfoById", tokenId)
+	return
+}

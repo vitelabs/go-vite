@@ -31,7 +31,34 @@ var (
 					cli.Uint64Flag{
 						Name:  "snapshotHeight",
 						Usage: "snapshot height",
-					}}...),
+					},
+					cli.StringFlag{
+						Name:  "minAirdrop",
+						Usage: "only airdrop above (full decimals)",
+						Value: "100000000000000", // 0.0001 for 18 decimals
+					},
+					cli.BoolFlag{
+						Name:  "allowContract",
+						Usage: "allow smart contract addresses",
+					},
+					cli.BoolFlag{
+						Name:  "showBuiltInContract",
+						Usage: "show built-in smart contracts",
+					},
+					&cli.StringFlag{
+						Name:  "ignoreList",
+						Usage: "ignore addresses feed in a file",
+						Value: "ignore.txt",
+					},
+					cli.StringFlag{
+						Name:  "airdropSum",
+						Usage: "total airdrop amount (full decimals)",
+						Value: "0",
+					},cli.StringFlag{
+						Name:  "quotaSum",
+						Usage: "total airdrop for staking quota (full decimals)",
+						Value: "0",
+					},}...),
 				Action: utils.MigrateFlags(dumpAllBalanceAction),
 			},
 			{
@@ -68,7 +95,13 @@ func dumpAllBalanceAction(ctx *cli.Context) error {
 		return err
 	}
 	snapshotHeight := ctx.Uint64("snapshotHeight")
-	return dumpBalance(vite.Chain(), tokenId, snapshotHeight)
+	minAirdrop := ctx.String("minAirdrop")
+	allowContract := ctx.Bool("allowContract")
+	showBuiltIn := ctx.Bool("showBuiltInContract")
+	ignoreList := ctx.String("ignoreList")
+	airdropSum := ctx.String("airdropSum")
+	quotaSum := ctx.String("quotaSum")
+	return dumpBalance(vite.Chain(), tokenId, snapshotHeight, minAirdrop, allowContract, showBuiltIn, ignoreList, airdropSum, quotaSum)
 }
 
 func latestSnapshotBlockAction(ctx *cli.Context) error {
