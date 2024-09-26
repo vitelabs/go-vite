@@ -90,6 +90,10 @@ func (accB *accountPoolBlock) Owner() *types.Address {
 	return &accB.block.AccountAddress
 }
 
+func (accB accountPoolBlock) Ready() bool {
+	return true
+}
+
 func newAccountPool(name string, rw *accountCh, v *common.Version, hashBlacklist Blacklist, log log15.Logger) *accountPool {
 	pool := &accountPool{}
 	pool.ID = name
@@ -109,11 +113,12 @@ func (accP *accountPool) Init(
 	accP.BCPool.init(tools)
 }
 
-/**
-1. compact for data
-	1.1. free blocks
-	1.2. snippet chain
-2. fetch block for snippet chain.
+/*
+*
+ 1. compact for data
+    1.1. free blocks
+    1.2. snippet chain
+ 2. fetch block for snippet chain.
 */
 func (accP *accountPool) Compact() int {
 	accP.chainHeadMu.Lock()
@@ -124,7 +129,7 @@ func (accP *accountPool) Compact() int {
 
 	defer monitor.LogTime("pool", "accountSnippet", now)
 	accP.loopTime = now
-	sum = sum + accP.loopGenSnippetChains()
+	sum = sum + accP.loopGenSnippetChains(false)
 	sum = sum + accP.loopAppendChains()
 
 	if now.After(accP.loopFetchTime.Add(time.Millisecond * 200)) {
@@ -137,7 +142,8 @@ func (accP *accountPool) Compact() int {
 	return sum
 }
 
-/**
+/*
+*
 try insert block to real chain.
 */
 func (accP *accountPool) pendingAccountTo(h *ledger.HashHeight, sHeight uint64) (*ledger.HashHeight, error) {

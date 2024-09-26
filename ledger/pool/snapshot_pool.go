@@ -9,6 +9,7 @@ import (
 
 	"github.com/vitelabs/go-vite/v2/common"
 	"github.com/vitelabs/go-vite/v2/common/types"
+	"github.com/vitelabs/go-vite/v2/common/upgrade"
 	ledger "github.com/vitelabs/go-vite/v2/interfaces/core"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/batch"
 	"github.com/vitelabs/go-vite/v2/ledger/pool/tree"
@@ -76,6 +77,14 @@ func (sb *snapshotPoolBlock) PrevHash() types.Hash {
 
 func (sb *snapshotPoolBlock) Owner() *types.Address {
 	return nil
+}
+
+func (sb snapshotPoolBlock) Ready() bool {
+	// If a block comes from the future with a maximum error of one second, then it is illegal.
+	if sb.block.Timestamp.After(time.Now().Add(time.Second)) {
+		return false
+	}
+	return true
 }
 
 func newSnapshotPool(
@@ -218,7 +227,8 @@ func (sp *snapshotPool) loopCompactSnapshot() int {
 	sp.chainHeadMu.Lock()
 	defer sp.chainHeadMu.Unlock()
 	sum := 0
-	sp.loopGenSnippetChains()
+	// Starting from version 13, consider whether the block is ready when filtering.
+	sp.loopGenSnippetChains(upgrade.IsVersion13Upgrade(sp.rw.headSnapshot().Height))
 	sum += sp.loopAppendChains()
 	now := time.Now()
 	if now.After(sp.nextFetchTime) {
@@ -343,49 +353,49 @@ func (sp *snapshotPool) loopFetchForSnapshot() {
 	return
 }
 
-//func (self *snapshotPool) makeQueue(q Package, info *offsetInfo) (uint64, error) {
-//	self.pool.RLock()
-//	defer self.pool.RUnLock()
-//	self.rMu.Lock()
-//	defer self.rMu.Unlock()
+//	func (self *snapshotPool) makeQueue(q Package, info *offsetInfo) (uint64, error) {
+//		self.pool.RLock()
+//		defer self.pool.RUnLock()
+//		self.rMu.Lock()
+//		defer self.rMu.Unlock()
 //
-//	cp := self.chainpool
-//	current := cp.current
+//		cp := self.chainpool
+//		current := cp.current
 //
-//	if info.offset == nil {
-//		info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
-//	} else {
-//		block := current.getBlock(info.offset.Height+1, false)
-//		if block == nil || block.PrevHash() != info.offset.Hash {
-//			return uint64(0), errors.New("current chain modify.")
-//		}
-//	}
-//
-//	minH := info.offset.Height + 1
-//	headH := current.headHeight
-//	for i := minH; i <= headH; i++ {
-//		block := self.getCurrentBlock(i)
-//		if block == nil {
-//			return uint64(i - minH), errors.New("current chain modify")
+//		if info.offset == nil {
+//			info.offset = &ledger.HashHeight{Hash: current.tailHash, Height: current.tailHeight}
+//		} else {
+//			block := current.getBlock(info.offset.Height+1, false)
+//			if block == nil || block.PrevHash() != info.offset.Hash {
+//				return uint64(0), errors.New("current chain modify.")
+//			}
 //		}
 //
-//		if self.hashBlacklist.Exists(block.Hash()) {
-//			return uint64(i - minH), errors.New("block in blacklist")
+//		minH := info.offset.Height + 1
+//		headH := current.headHeight
+//		for i := minH; i <= headH; i++ {
+//			block := self.getCurrentBlock(i)
+//			if block == nil {
+//				return uint64(i - minH), errors.New("current chain modify")
+//			}
+//
+//			if self.hashBlacklist.Exists(block.Hash()) {
+//				return uint64(i - minH), errors.New("block in blacklist")
+//			}
+//
+//			item := NewItem(block, nil)
+//
+//			err := q.AddItem(item)
+//			if err != nil {
+//				return uint64(i - minH), err
+//			}
+//			info.offset.Hash = item.Hash()
+//			info.offset.Height = item.Height()
 //		}
 //
-//		item := NewItem(block, nil)
+//		return uint64(headH - minH), errors.New("all in")
 //
-//		err := q.AddItem(item)
-//		if err != nil {
-//			return uint64(i - minH), err
-//		}
-//		info.offset.Hash = item.Hash()
-//		info.offset.Height = item.Height()
-//	}
-//
-//	return uint64(headH - minH), errors.New("all in")
-//
-//}
+// }
 func (sp *snapshotPool) getCurrentBlock(i uint64) *snapshotPoolBlock {
 	b := sp.CurrentChain().GetKnot(i, false)
 	if b != nil {
@@ -394,16 +404,16 @@ func (sp *snapshotPool) getCurrentBlock(i uint64) *snapshotPoolBlock {
 	return nil
 }
 
-//func (self *snapshotPool) getPendingForCurrent() ([]commonBlock, error) {
-//	begin := self.chainpool.current.tailHeight + 1
-//	blocks := self.chainpool.getCurrentBlocks(begin, begin+10)
-//	err := self.checkChain(blocks)
-//	if err != nil {
-//		return nil, err
-//	}
+//	func (self *snapshotPool) getPendingForCurrent() ([]commonBlock, error) {
+//		begin := self.chainpool.current.tailHeight + 1
+//		blocks := self.chainpool.getCurrentBlocks(begin, begin+10)
+//		err := self.checkChain(blocks)
+//		if err != nil {
+//			return nil, err
+//		}
 //
-//	return blocks, nil
-//}
+//		return blocks, nil
+//	}
 func (sp *snapshotPool) fetchAccounts(accounts map[types.Address]*ledger.HashHeight, sHeight uint64, sHash types.Hash) {
 	for addr, hashH := range accounts {
 		ac := sp.pool.selfPendingAc(addr)

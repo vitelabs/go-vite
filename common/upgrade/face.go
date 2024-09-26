@@ -88,10 +88,10 @@ func GetAllPoints() []*UpgradePoint {
 IsSeedUpgrade checks whether current snapshot block height is over seed hard fork.
 Vite pre-mainnet hard forks at snapshot block height 3488471.
 Contents:
-  1. Vm log list hash add account address and prevHash since seed fork.
-  2. Create contract params add seed count since seed fork.
-  3. Verifier verifies seed count since seed fork.
-  4. Vm interpreters add SEED opcode since seed fork.
+ 1. Vm log list hash add account address and prevHash since seed fork.
+ 2. Create contract params add seed count since seed fork.
+ 3. Verifier verifies seed count since seed fork.
+ 4. Vm interpreters add SEED opcode since seed fork.
 */
 func IsSeedUpgrade(sHeight uint64) bool {
 	assertUpgradeNotNil()
@@ -102,11 +102,11 @@ func IsSeedUpgrade(sHeight uint64) bool {
 IsDexUpgrade checks whether current snapshot block height is over sprout hard fork.
 Vite pre-mainnet hard forks at snapshot block height 5442723.
 Features:
-  1. Dynamic quota acquisition. Quota acquisition from staking will reduce
-     when network traffic rate is too high.
-  2. Adjustment of quota consumption for some built-in contract transactions
-     and VM instructions.
-  3. ViteX decentralized exchange support.
+ 1. Dynamic quota acquisition. Quota acquisition from staking will reduce
+    when network traffic rate is too high.
+ 2. Adjustment of quota consumption for some built-in contract transactions
+    and VM instructions.
+ 3. ViteX decentralized exchange support.
 */
 func IsDexUpgrade(sHeight uint64) bool {
 	assertUpgradeNotNil()
@@ -128,9 +128,9 @@ func IsDexFeeUpgrade(sHeight uint64) bool {
 IsStemUpgrade checks whether current snapshot block height is over stem hard fork.
 Vite pre-mainnet hard forks at snapshot block height 8403110.
 Features:
-  1. Capability of placing/cancelling orders via delegation.
-  2. Super VIP membership. Stake and then enjoy zero trading fee!
-     (Additional operator fee cannot be exempted)
+ 1. Capability of placing/cancelling orders via delegation.
+ 2. Super VIP membership. Stake and then enjoy zero trading fee!
+    (Additional operator fee cannot be exempted)
 */
 func IsStemUpgrade(sHeight uint64) bool {
 	assertUpgradeNotNil()
@@ -181,7 +181,12 @@ func IsVersion12Upgrade(sHeight uint64) bool {
 	return upgrade.isActive(12, sHeight)
 }
 
-func IsVersionXUpgrade(sHeight uint64) bool {
+func IsVersion13Upgrade(sHeight uint64) bool {
 	assertUpgradeNotNil()
 	return upgrade.isActive(13, sHeight)
+}
+
+func IsVersionXUpgrade(sHeight uint64) bool {
+	assertUpgradeNotNil()
+	return upgrade.isActive(14, sHeight)
 }

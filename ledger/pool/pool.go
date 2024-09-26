@@ -89,6 +89,7 @@ type commonBlock interface {
 	Latency() time.Duration
 	ShouldFetch() bool
 	ReferHashes() ([]types.Hash, []types.Hash, *types.Hash)
+	Ready() bool
 }
 
 func newForkBlock(v *common.Version, source types.BlockSource) *forkBlock {
