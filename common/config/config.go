@@ -14,6 +14,7 @@ type Config struct {
 	*Subscribe  `json:"Subscribe"`
 	*Net        `json:"Net"`
 	*NodeReward `json:"Reward"`
+	*Rpc        `json:"Rpc"`
 	*Genesis    `json:"Genesis"`
 
 	// global keys
